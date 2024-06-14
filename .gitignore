@@ -131,7 +131,7 @@ dmypy.json
 # git
 #.gitignore
 
-#Dagster 
+#Dagster ssh://bpadilla@farinter.net@172.16.2.235/opt/main_dagster_dev_bare
 storage/
 .telemetry/
 logs/
