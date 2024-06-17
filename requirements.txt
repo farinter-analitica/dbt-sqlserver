@@ -1,4 +1,4 @@
-��alembic==1.13.1
+alembic==1.13.1
 
 aniso8601==9.0.1
 
@@ -74,7 +74,7 @@ Jinja2==3.1.4
 
 # Editable Git install with no remote (kielsa==0.0.0)
 
--e d:\python_p\main_dagster_dev\kielsa_loc
+-e kielsa_loc
 
 Mako==1.3.5
 
@@ -141,10 +141,6 @@ requests-toolbelt==1.0.0
 rich==13.7.1
 
 setuptools==70.0.0
-
-# Editable Git install with no remote (shared==0.0.0)
-
--e d:\python_p\main_dagster_dev\shared
 
 shellingham==1.5.4
 
