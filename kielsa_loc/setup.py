@@ -9,5 +9,5 @@ setup(
         "dagster-postgres",
         "pandas"
     ],
-    extras_require={"dev": ["dagster-webserver", "pytest"]},
+    extras_require={"dev": ["dagster-webserver", "pytest", "pyodbc"]},
 )
