@@ -1,10 +1,9 @@
 from dagster import Definitions, load_assets_from_modules
 
-from .assets import my_assets
+from .assets import all_assets
 from .resources import dwh_resources
 from .resources import sql_server_resources
 
-all_assets = load_assets_from_modules([my_assets])
 all_resourses = [dwh_resources.dwh_resource]
 
 defs = Definitions(

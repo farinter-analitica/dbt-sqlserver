@@ -1,2 +1,4 @@
+from dagster import load_assets_from_modules
+import my_assets
 
-from .my_assets import *
+all_assets = load_assets_from_modules(my_assets, group_name="test")
