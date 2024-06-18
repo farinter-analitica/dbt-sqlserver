@@ -3,14 +3,14 @@ import os
 import pyodbc
 
 # Set environment variables
-p_server = os.environ.get('DEV_SQL_SERVER')
-p_user = os.environ.get('DEV_SQL_USERNAME')
-p_password = EnvVar('DEV_SQL_PASSWORD')  # Directly get the password as string
+p_server = os.environ.get('DAGSTER_DEV_DWH_FARINTER_SQL_SERVER')
+p_user = os.environ.get('DAGSTER_DEV_DWH_FARINTER_USERNAME')
+p_password = EnvVar('DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD')  # Directly get the password as string
 
 if os.environ.get('CURRENT_ENV') == "PRD":
-    p_server = os.environ.get('PRD_SQL_SERVER')
-    p_user = os.environ.get('PRD_SQL_USERNAME')
-    p_password = EnvVar('PRD_SQL_PASSWORD')
+    p_server = os.environ.get('DAGSTER_PRD_DWH_FARINTER_SQL_SERVER')
+    p_user = os.environ.get('DAGSTER_PRD_DWH_FARINTER_USERNAME')
+    p_password = EnvVar('DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD')
 
 class SQLServerResource(ConfigurableResource):
     server: str

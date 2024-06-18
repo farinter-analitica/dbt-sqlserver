@@ -7,10 +7,9 @@ kielsa_general = load_assets_from_modules([kielsa_general], group_name="kielsa_g
 
 all_assets = examples + kielsa_general
 
-from .resources import dwh_resources
 from .resources import sql_server_resources
 
-all_resourses = [dwh_resources.dwh_resource]
+all_resourses = [sql_server_resources.dwh_farinter,sql_server_resources.dwh_farinter_adm,sql_server_resources.dwh_farinter_dl]
 
 defs = Definitions(
     assets=all_assets,

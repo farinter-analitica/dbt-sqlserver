@@ -8,6 +8,6 @@ setup(
         "dagster-cloud",
         "dagster-postgres"
     ],
-    extras_require={"dev": ["dagster-webserver", "pytest","pyodbc"]},
+    extras_require={"dev": ["dagster-webserver", "pytest","pyodbc", "dagster-dbt"]},
 )
 #Install module with python

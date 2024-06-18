@@ -136,3 +136,5 @@ storage/
 .telemetry/
 logs/
 .nux/
+dbt_packages/
+
