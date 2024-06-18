@@ -15,8 +15,8 @@ class SQLServerResource(ConfigurableResource):
             f"SERVER={self.server};"
             f"DATABASE={self.database};"
             f"UID={self.user};"
-            f"PWD={self.password}"
-            f"TrustServerCertificate={self.trust_server_certificate}"
+            f"PWD={self.password};"
+            f"TrustServerCertificate={self.trust_server_certificate};"
         )
         return pyodbc.connect(connection_string)
 
@@ -38,7 +38,6 @@ dwh_adm_farinter = SQLServerResource(
     user=os.environ.get('DEV_SQL_USERNAME'),
     password=EnvVar('DEV_SQL_PASSWORD'),
     trust_server_certificate='yes'
-
     )
 
 dwh_dl_farinter = SQLServerResource(
