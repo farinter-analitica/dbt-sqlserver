@@ -1,0 +1,31 @@
+[Unit]
+Description=Dagster Development Instance
+After=network.target
+
+[Service]
+ExecStart=/opt/main_dagster_dev/.venv_main_dagster/bin/python -m dagster dev -h 0.0.0.0 -p 9300
+Restart=always
+User=analiticasu
+Group=analitica
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/main_dagster_dev
+
+[Install]
+WantedBy=multi-user.target
+
+
+
+[Unit]
+Description=Dagster Production Instance
+After=network.target
+
+[Service]
+ExecStart=/opt/main_dagster_prd/.venv_main_dagster/bin/python -m dagster dev -h 0.0.0.0 -p 9310
+Restart=always
+User=analiticasu
+Group=analitica
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/main_dagster_prd
+
+[Install]
+WantedBy=multi-user.target
