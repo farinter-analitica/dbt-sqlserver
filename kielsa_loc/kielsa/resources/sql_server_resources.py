@@ -75,5 +75,5 @@ dwh_farinter_dl = SQLServerResource(
     user=dwh_farinter.user,
     password=dwh_farinter.password,
     trust_server_certificate=dwh_farinter.trust_server_certificate,
-    default_database="DLFARINTER"
+    default_database="DL_FARINTER"
     )
