@@ -10,7 +10,7 @@ class SQLServerResource(ConfigurableResource):
 
     def get_connection(self):
         connection_string = (
-            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
             f"SERVER={self.server};"
             f"DATABASE={self.database};"
             f"UID={self.user};"
