@@ -7,6 +7,7 @@ class SQLServerResource(ConfigurableResource):
     database: str
     user: str
     password: str
+    trust_server_certificate: str = 'no' # 'yes' or 'no', default should be no for public ips.
 
     def get_connection(self):
         connection_string = (
@@ -15,6 +16,7 @@ class SQLServerResource(ConfigurableResource):
             f"DATABASE={self.database};"
             f"UID={self.user};"
             f"PWD={self.password}"
+            f"TrustServerCertificate={self.trust_server_certificate}"
         )
         return pyodbc.connect(connection_string)
 
@@ -34,12 +36,15 @@ dwh_adm_farinter = SQLServerResource(
     server= os.environ.get('DEV_SQL_SERVER'),
     database= "ADM_FARINTER",
     user=os.environ.get('DEV_SQL_USERNAME'),
-    password=EnvVar('DEV_SQL_PASSWORD')
+    password=EnvVar('DEV_SQL_PASSWORD'),
+    trust_server_certificate='yes'
+
     )
 
 dwh_dl_farinter = SQLServerResource(
     server= os.environ.get('DEV_SQL_SERVER'),
     database= "DL_FARINTER",
     user=os.environ.get('DEV_SQL_USERNAME'),
-    password=EnvVar('DEV_SQL_PASSWORD')
+    password=EnvVar('DEV_SQL_PASSWORD'),
+    trust_server_certificate='yes'
     )
