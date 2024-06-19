@@ -1,9 +1,11 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 import subprocess
 
 # Define the relative path to the .env file
-env_path = os.path.join(os.path.dirname(__file__), '.env')
+dbt_project_dir = Path(__file__).joinpath("..").resolve()
+env_path = os.path.join(dbt_project_dir, '.env')
 
 # Load environment variables from .env file if it exists
 if os.path.exists(env_path):

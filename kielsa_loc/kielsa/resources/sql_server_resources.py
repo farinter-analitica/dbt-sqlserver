@@ -6,6 +6,7 @@ import pyodbc
 p_server = os.environ.get('DAGSTER_DEV_DWH_FARINTER_SQL_SERVER')
 p_user = os.environ.get('DAGSTER_DEV_DWH_FARINTER_USERNAME')
 p_password = EnvVar('DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD')  # Directly get the password as string
+p_driver = os.environ.get('DAGSTER_SQL_SERVER_ODBC_DRIVER')
 
 if os.environ.get('CURRENT_ENV') == "PRD":
     p_server = os.environ.get('DAGSTER_PRD_DWH_FARINTER_SQL_SERVER')
@@ -28,7 +29,7 @@ class SQLServerResource(ConfigurableResource):
             raise ValueError(f"Database {database} is not in the allowed list.")
         
         connection_string = (
-            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"DRIVER={p_driver};"
             f"SERVER={self.server};"
             f"DATABASE={database};"
             f"UID={self.user};"
