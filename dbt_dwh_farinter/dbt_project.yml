@@ -30,7 +30,17 @@ clean-targets:         # directories to be removed by `dbt clean`
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
 models:
-  dbt_kielsa:
+  dbt_dwh_farinter:
     # Config indicated by + and applies to all files under models/example/
     example:
       +materialized: view
+      +group: "dbt_first_group"
+    dagster_example:
+      +group: "dbt_second_group"
+    marts:
+      +group: "marts_group"
+      mart1:
+        +group: "mart1_group"
+      mart2:
+        +group: "mart2_group"
+    

@@ -7,7 +7,8 @@ from .assets import examples, kielsa_general, dbt_example
 
 examples = load_assets_from_modules([examples], group_name="examples")
 kielsa_general = load_assets_from_modules([kielsa_general], group_name="kielsa_general")
-dbt_example = load_assets_from_modules([dbt_example], group_name="dbt_examples")
+dbt_example = load_assets_from_modules([dbt_example] #, group_name="dbt_examples" #group name already on the dbt models
+                                       )
 
 all_assets = examples + kielsa_general + dbt_example
 
