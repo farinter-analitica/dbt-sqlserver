@@ -9,6 +9,7 @@ env_path = os.path.join(dbt_project_dir, '.env')
 
 # Load environment variables from .env file if it exists
 if os.path.exists(env_path):
+    print(f"Loading .env file from {env_path}.")
     load_dotenv(env_path)
 
     # Define paths for --project-dir and --profiles-dir
@@ -23,4 +24,4 @@ if os.path.exists(env_path):
         '--target', 'dev'
     ])
 else:
-    print('.env file not found in the script directory. Please create it.')
+    print(f".env file not found in the script directory {env_path}.  Please create it.")
