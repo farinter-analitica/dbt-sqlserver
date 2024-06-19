@@ -15,7 +15,7 @@ dbt_resource = DbtCliResource(project_dir=os.fspath(dbt_project_dir), profiles_d
 # Otherwise, we expect a manifest to be present in the project's target directory.
 if os.getenv("DAGSTER_DBT_PARSE_PROJECT_ON_LOAD")==1:
     dbt_manifest_path = (
-        dbt_target.cli(
+        dbt_resource.cli(
             ["--quiet", "parse"],
             target_path=Path("target"),
         )
