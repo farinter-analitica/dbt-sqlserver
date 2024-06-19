@@ -17,7 +17,7 @@ if os.path.exists(env_path):
 
     # Run dbt run command with proper directory paths
     subprocess.run([
-        'dbt', 'run',
+        'dbt', 'build',
         '--project-dir', project_dir,
         '--profiles-dir', profiles_dir,
         '--target', 'dev'

@@ -1,0 +1,10 @@
+groups:
+  - name: dbt_first_group
+    owner:
+      # 'name' or 'email' is required; additional properties allowed
+      email: example@farinter.com
+  - name: dbt_second_group_test
+    owner:
+      # 'name' or 'email' is required; additional properties allowed
+      email: example@farinter.com
+

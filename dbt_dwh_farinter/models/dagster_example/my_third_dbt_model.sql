@@ -1,13 +1,14 @@
 
 -- Use the `ref` function to select from other models
+
+/*
+
+
+
+*/
 {{
   config(
-    materialized = 'view',
-    meta={
-            'dagster': {
-                'group': 'dbt_second_model'
-            }
-        }
+    materialized = 'view'
 ) }}
 
 select *, 'prueba' as Column_Prueba

@@ -11,7 +11,7 @@ profile: 'dbt_dwh_farinter'
 # These configurations specify where dbt should look for different types of files.
 # The `model-paths` config, for example, states that models in this project can be
 # found in the "models/" directory. You probably won't need to change these!
-model-paths: ["models"]
+model-paths: ["models","groups"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
 seed-paths: ["seeds"]
@@ -29,6 +29,8 @@ clean-targets:         # directories to be removed by `dbt clean`
 # In this example config, we tell dbt to build all models in the example/
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
+
+
 models:
   dbt_dwh_farinter:
     # Config indicated by + and applies to all files under models/example/
@@ -36,7 +38,7 @@ models:
       +materialized: view
       +group: "dbt_first_group"
     dagster_example:
-      +group: "dbt_second_group"
+      +group: "dbt_second_group_test"
     marts:
       +group: "marts_group"
       mart1:
