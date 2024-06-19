@@ -9,8 +9,10 @@ dbt_project_dir = Path(base_os_path).joinpath("..", "..",  "dbt_dwh_farinter").r
 dbt_target = "dev"
 if os.environ.get("CURRENT_ENV", "dev")=="PRD":
     dbt_target = "prd"
-print(dbt_project_dir)
-dbt_resource = DbtCliResource(project_dir=os.fspath(dbt_project_dir), profiles_dir=os.fspath(dbt_project_dir), target=dbt_target)
+#print(os.fspath(dbt_project_dir))
+#dbt_project_dir="/opt/main_dagster_dev/dbt_dwh_farinter"
+dbt_resource = DbtCliResource(project_dir=os.fspath(dbt_project_dir), profiles_dir=os.fspath(dbt_project_dir), target=dbt_target #, dbt_executable="/opt/main_dagster_dev/.venv_main_dagster/bin/dbt"
+                              )
 
 # If DAGSTER_DBT_PARSE_PROJECT_ON_LOAD is set, a manifest will be created at runtime.
 # Otherwise, we expect a manifest to be present in the project's target directory.

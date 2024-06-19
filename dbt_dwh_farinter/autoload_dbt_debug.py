@@ -7,7 +7,7 @@ import subprocess
 base_os_path = os.path.dirname(__file__)
 dbt_project_dir = Path(base_os_path).joinpath("..").resolve()
 env_path = os.path.join(dbt_project_dir, '.env')
-os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"]="python"
+#os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"]="python"
 
 # Load environment variables from .env file if it exists
 if os.path.exists(env_path):
