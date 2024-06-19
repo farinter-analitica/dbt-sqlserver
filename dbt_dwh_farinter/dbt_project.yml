@@ -39,10 +39,10 @@ models:
       +group: "dbt_first_group"
     dagster_example:
       +group: "dbt_second_group_test"
-    marts:
-      +group: "marts_group"
-      mart1:
-        +group: "mart1_group"
-      mart2:
-        +group: "mart2_group"
+#    marts:
+#      +group: "marts_group"
+#      mart1:
+#        +group: "mart1_group"
+#      mart2:
+#       +group: "mart2_group"
     
