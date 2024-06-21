@@ -1,3 +1,3 @@
 import autoload_dbt
 
-autoload_dbt.run()
+autoload_dbt.parse()
