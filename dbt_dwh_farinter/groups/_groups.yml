@@ -7,4 +7,12 @@ groups:
     owner:
       # 'name' or 'email' is required; additional properties allowed
       email: example@farinter.com
+  - name: dbt_dwh_farinter_mart_finanzas
+    owner:
+      # 'name' or 'email' is required; additional properties allowed
+      email: brian.padilla@farinter.com
+  - name: dbt_dwh_farinter_mart_datos_maestros
+    owner:
+      # 'name' or 'email' is required; additional properties allowed
+      email: brian.padilla@farinter.com
 
