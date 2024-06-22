@@ -3,5 +3,5 @@ load_from:
         module_name: dagster_kielsa
         working_directory: dagster_kielsa_loc
   - python_module:
-        module_name: dagster_farinter
-        working_directory: dagster_farinter_loc
+        module_name: dagster_sap
+        working_directory: dagster_sap_loc
