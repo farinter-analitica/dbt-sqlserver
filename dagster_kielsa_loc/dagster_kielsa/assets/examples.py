@@ -1,5 +1,5 @@
 from dagster import asset, MaterializeResult, MetadataValue, AssetMaterialization, Output, op, Out, In, AssetIn
-from kielsa.resources.sql_server_resources import SQLServerResource
+from dagster_kielsa.resources.sql_server_resources import SQLServerResource
 import pandas as pd  
 
 

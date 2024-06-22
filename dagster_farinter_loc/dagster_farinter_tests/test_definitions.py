@@ -1,5 +1,5 @@
-from kielsa import all_assets
-from kielsa import assets 
+from dagster_farinter import all_assets
+from dagster_farinter import assets 
 from dagster import load_assets_from_package_module
 
 def test_all_assets_loaded():

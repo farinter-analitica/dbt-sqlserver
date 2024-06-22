@@ -1,6 +1,5 @@
 # shared_loc
-
-This is a [Dagster](https://dagster.io/) project scaffolded with [`dagster project scaffold`](https://docs.dagster.io/getting-started/create-new-project).
+This project should contain al shared resources by other projects.
 
 ## Getting started
 

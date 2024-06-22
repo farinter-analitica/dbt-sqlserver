@@ -1,5 +1,5 @@
 from dagster import asset , AssetExecutionContext
-from kielsa.resources.sql_server_resources import SQLServerResource
+from dagster_kielsa.resources.sql_server_resources import SQLServerResource
 
 @asset
 def select_top_facturaposicion(dwh_farinter_dl: SQLServerResource):
