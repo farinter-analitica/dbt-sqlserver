@@ -1,7 +1,7 @@
 from dagster import AssetExecutionContext
 from dagster_dbt import DbtCliResource, dbt_assets
 
-from dagster_kielsa.constants import dbt_manifest_path
+from dagster_shared_gf.resources.dbt_resources import dbt_manifest_path
 
 
 @dbt_assets(manifest=dbt_manifest_path, select="example")

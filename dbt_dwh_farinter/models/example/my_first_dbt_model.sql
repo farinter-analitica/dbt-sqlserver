@@ -25,7 +25,7 @@ with source_data as (
 
     select 1 as id
     union all
-    SELECT TOP (1000) [Emp_Id]
+    SELECT TOP (1000) [Empleado_Id]
     FROM [DL_FARINTER].[dbo].[DL_Kielsa_Empleado]
     WHERE [Emp_Id]=1
 

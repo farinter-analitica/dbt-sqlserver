@@ -1,27 +1,25 @@
 import os
 
 from dagster import Definitions, load_assets_from_modules
-from dagster_dbt import DbtCliResource
 
-from .assets import examples, kielsa_general, dbt_example
+from .assets import dbt_dwh_sap_mart_datos_maestros
 
-examples = load_assets_from_modules([examples], group_name="examples")
-kielsa_general = load_assets_from_modules([kielsa_general], group_name="kielsa_general")
-dbt_example = load_assets_from_modules([dbt_example] #, group_name="dbt_examples" #group name already on the dbt models
+dbt_dwh_sap_mart_datos_maestros = load_assets_from_modules([dbt_dwh_sap_mart_datos_maestros] #, group_name="dbt_examples" #group name already on the dbt models
                                        )
 
-all_assets = examples + kielsa_general + dbt_example
+all_assets =  dbt_dwh_sap_mart_datos_maestros #+
 
-from .resources import sql_server_resources
-from .constants import dbt_resource
+from dagster_shared_gf import all_shared_resources
+import dagster_farinter.jobs as jobs
+import dagster_farinter.schedules as schedules
 
-all_resourses = [sql_server_resources.dwh_farinter,sql_server_resources.dwh_farinter_adm,sql_server_resources.dwh_farinter_dl]
+dagster_farinter_resources = all_shared_resources
+all_jobs = [jobs.dbt_dwh_farinter_mart_datos_maestros_job]
+all_schedules = [schedules.dbt_dwh_farinter_mart_datos_maestros_schedule]
 
 defs = Definitions(
     assets=all_assets,
-    resources= {"dwh_farinter_adm" : sql_server_resources.dwh_farinter_adm
-                ,"dwh_farinter_dl" : sql_server_resources.dwh_farinter_dl
-                ,"dwh_farinter" : sql_server_resources.dwh_farinter
-                ,"dbt_resource" : dbt_resource
-                }
+    resources= dagster_farinter_resources,
+    jobs=all_jobs,
+    schedules=all_schedules
 )

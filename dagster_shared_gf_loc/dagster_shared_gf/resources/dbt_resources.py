@@ -5,7 +5,7 @@ from pathlib import Path
 from dagster_dbt import DbtCliResource
 
 base_os_path = os.path.dirname(__file__)
-dbt_project_dir = Path(base_os_path).joinpath("..", "..",  "dbt_dwh_farinter").resolve()
+dbt_project_dir = Path(base_os_path).joinpath("..", "..", "..",  "dbt_dwh_farinter").resolve()
 dbt_target = "dev"
 if os.environ.get("CURRENT_ENV", "dev")=="PRD":
     dbt_target = "prd"

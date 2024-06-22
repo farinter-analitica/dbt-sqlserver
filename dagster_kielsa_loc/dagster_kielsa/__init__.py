@@ -12,16 +12,12 @@ dbt_example = load_assets_from_modules([dbt_example] #, group_name="dbt_examples
 
 all_assets = examples + kielsa_general + dbt_example
 
-from .resources import sql_server_resources
-from .constants import dbt_resource
+from dagster_shared_gf import all_shared_resources
 
-all_resourses = [sql_server_resources.dwh_farinter,sql_server_resources.dwh_farinter_adm,sql_server_resources.dwh_farinter_dl]
+dagster_kielsa_resources = all_shared_resources
 
 defs = Definitions(
     assets=all_assets,
-    resources= {"dwh_farinter_adm" : sql_server_resources.dwh_farinter_adm
-                ,"dwh_farinter_dl" : sql_server_resources.dwh_farinter_dl
-                ,"dwh_farinter" : sql_server_resources.dwh_farinter
-                ,"dbt_resource" : dbt_resource
-                }
+    resources= dagster_kielsa_resources
 )
+

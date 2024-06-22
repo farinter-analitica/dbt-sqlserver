@@ -1,4 +1,7 @@
 load_from:
   - python_module: 
-        module_name: kielsa
-        working_directory: kielsa_loc
+        module_name: dagster_kielsa
+        working_directory: dagster_kielsa_loc
+  - python_module:
+        module_name: dagster_farinter
+        working_directory: dagster_farinter_loc
