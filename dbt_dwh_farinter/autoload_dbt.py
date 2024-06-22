@@ -46,6 +46,8 @@ def autoload(command: str = "parse", select: str = ""):
             'dbt',
             *run_options
         ])
+
+        print(f"dbt completed successfully: {command} {select}")
     else:
         print('.env file not found in the script directory. Please create it.')
 
