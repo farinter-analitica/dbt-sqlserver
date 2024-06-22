@@ -1,4 +1,4 @@
-# sap locc
+# sap loccc
 
 ## Getting started
 
