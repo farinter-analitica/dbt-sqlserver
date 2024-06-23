@@ -42,6 +42,8 @@ models:
     dwh_sap:
       mart_datos_maestros:
         +group: "dbt_dwh_sap_mart_datos_maestros"
+      mart_finanzas:
+        +group: "dbt_dwh_sap_mart_finanzas"
 #    marts:
 #      +group: "marts_group"
 #      mart1:

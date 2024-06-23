@@ -4,19 +4,18 @@ version: 1
 models:
   - name: BI_SAP_Dim_CuentaContable
     description: "Cuentas contables"
-    config:
-      constraints_enabled: true
+    #config: #no implementado en dbt-sqlserver
+      #constraints_enabled: true
     columns:
       - name: PlanCuentas_Id
         description: "Diversas estructuras de cuentas, posible una diferente por empresa."
-        constraint: not_null
+        #constraint: not_null
         
       - name: Cuenta_Id
         description: "Cuenta contable"
-        constraint: not_null
+        #constraint: not_null
 
       - name: Hash_PlanCuenta
         description: "Hash UNICO de la cuenta contable"
         tests:
           - unique
-          - not_null

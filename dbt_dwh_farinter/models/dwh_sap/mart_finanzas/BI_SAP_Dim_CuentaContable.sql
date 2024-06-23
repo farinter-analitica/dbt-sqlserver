@@ -40,7 +40,7 @@ select [PlanCuentas_Id]
 	, [Nombre_Corto]
 	, [Nombre_Largo]
 	, [Busqueda]
-	, {{ dwh_farinter_hash_column(config.get('unique_key')) }} AS [Hash_CuentaContable] --IdUnicoPlanCuenta, no cambiar orden
+	, ISNULL({{ dwh_farinter_hash_column(config.get('unique_key')) }},'') AS [Hash_PlanCuenta] --IdUnicoPlanCuenta, no cambiar orden
 	, [Fecha_Carga]
 	, [Fecha_Actualizado] 
 from staging

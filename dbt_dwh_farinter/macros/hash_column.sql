@@ -1,4 +1,4 @@
-{% macro dwh_farinter_hash_column(columns, output_length=15, input_length=8000) -%} 
+{% macro dwh_farinter_hash_column(columns, output_length=32, input_length=8000) -%} 
 {%- set hash_algorithm_str = 'SHA2_256' -%}
 {%- set column_collation_str = ' COLLATE DATABASE_DEFAULT' -%}
 
