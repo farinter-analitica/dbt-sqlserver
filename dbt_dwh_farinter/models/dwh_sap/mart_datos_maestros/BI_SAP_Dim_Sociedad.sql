@@ -3,14 +3,14 @@
 --add dwh_farinter_remove_incremental_temp_table to all incremental models
 {{ 
     config(
-		as_columnstore=true,
+		as_columnstore=False,
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=["Sociedad_Id"],
 		on_schema_change="sync_all_columns",
 		post_hook=[
 			"{{dwh_farinter_remove_incremental_temp_table(this)}}"
-			,"{{dwh_farinter_create_primary_key(this,columns=['Sociedad_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}"
+			,"{{dwh_farinter_create_primary_key(this,columns=config.get('unique_key'), create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}"
 		]
 		
 ) }}
@@ -18,7 +18,7 @@
 /*
 Prueba de macro:
 {{dwh_farinter_remove_incremental_temp_table(this)}}
-{{dwh_farinter_create_primary_key(this,columns=['Sociedad_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True)}}
+{{dwh_farinter_create_primary_key(this,columns=config.get('unique_key'), create_clustered=True, is_incremental=0,if_another_exists_delete=True)}}
 {{is_incremental()}}
 */
 

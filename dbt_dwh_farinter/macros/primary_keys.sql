@@ -12,7 +12,7 @@
         
     {%- endif %}
 
-    {%- set primary_key_name = 'PK_' ~ relation.identifier | replace(".", "") | replace(" ", "") ~ '_dbt' -%}
+    {%- set primary_key_name = 'PK_' ~ relation.identifier | replace(".", "") | replace(" ", "") ~ '_dbt_' ~ local_md5(columns|join('-') ~ run_started_at.strftime("%Y-%m-%dT%H:%M:%S.%f")) -%}
     {%- set full_relation = '"' ~ relation.schema ~ '"."' ~ relation.identifier ~ '"' -%}
     {%- set relation_name = relation.schema ~ '.' ~ relation.identifier -%}
 
@@ -27,6 +27,7 @@
             FROM sys.key_constraints
             WHERE parent_object_id = OBJECT_ID('{{ relation_name }}')
             AND type = 'PK'
+            AND name <> '{{ primary_key_name }}'
 
         {%- endcall -%}
         {%- set existing_primary_key = load_result('existing_primary_key_name')['data'] -%}
@@ -60,7 +61,8 @@
         IF EXISTS (
             SELECT * 
             FROM sys.key_constraints 
-            WHERE name = '{{ primary_key_name }}'
+            WHERE parent_object_id = OBJECT_ID('{{ relation_name }}')
+            and name = '{{ primary_key_name }}'
         )
         BEGIN
             ALTER TABLE {{ full_relation }} 
