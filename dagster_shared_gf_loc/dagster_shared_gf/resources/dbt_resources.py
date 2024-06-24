@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+import json
+from typing import Mapping, Any
 #from ...dbt_kielsa
 
 from dagster_dbt import DbtCliResource
@@ -27,3 +29,11 @@ if os.getenv("DAGSTER_DBT_PARSE_PROJECT_ON_LOAD")==1:
     )
 else:
     dbt_manifest_path = dbt_project_dir.joinpath("target", "manifest.json")
+
+
+def load_manifest(manifest_path) -> Mapping[str, Any]:
+    with open(manifest_path, 'r') as file:
+        return json.load(file)
+
+# Load the manifest from the path
+dbt_manifest = load_manifest(dbt_manifest_path)

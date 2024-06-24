@@ -35,7 +35,7 @@ SELECT
 	, KKBER COLLATE DATABASE_DEFAULT AS [AreaCredito_Id]
 	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
 	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-FROM	DL_FARINTER.dbo.DL_SAP_T001 T
+FROM {{ source('DL_FARINTER', 'DL_SAP_T001')}} T
 WHERE OPVAR LIKE 'Z%'
 {% if is_incremental() %}
   and T.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '1900-01-01')

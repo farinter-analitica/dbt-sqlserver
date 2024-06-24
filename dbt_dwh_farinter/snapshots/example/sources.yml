@@ -1,0 +1,7 @@
+sources:
+  - name: ADM_FARINTER
+    database: ADM_FARINTER
+    schema: dbo
+    tables:
+      - name: tb_pruebas
+
