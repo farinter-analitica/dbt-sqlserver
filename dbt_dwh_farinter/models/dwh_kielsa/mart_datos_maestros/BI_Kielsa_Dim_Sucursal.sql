@@ -13,15 +13,15 @@
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
 		post_hook=[
-      dwh_farinter_remove_incremental_temp_table(this)
-      ,dwh_farinter_create_clustered_columnstore_index(this, is_incremental=is_incremental(), if_another_exists_drop_it=True, show_info=False) 
-			,dwh_farinter_create_primary_key(this,columns=unique_key_list, create_clustered=False, is_incremental=is_incremental(), if_another_exists_drop_it=True, show_info=False)
-			,{{dwh_farinter_create_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=false)}}
+      "{{ dwh_farinter_remove_incremental_temp_table() }}",
+      "{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+      "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+      "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}"
 		]
 		
 ) }}
 
-/*{{ dwh_farinter_create_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=True)   }}
+/*{{ dwh_farinter_create_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=False)   }}
 
 {{dwh_farinter_union_all_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=False) }}
 
@@ -64,7 +64,7 @@ SELECT ISNULL([Sucursal_Id],0) AS [Sucursal_Id]
         ,ISNULL({{ dwh_farinter_hash_column(unique_key_list+["Version_Id"]) }},'') AS [HashStr_SucEmpVersion]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-FROM DL_FARINTER.[dbo].[DL_Kielsa_Sucursal] S
+FROM {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }} S
 {% if is_incremental() %}
   --WHERE S.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '1900-01-01')
 {% else %}

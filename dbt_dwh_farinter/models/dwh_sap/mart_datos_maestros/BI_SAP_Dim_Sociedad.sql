@@ -10,10 +10,11 @@
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
 		post_hook=[
-			"{{ dwh_farinter_remove_incremental_temp_table(this) }}"
-			,"{{ dwh_farinter_create_primary_key(this,columns=unique_key_list, create_clustered=True, is_incremental=is_incremental(),if_another_exists_drop_it=True) }}"
-			,"{{ dwh_farinter_create_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=false) }}"
-		]
+            "{{ dwh_farinter_remove_incremental_temp_table() }}",
+            "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=true, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+			"{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado'], included_columns=['Sociedad_Nombre']) }}",
+            "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}",
+        ]
 	) 
 }}
 
@@ -35,7 +36,6 @@ SELECT
 	, KKBER COLLATE DATABASE_DEFAULT AS [AreaCredito_Id]
 	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
 	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-	, '' bORRAR
 FROM {{ source('DL_FARINTER', 'DL_SAP_T001')}} T
 WHERE OPVAR LIKE 'Z%'
 {% if is_incremental() %}
