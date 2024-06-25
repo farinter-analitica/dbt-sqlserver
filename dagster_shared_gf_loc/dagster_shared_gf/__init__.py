@@ -12,3 +12,4 @@ all_shared_resources = {"dwh_farinter" : sql_server_resources.dwh_farinter
 defs = Definitions(
     resources= all_shared_resources
 )
+

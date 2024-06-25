@@ -9,6 +9,6 @@
     {%- endif -%}
 {%- endfor -%}
 {#--example: CONVERT(varchar(18),HASHBYTES('SHA2_256', CAST(CONCAT(A.[KTOPL] COLLATE DATABASE_DEFAULT ,'-', A.[SAKNR] COLLATE DATABASE_DEFAULT ) AS VARCHAR(MAX))),2)#}
-{%- set columns_str = modified_columns | join(', ') -%}
+{%- set columns_str = modified_columns | join(", '-', ") -%}
 CONVERT(varchar({{ output_length }}),HASHBYTES('{{ hash_algorithm_str }}', CAST(CONCAT({{ columns_str }},'') {{column_collation_str}}  AS VARCHAR({{ input_length }}))),2)
 {%- endmacro %}

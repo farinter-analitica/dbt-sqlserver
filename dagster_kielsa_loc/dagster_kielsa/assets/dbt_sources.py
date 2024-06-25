@@ -12,7 +12,7 @@ def build_dbt_sources(manifest: Mapping[str, Any], dbt_cli_resource: DbtCliResou
             group_name=dagster_dbt_translator.get_group_name(dbt_resource_props)
         )
         for dbt_resource_props in manifest["sources"].values()
-        if "dwh_sap" in dbt_resource_props.get("fqn", [])[1]
+        if "dwh_kielsa" in dbt_resource_props.get("fqn", [])[1]
     ]
 
 source_assets: Sequence[SourceAsset] = build_dbt_sources(dbt_manifest, dbt_resource)

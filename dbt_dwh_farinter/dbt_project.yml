@@ -50,6 +50,10 @@ models:
     dwh_kielsa:
       mart_datos_maestros:
         +group: "dbt_dwh_kielsa_mart_datos_maestros"
+        +meta:
+            dagster:
+                group: "dbt_dwh_kielsa_mart_datos_maestros"
+
 #    marts:
 #      +group: "marts_group"
 #      mart1:
