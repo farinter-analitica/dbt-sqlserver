@@ -1,21 +1,22 @@
 
+{# Add dwh_farinter_remove_incremental_temp_table to all incremental models #}
+{# unique_key is accessible with config.get('unique_key') but it returns a string #}
+{% set unique_key_list = ['PlanCuentas_Id','Cuenta_Id'] %}
 {{ 
     config(
 		as_columnstore=false,
 		materialized="table",
-		unique_key=['PlanCuentas_Id','Cuenta_Id'],
+		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
+		pre_hook=[],
 		post_hook=[
-			"{{dwh_farinter_remove_incremental_temp_table(this)}}"
-			,"{{dwh_farinter_create_primary_key(this,columns=config.get('unique_key'), create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=False)}}"
+			dwh_farinter_remove_incremental_temp_table()
+			,dwh_farinter_create_primary_key(this,columns=unique_key_list, create_clustered=True, is_incremental=0,if_another_exists_drop_it=True, show_info=True)
 		]
 		
 ) }}
 
-/*
-
-{{dwh_farinter_create_primary_key(this,columns=['PlanCuentas_Id','Cuenta_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}
-*/
+/*{{dwh_farinter_create_primary_key(this,columns=unique_key_list, create_clustered=True, is_incremental=0,if_another_exists_drop_it=True, show_info=False)}}*/
 with
 staging as
 (
@@ -40,7 +41,8 @@ select [PlanCuentas_Id]
 	, [Nombre_Corto]
 	, [Nombre_Largo]
 	, [Busqueda]
-	, ISNULL({{ dwh_farinter_hash_column(config.get('unique_key')) }},'') AS [Hash_PlanCuenta] --IdUnicoPlanCuenta, no cambiar orden
+	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_PlanCuenta] --IdUnicoPlanCuenta, no cambiar orden
 	, [Fecha_Carga]
 	, [Fecha_Actualizado] 
 from staging
+{{dwh_farinter_union_all_dummy_data(unique_key=unique_key_list, is_incremental=0) }}

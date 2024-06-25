@@ -3,10 +3,10 @@ version: 3
 
 models:
   - name: BI_SAP_Dim_Sociedad
-    description: "A starter dbt model"
+    description: "Lista de Sociedades de SAP"
     columns:
       - name: Sociedad_Id
         description: "Sociedad o Empresa Individual"
-        tests:
-          - unique
-          - not_null
+        #tests: #No necesarios ya que lleva la PK
+          #- unique
+          #- not_null

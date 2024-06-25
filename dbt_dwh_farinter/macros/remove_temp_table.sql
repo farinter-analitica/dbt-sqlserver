@@ -1,4 +1,4 @@
-{% macro dwh_farinter_remove_incremental_temp_table(relation) -%}
+{% macro dwh_farinter_remove_incremental_temp_table(relation = this) -%}
   {%- set relation_name = relation.identifier ~ '__dbt_tmp' -%}
   {%- set full_relation = '"' ~ relation.schema ~ '"."' ~ relation_name ~ '"' -%}
   use [{{ relation.database }}];

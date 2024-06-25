@@ -15,7 +15,8 @@ models:
         description: "Cuenta contable"
         #constraint: not_null
 
-      - name: Hash_PlanCuenta
+      - name: HashStr_PlanCuenta
         description: "Hash UNICO de la cuenta contable"
         tests:
           - unique
+          - not_null

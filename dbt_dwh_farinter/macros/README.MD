@@ -1,0 +1,2 @@
+### Best Practices Discover
+- Do not use call statement to execute changes on database, when debugging, it will execute instead of just compiling, and the change could be done multiple times per each instance of macro.

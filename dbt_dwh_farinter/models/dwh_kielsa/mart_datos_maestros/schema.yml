@@ -1,0 +1,19 @@
+
+version: 3
+
+models:
+  - name: BI_Kielsa_Dim_Sucursal
+    description: "Sucursales de Kielsa"
+    columns:
+      - name: Sucursal_Id
+        description: "Sucursales de Kielsa"
+        #type: int
+      - name: Emp_Id
+        description: "Empresa de Kielsa"
+        #type: int
+      - name: HashStr_SucEmp
+        description: "Hash UNICO de la sucursal - empresa"
+        tests:
+          - unique
+          - not_null
+
