@@ -6,3 +6,5 @@ storage:
       hostname: { env: DAGSTER_PG_HOST }
       db_name: { env: DAGSTER_PG_DB }
       port: { env: DAGSTER_PG_PORT }
+auto_materialize:
+  use_sensors: true

@@ -21,5 +21,6 @@ sources:
         meta:
             dagster:
                 group: "dbt_dwh_kielsa_mart_datos_maestros"
+                #asset_key: ["extrac_ldcom_dl_kielsa_sucursal_asset"]
 
 

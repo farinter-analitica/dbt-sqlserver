@@ -27,8 +27,5 @@ dbt_dwh_sap_mart_schedule = ScheduleDefinition(
 )
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
-# print("Funcion")
-# print(all_schedules)
-__all__ = all_schedules
-# print("Correcto:")
-# print([dbt_dwh_sap_mart_schedule])
+
+__all__ = list(map(lambda x: x.name, all_schedules) )

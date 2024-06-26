@@ -9,12 +9,10 @@ dbt_sources_assets = dbt_sources.source_assets
 all_assets =  dbt_dwh_sap_mart_assets + dbt_sources_assets #+
 
 from dagster_shared_gf import all_shared_resources
-import dagster_sap.jobs as jobs
-import dagster_sap.schedules as schedules
+from dagster_sap.jobs import all_jobs
+from dagster_sap.schedules import all_schedules
 
 dagster_sap_resources = all_shared_resources
-all_jobs = [*jobs.__all__]
-all_schedules = [*schedules.__all__]
 
 defs = Definitions(
     assets=all_assets,
