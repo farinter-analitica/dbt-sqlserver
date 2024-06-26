@@ -1,6 +1,6 @@
 import os
 
-from dagster import Definitions, load_assets_from_modules, repository
+from dagster import Definitions, load_assets_from_modules
 from dagster_dbt import DbtCliResource
 
 from dagster_kielsa.assets import (examples
@@ -40,6 +40,6 @@ defs = Definitions(
     schedules=all_schedules
 )
 
-@repository
-def dagster_kielsa_repo():
-    return defs
+# @repository
+# def dagster_kielsa_repo():
+#     return defs

@@ -1,8 +1,6 @@
 from dagster import (AssetExecutionContext, OpExecutionContext, asset, op, execute_job, DagsterInstance, Field, RepositoryDefinition )
 import requests
 import time
-from dagster_kielsa import dagster_kielsa_repo
-
 
 def get_job_status(job_name: str) -> str:
     # Define the GraphQL query to get the status of a specific job
