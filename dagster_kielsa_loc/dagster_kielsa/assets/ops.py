@@ -1,6 +1,7 @@
 from dagster import (AssetExecutionContext, OpExecutionContext, asset, op, execute_job, DagsterInstance, Field, RepositoryDefinition )
 import requests
 import time
+from dagster_kielsa import dagster_kielsa_repo
 
 
 def get_job_status(job_name: str) -> str:
@@ -57,9 +58,8 @@ def wait_if_job_running_to_execute_next_op(context: OpExecutionContext) -> None:
     job_to_execute =  context.op_config["job_to_execute"]
     dagster_instance = DagsterInstance.get()
     ### TODO ###
-    my_repo = RepositoryDefinition.get_repository()
-    #location_name = context.get_step_execution_context().dagster_run.external_job_origin.location_name
-    job_to_execute = RepositoryDefinition.get_job( name=job_to_execute)
+    my_repo = None #dagster_kielsa_repo.get_repository()
+    job_to_execute = None#my_repo.get_job( name=job_to_execute)
     try:
         while True:
             other_job_status = get_job_status(wait_for_job)

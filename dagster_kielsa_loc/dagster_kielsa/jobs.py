@@ -17,6 +17,7 @@ dbt_dwh_kielsa_marts_job = define_asset_job(name="dbt_dwh_kielsa_marts_job"
 def wait_if_job_running_to_execute_next_job():
    wait_if_job_running_to_execute_next_op()
 
+
 all_jobs = get_variables_created_by_function(define_asset_job) + [wait_if_job_running_to_execute_next_job]
 
 __all__ = list(map(lambda x: x.name, all_jobs) )
