@@ -19,7 +19,8 @@ env_str:str=dagster_instance_current_env.env
 
 # )
 
-dbt_dwh_sap_mart_daily_schedule = ScheduleDefinition(
+# Define the schedule, name defaults to the name of the job + _schedule
+dbt_dwh_sap_marts_job_schedule = ScheduleDefinition(
     #name="dbt_dwh_sap_mart_schedule",
     cron_schedule = {"dev":"15 2 * * *","prd":"30 1 * * *"}.get(env_str),  # 10:01 AM every day
     execution_timezone="America/Tegucigalpa",

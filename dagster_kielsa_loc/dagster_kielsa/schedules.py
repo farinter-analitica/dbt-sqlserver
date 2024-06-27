@@ -9,9 +9,8 @@ from dagster_shared_gf.shared_functions import (get_all_instances_of_class
 #cron example daily at midnight mon-fri with numbers: 0 0 * * 1-5
 env_str:str=dagster_instance_current_env.env
 
-# Define the schedule
-dbt_dwh_kielsa_marts_daily_schedule = ScheduleDefinition(
-   # name="dbt_dwh_kielsa_marts_schedule",
+# Define the schedule, name defaults to the name of the job + _schedule
+dbt_dwh_kielsa_marts_job_schedule = ScheduleDefinition(
     cron_schedule = {"dev":"0 3 * * *","prd":"0 2 * * *"}.get(env_str),
     execution_timezone="America/Tegucigalpa",
     job=dbt_dwh_kielsa_marts_job,
@@ -19,8 +18,7 @@ dbt_dwh_kielsa_marts_daily_schedule = ScheduleDefinition(
 
 )
 
-ldcom_etl_dwh_daily_schedule = ScheduleDefinition(
-    #name="ldcom_etl_dwh_schedule",
+ldcom_etl_dwh_job_schedule = ScheduleDefinition(
     cron_schedule = {"dev":"0 2 * * *","prd":"0 1 * * *"}.get(env_str),  # 01:00 AM every day
     execution_timezone="America/Tegucigalpa",
     job=ldcom_etl_dwh_job,
