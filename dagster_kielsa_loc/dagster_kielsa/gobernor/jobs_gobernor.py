@@ -16,17 +16,17 @@ def wait_if_job_running_to_execute_next_job():
    wait_if_job_running_to_execute_next_op()   
   
 
-dbt_dwh_kielsa_marts_wait_schedule = ScheduleDefinition(
-    #name="dbt_dwh_kielsa_marts_wait_schedule",
-    cron_schedule="14 1 * * *",  # 01:14 AM every day
-    execution_timezone="America/Tegucigalpa",
-    job=wait_if_job_running_to_execute_next_job,
-    run_config={"ops": {"wait_if_job_running_to_execute_next_op": 
-                        {"config": {"wait_for_job": ldcom_etl_dwh_job.name
-                                    , "job_to_execute": dbt_dwh_kielsa_marts_job.name}}}},
-    default_status=DefaultScheduleStatus.RUNNING
+# dbt_dwh_kielsa_marts_wait_schedule = ScheduleDefinition(
+#     #name="dbt_dwh_kielsa_marts_wait_schedule",
+#     cron_schedule="14 1 * * *",  # 01:14 AM every day
+#     execution_timezone="America/Tegucigalpa",
+#     job=wait_if_job_running_to_execute_next_job,
+#     run_config={"ops": {"wait_if_job_running_to_execute_next_op": 
+#                         {"config": {"wait_for_job": ldcom_etl_dwh_job.name
+#                                     , "job_to_execute": dbt_dwh_kielsa_marts_job.name}}}},
+#     default_status=DefaultScheduleStatus.RUNNING
 
-)
+# )
 
 all_ops = load_assets_from_current_module()
 all_jobs = get_all_instances_of_class([JobDefinition])
