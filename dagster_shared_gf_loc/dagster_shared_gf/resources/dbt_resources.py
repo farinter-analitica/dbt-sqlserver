@@ -5,14 +5,15 @@ from typing import Mapping, Any
 #from ...dbt_kielsa
 from dagster import ExperimentalWarning
 from dagster_dbt import DbtCliResource
+from dagster_shared_gf.shared_functions import dagster_instance_current_env
 import warnings
+
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
+env_str:str = dagster_instance_current_env.env
 
 base_os_path = os.path.dirname(__file__)
 dbt_project_dir = Path(base_os_path).joinpath("..", "..", "..",  "dbt_dwh_farinter").resolve()
-dbt_target = "dev"
-if os.environ.get("CURRENT_ENV", "dev")=="PRD":
-    dbt_target = "prd"
+dbt_target = { "dev": "dev","prd": "prd" }.get(env_str) #resuelve el target dependiendo de la variable de ambiente
 #print(os.fspath(dbt_project_dir))
 #dbt_project_dir="/opt/main_dagster_dev/dbt_dwh_farinter"
 dbt_resource = DbtCliResource(project_dir=os.fspath(dbt_project_dir), profiles_dir=os.fspath(dbt_project_dir), target=dbt_target #, dbt_executable="/opt/main_dagster_dev/.venv_main_dagster/bin/dbt"

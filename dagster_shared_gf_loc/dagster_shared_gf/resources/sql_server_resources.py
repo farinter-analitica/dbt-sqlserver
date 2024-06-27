@@ -1,17 +1,19 @@
 from dagster import ConfigurableResource, EnvVar, asset, Definitions
 import os
 import pyodbc
+from dagster_shared_gf.shared_functions import dagster_instance_current_env
+
+env_str = dagster_instance_current_env.env
 
 # Set environment variables
-p_server = os.environ.get('DAGSTER_DEV_DWH_FARINTER_SQL_SERVER')
-p_user = os.environ.get('DAGSTER_DEV_DWH_FARINTER_USERNAME')
-p_password = EnvVar('DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD')  # Directly get the password as string
+p_server = {"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_SQL_SERVER")
+            , "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_SQL_SERVER")}.get(env_str)
+p_user = {"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_USERNAME")
+          , "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_USERNAME")}.get(env_str)
+p_password = {"dev": EnvVar("DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD")
+             , "prd": EnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD")}.get(env_str)
 p_driver = os.environ.get('DAGSTER_SQL_SERVER_ODBC_DRIVER')
 
-if os.environ.get('CURRENT_ENV') == "PRD":
-    p_server = os.environ.get('DAGSTER_PRD_DWH_FARINTER_SQL_SERVER')
-    p_user = os.environ.get('DAGSTER_PRD_DWH_FARINTER_USERNAME')
-    p_password = EnvVar('DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD')
 
 class SQLServerResource(ConfigurableResource):
     server: str

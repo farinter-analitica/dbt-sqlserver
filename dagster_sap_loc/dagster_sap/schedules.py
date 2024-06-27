@@ -1,11 +1,13 @@
 
 
 from dagster import ScheduleDefinition, DefaultScheduleStatus
-from dagster_sap.jobs import dbt_dwh_sap_mart_datos_maestros_job, dbt_dwh_sap_marts_job
-from dagster_shared_gf.shared_functions import get_all_instances_of_class 
+from dagster_sap.jobs import *
+from dagster_shared_gf.shared_functions import (get_all_instances_of_class
+                                                , dagster_instance_current_env #contains current environment
+                                                )
 #cron: minute hour day month day_of_week, example daily at midnight: 0 0 * * *
 #cron example daily at midnight mon-fri with numbers: 0 0 * * 1-5
-
+env_str:str=dagster_instance_current_env.env
 
 # Define the schedule
 # dbt_dwh_sap_mart_datos_maestros_schedule = ScheduleDefinition(
@@ -17,13 +19,12 @@ from dagster_shared_gf.shared_functions import get_all_instances_of_class
 
 # )
 
-dbt_dwh_sap_mart_schedule = ScheduleDefinition(
-    name="dbt_dwh_sap_mart_schedule",
-    cron_schedule="14 1 * * *",  # 10:01 AM every day
+dbt_dwh_sap_mart_daily_schedule = ScheduleDefinition(
+    #name="dbt_dwh_sap_mart_schedule",
+    cron_schedule = {"dev":"15 2 * * *","prd":"30 1 * * *"}.get(env_str),  # 10:01 AM every day
     execution_timezone="America/Tegucigalpa",
     job=dbt_dwh_sap_marts_job,
     default_status=DefaultScheduleStatus.RUNNING
-
 )
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])

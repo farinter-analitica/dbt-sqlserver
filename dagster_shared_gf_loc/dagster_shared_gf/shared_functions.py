@@ -137,6 +137,31 @@ def verify_location_name(location_name: str) -> bool:
         return True
     else:
         return False
+def get_current_env():
+  dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV","dev")
+  assert dagster_instance_current_env != None  # env var must be set
+  return dagster_instance_current_env
+
+class DagsterInstanceCurrentEnv():
+    """Holds the current env from dagster instance and useful methods"""	
+    #env:str = get_current_env()
+    def __init__(self):
+        self.env:str = get_current_env()
+        self.env_long_name: str
+        if self.env == "dev":
+            self.env_long_name = "development"
+        elif self.env == "prod":
+            self.env_long_name = "production"
+        else:
+            self.env_long_name = f"{self.env} no long name asigned"
+        self.graphql_port = int(os.getenv('DAGSTER_GRAPHQL_PORT',3000))
+    def __str__(self) -> str:
+        return self.env
+    def solve_for_current_env(self,dict: dict = {"dev" : "any_return_for_dev", "prd" : "any_return_for_prd"}) -> str:
+        return dict[self.env]
+      
+dagster_instance_current_env = DagsterInstanceCurrentEnv()
 
 if __name__ == "__main__":
     print(get_all_locations_name())
+    print(dagster_instance_current_env, type(dagster_instance_current_env))
