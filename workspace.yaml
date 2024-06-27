@@ -1,7 +1,9 @@
 load_from:
-  - python_module: 
-        module_name: dagster_kielsa
-        working_directory: dagster_kielsa_loc
-  - python_module:
-        module_name: dagster_sap
-        working_directory: dagster_sap_loc
+      - python_module: 
+            module_name: dagster_kielsa
+            working_directory: dagster_kielsa_loc
+            location_name: dagster_kielsa
+      - python_module:
+            module_name: dagster_sap
+            working_directory: dagster_sap_loc
+            location_name: dagster_sap

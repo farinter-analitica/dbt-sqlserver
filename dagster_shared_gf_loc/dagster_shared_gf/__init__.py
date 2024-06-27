@@ -1,5 +1,6 @@
-from dagster import Definitions, load_assets_from_modules, ExperimentalWarning
-
+import warnings
+from dagster import ExperimentalWarning, Definitions
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 from dagster_shared_gf.resources import sql_server_resources
 from dagster_shared_gf.resources import dbt_resources

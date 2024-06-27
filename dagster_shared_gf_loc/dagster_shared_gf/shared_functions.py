@@ -1,6 +1,10 @@
 
 import inspect, os, requests
+from typing import Dict
+from pathlib import Path
 from typing import List, Type, Callable
+from dagster import config_from_files
+from dagster_graphql import DagsterGraphQLClient
 
 # Function to filter functions by keyword
 def get_all_instances_of_class(class_type_list):
@@ -104,3 +108,35 @@ def get_job_status(job_name: str) -> str:
     # Extract the status from the response
     status = pipeline_runs_or_error['results'][0]['status']
     return status
+
+
+
+def start_job_by_name(job_name: str, location_name: str) -> None:
+    client = DagsterGraphQLClient("localhost", port_number=int(os.getenv('DAGSTER_GRAPHQL_PORT', 3000)))
+    client.submit_job_execution(job_name=job_name, repository_location_name=location_name, run_config={}, tags={})
+
+def get_all_locations_name() -> list:
+    home_dir = Path(os.getenv('DAGSTER_HOME')).resolve()
+    workspace_yaml_path = os.path.join(home_dir, 'workspace.yaml')
+    locations_data = config_from_files([workspace_yaml_path]).get('load_from')
+    #example_data = [{'python_module': {'module_name': 'dagster_kielsa', 'working_directory': 'dagster_kielsa_loc', 'location_name': 'dagster_kielsa'}}, {'python_module': {'module_name': 'dagster_sap', 'working_directory': 'dagster_sap_loc', 'location_name': 'dagster_sap'}}, {'another': {'location_name': 'xyz'}}]
+
+    #get location_name of each location
+    if not locations_data:
+        raise Exception("No locations found in workspace.yaml")
+    location_names = []
+    for location in locations_data:
+        location_names.append(list(location.values())[0]['location_name'])
+      #  location_names.append(next(iter(location.values()))['location_name'])
+      #  for value in location: 
+    return location_names
+
+def verify_location_name(location_name: str) -> bool:
+    locations = get_all_locations_name()
+    if location_name in locations:
+        return True
+    else:
+        return False
+
+if __name__ == "__main__":
+    print(get_all_locations_name())
