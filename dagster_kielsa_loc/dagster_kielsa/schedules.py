@@ -17,7 +17,7 @@ dbt_dwh_kielsa_marts_schedule = ScheduleDefinition(
     # run_config={"ops": {"wait_if_job_running_to_execute_next_op": 
     #                     {"config": {"wait_for_job": ldcom_etl_dwh_job.name
     #                                 , "job_to_execute": dbt_dwh_kielsa_marts_job.name}}}},
-    default_status=DefaultScheduleStatus.RUNNING
+    #default_status=DefaultScheduleStatus.RUNNING
 
 )
 

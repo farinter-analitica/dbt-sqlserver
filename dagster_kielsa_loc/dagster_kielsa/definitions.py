@@ -30,12 +30,12 @@ from dagster_shared_gf import all_shared_resources
 from dagster_kielsa.jobs import all_jobs
 from dagster_kielsa.schedules import all_schedules
 
-dagster_kielsa_resources = all_shared_resources
+all_resources = all_shared_resources
 
 
 defs = Definitions(
     assets=all_assets + dbt_sources_assets,
-    resources= dagster_kielsa_resources,
+    resources= all_resources,
     jobs=all_jobs,
     schedules=all_schedules
 )

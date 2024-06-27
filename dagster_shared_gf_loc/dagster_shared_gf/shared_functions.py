@@ -1,6 +1,7 @@
 
-import inspect
+import inspect, os, requests
 from typing import List, Type, Callable
+
 # Function to filter functions by keyword
 def get_all_instances_of_class(class_type_list):
     caller_frame = inspect.currentframe().f_back
@@ -55,3 +56,51 @@ def get_variables_created_by_function(creation_function: Callable) -> List:
     # Collect all variables that are instances of the determined type
     variables = {name: obj for name, obj in caller_module.__dict__.items() if isinstance(obj, instance_type)}
     return list(variables.values())
+
+
+def get_job_status(job_name: str) -> str:
+    # Define the GraphQL query to get the status of a specific job
+    QUERY = """
+    query JobStatus($jobName: String!) {
+    pipelineRunsOrError(filter: {pipelineName: $jobName}) {
+        ... on PipelineRuns {
+        results {
+            status
+        }
+        }
+        ... on PythonError {
+        message
+        stack
+        }
+    }
+    }
+    """
+
+   # Retrieve the GraphQL server port from the environment variable
+    #graphql_port = os.getenv('DAGSTER_GRAPHQL_PORT', '3000')  # Default to 3000 if not set
+    graphql_port = os.getenv('DAGSTER_GRAPHQL_PORT', '3000')
+    graphql_endpoint = f'http://localhost:{graphql_port}/graphql'
+    response = requests.post(
+        graphql_endpoint,
+        json={'query': QUERY, 'variables': {'jobName': job_name}}
+    )
+    # Check if the response is successful
+    if response.status_code != 200:
+        raise Exception(f"GraphQL query failed with status code {response.status_code}: {response.text}")
+    response_data = response.json()
+    # Check if the response contains errors
+    if 'errors' in response_data:
+        raise Exception(f"GraphQL query returned errors: {response_data['errors']}")
+    # Check if the expected data is present
+    if 'data' not in response_data or 'pipelineRunsOrError' not in response_data['data']:
+        raise Exception(f"Unexpected response format: {response_data}")
+    pipeline_runs_or_error = response_data['data']['pipelineRunsOrError']
+    # Check if the response contains a PythonError
+    if 'message' in pipeline_runs_or_error:
+        raise Exception(f"GraphQL query returned a PythonError: {pipeline_runs_or_error['message']}\nStack: {pipeline_runs_or_error.get('stack', 'No stack trace available')}")
+    # Check if the results are present
+    if 'results' not in pipeline_runs_or_error or not pipeline_runs_or_error['results']:
+        raise Exception(f"No results found for job '{job_name}'")
+    # Extract the status from the response
+    status = pipeline_runs_or_error['results'][0]['status']
+    return status
