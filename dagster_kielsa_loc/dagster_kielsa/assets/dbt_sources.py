@@ -25,7 +25,7 @@ def build_dbt_sources(manifest: Mapping[str, Any], dbt_cli_resource: DbtCliResou
         #             "asset_key": [
         #                 "extrac_ldcom_dl_kielsa_sucursal_asset"
         #             ]
-        and dbt_resource_props.get("meta", {}).get("dagster", {}).get("asset_key", None) is None
+        #and dbt_resource_props.get("meta", {}).get("dagster", {}).get("asset_key", None) is None
     ]
 
 source_assets: Sequence[SourceAsset] = build_dbt_sources(dbt_manifest, dbt_resource)

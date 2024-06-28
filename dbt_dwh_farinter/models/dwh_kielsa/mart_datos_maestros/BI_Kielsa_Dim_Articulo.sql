@@ -112,28 +112,28 @@ SELECT
 		,CASE WHEN ARTCALC.Bit_Cronico = 1 THEN 'CRONICO' ELSE NULL END
 		, CASE WHEN ARTCALC.Bit_Recomendacion = 1 THEN 'RECOMENDADO' ELSE NULL END)
 	 AS Etiquetas
-FROM	DL_FARINTER.dbo.DL_Kielsa_Articulo AS A
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Categoria_Articulo AS Cat
+FROM {{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }} AS A
+LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Categoria_Articulo')}} AS Cat
 	ON A.Emp_Id = Cat.Emp_Id AND A.Categoria_Id = Cat.Categoria_Id
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Departamento_Articulo AS Dept
+LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Departamento_Articulo')}} AS Dept
 	ON A.Emp_Id = Dept.Emp_Id AND A.Depto_Id = Dept.DeptoArt_Id
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Marca AS Marca
+LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Marca')}} AS Marca
 	ON A.Emp_Id = Marca.Emp_Id AND A.Marca_Id = Marca.Marca_Id
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Casa AS Casa
+LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Casa') }} AS Casa
 	ON A.Emp_Id = Casa.Emp_Id AND A.Casa_Id = Casa.Casa_Id
-LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_ArticuloSubCategorias AS SubCat
+LEFT JOIN {{ source('DL_FARINTER', 'DL_Temp_ArticuloAliados_Kielsa')}} Aliados
+	ON A.Articulo_Id = Aliados.Articulo_Id_Solo    
+	and A.Emp_Id = Aliados.Emp_Id
+LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Articulo_Calc')}} ARTCALC
+	ON A.Articulo_Id = ARTCALC.Articulo_Id    
+	and A.Emp_Id = ARTCALC.Emp_Id
+LEFT JOIN {{ ref('BI_Kielsa_Dim_Alerta') }} ALERT
+	ON ALERT.Emp_ID = A.Emp_Id
+	AND ARTCALC.Alerta_Id_Recomendacion = ALERT.Alerta_Id
+LEFT JOIN {{ source('BI_FARINTER', 'BI_Kielsa_Dim_ArticuloSubCategorias') }} AS SubCat
 	ON A.Emp_Id = SubCat.Emp_Id
 	AND A.Categoria_Id = SubCat.CategoriaArt_Id
 	AND A.SubCategoria_Id = SubCat.SubCategoria1Art_Id
     AND A.SubCategoria2_Id = SubCat.SubCategoria2Art_Id
     AND A.SubCategoria3_Id = SubCat.SubCategoria3Art_Id
     AND A.SubCategoria4_Id = SubCat.SubCategoria4Art_Id
-LEFT JOIN [DL_FARINTER].[dbo].[DL_Temp_ArticuloAliados_Kielsa] Aliados
-	ON A.Articulo_Id = Aliados.Articulo_Id_Solo    
-	and A.Emp_Id = Aliados.Emp_Id
-LEFT JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Articulo_Calc] ARTCALC
-	ON A.Articulo_Id = ARTCALC.Articulo_Id    
-	and A.Emp_Id = ARTCALC.Emp_Id
-LEFT JOIN [BI_FARINTER].[dbo].[BI_Kielsa_Dim_Alerta] ALERT
-	ON ALERT.Emp_ID = A.Emp_Id
-	AND ARTCALC.Alerta_Id_Recomendacion = ALERT.Alerta_Id

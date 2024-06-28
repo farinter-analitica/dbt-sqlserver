@@ -1,5 +1,6 @@
-from dagster import sensor, RunRequest, DagsterRunStatus
+from dagster import sensor, RunRequest, DagsterRunStatus, SensorDefinition, AutoMaterializeSensorDefinition
 from dagster_kielsa.jobs import *
+from dagster_shared_gf.shared_functions import (get_all_instances_of_class)
 
 @sensor(job=dbt_dwh_kielsa_marts_job)
 def upstream_completion_sensor(context):
@@ -22,3 +23,7 @@ my_custom_auto_materialize_sensor = AutoMaterializeSensorDefinition(
     minimum_interval_seconds=60 * 15,
 )
 
+
+all_sensors = get_all_instances_of_class([SensorDefinition]) + get_all_instances_of_class([AutoMaterializeSensorDefinition])
+
+__all__ = list(map(lambda x: x.name, all_sensors) )

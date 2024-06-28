@@ -1,9 +1,9 @@
 from dagster import ConfigurableResource, EnvVar, asset, Definitions
 import os
 import pyodbc
-from dagster_shared_gf.shared_functions import dagster_instance_current_env
+from dagster_shared_gf import shared_variables as shared_vars
 
-env_str = dagster_instance_current_env.env
+env_str = shared_vars.env_str
 
 # Set environment variables
 p_server = {"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_SQL_SERVER")

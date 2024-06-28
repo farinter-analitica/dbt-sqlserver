@@ -7,20 +7,124 @@ sources:
         warn_after: {count: 28, period: hour}
         error_after: {count: 72, period: hour}
     loaded_at_field: Fecha_Actualizado
+    #group: dbt_dwh_kielsa_mart_datos_maestros
+    meta:
+        dagster:
+            group: "dbt_dwh_kielsa_mart_datos_maestros"
+
     tables:
       - name: DL_Kielsa_Sucursal
         description: >
             "Contiene la informacion clave de las sucursales de Kielsa"
-        group: dbt_dwh_kielsa_mart_datos_maestros
         columns:
           - name: Sucursal_Id 
             description: "Codigo de la Sociedad o Empresa Individual"
             type: int
           #- name: Fecha_Actualizado
-          #  description: "Fecha de actualizacion de la informacion"
-        meta:
-            dagster:
-                group: "dbt_dwh_kielsa_mart_datos_maestros"
-                #asset_key: ["extrac_ldcom_dl_kielsa_sucursal_asset"]
+          #  description: "Fecha de actualizacion de la fila"
+          - name: Fecha_Actualizado
+            description: "Fecha de actualizacion de la fila"
+      - name: DL_Kielsa_Articulo
+        description: >
+            "Contiene la informacion clave de los articulos de Kielsa"
+        columns:
+          - name: Articulo_Id
+            description: "Articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+      - name: DL_Kielsa_Categoria_Articulo
+        description: >
+            "Contiene la informacion clave de las categorias de articulos de Kielsa"
+        columns:
+          - name: Categoria_Id
+            description: "Categorias de articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+      - name: DL_Kielsa_Departamento_Articulo
+        description: >
+            "Contiene la informacion clave de los departamentos de articulos de Kielsa"
+        columns:
+          - name: DeptoArt_Id
+            description: "Departamentos de articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+      - name: DL_Kielsa_Marca
+        description: >
+            "Contiene la informacion clave de las marcas de articulos de Kielsa"
+        columns:
+          - name: Marca_Id
+            description: "Marcas de articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+      - name: DL_Kielsa_Casa
+        description: >
+            "Contiene la informacion clave de las casas de articulos de Kielsa"
+        columns:
+          - name: Casa_Id
+            description: "Casas de articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+      - name: DL_Temp_ArticuloAliados_Kielsa
+      - name: DL_Kielsa_Articulo_Calc
+        description: >
+            "Contiene la informacion calculada de los articulos de Kielsa"
+        columns:
+          - name: Articulo_Id
+            description: "Articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+      - name: DL_Kielsa_PV_Alerta
+        description: >
+            "Contiene la informacion clave de las alertas de articulos de Kielsa"
+        columns:  
+          - name: Alerta_Id
+            description: "Alertas de articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+  - name: BI_FARINTER
+    description: "Base de tablas cargadas (Data Lake)"
+    database: BI_FARINTER
+    schema: dbo
+    freshness: # default freshness
+        warn_after: {count: 28, period: hour}
+        error_after: {count: 72, period: hour}
+    loaded_at_field: Fecha_Actualizado
+    meta:
+        dagster:
+            group: "dbt_dwh_kielsa_mart_datos_maestros"
+    tables:
+      - name: BI_Kielsa_Dim_ArticuloSubCategorias
+        description: >
+            "Contiene la informacion clave de las subcategorias de articulos de Kielsa"
+        columns:
+          - name: SubCategoria1Art_Id
+            description: "Subcategorias 1 de articulos de Kielsa"
+            type: int
+          - name: SubCategoria2Art_Id
+            description: "Subcategorias 2 de articulos de Kielsa"
+            type: int
+          - name: SubCategoria3Art_Id
+            description: "Subcategorias 3 de articulos de Kielsa"
+            type: int
+          - name: SubCategoria4Art_Id
+            description: "Subcategorias 4 de articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
 
 

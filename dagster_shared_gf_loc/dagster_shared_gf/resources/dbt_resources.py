@@ -5,11 +5,11 @@ from typing import Mapping, Any
 #from ...dbt_kielsa
 from dagster import ExperimentalWarning
 from dagster_dbt import DbtCliResource
-from dagster_shared_gf.shared_functions import dagster_instance_current_env
+from dagster_shared_gf import shared_variables as shared_vars
 import warnings
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
-env_str:str = dagster_instance_current_env.env
+env_str:str = shared_vars.env_str
 
 base_os_path = os.path.dirname(__file__)
 dbt_project_dir = Path(base_os_path).joinpath("..", "..", "..",  "dbt_dwh_farinter").resolve()
