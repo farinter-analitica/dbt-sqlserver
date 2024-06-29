@@ -23,3 +23,11 @@ groups:
     owner:
       # 'name' or 'email' is required; additional properties allowed
       email: brian.padilla@farinter.com
+  - name: ldcom_etl_dwh
+    owner:
+      # 'name' or 'email' is required; additional properties allowed
+      email: brian.padilla@farinter.com
+  - name: sap_etl_dwh
+    owner:
+      # 'name' or 'email' is required; additional properties allowed
+      email: brian.padilla@farinter.com

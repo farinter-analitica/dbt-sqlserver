@@ -59,6 +59,9 @@ sources:
     dwh_kielsa:
       mart_datos_maestros:
         +group: 'ldcom_etl_dwh'
+    dwh_sap:
+      mart_finanzas:
+        +group: 'sap_etl_dwh'
 #    marts:
 #      +group: "marts_group"
 #      mart1:

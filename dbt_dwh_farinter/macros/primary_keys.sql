@@ -87,19 +87,20 @@
         END;
         -- Add the new primary key constraint
         {# to fix bug when table is materialized and backup table have the same primary key #}
-        DECLARE @conflicting_table_name NVARCHAR(128);
-        SELECT @conflicting_table_name = OBJECT_NAME(parent_object_id)
-        FROM sys.key_constraints
-        WHERE name = '{{ final_primary_key_name }}';
+        DECLARE @primary_key_conflicting_table_name NVARCHAR(128);
+        SELECT @primary_key_conflicting_table_name = OBJECT_NAME(k.parent_object_id)
+        FROM sys.key_constraints k
+        INNER JOIN sys.schemas sc ON sc.schema_id = k.schema_id
+        WHERE k.name = '{{final_primary_key_name}}' AND sc.name = '{{relation.schema}}';
 
         -- Check if the conflicting table name ends with '__dbt_backup'
-        IF @conflicting_table_name LIKE '%__dbt_backup'
+        IF @primary_key_conflicting_table_name LIKE '%__dbt_backup'
         BEGIN
-            DECLARE @contraint_to_rename NVARCHAR(256);
-            SET @contraint_to_rename = '{{relation.schema}}.{{relation.identifier}}.' + @conflicting_table_name 
+            DECLARE @primary_key_constraint_to_rename NVARCHAR(256);
+            SET @primary_key_constraint_to_rename = '{{relation.schema}}' + '.' + @primary_key_conflicting_table_name + '.' + '{{ final_primary_key_name }}';
             -- Rename the conflicting primary key constraint
 
-            EXEC sp_rename @contraint_to_rename,'{{ final_primary_key_name }}{{ range(1,100)|random}}', 'OBJECT';
+            EXEC sp_rename @primary_key_constraint_to_rename,'{{ final_primary_key_name }}{{ range(1,100)|random}}', 'OBJECT';
         END;
 
         ALTER TABLE {{ full_relation }} 

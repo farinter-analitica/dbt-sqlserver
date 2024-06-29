@@ -60,3 +60,23 @@
     ;
 
 {% endmacro %}
+
+{% macro run_single_value_query_and_return(query='') %}
+    {%- if column_name == '' -%}
+        {% do log("Query not specified.", error=True) %}
+        {% do return("NULL") %}
+    {%- endif %}
+    {%- set query_to_run=query %}
+    {% do log("Running query: " ~ query_to_run, info=True)         %}
+    {%- set result = run_query(query_to_run) %}
+    {%- if execute %}
+    {# Execute only on runtime Return the first column #}
+        {%- set result_list = result.columns[0].values() %}
+    {%- else %}
+        {%- set result_list = [] %}
+    {%- endif %}
+    {%- set value = result_list[0]  %}
+
+    {% do return(value) %}
+
+{% endmacro %}

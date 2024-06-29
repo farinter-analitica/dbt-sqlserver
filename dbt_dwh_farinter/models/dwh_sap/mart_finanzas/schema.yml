@@ -17,6 +17,13 @@ models:
 
       - name: HashStr_PlanCuenta
         description: "Hash UNICO de la cuenta contable"
-        tests:
-          - unique
-          - not_null
+        #tests: #lleva indice
+          #- unique
+          #- not_null
+  - name: BI_SAP_Dim_CuentaContableSociedad
+    description: "Cuentas contables por sociedad"
+    #config: #no implementado en dbt-sqlserver
+      #constraints_enabled: true
+    columns:
+      - name: Sociedad_Id
+      - name: Cuenta_Id

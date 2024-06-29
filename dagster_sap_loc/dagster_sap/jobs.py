@@ -13,6 +13,9 @@ dbt_dwh_sap_marts_job = define_asset_job(name="dbt_dwh_sap_marts_job"
                                                             , selection=AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros_assets"
                                                                                               , "dbt_dwh_sap_mart_finanzas_assets"))
 
+
+
+
 all_jobs = get_variables_created_by_function(define_asset_job)
 
 __all__ = list(map(lambda x: x.name, all_jobs) )

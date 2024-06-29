@@ -19,28 +19,29 @@
 }}
 
 /*
+		full_refresh=true,
 Prueba de macro, si la macro hace call statement, y tambien esta en post_hook, se ejecutará dos veces ese statement		:
 {{ dwh_farinter_create_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=false)  	}}
 */
 
 SELECT
-	ISNULL(BUKRS,'') COLLATE DATABASE_DEFAULT AS [Sociedad_Id]
+	ISNULL(CAST([BUKRS] AS VARCHAR(4)),'') COLLATE DATABASE_DEFAULT AS [Sociedad_Id]
 	, BUTXT COLLATE DATABASE_DEFAULT AS [Sociedad_Nombre]
 	, ORT01 COLLATE DATABASE_DEFAULT AS [Poblacion]
 	, LAND1 COLLATE DATABASE_DEFAULT AS [Pais_Id]
 	, WAERS COLLATE DATABASE_DEFAULT AS [Moneda_Id]
 	, SPRAS COLLATE DATABASE_DEFAULT AS [Idioma_Id]
-	, KTOPL COLLATE DATABASE_DEFAULT AS [PlanCuentas_Id]
+	, ISNULL(CAST([KTOPL] AS VARCHAR(4)),'X') COLLATE DATABASE_DEFAULT AS [PlanCuentas_Id]
 	, PERIV COLLATE DATABASE_DEFAULT AS [VarianteEjercicio_Id]
 	, OPVAR COLLATE DATABASE_DEFAULT AS [VariantePeriodoContable_Id]
 	, KKBER COLLATE DATABASE_DEFAULT AS [AreaCredito_Id]
 	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
 	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-FROM {{ source('DL_FARINTER', 'DL_SAP_T001')}} T
+FROM {{ source('DL_FARINTER', 'DL_SAP_T001')}} S
 WHERE OPVAR LIKE 'Z%'
 {% if is_incremental() %}
-  and T.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '1900-01-01')
+  and S.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '1900-01-01')
 {% else %}
-  and T.Fecha_Actualizado >= '1900-01-01'
+  and S.Fecha_Actualizado >= '1900-01-01'
 {% endif %}
 

@@ -13,7 +13,7 @@ dbt_dwh_kielsa_marts_job_schedule = ScheduleDefinition(
     cron_schedule = {"dev":"0 3 * * *","prd":"0 2 * * *"}.get(env_str),
     execution_timezone="America/Tegucigalpa",
     job=dbt_dwh_kielsa_marts_job,
-    default_status=DefaultScheduleStatus.STOPPED
+    default_status=DefaultScheduleStatus.STOPPED #Se ejecutaran los orphan
 
 )
 
