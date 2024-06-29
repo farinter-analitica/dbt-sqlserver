@@ -6,5 +6,5 @@ setup(
     install_requires=[
         "dagster_shared_gf"
     ],
-    extras_require={"dev": ["dagster-webserver", "pytest", "pyodbc"]},
+    extras_require={"dev": [ "pytest"]},
 )

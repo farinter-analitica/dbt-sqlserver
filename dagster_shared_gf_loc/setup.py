@@ -12,8 +12,9 @@ setup(
         "dbt-postgres==1.7.4",
         "pandas",
         "dbt-sqlserver==1.7.4",
-        "pyodbc"
+        "pyodbc",
+        "dagster-webserver==1.7.9",
     ],
-    extras_require={"dev": ["dagster-webserver", "pytest"]},
+    extras_require={"dev": [ "pytest"]},
 )
 #Install module with python
