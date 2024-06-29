@@ -147,19 +147,39 @@ UNION ALL
 
 
 
-{% macro run_single_value_query_and_return(query='') %}
+{% macro run_single_value_query_and_return(relation=this,query='',relation_not_found_value='NULL') %}
     {%- if column_name == '' -%}
         {% do log("Query not specified.", error=True) %}
         {% do return("NULL") %}
     {%- endif %}
-    {%- set query_to_run=query %}
+    {%- set query_check %}
+        USE [{{ relation.database }}];
+        SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
+    {%- endset %}	
+    {% do log("Running query: "  ~ query_check, info=False)         %}
+    {%- set result = run_query(query_to_run) %}
+    {%- if execute and result is not none and 'columns' in result and result.columns|length > 0  %}
+    {# Execute only on runtime Return the first column #}
+        {%- set result_list = result.columns[0].values() | default([0]) %}
+    {%- else %}
+        {%- set result_list = [0] %}
+    {%- endif %}
+    {%- set value = result_list[0]  %}
+    {% if value != 1 %}
+        {% do return(relation_not_found_value) %}
+    {% endif %}
+
+    {%- set query_to_run %}
+        USE [{{ relation.database }}];
+        query
+    {%- endset %}
     {% do log("Running query: " ~ query_to_run, info=False)         %}
     {%- set result = run_query(query_to_run) %}
-    {%- if execute %}
+    {%- if execute and result is not none and 'columns' in result and result.columns|length > 0 %}
     {# Execute only on runtime Return the first column #}
-        {%- set result_list = result.columns[0].values() %}
+        {%- set result_list = result.columns[0].values() | default([0]) %}
     {%- else %}
-        {%- set result_list = [] %}
+        {%- set result_list = [0] %}
     {%- endif %}
     {%- set value = result_list[0]  %}
 

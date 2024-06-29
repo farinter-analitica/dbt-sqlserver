@@ -15,7 +15,7 @@ AND type_desc LIKE 'CLUSTERED%' AND is_primary_key <> 1;
 
 -- Fetch existing clustered index name if it exists
 {%- set result = run_query(existing_clustered_index_query) %}
-{%- if execute %}
+{%- if execute and result is not none and 'columns' in result and result.columns|length > 0  %}
 {# Execute only on runtime Return the first column #}
     {%- set results_list = result.columns[0].values() %}
 {%- else %}
