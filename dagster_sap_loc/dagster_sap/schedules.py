@@ -26,11 +26,11 @@ dbt_dwh_sap_marts_job_schedule = ScheduleDefinition(
     job=dbt_dwh_sap_marts_job,
     default_status=DefaultScheduleStatus.STOPPED
 )
-dbt_dwh_sap_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
+sap_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
     #name="dbt_dwh_sap_mart_schedule",
     cron_schedule = {"dev":"15 3 * * *","prd":"30 2 * * *"}.get(env_str),  # 10:01 AM every day
     execution_timezone="America/Tegucigalpa",
-    job=dbt_dwh_sap_etl_dwh_all_downstream_job,
+    job=sap_etl_dwh_all_downstream_job,
     default_status=DefaultScheduleStatus.RUNNING
 )
 
