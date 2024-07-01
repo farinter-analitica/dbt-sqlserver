@@ -7,6 +7,6 @@ models:
     columns:
       - name: Sociedad_Id
         description: "Sociedad o Empresa Individual"
-        #tests: #No necesarios ya que lleva la PK
+        #data_tests: #No necesarios ya que lleva la PK
           #- unique
           #- not_null

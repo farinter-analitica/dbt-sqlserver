@@ -13,7 +13,7 @@ models:
         #type: int
       - name: HashStr_SucEmp
         description: "Hash UNICO de la sucursal - empresa"
-        tests:
+        data_tests:
           - unique
           - not_null
 

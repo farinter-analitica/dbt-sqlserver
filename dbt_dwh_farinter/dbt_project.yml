@@ -45,8 +45,8 @@ models:
       mart_finanzas:
         +group: "dbt_dwh_sap_mart_finanzas"
     dwh_kielsa:
-      mart_finanzas:
-        +group: "dbt_dwh_kielsa_mart_finanzas"
+#      mart_finanzas:
+#        +group: "dbt_dwh_kielsa_mart_finanzas"
       mart_datos_maestros:
         +group: "dbt_dwh_kielsa_mart_datos_maestros"
         +meta:

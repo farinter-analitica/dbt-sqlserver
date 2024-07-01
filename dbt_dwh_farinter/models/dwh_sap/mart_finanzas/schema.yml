@@ -17,7 +17,7 @@ models:
 
       - name: HashStr_PlanCuenta
         description: "Hash UNICO de la cuenta contable"
-        #tests: #lleva indice
+        #data_tests: #lleva indice
           #- unique
           #- not_null
   - name: BI_SAP_Dim_CuentaContableSociedad
