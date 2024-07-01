@@ -3,17 +3,18 @@ from typing import List
 import os
 import pyodbc
 from dagster_shared_gf import shared_variables as shared_vars
+from dagster_shared_gf.shared_functions import get_for_current_env
 import contextlib
 
 env_str = shared_vars.env_str
 
 # Set environment variables
-p_server = {"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_SQL_SERVER")
-            , "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_SQL_SERVER")}.get(env_str)
-p_user = {"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_USERNAME")
-          , "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_USERNAME")}.get(env_str)
-p_password = {"dev": EnvVar("DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD")
-             , "prd": EnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD")}.get(env_str)
+p_server = get_for_current_env({"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_SQL_SERVER")
+            , "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_SQL_SERVER")})
+p_user = get_for_current_env({"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_USERNAME")
+          , "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_USERNAME")})
+p_password = get_for_current_env({"dev": EnvVar("DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD")
+             , "prd": EnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD")})
 p_driver = os.environ.get('DAGSTER_SQL_SERVER_ODBC_DRIVER')
 
 

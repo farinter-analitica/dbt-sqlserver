@@ -1,6 +1,6 @@
 
 import inspect, os, requests
-from typing import Dict
+from typing import Dict, Any
 from pathlib import Path
 from typing import List, Type, Callable
 from dagster import config_from_files
@@ -157,11 +157,24 @@ class DagsterInstanceCurrentEnv():
         self.graphql_port = int(os.getenv('DAGSTER_GRAPHQL_PORT',3000))
     def __str__(self) -> str:
         return self.env
-    def solve_for_current_env(self,dict: dict = {"dev" : "any_return_for_dev", "prd" : "any_return_for_prd"}) -> str:
-        return dict[self.env]
+
       
 dagster_instance_current_env = DagsterInstanceCurrentEnv()
 
 if __name__ == "__main__":
     print(get_all_locations_name())
     print(dagster_instance_current_env, type(dagster_instance_current_env))
+
+def get_for_current_env(dict: dict[str:any] = {"dev" : "any_return_for_dev", "prd" : "any_return_for_prd"}, env:str = dagster_instance_current_env.env) -> Any:
+    """
+    Returns the value for the current env, defaults to dev when not found
+    
+    Parameters
+    ----------
+    dict : dict
+        The dictionary to return the value from
+    env : str
+        The env [local, dev, prd] to return the value from
+    """	
+    return dict.get(env, dict.get("dev"))
+    
