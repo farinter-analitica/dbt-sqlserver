@@ -121,6 +121,13 @@ def knime_asset_creation_graph():    # first = first_op()     second = second_op
     return create_knime_assets(workflows=fetched_workflows)
 
 
+##define place holder asset to use if not found f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel"
+@asset(name=f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel")
+def knime_wf_DWHFP_SalidaExportarAExcel() -> None:
+    #name = f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel"
+    return None
+
+
 asset_definitions: list = []
 # The main script to configure and run the job
 if __name__ == "__main__":
@@ -164,6 +171,9 @@ else:
     builded_resources = {"db_analitica_etl":db_analitica_etl}
     # Fetch workflows and create assets
     asset_definitions = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
+    # Check for placeholders
+    if knime_wf_DWHFP_SalidaExportarAExcel.key not in  map(lambda x: x.key, asset_definitions): 
+        asset_definitions.append(knime_wf_DWHFP_SalidaExportarAExcel)
 
 
 
