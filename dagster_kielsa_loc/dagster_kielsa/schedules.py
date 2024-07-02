@@ -65,7 +65,7 @@ ldcom_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
 )
 
 knime_workflows_all_downstream_job_schedule = ScheduleDefinition(
-    cron_schedule = get_for_current_env({"dev":"20 3 * * 1-6","prd":"15 2 * * 1-6"}),  
+    cron_schedule = get_for_current_env({"dev":"20 4 * * 1-6","prd":"15 2 * * 1-6"}),  
     execution_timezone=default_timezone,
     job=knime_workflows_all_downstream_job,
     default_status=get_for_current_env({"local":DefaultScheduleStatus.STOPPED

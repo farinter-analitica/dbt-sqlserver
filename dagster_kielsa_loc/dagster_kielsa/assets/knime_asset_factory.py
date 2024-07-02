@@ -75,8 +75,10 @@ def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_cont
             "-application", "org.knime.product.KNIME_BATCH_APPLICATION",
             "-workflowDir=" + workflow_directory
         ]
+        ###TODO: Delete this \/ after initial release
         if not EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value():
             load_env_vars()
+        ###TODO: Delete this /\ after initial release
         password:str = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value() + '\n'
         #command and password to text
         #command_str = f'echo {password} | ' + ' '.join(command) 
