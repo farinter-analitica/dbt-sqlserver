@@ -66,6 +66,7 @@ def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_cont
     if not current_context:
         current_context = AssetExecutionContext.get()
     command = [
+        "sudo", "-u", "analitica@farinter.net",
         knime_bin, "-reset", "-nosave", "-nosplash", "-consoleLog",
         "--launcher.suppressErrors",
         "-application", "org.knime.product.KNIME_BATCH_APPLICATION",
