@@ -1,5 +1,6 @@
 from dagster import define_asset_job, AssetSelection, asset, job
 from dagster_shared_gf.shared_functions import get_variables_created_by_function
+from typing import List, Any, Mapping
 
 # Define the job and add to definitions on main __init__.py
 ldcom_etl_dwh_job = define_asset_job(name="ldcom_etl_dwh_job"
@@ -18,7 +19,16 @@ dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = dbt_dwh_kielsa_m
 dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(name="dbt_dwh_kielsa_marts_orphan_assets_job"
                                                             , selection=dbt_dwh_kielsa_marts_assets_not_in_downstream)
 
-hourly_parent_assets: list = [ldcom_etl_dwh_job, dbt_dwh_kielsa_marts_job]
+ExecutorConfig = Mapping[str, object]
+knime_workflows_all_downstream_config:ExecutorConfig= {"execution": {"config": {"multiprocess": {"max_concurrent": 3}}}}
+knime_workflows_all_downstream_assets: AssetSelection = AssetSelection.groups("knime_workflows").downstream()
+knime_workflows_all_downstream_job: define_asset_job = define_asset_job(name="knime_workflows_all_downstream_job"
+                                                             , selection=knime_workflows_all_downstream_assets
+                                                            , config=knime_workflows_all_downstream_config
+                                                                )
+
+
+hourly_parent_assets: list = []
 
 all_jobs = get_variables_created_by_function(define_asset_job) 
 
