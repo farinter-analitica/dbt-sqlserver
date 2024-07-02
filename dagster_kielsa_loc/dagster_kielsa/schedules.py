@@ -65,15 +65,23 @@ ldcom_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
 )
 
 knime_workflows_all_downstream_job_schedule = ScheduleDefinition(
-    cron_schedule = get_for_current_env({"dev":"20 3 * * *","prd":"15 2 * * *"}),  
+    cron_schedule = get_for_current_env({"dev":"20 3 * * 1-6","prd":"15 2 * * 1-6"}),  
     execution_timezone=default_timezone,
     job=knime_workflows_all_downstream_job,
     default_status=get_for_current_env({"local":DefaultScheduleStatus.STOPPED
                                         ,"dev":DefaultScheduleStatus.RUNNING
                                         ,"prd":DefaultScheduleStatus.STOPPED}),
-    
+
 )
 
+knime_workflows_start_of_month_job_schedule = ScheduleDefinition(
+    cron_schedule = get_for_current_env({"dev":"0 5 1 * *","prd":"30 5 1 * *"}),  
+    execution_timezone=default_timezone,
+    job=knime_workflows_start_of_month_job,
+    default_status=get_for_current_env({"local":DefaultScheduleStatus.STOPPED
+                                        ,"dev":DefaultScheduleStatus.STOPPED
+                                        ,"prd":DefaultScheduleStatus.RUNNING}), #Solo en PRD es necesario, destino unico por el momento.
+)
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
 
