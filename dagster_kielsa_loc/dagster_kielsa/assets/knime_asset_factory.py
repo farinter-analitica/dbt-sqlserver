@@ -75,7 +75,7 @@ def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_cont
     supported_envs = ["dev", "prd"]
     if env_str in supported_envs:
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate(input=bytes(f'{EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD")}\n'))
+        stdout, stderr = process.communicate(input=bytes(f'{EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD").get_value()}\n'))
 
         if process.returncode != 0:
             #raise Exception(f"Workflow execution failed: {stderr.decode('utf-8')}").
