@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Type, Callable
 from dagster import config_from_files
 from dagster_graphql import DagsterGraphQLClient
+from dotenv import load_dotenv
 
 # Function to filter functions by keyword
 def get_all_instances_of_class(class_type_list):
@@ -138,8 +139,8 @@ def verify_location_name(location_name: str) -> bool:
     else:
         return False
 def get_current_env():
-  dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV","dev")
-  assert dagster_instance_current_env != None  # env var must be set
+  dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV")
+  assert dagster_instance_current_env != None, "Expected DAGSTER_INSTANCE_CURRENT_ENV, got None"  # env var must be set
   return dagster_instance_current_env
 
 class DagsterInstanceCurrentEnv():
