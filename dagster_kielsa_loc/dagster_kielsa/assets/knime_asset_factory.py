@@ -1,4 +1,4 @@
-from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext
+from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext, Failure
 from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import env_str
@@ -79,6 +79,7 @@ def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_cont
         if process.returncode != 0:
             #raise Exception(f"Workflow execution failed: {stderr.decode('utf-8')}").
             current_context.log.error(f"Workflow execution failed: {filter_logs_std(stderr.decode('utf-8'))}")
+            raise Failure("Workflow execution failed.")
 
         #return stdout.decode('utf-8')
         current_context.log.info(filter_logs_std(stdout.decode('utf-8')))
