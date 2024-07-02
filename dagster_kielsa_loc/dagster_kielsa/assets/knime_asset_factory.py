@@ -2,6 +2,7 @@ from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_cont
 from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import env_str
+from dagster_shared_gf.load_env_run import load_env_vars
 import subprocess
 from typing import List, Dict
 import re
@@ -65,22 +66,27 @@ def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str]]:
 def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_context: AssetExecutionContext | None) -> None:
     if not current_context:
         current_context = AssetExecutionContext.get()
-    command = [
-        "sudo", "-u", "analitica@farinter.net",
-        knime_bin, "-reset", "-nosave", "-nosplash", "-consoleLog",
-        "--launcher.suppressErrors",
-        "-application", "org.knime.product.KNIME_BATCH_APPLICATION",
-        "-workflowDir=" + workflow_directory
-    ]
     supported_envs = ["dev", "prd"]
     if env_str in supported_envs:
-        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        password:bytes = EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD").get_value().encode('utf-8') + b'\n'
-        stdout, stderr = process.communicate(input=password)
+        command = [
+            "sudo", "-S", "-u", "analitica@farinter.net",
+            knime_bin, "-reset", "-nosave", "-nosplash", "-consoleLog",
+            "--launcher.suppressErrors",
+            "-application", "org.knime.product.KNIME_BATCH_APPLICATION",
+            "-workflowDir=" + workflow_directory
+        ]
+        if not EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value():
+            load_env_vars()
+        password:str = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value() + '\n'
+        #command and password to text
+        #command_str = f'echo {password} | ' + ' '.join(command) 
+        process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate(input=password.encode('utf-8'))
 
         if process.returncode != 0:
             #raise Exception(f"Workflow execution failed: {stderr.decode('utf-8')}").
             current_context.log.error(f"Workflow execution failed: {filter_logs_std(stderr.decode('utf-8'))}")
+            #current_context.log.error(f"Workflow execution failed: {filter_logs_std(stderr)}")
             raise Failure("Workflow execution failed.")
 
         #return stdout.decode('utf-8')
