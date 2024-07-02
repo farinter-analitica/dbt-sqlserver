@@ -1,4 +1,4 @@
-from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext, Failure
+from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext, Failure, EnvVar
 from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import env_str
@@ -74,8 +74,8 @@ def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_cont
     ]
     supported_envs = ["dev", "prd"]
     if env_str in supported_envs:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate(input=bytes(f'{EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD")}\n'))
 
         if process.returncode != 0:
             #raise Exception(f"Workflow execution failed: {stderr.decode('utf-8')}").

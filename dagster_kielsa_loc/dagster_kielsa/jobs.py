@@ -21,7 +21,7 @@ dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = dbt_dwh_kielsa_m
 dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(name="dbt_dwh_kielsa_marts_orphan_assets_job"
                                                             , selection=dbt_dwh_kielsa_marts_assets_not_in_downstream)
 
-knime_workflows_run_config: ExecutorConfig= {"execution": {"config": {"multiprocess": {"max_concurrent": 2}}}}
+knime_workflows_run_config: ExecutorConfig= {"execution": {"config": {"multiprocess": {"max_concurrent": 1}}}}
 knime_workflows_start_of_month_assets: AssetSelection = AssetSelection.assets(f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel").downstream() ##Schedule differently
 knime_workflows_start_of_month_job: define_asset_job = define_asset_job(name="knime_workflows_start_of_month_job"
                                                             , selection=knime_workflows_start_of_month_assets
