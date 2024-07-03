@@ -1,4 +1,4 @@
-from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext, Failure, EnvVar
+from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext, Failure, EnvVar, AssetKey
 from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import env_str
@@ -43,7 +43,9 @@ def filter_logs_std(logs):
 # Operation to fetch workflows from the database
 @op(required_resource_keys={"db_analitica_etl"})
 def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str]]:
-    query = "SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory FROM knime.programacion_ejecucion WHERE activo = true"
+    query =f"""
+    SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
+    FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{env_str.upper()}';"""
     results = context.resources.db_analitica_etl.query(query)
     if not results:
         context.log.error("No workflows found in the database.")
@@ -63,9 +65,11 @@ def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str]]:
 
 
 
-def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_context: AssetExecutionContext | None) -> None:
+
+def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_context: AssetExecutionContext) -> None:
     if not current_context:
         current_context = AssetExecutionContext.get()
+    
     supported_envs = ["dev", "prd"]
     if env_str in supported_envs:
         command = [
@@ -75,27 +79,35 @@ def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_cont
             "-application", "org.knime.product.KNIME_BATCH_APPLICATION",
             "-workflowDir=" + workflow_directory
         ]
-        ###TODO: Delete this \/ after initial release
+        
         if not EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value():
             load_env_vars()
-        ###TODO: Delete this /\ after initial release
-        password:str = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value() + '\n'
-        #command and password to text
-        #command_str = f'echo {password} | ' + ' '.join(command) 
-        process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate(input=password.encode('utf-8'))
-
-        if process.returncode != 0:
-            #raise Exception(f"Workflow execution failed: {stderr.decode('utf-8')}").
-            current_context.log.error(f"Workflow execution failed: {filter_logs_std(stderr.decode('utf-8'))}")
-            #current_context.log.error(f"Workflow execution failed: {filter_logs_std(stderr)}")
+        
+        password = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value() + '\n'
+        
+        try:
+            current_context.log.info(f"Executing in {env_str} environment command: {command}")
+            result = subprocess.check_output(command, input=password.encode('utf-8'), stderr=subprocess.STDOUT)
+            current_context.log.info(filter_logs_std(result.decode('utf-8')))
+        except subprocess.CalledProcessError as e:
+            current_context.log.error(f"Workflow execution failed: {filter_logs_std(e.output.decode('utf-8'))}")
             raise Failure("Workflow execution failed.")
-
-        #return stdout.decode('utf-8')
-        current_context.log.info(filter_logs_std(stdout.decode('utf-8')))
     else:
         current_context.log.info(f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments.")
+    return
     
+# Function to create a knime workflow asset
+def create_knime_workflow_asset(knime_bin: str, ambiente: str, knime_workflow: str, workflow_directory: str) -> AssetsDefinition:
+    @asset(
+        key=AssetKey(["knime_wf", ambiente, knime_workflow]),
+        description=f"Executes the {knime_workflow} workflow in {ambiente} target environment, dir: {workflow_directory}",
+        group_name="knime_workflows"
+    )
+    def knime_workflow_asset(context: OpExecutionContext) -> None:
+        execute_knime_workflow(knime_bin=knime_bin, workflow_directory=workflow_directory, current_context=context)
+        context.log.info(f"Executed {knime_workflow} in {ambiente} target environment")
+
+    return knime_workflow_asset
 
 # Dynamically create assets based on the fetched workflows
 @op(ins={"workflows": In(List[Dict[str, str]])}, out=Out(List[AssetsDefinition]))
@@ -104,24 +116,18 @@ def create_knime_assets(context: OpExecutionContext, workflows) -> List[AssetsDe
     #print("Starting create_knime_assets")
     for workflow in workflows:
         knime_bin = workflow["knime_bin"]
-        ambiente = workflow["ambiente"]
+        ambiente = workflow["ambiente"].lower()
         knime_workflow = workflow["knime_workflow"]
         workflow_directory = workflow["workflow_directory"]
 
-        if ambiente.lower() not in get_for_current_env({"dev":"dev", "prd":"prd"}):
+        if ambiente not in get_for_current_env({"dev":"dev", "prd":"prd"}):
             continue
 
-        @asset(
-            name=f"knime_wf_{ambiente}_{knime_workflow}",
-            description=f"Executes the {knime_workflow} workflow in {ambiente} target environment",
-            group_name="knime_workflows",
-        )
-        def knime_workflow_asset(context: AssetExecutionContext) -> None:
-            execute_knime_workflow(knime_bin=knime_bin, workflow_directory=workflow_directory, current_context=context)
-            #return Output(output, metadata={"workflow": knime_workflow, "environment": ambiente})
-            context.log.info(f"Executed {knime_workflow} in {ambiente} target environment")
-
-        asset_definitions.append(knime_workflow_asset)
+        #If not used a funtion, the variables retain the latest value for all assets (referenced instead of copied.)
+        asset_definitions.append(create_knime_workflow_asset(knime_bin=knime_bin
+                                                             , ambiente=ambiente
+                                                             , knime_workflow=knime_workflow
+                                                             , workflow_directory=workflow_directory))
         #print(workflow_asset)
     context.log.info(f"Created {len(asset_definitions)} knime assets.")
     return asset_definitions
@@ -133,13 +139,16 @@ def knime_asset_creation_graph():    # first = first_op()     second = second_op
 
 
 ##define place holder asset to use if not found f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel"
-@asset(name=f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel")
+@asset(#name=f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel"
+        key=AssetKey(["knime_wf",env_str,"DWHFP_SalidaExportarAExcel"]),
+        group_name="knime_workflows",
+        description="Placeholder asset to use if not found in the target environment.")
 def knime_wf_DWHFP_SalidaExportarAExcel() -> None:
-    #name = f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel"
     return None
 
 
 asset_definitions: list = []
+knime_assets_definitions: list = []
 # The main script to configure and run the job
 if __name__ == "__main__":
     current_test = 2
@@ -153,6 +162,7 @@ if __name__ == "__main__":
             builded_resources = {"db_analitica_etl":db_analitica_etl}
             # Fetch workflows and create assets
             asset_definitions = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
+            print([asset.key for asset in asset_definitions])
             assert len(asset_definitions) > 0, "No assets were created for the knnime workflows."
         case 2:
             logs = """
@@ -183,9 +193,9 @@ else:
     # Fetch workflows and create assets
     asset_definitions = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
     # Check for placeholders
-    if knime_wf_DWHFP_SalidaExportarAExcel.key not in  map(lambda x: x.key, asset_definitions): 
+    if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in asset_definitions]:
         asset_definitions.append(knime_wf_DWHFP_SalidaExportarAExcel)
-
+    knime_assets_definitions = asset_definitions
 
 
 """

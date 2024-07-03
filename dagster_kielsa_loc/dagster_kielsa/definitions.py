@@ -17,7 +17,7 @@ dbt_example = load_assets_from_modules([dbt_example] #, group_name="dbt_examples
                                        )
 dbt_dwh_kielsa_mart_assets = load_assets_from_modules([dbt_dwh_kielsa_mart_datos_maestros])
 ldcom_etl_dwh_assets = load_assets_from_modules([ldcom_etl_dwh], group_name="ldcom_etl_dwh")
-knime_assets = knime_asset_factory.asset_definitions
+knime_assets = knime_asset_factory.knime_assets_definitions
 
 all_assets = examples + kielsa_general + dbt_example  + dbt_dwh_kielsa_mart_assets + ldcom_etl_dwh_assets + knime_assets
 
