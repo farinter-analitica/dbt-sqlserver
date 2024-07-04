@@ -1,6 +1,7 @@
 from dagster import define_asset_job
-from dagster import asset, AssetSelection
+from dagster import asset, AssetSelection, RunConfig
 from dagster_shared_gf.shared_functions import get_variables_created_by_function
+from .assets.dbt_sap_etl_dwh import MyDbtConfig
 
 # Define the job and add to definitions on main __init__.py
 
@@ -19,7 +20,7 @@ dbt_dwh_sap_etl_dwh_job = define_asset_job(name="dbt_dwh_sap_etl_dwh_job"
 
 dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(name="dbt_dwh_sap_etl_dwh_full_refresh_job"
                                            , selection=AssetSelection.groups("sap_etl_dwh")
-                                           , config={"full_refresh": True})
+                                           , config=RunConfig({"dbt_sap_etl_dwh_assets": MyDbtConfig(full_refresh= True)}))
 
 
 sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups("sap_etl_dwh").downstream()

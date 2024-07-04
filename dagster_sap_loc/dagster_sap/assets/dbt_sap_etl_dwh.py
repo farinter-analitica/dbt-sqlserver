@@ -1,5 +1,5 @@
-from dagster import AssetExecutionContext
-from dagster_dbt import DbtCliResource, dbt_assets, Config
+from dagster import AssetExecutionContext, Config
+from dagster_dbt import DbtCliResource, dbt_assets
 
 from dagster_shared_gf.resources.dbt_resources import dbt_manifest
 
@@ -11,5 +11,6 @@ def dbt_sap_etl_dwh_assets(context: AssetExecutionContext, dbt_resource: DbtCliR
     dbt_run_args = ["build"]
     if config.full_refresh:
         dbt_run_args += ["--full-refresh"]
+        context.log.info(context.selected_asset_keys)
     yield from dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
 
