@@ -29,7 +29,7 @@ sap_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="sap_et
 
 
 sap_etl_dwh_hourly_asset_keys = [AssetKey(Asset) for Asset in ["DL_SAP_MARC","DL_SAP_MARD","DL_SAP_MARA","DL_SAP_MCHB"]]
-sap_etl_dwh_hourly_all_downstream_assets: AssetSelection = AssetSelection.assets(sap_etl_dwh_hourly_asset_keys).downstream()
+sap_etl_dwh_hourly_all_downstream_assets: AssetSelection = AssetSelection.assets(*sap_etl_dwh_hourly_asset_keys).downstream()
 sap_etl_dwh_hourly_all_downstream_job: define_asset_job = define_asset_job(name="sap_etl_dwh_hourly_all_downstream_job"
                                                             , selection=sap_etl_dwh_hourly_all_downstream_assets)
 
