@@ -42,7 +42,7 @@ def generate_store_procedure_assets() -> List[AssetsDefinition]:
                       ,"DL_paCargarSAP_REPLICA_FI"]:
         @asset(key_prefix= ["DL_FARINTER"]
                , name=procedure
-               , tags={"replicas_sap": "true"})
+               , tags={"replicas_sap": "true","periodo": "por_hora"})
         def store_procedure_execution(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
             procedure = procedure.deepcopy()
             database = "DL_FARINTER"
@@ -59,7 +59,7 @@ store_procedure_assets: List[AssetsDefinition] = generate_store_procedure_assets
 
 @asset(key_prefix= ["DL_FARINTER"]
  #       , name="sp_start_job_sap_cadahora"
-        , tags={"replicas_sap": "true"}
+        , tags={"replicas_sap": "true","periodo": "por_hora"}
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
         )
 def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
@@ -78,6 +78,22 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
     else:
         context.log.error(f"Job {job_name} ended on fail.")
 
+@asset(key_prefix= ["DL_FARINTER"]
+        , tags={"replicas_sap": "true","periodo": "diario"}
+        , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
+        )
+def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
+    job_name = 'SAP_Diario'
+    final_query = f"sp_start_job @job_name = {job_name};"
+    results = dwh_farinter_dl.execute_and_commit(final_query)
+    #check if sp returned 0 for errors
+    if results is None:
+        context.log.info(f"Job {job_name} ended successfully.")
+        return
+    if results[0][0] == 0:
+        context.log.info(f"Job {job_name} ended successfully.")
+    else:
+        context.log.error(f"Job {job_name} ended on fail.")
 
 if __name__ == '__main__':
     ##testing
