@@ -1,10 +1,15 @@
 import os
 from dagster import Definitions, load_assets_from_modules
-from .assets import dbt_dwh_sap_mart_datos_maestros, dbt_dwh_sap_mart_finanzas, dbt_sources, sap_etl_dwh
+from .assets import (dbt_dwh_sap_mart_datos_maestros
+                     , dbt_dwh_sap_mart_finanzas
+                     , dbt_sources
+                     , sap_etl_dwh
+                     , dbt_sap_etl_dwh
+                     )
 
 dbt_dwh_sap_mart_assets = load_assets_from_modules([dbt_dwh_sap_mart_datos_maestros,dbt_dwh_sap_mart_finanzas] #, group_name="dbt_examples" #group name already on the dbt models
                                        )
-sap_etl_dwh_assets = load_assets_from_modules([sap_etl_dwh],group_name="sap_etl_dwh")
+sap_etl_dwh_assets = load_assets_from_modules([sap_etl_dwh],group_name="sap_etl_dwh") + load_assets_from_modules([dbt_sap_etl_dwh],group_name="sap_etl_dwh")
 
 all_assets =  dbt_dwh_sap_mart_assets + sap_etl_dwh_assets#+
 all_asset_keys = set()
