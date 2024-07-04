@@ -71,8 +71,13 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
         context.log.info(f"Skipping sp_start_job_sap_cadahora for env {env_str}")
         return
     job_name = 'SAP_CadaHora'
-    final_query = f"sp_start_job @job_name = {job_name};"
-    results = dwh_farinter_dl.execute_and_commit(final_query)
+    final_query = \
+    f"""
+    DECLARE @job_result int = 0;
+    EXECUTE @job_result =sp_start_job @job_name = {job_name};
+    SELECT @job_result;
+    """
+    results = dwh_farinter_dl.query(final_query)
     #check if sp returned 0 for errors
     if results is None:
         context.log.info(f"Job {job_name} ended successfully.")
@@ -88,8 +93,13 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
         )
 def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
     job_name = 'SAP_Diario'
-    final_query = f"sp_start_job @job_name = {job_name};"
-    results = dwh_farinter_dl.execute_and_commit(final_query)
+    final_query = \
+    f"""
+    DECLARE @job_result int = 0;
+    EXECUTE @job_result =sp_start_job @job_name = {job_name};
+    SELECT @job_result;
+    """
+    results = dwh_farinter_dl.query(final_query)
     #check if sp returned 0 for errors
     if results is None:
         context.log.info(f"Job {job_name} ended successfully.")

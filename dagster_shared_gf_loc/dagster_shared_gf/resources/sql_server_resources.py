@@ -135,16 +135,12 @@ class SQLServerResource(ConfigurableResource):
             if connection is None:
                 with self.get_connection(database) as conn:
                     cursor = conn.cursor()
-                    results = cursor.fetchall()
                     cursor.execute(query)
                     conn.commit()
-                    return results
             else:
                 cursor = connection.cursor()
                 cursor.execute(query)
-                results = cursor.fetchall()
                 connection.commit()
-                return results
                 
         except pyodbc.Error as e:
             # Add proper logging here
