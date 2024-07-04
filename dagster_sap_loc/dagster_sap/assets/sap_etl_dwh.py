@@ -32,12 +32,12 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
     #return last_date_updated
     #result = dwh_farinter_dl.execute_and_commit("EXEC [DL_FARINTER].[dbo].[DL_paCargarSAP_REPLICA_MM]")
 
-def create_store_procedure_asset(procedure) -> AssetsDefinition:
+def create_store_procedure_asset(procedure_name) -> AssetsDefinition:
     @asset(key_prefix= ["DL_FARINTER"]
-            , name=procedure
+            , name=procedure_name
             , tags={"replicas_sap": "true","periodo": "por_hora"})
     def store_procedure_execution(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
-        procedure = procedure
+        procedure = procedure_name
         database = "DL_FARINTER"
         schema = "dbo"
         final_query = f"EXEC [{database}].[{schema}].[{procedure}];"
@@ -47,13 +47,13 @@ def create_store_procedure_asset(procedure) -> AssetsDefinition:
 
 def generate_store_procedure_assets() -> List[AssetsDefinition]:
     store_procedure_assets = []
-    for procedure in ["DL_paCargarSAP_REPLICA_DatosMaestros"
+    for procedure_name in ["DL_paCargarSAP_REPLICA_DatosMaestros"
                       ,"DL_paCargarSAP_REPLICA_VBFA"
                       ,"DL_paCargarSAP_REPLICA_SD"
                       ,"DL_paCargarSAP_REPLICA_MM"
                       ,"DL_paCargarSAP_REPLICA_WM"
                       ,"DL_paCargarSAP_REPLICA_FI"]:
-        store_procedure_execution = create_store_procedure_asset(procedure)
+        store_procedure_execution = create_store_procedure_asset(procedure_name)
         store_procedure_assets.append(store_procedure_execution)
 
     return store_procedure_assets
