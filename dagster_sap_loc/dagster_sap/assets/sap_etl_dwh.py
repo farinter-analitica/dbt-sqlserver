@@ -1,7 +1,7 @@
 from dagster import asset, AssetKey , AssetExecutionContext , AssetsDefinition
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Mapping
 from datetime import datetime, date
 import time
 file_path = Path(__file__).parent.resolve()
@@ -40,7 +40,7 @@ def generate_store_procedure_assets() -> List[AssetsDefinition]:
                       ,"DL_paCargarSAP_REPLICA_FI"]:
         @asset(key_prefix= ["DL_FARINTER"]
                , name=procedure
-               , tags=["replicas_sap"])
+               , tags={"replicas_sap"})
         def store_procedure_execution(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
             procedure = procedure.deepcopy()
             database = "DL_FARINTER"
