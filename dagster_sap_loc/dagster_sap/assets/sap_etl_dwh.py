@@ -1,5 +1,7 @@
 from dagster import asset, AssetKey , AssetExecutionContext , AssetsDefinition
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
+from dagster_shared_gf.shared_variables import env_str
+import dagster_sap.assets.dbt_sap_etl_dwh as dbt_sap_etl_dwh
 from pathlib import Path
 from typing import List, Dict, Any, Mapping
 from datetime import datetime, date
@@ -52,7 +54,29 @@ def generate_store_procedure_assets() -> List[AssetsDefinition]:
 
     return store_procedure_assets
 
-generate_store_procedure_assets()
+store_procedure_assets: List[AssetsDefinition] = generate_store_procedure_assets()
+
+
+@asset(key_prefix= ["DL_FARINTER"]
+ #       , name="sp_start_job_sap_cadahora"
+        , tags={"replicas_sap": "true"}
+        , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
+        )
+def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
+    if env_str != "prd": 
+        context.log.info(f"Skipping sp_start_job_sap_cadahora for env {env_str}")
+        return
+    job_name = 'SAP_CadaHora'
+    final_query = f"sp_start_job @job_name = {job_name};"
+    results = dwh_farinter_dl.execute_and_commit(final_query)
+    #check if sp returned 0 for errors
+    if results is None:
+        context.log.info(f"Job {job_name} ended successfully.")
+        return
+    if results[0][0] == 0:
+        context.log.info(f"Job {job_name} ended successfully.")
+    else:
+        context.log.error(f"Job {job_name} ended on fail.")
 
 
 if __name__ == '__main__':
