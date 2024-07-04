@@ -40,7 +40,7 @@ def generate_store_procedure_assets() -> List[AssetsDefinition]:
                       ,"DL_paCargarSAP_REPLICA_FI"]:
         @asset(key_prefix= ["DL_FARINTER"]
                , name=procedure
-               , tags=Mapping({"replicas_sap"}))
+               , tags={"replicas_sap": True})
         def store_procedure_execution(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
             procedure = procedure.deepcopy()
             database = "DL_FARINTER"
