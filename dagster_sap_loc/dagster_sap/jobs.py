@@ -1,5 +1,5 @@
 from dagster import define_asset_job
-from dagster import asset, AssetSelection, RunConfig
+from dagster import asset, AssetSelection, RunConfig, AssetKey
 from dagster_shared_gf.shared_functions import get_variables_created_by_function
 from .assets.dbt_sap_etl_dwh import MyDbtConfig
 
@@ -26,6 +26,15 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(name="dbt_dwh_sap_etl_dw
 sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups("sap_etl_dwh").downstream()
 sap_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="sap_etl_dwh_all_downstream_job"
                                                             , selection=sap_etl_dwh_all_downstream_assets)
+
+
+sap_etl_dwh_hourly_asset_keys = [AssetKey(Asset) for Asset in ["DL_SAP_MARC","DL_SAP_MARD","DL_SAP_MARA","DL_SAP_MCHB"]]
+sap_etl_dwh_hourly_all_downstream_assets: AssetSelection = AssetSelection.assets(sap_etl_dwh_hourly_asset_keys).downstream()
+sap_etl_dwh_hourly_all_downstream_job: define_asset_job = define_asset_job(name="sap_etl_dwh_hourly_all_downstream_job"
+                                                            , selection=sap_etl_dwh_hourly_all_downstream_assets)
+
+
+
 
 dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros_assets"
                                                                                               , "dbt_dwh_sap_mart_finanzas_assets") - sap_etl_dwh_all_downstream_assets

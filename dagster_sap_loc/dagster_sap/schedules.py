@@ -36,20 +36,27 @@ dbt_dwh_sap_marts_job_schedule = ScheduleDefinition(
     default_status=stopped_default_schedule_status
 )
 sap_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
-    #name="dbt_dwh_sap_mart_schedule",
     cron_schedule = get_for_current_env(dict={"dev":"15 3 * * *","prd":"30 2 * * *"}),  
     execution_timezone=default_timezone,
     job=sap_etl_dwh_all_downstream_job,
     default_status=running_default_schedule_status
 )
+sap_etl_dwh_hourly_all_downstream_job_schedule = ScheduleDefinition(
+    cron_schedule = get_for_current_env(dict={"dev":"05 6-18 * * *","prd":"05 6-18 * * *"}),  
+    execution_timezone=default_timezone,
+    job=sap_etl_dwh_hourly_all_downstream_job,
+    default_status=get_for_current_env({"local":DefaultScheduleStatus.STOPPED
+                                                                              ,"dev":DefaultScheduleStatus.STOPPED
+                                                                              ,"prd":DefaultScheduleStatus.RUNNING})
+)
 
 dbt_dwh_sap_marts_all_orphan_job_schedule = ScheduleDefinition(
-    #name="dbt_dwh_sap_mart_schedule",
     cron_schedule = get_for_current_env(dict={"dev":"15 2 * * *","prd":"30 1 * * *"}),  
     execution_timezone=default_timezone,
     job=dbt_dwh_sap_marts_all_orphan_job,
     default_status=running_default_schedule_status
 )
+
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
 
