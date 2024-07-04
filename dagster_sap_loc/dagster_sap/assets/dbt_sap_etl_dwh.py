@@ -1,10 +1,10 @@
-from dagster import AssetExecutionContext, Config
+from dagster import AssetExecutionContext, Config, Field
 from dagster_dbt import DbtCliResource, dbt_assets
 
 from dagster_shared_gf.resources.dbt_resources import dbt_manifest
 
 class MyDbtConfig(Config):
-    full_refresh: bool
+    full_refresh: bool = Field(default=False, description="Refresh full dbt models", is_required=False)
 
 @dbt_assets(manifest=dbt_manifest, select="group:sap_etl_dwh")
 def dbt_sap_etl_dwh_assets(context: AssetExecutionContext, dbt_resource: DbtCliResource, config: MyDbtConfig):
