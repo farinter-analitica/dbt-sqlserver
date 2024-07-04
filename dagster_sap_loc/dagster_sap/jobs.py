@@ -17,6 +17,11 @@ dbt_dwh_sap_marts_job = define_asset_job(name="dbt_dwh_sap_marts_job"
 dbt_dwh_sap_etl_dwh_job = define_asset_job(name="dbt_dwh_sap_etl_dwh_job"
                                            , selection=AssetSelection.groups("sap_etl_dwh"))
 
+dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(name="dbt_dwh_sap_etl_dwh_full_refresh_job"
+                                           , selection=AssetSelection.groups("sap_etl_dwh")
+                                           , config={"full_refresh": True})
+
+
 sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups("sap_etl_dwh").downstream()
 sap_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="sap_etl_dwh_all_downstream_job"
                                                             , selection=sap_etl_dwh_all_downstream_assets)

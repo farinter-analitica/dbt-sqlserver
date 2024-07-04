@@ -6,3 +6,8 @@ sources:
     tables:
       - name: T001
       - name: MARA
+      - name: MARC
+      - name: MARD
+      - name: T001W
+      - name: T001L
+      - name: T001K

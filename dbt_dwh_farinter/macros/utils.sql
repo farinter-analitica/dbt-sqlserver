@@ -147,42 +147,103 @@ UNION ALL
 
 
 
-{% macro run_single_value_query_and_return(relation=this,query='',relation_not_found_value='NULL') %}
-    {%- if column_name == '' -%}
-        {% do log("Query not specified.", error=True) %}
+{% macro run_single_value_query_on_relation_and_return(relation=this,query='',relation_not_found_value='NULL') %}
+    {% do log("Entering run_single_value_query_on_relation_and_return macro", info=True) %}
+    {%- if query == '' -%}
+        {% do log("Query not specified.", info=True) %}
         {% do return("NULL") %}
     {%- endif %}
     {%- set query_check %}
-        USE [{{ relation.database }}];
-        SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
+            USE [{{ relation.database }}];
+            SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
     {%- endset %}	
-    {% do log("Running query: "  ~ query_check, info=False)         %}
-    {%- set result = run_query(query_to_run) %}
-    {%- if execute and result is not none and 'columns' in result and result.columns|length > 0  %}
-    {# Execute only on runtime Return the first column #}
-        {%- set result_list = result.columns[0].values() | default([0]) %}
+    {% do log("Running query: "  ~ query_check, info=True)         %}
+    {%- if execute  %}
+        {%- set results = run_query(query_check) %}
+        {% if results|length > 0 %}
+        {# Execute only on runtime Return the first column #}
+            {% print(results) %}
+            {%- set results_list = results.columns[0] | default([0]) %}
+            {% do log("Something found", info=True) %}
+        {%- else %}
+            {% do log("Empty result", info=True) %}
+            {%- set results_list = [0] %}
+        {%- endif %}
     {%- else %}
-        {%- set result_list = [0] %}
+        {%- set results_list = [0] %}
+        {% do log("Not executed", info=True) %}
     {%- endif %}
-    {%- set value = result_list[0]  %}
-    {% if value != 1 %}
+    {%- set value = results_list[0]  %}
+    {% if value|int != 1 %}
+        {% do log("Relation not found", info=True) %}
         {% do return(relation_not_found_value) %}
     {% endif %}
 
     {%- set query_to_run %}
         USE [{{ relation.database }}];
-        query
+        {{query}};
     {%- endset %}
-    {% do log("Running query: " ~ query_to_run, info=False)         %}
-    {%- set result = run_query(query_to_run) %}
-    {%- if execute and result is not none and 'columns' in result and result.columns|length > 0 %}
-    {# Execute only on runtime Return the first column #}
-        {%- set result_list = result.columns[0].values() | default([0]) %}
+    {% do log("Running query: " ~ query_to_run, info=True)         %}
+    {%- if execute  %}
+        {%- set results = run_query(query_to_run) %}
+        {%- if results|length > 0 %}
+        {# Execute only on runtime Return the first column #}
+            {%- set results_list = results.columns[0] %}
+            {% do log("Something found" ~ results_list, info=True) %}
+        {%- else %}
+            {%- set results_list = [relation_not_found_value] %}
+        {%- endif %}
+        {%- set value = results_list[0]  %}
     {%- else %}
-        {%- set result_list = [0] %}
+        {%- set value = relation_not_found_value %}
     {%- endif %}
-    {%- set value = result_list[0]  %}
 
     {% do return(value) %}
+
+{% endmacro %}
+
+{% macro run_execute_query_on_relation_without_return(relation=this,query='') %}
+    {% do log("Entering run_execute_query_on_relation_without_return macro", info=True) %}
+    {%- if query == '' -%}
+        {% do log("Query not specified.", info=True) %}
+    {%- endif %}
+    {%- set query_check %}
+        USE [{{ relation.database }}];
+        SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
+    {%- endset %}	
+    {% do log("Running query: "  ~ query_check, info=True)         %}
+    {%- if execute  %}
+    {%- set results = run_query(query_check) %}
+        {% if results|length > 0 %}
+        {# Execute only on runtime Return the first column #}
+            {%- set results_list = results.columns[0] | default([0]) %}
+            {% do log("Something found", info=True) %}
+        {%- else %}
+            {% do log("Empty result", info=True) %}
+            {%- set results_list = [0] %}
+        {%- endif %}
+    {%- else %}
+        {%- set results_list = [0] %}
+        {% do log("Not executed", info=True) %}
+    {%- endif %}
+    {%- set value = results_list[0]  %}
+    {% if value|int != 1 %}
+        {% do log("Relation not found", info=True) %}
+        {% do return %}
+    {% else %}
+
+        {%- set query_to_run %}
+            USE [{{ relation.database }}];
+            {{query}}
+        {%- endset %}
+        {% if execute  %}
+            {% do log("Running query: " ~ query_to_run, info=True) %}
+            {%- do run_query(query_to_run) %}
+            {% do log("Query executed", info=True) %}
+        {% else %}
+            {% do log("Not executed", info=True) %}
+        {% endif %}
+
+    {% endif %}
 
 {% endmacro %}
