@@ -66,6 +66,8 @@ sources:
     dwh_sap:
       mart_finanzas:
         +group: 'sap_etl_dwh'
+      sap_etl_datos_maestros:
+        +group: 'sap_etl_dwh'
 #    marts:
 #      +group: "marts_group"
 #      mart1:
