@@ -44,6 +44,10 @@ models:
         +group: "dbt_dwh_sap_mart_datos_maestros"
       mart_finanzas:
         +group: "dbt_dwh_sap_mart_finanzas"
+      sap_etl_datos_maestros:
+        +group: "sap_etl_dwh"
+        +database: "DL_FARINTER"
+       
     dwh_kielsa:
 #      mart_finanzas:
 #        +group: "dbt_dwh_kielsa_mart_finanzas"
@@ -69,3 +73,10 @@ sources:
 #      mart2:
 #       +group: "mart2_group"
 #  +post_hook:    "{{dwh_farinter_create_primary_key(this,columns=['Sociedad_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}"
+
+
+vars:
+  linked_server: SAPPRD
+
+
+

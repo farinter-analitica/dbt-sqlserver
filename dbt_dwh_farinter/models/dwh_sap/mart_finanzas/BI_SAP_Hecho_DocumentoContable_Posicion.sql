@@ -24,7 +24,11 @@
 		
 ) }}
 
-{% set last_date = run_single_value_query_and_return(query="""select ISNULL(CONVERT(VARCHAR,max(Fecha_Actualizado), 112), '20240101')  from  """ ~ this, relation_not_found_value='20240101') %}
+{% if is_incremental() %}
+	{% set last_date = run_single_value_query_and_return(query="""select ISNULL(CONVERT(VARCHAR,max(Fecha_Actualizado), 112), '20240101')  from  """ ~ this, relation_not_found_value='20240101') %}
+{% else %}
+	{% set last_date = '20240101' %}
+{% endif %}
 
 WITH
 staging as
