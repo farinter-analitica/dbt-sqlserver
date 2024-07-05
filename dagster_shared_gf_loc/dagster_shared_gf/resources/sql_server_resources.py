@@ -35,7 +35,24 @@ class SQLServerResource(ConfigurableResource):
             raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
 
     @contextlib.contextmanager
-    def get_connection(self,  database: str = ""):
+    def get_connection(self,  database: str = "", autocommit: bool=False):
+        """
+        A context manager that provides a connection to a SQL Server database, beware, by default is non autocommit.
+
+        Args:
+            database (str, optional): The name of the database to connect to. If not provided, the default database will be used.
+            autocommit (bool, optional): Whether to enable autocommit. Defaults to False.
+
+        Yields:
+            pyodbc.Connection: A connection to the SQL Server database.
+
+        Raises:
+            ValueError: If the specified database is not in the allowed list.
+
+        Returns:
+            None
+
+        """
         if database == "":
             database = self.default_database
         if database not in self.databases:
@@ -49,7 +66,7 @@ class SQLServerResource(ConfigurableResource):
             f"PWD={self.password};"
             f"TrustServerCertificate={self.trust_server_certificate};"
         )
-        conn = pyodbc.connect(connection_string)
+        conn = pyodbc.connect(connection_string, autocommit=autocommit)
         
         try:
             yield conn
@@ -64,9 +81,11 @@ class SQLServerResource(ConfigurableResource):
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
-    def query(self, query: str, connection: pyodbc.Connection = None, database: str = "", fetch_one: bool = False) -> List[pyodbc.Row]:
+    def query(self, query: str, connection: pyodbc.Connection = None, database: str = "", fetch_one: bool = False, autocommit: bool = True) -> List[pyodbc.Row]:
         """
-        Executes a SQL query on a database connection and returns the result as a list of rows, this doesn't work well for single valued queries.
+        Executes a SQL query on a database connection and returns the result as a list of rows or single row,
+        this doesn't work well for single valued queries, instead use fetch_one = True to get a single value/row.
+        beware, by default is autocommit when using auto generated connection instead of a provided connection.
 
         Args:
             query (str): The SQL query to execute.
@@ -74,6 +93,8 @@ class SQLServerResource(ConfigurableResource):
                 will be created using the default database.
             database (str, optional): The name of the database to connect to. If not provided, the default database
                 will be used.
+            fetch_one (bool, optional): Whether to fetch only one row. Defaults to False.
+            autocommit (bool, optional): Whether to enable autocommit. Defaults to True.
 
         Returns:
             List[pyodbc.Row]: A list of rows returned by the query.
@@ -90,15 +111,18 @@ class SQLServerResource(ConfigurableResource):
         """
         try:
             if connection is None:
-                with self.get_connection(database) as conn:
+                with self.get_connection(database=database, autocommit = autocommit) as conn:
                     cursor = conn.cursor()
                     cursor.execute(query)
-                    return cursor.fetchall()
+                    if fetch_one:
+                        return [cursor.fetchone()]
+                    else:
+                        return cursor.fetchall()
             else:
                 cursor = connection.cursor()
                 cursor.execute(query)
                 if fetch_one:
-                    return cursor.fetchone()
+                    return [cursor.fetchone()]
                 else:
                     return cursor.fetchall()
         except pyodbc.DatabaseError as opex:           
@@ -120,7 +144,8 @@ class SQLServerResource(ConfigurableResource):
 
     def execute_and_commit(self, query: str, connection: pyodbc.Connection = None, database: str = ""):
         """
-        Executes a SQL query on a database connection and commits the changes.
+        Executes an SQL query on a database connection, 
+        beware, by default is autocommit when using auto generated connection instead of a provided connection.
 
         Args:
             query (str): The SQL query to execute.
@@ -128,25 +153,29 @@ class SQLServerResource(ConfigurableResource):
                 will be created using the default database.
             database (str, optional): The name of the database to connect to. If not provided, the default database
                 will be used.
+            fetch_one (bool, optional): Whether to fetch only one row. Defaults to False.
+            autocommit (bool, optional): Whether to enable autocommit. Defaults to True.
 
         Raises:
             RuntimeError: If there is an error executing and committing the query.
 
         Example:
             >>> query = "INSERT INTO table (column1, column2) VALUES ('value1', 'value2')"
-            >>> connection = pyodbc.connect(connection_string)
+            >>> connection = SQLServerResource.connect(connection_string)
             >>> execute_and_commit(query, connection)
         """
         try:
             if connection is None:
-                with self.get_connection(database) as conn:
+                with self.get_connection(database=database, autocommit = True) as conn:
                     cursor = conn.cursor()
                     cursor.execute(query)
-                    conn.commit()
+                    if not conn.autocommit:
+                        conn.commit()
             else:
-                cursor = connection.cursor()
+                cursor = conn.cursor()
                 cursor.execute(query)
-                connection.commit()
+                if not conn.autocommit:
+                    conn.commit()
                 
         except pyodbc.Error as e:
             # Add proper logging here
