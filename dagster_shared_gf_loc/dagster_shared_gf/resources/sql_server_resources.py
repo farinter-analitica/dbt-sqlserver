@@ -64,9 +64,9 @@ class SQLServerResource(ConfigurableResource):
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
-    def query(self, query: str, connection: pyodbc.Connection = None, database: str = "") -> List[pyodbc.Row]:
+    def query(self, query: str, connection: pyodbc.Connection = None, database: str = "", fetch_one: bool = False) -> List[pyodbc.Row]:
         """
-        Executes a SQL query on a database connection and returns the result as a list of rows.
+        Executes a SQL query on a database connection and returns the result as a list of rows, this doesn't work well for single valued queries.
 
         Args:
             query (str): The SQL query to execute.
@@ -97,7 +97,10 @@ class SQLServerResource(ConfigurableResource):
             else:
                 cursor = connection.cursor()
                 cursor.execute(query)
-                return cursor.fetchall()
+                if fetch_one:
+                    return cursor.fetchone()
+                else:
+                    return cursor.fetchall()
         except pyodbc.DatabaseError as opex:           
             if opex.args[0] == '42S02':
                 #print("Table does not exist error handling")
@@ -109,7 +112,10 @@ class SQLServerResource(ConfigurableResource):
                 self.get_resource_context().log.info(f"An unexpected database error occurred: {str(opex)}. Returning None to caller.")
                 return None
         except pyodbc.Error as e:
-            self.get_resource_context().log.error(f"An unexpected error occurred:: {str(e)}. Returning None to caller.")
+            self.get_resource_context().log.error(f"An unexpected error occurred. Returning None to caller.")
+            e.__traceback__ = None
+            raise e
+            
 #            print(f"An unexpected error occurred: {str(e)}")
 
     def execute_and_commit(self, query: str, connection: pyodbc.Connection = None, database: str = ""):
@@ -144,8 +150,9 @@ class SQLServerResource(ConfigurableResource):
                 
         except pyodbc.Error as e:
             # Add proper logging here
-            self.get_resource_context().log.error(f"Error executing and committing query: {str(e.args)}.")
-
+            self.get_resource_context().log.error(f"Error executing and committing query.")
+            e.__traceback__ = None
+            raise e
 
 
 dwh_farinter = SQLServerResource(

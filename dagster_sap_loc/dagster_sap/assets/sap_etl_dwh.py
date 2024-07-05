@@ -79,15 +79,15 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
     EXECUTE @job_result =msdb.dbo.sp_start_job @job_name = {job_name};
     SELECT @job_result;
     """
-    results = dwh_farinter_dl.query(final_query)
+    results = dwh_farinter_dl.query(final_query, fetch_one=True)
     #check if sp returned 0 for errors
     if results is None:
-        context.log.info(f"Job {job_name} ended successfully.")
+        context.log.info(f"Job {job_name} executed successfully.")
         return
-    if results[0][0] == 0:
-        context.log.info(f"Job {job_name} ended successfully.")
+    if results[0] == 0:
+        context.log.info(f"Job {job_name} executed successfully.")
     else:
-        context.log.error(f"Job {job_name} ended on fail.")
+        context.log.error(f"Job {job_name} not executed, fail.")
 
 @asset(key_prefix= ["DL_FARINTER"]
         , tags={"replicas_sap": "true","periodo": "diario"}
@@ -99,17 +99,17 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
     f"""
     DECLARE @job_result int = 0;
     EXECUTE @job_result =msdb.dbo.sp_start_job @job_name = {job_name};
-    SELECT @job_result;
+    SELECT @job_result as job_result;
     """
-    results = dwh_farinter_dl.query(final_query)
+    results = dwh_farinter_dl.query(final_query, fetch_one=True)
     #check if sp returned 0 for errors
     if results is None:
-        context.log.info(f"Job {job_name} ended successfully.")
+        context.log.info(f"Job {job_name} executed successfully.")
         return
-    if results[0][0] == 0:
-        context.log.info(f"Job {job_name} ended successfully.")
+    if results[0] == 0:
+        context.log.info(f"Job {job_name} executed successfully.")
     else:
-        context.log.error(f"Job {job_name} ended on fail.")
+        context.log.error(f"Job {job_name} not executed, fail.")
 
 if __name__ == '__main__':
     ##testing
