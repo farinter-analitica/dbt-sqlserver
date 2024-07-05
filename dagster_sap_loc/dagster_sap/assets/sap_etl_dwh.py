@@ -1,4 +1,4 @@
-from dagster import asset, AssetKey , AssetExecutionContext , AssetsDefinition
+from dagster import asset, AssetKey , AssetExecutionContext , AssetsDefinition, FreshnessPolicy
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str
 import dagster_sap.assets.dbt_sap_etl_dwh as dbt_sap_etl_dwh
@@ -9,9 +9,13 @@ import time
 file_path = Path(__file__).parent.resolve()
 
 @asset(key_prefix= ["DL_FARINTER"]
-       , tags={"replicas_sap": "true"}
-       )
-def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
+        , tags={"replicas_sap": "true"}
+        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26)
+        , compute_kind="sqlserver"
+        )
+def DL_SAP_T001(context: AssetExecutionContext
+                , dwh_farinter_dl: SQLServerResource
+                ) -> None: 
     table = "DL_SAP_T001"
     database = "DL_FARINTER"
     schema = "dbo"
@@ -37,7 +41,10 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
 def create_store_procedure_asset(procedure_name) -> AssetsDefinition:
     @asset(key_prefix= ["DL_FARINTER"]
             , name=procedure_name
-            , tags={"replicas_sap": "true","periodo": "por_hora"})
+            , tags={"replicas_sap": "true","periodo": "por_hora"}
+            , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26)
+            , compute_kind="sqlserver"
+            )
     def store_procedure_execution(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
         procedure = procedure_name
         database = "DL_FARINTER"
@@ -65,8 +72,10 @@ store_procedure_assets: List[AssetsDefinition] = generate_store_procedure_assets
 
 @asset(key_prefix= ["DL_FARINTER"]
  #       , name="sp_start_job_sap_cadahora"
-        , tags={"replicas_sap": "true","periodo": "por_hora","periodo_unico": "true"}
+        , tags={"replicas_sap": "true","periodo": "por_hora","periodo_unico": "por_hora"}
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
+        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*2, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa")
+        , compute_kind="sqlserver"
         )
 def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
     if env_str != "prd": 
@@ -90,8 +99,10 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
         context.log.error(f"Job {job_name} not executed, fail.")
 
 @asset(key_prefix= ["DL_FARINTER"]
-        , tags={"replicas_sap": "true","periodo": "diario","periodo_unico": "true"}
+        , tags={"replicas_sap": "true","periodo": "diario","periodo_unico": "por_hora"}
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
+        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa")
+        , compute_kind="sqlserver"
         )
 def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
     job_name = 'SAP_Diario'
