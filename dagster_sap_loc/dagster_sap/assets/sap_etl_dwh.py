@@ -8,7 +8,9 @@ from datetime import datetime, date
 import time
 file_path = Path(__file__).parent.resolve()
 
-@asset(key_prefix= ["DL_FARINTER"])
+@asset(key_prefix= ["DL_FARINTER"]
+       , tags={"replicas_sap": "true"}
+       )
 def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
     table = "DL_SAP_T001"
     database = "DL_FARINTER"
@@ -74,7 +76,7 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
     final_query = \
     f"""
     DECLARE @job_result int = 0;
-    EXECUTE @job_result =sp_start_job @job_name = {job_name};
+    EXECUTE @job_result =msdb.dbo.sp_start_job @job_name = {job_name};
     SELECT @job_result;
     """
     results = dwh_farinter_dl.query(final_query)
@@ -96,7 +98,7 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
     final_query = \
     f"""
     DECLARE @job_result int = 0;
-    EXECUTE @job_result =sp_start_job @job_name = {job_name};
+    EXECUTE @job_result =msdb.dbo.sp_start_job @job_name = {job_name};
     SELECT @job_result;
     """
     results = dwh_farinter_dl.query(final_query)

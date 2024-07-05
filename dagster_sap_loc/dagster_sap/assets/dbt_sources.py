@@ -9,7 +9,8 @@ def build_dbt_sources(manifest: Mapping[str, Any], dbt_cli_resource: DbtCliResou
     return [
         SourceAsset(
             key=dagster_dbt_translator.get_asset_key(dbt_resource_props),
-            group_name=dagster_dbt_translator.get_group_name(dbt_resource_props)
+            group_name=dagster_dbt_translator.get_group_name(dbt_resource_props),
+            tags=dagster_dbt_translator.get_tags(dbt_resource_props)
         )
         for dbt_resource_props in manifest["sources"].values()
         if "dwh_sap" in dbt_resource_props.get("fqn", [])[1]

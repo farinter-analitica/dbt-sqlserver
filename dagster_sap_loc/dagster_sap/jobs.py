@@ -28,13 +28,13 @@ sap_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="sap_et
                                                             , selection=sap_etl_dwh_all_downstream_assets)
 
 
-sap_etl_dwh_hourly_asset_keys = [AssetKey(Asset) for Asset in ["DL_SAP_MARC","DL_SAP_MARD","DL_SAP_MARA","DL_SAP_MCHB"]]
-sap_etl_dwh_hourly_all_downstream_assets: AssetSelection = AssetSelection.assets(*sap_etl_dwh_hourly_asset_keys).downstream() \
-                | AssetSelection.tag(key="replicas_sap", value="true").tag(key="periodo", value="por_hora")
+#Definir assets por hora que se extraen de dbt, agregar todos los downstream que tenga la etiqueta por_hora y agregar replicas_sap con la misma etiqueta
+sap_dbt_etl_dwh_hourly_asset_keys = [AssetKey(Asset) for Asset in ["DL_SAP_MARC","DL_SAP_MARD","DL_SAP_MARA","DL_SAP_MCHB"]]
+sap_etl_dwh_hourly_all_downstream_assets: AssetSelection =  AssetSelection.assets(*sap_dbt_etl_dwh_hourly_asset_keys) \
+    | (AssetSelection.assets(*sap_dbt_etl_dwh_hourly_asset_keys).downstream() & AssetSelection.tag(key="periodo", value="por_hora")) \
+    | (AssetSelection.tag(key="replicas_sap", value="true") & AssetSelection.tag(key="periodo", value="por_hora"))
 sap_etl_dwh_hourly_all_downstream_job: define_asset_job = define_asset_job(name="sap_etl_dwh_hourly_all_downstream_job"
                                                             , selection=sap_etl_dwh_hourly_all_downstream_assets)
-
-
 
 
 dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros_assets"
