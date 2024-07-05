@@ -74,7 +74,7 @@ store_procedure_assets: List[AssetsDefinition] = generate_store_procedure_assets
  #       , name="sp_start_job_sap_cadahora"
         , tags={"replicas_sap": "true","periodo": "por_hora","periodo_unico": "por_hora"}
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
-        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*2, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa")
+        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa")
         , compute_kind="sqlserver"
         )
 def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
