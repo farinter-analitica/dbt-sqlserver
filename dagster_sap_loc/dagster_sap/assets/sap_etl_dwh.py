@@ -65,7 +65,7 @@ store_procedure_assets: List[AssetsDefinition] = generate_store_procedure_assets
 
 @asset(key_prefix= ["DL_FARINTER"]
  #       , name="sp_start_job_sap_cadahora"
-        , tags={"replicas_sap": "true","periodo": "por_hora"}
+        , tags={"replicas_sap": "true","periodo": "por_hora","periodo_unico": "true"}
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
         )
 def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
@@ -90,7 +90,7 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
         context.log.error(f"Job {job_name} not executed, fail.")
 
 @asset(key_prefix= ["DL_FARINTER"]
-        , tags={"replicas_sap": "true","periodo": "diario"}
+        , tags={"replicas_sap": "true","periodo": "diario","periodo_unico": "true"}
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_sap_etl_dwh.dbt_sap_etl_dwh_assets])
         )
 def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
