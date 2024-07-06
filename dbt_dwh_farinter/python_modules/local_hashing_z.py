@@ -1,6 +1,6 @@
 import hashlib
 from datetime import datetime
-import dbt_utils
+#import dbt_utils
 
 def local_unique_hash_sha2_256_z(columns, length: int = 18) -> str:
     charset:str ="utf-8"
@@ -13,4 +13,4 @@ def local_unique_hash_sha2_256_z(columns, length: int = 18) -> str:
 if __name__ == "__main__":
     print(local_unique_hash_sha2_256_z(["a", "b", "c"]))
     print(local_unique_hash_sha2_256_z(["a", "b", "c"], 10))
-    print(dbt_utils.current_timestamp())
+    #print(dbt_utils.current_timestamp())

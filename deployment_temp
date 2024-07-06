@@ -1,0 +1,10 @@
+BASH
+pip uninstall dagster_sap dagster_kielsa
+
+pip -V
+
+
+pip install --force-reinstall -e dagster_shared_gf --config-settings editable_mode=compat
+pip install -e dagster_sap_gf --config-settings editable_mode=compat
+pip install -e dagster_kielsa_gf --config-settings editable_mode=compat
+pip install -r dev_requirements.txt
