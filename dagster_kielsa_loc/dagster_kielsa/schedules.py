@@ -70,7 +70,7 @@ knime_workflows_all_downstream_job_schedule = ScheduleDefinition(
     job=knime_workflows_all_downstream_job,
     default_status=get_for_current_env({"local":DefaultScheduleStatus.STOPPED
                                         ,"dev":DefaultScheduleStatus.RUNNING
-                                        ,"prd":DefaultScheduleStatus.STOPPED}),
+                                        ,"prd":DefaultScheduleStatus.RUNNING}),
 
 )
 
