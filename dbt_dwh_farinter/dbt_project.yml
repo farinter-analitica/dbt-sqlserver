@@ -49,6 +49,7 @@ models:
         +database: "DL_FARINTER"
        
     dwh_kielsa:
+      +tags: ["dagster_kielsa_gf"]
 #      mart_finanzas:
 #        +group: "dbt_dwh_kielsa_mart_finanzas"
       mart_datos_maestros:
