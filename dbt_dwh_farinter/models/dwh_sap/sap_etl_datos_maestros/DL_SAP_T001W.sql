@@ -6,6 +6,8 @@
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
     pre_hook=[
       "SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
             ],
@@ -87,11 +89,11 @@ SELECT ISNULL(CAST(A.[WERKS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [WE
     , ISNULL(CAST(S.[BUKRS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [BUKRS]  --  -Código de empresa-Check: -Datatype:CHAR-Len:(4,0)
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-FROM {{ var('linked_server') }}.{{ source('SAPPRD', 'T001W')}} A
-INNER JOIN {{ var('linked_server') }}.{{ source('SAPPRD', 'T001K')}} K WITH (NOLOCK)
+FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001W')}} A
+INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001K')}} K WITH (NOLOCK)
   ON K.MANDT = A.MANDT
     AND K.BWKEY = A.BWKEY
-INNER JOIN {{ var('linked_server') }}.{{ source('SAPPRD', 'T001')}} S WITH (NOLOCK)
+INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001')}} S WITH (NOLOCK)
   ON S.MANDT = K.MANDT
     AND S.BUKRS = K.BUKRS
 WHERE S.MANDT = '300'

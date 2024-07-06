@@ -12,6 +12,8 @@
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
       "{{ dwh_farinter_remove_incremental_temp_table() }}",
       "{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",

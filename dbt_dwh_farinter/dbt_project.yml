@@ -56,6 +56,11 @@ models:
         +meta:
             dagster:
                 group: "dbt_dwh_kielsa_mart_datos_maestros"
+      mart_kpp:
+        +group: 'dbt_dwh_kielsa_mart_kpp'
+        +meta:
+            dagster:
+                group: 'dbt_dwh_kielsa_mart_kpp'
 
 
 sources:
@@ -63,6 +68,8 @@ sources:
     dwh_kielsa:
       mart_datos_maestros:
         +group: 'ldcom_etl_dwh'
+      mart_kpp:
+        +group: 'dbt_dwh_kielsa_mart_kpp'
     dwh_sap:
       mart_finanzas:
         +group: 'sap_etl_dwh'
@@ -78,7 +85,8 @@ sources:
 
 
 vars:
-  linked_server: SAPPRD
+  P_SAPPRD_LS: SAPPRD #Linked server de SAP PRD
+  P_SQLLDSUBS_LS: REPLICASLD #Linked server de Replicas de KIelsa, SITEPLUS y otros
 
 
 

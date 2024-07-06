@@ -29,10 +29,10 @@
         ISNULL(CAST(0 AS {{column.data_type}}),'')
     {%- elif column.data_type|lower in ["timestamp", "timestamp_ntz", "timestamp_ltz", "date", "datetime", "datetime2", "datetimeoffset"] and 
             "fecha_carga" not in column.name|lower and "fecha_actualizado" not in column.name|lower %}
-        ISNULL(CAST('1900-01-01' AS {{column.data_type}}),'')
+        ISNULL(CAST('1900-01-01' AS {{column.data_type}}),'1900-01-01')
     {%- elif column.data_type|lower in ["timestamp", "timestamp_ntz", "timestamp_ltz", "date", "datetime", "datetime2", "datetimeoffset"] and 
             ("fecha_carga" in column.name|lower or "fecha_actualizado" in column.name|lower) %}
-        ISNULL(CAST(current_timestamp AS {{column.data_type}}),'')
+        ISNULL(CAST(current_timestamp AS {{column.data_type}}),'1900-01-01')
     {%- elif column.data_type|lower == "boolean"  or column.data_type|lower == "bit"  %}
         ISNULL(CAST(0 AS {{column.data_type}}),'')
     {%- else %}
@@ -47,10 +47,23 @@
 
 
 {%- macro dwh_farinter_create_dummy_data(unique_key, is_incremental=is_incremental(), show_info=False) %}
-{%- if not is_incremental %}
     {%- set predicates = [] %}
-    {%- do log("Entering dwh_farinter_create_dummy_data macro", info=show_info) %}
-
+    {%- set all_columns_list_base_type = adapter.get_columns_in_relation(this) %}
+    {%- set merge_update_columns = config.get('merge_update_columns') -%}
+    {%- set merge_exclude_columns = config.get('merge_exclude_columns') -%}
+    {%- set merge_check_diff_exclude_columns = config.get('merge_check_diff_exclude_columns') -%}
+    {# set update_columns = get_merge_update_columns(merge_update_columns, merge_exclude_columns, dest_columns=all_columns_list_base_type) #}
+    {%- if merge_exclude_columns -%}
+        {%- set update_columns = [] -%}
+        {%- for column in all_columns_list_base_type -%}
+        {% if column.column | lower not in merge_exclude_columns | map("lower") | list %}
+            {%- do update_columns.append(column) -%}
+        {% endif %}
+        {%- endfor -%}
+    {%- else -%}
+        {%- set update_columns = all_columns_list_base_type -%}
+    {%- endif -%}
+    {%- set unique_key = config.require('unique_key') -%}
     {%- if unique_key %}
         {%- do log("Unique key is defined: " ~ unique_key, info=show_info) %}
         {%- if unique_key is sequence and unique_key is not mapping and unique_key is not string %}
@@ -70,42 +83,42 @@
         {%- do log("Unique key is not defined, adding FALSE predicate", info=show_info) %}
     {%- endif %}
         ;
-    {%- set all_columns = adapter.get_columns_in_relation(this) %}
-    {%- if all_columns %}
-        {%- do log("All columns in relation: " ~ all_columns, info=show_info) %}
+    {%- set update_columns = update_columns if update_columns else all_columns_list_base_type %}
+    {%- if all_columns_list_base_type %}
+        {%- do log("All columns in relation: " ~ all_columns_list_base_type, info=show_info) %}
         merge into {{ this }} dbtTARGET
         using (select
-            {%- for column in all_columns %}
+            {%- for column in all_columns_list_base_type %}
                 {%- if not loop.first %},{%- endif -%}
                 {{ dwh_farinter_get_default_dummy_value(column) }} as {{ column.name }}
             {%- endfor %}
         ) dbtSOURCE
         on {{ predicates | join(" and ") }}
         when matched and 
-            exists (SELECT {%- for column in all_columns %}
+            exists (SELECT {%- for column in update_columns %}
                 dbtTARGET.{{ column.name }} 
                 {%- if not loop.last %}, {%- endif %}
             {%- endfor %}
             EXCEPT
-            SELECT {%- for column in all_columns %}
+            SELECT {%- for column in update_columns %}
                 dbtSOURCE.{{ column.name }} 
                 {%- if not loop.last %}, {%- endif %}
             {%- endfor %}
             ) 
         then update set
-            {%- for column in all_columns %}
+            {%- for column in update_columns %}
                 {%- if not loop.first %},{%- endif %}
                 dbtTARGET.{{ column.name }} = dbtSOURCE.{{ column.name }}
             {%- endfor %}
         when not matched then
         insert (
-            {%- for column in all_columns %}
+            {%- for column in all_columns_list_base_type %}
                 {%- if not loop.first %},{%- endif %}
                 {{ column.name }}
             {%- endfor %}
         )
         values (
-            {%- for column in all_columns %}
+            {%- for column in all_columns_list_base_type %}
                 {%- if not loop.first %},{%- endif %}
                 dbtSOURCE.{{ column.name }}
             {%- endfor %}
@@ -114,9 +127,6 @@
     {%- else %}
         {%- do log("No columns found in relation", info=show_info) %}
     {%- endif %}
-{%- else %}
-    {%- do log("Incremental mode is enabled, skipping dummy data creation", info=show_info) %}
-{%- endif %}
 {%- endmacro %}
 
 
@@ -129,11 +139,11 @@
 UNION ALL
     {%- set predicates = [] %}
     {%- do log("Entering dwh_farinter_create_dummy_data macro", info=show_info) %}
-    {%- set all_columns = adapter.get_columns_in_relation(this) %}
-    {%- if all_columns %}
-        {%- do log("All columns in relation: " ~ all_columns, info=show_info) %}
+    {%- set all_columns_list_base_type = adapter.get_columns_in_relation(this) %}
+    {%- if all_columns_list_base_type %}
+        {%- do log("All columns in relation: " ~ all_columns_list_base_type, info=show_info) %}
         select
-        {%- for column in all_columns -%}
+        {%- for column in all_columns_list_base_type -%}
             {%- if not loop.first %},{%- endif -%}
             {{ dwh_farinter_get_default_dummy_value(column) }} as {{ column.name }}
         {%- endfor -%}  

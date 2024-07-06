@@ -6,6 +6,8 @@
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
     pre_hook=[
       "SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
             ],
@@ -45,8 +47,8 @@ SELECT ISNULL(CAST(A.[BWKEY] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [BW
     , ISNULL(CAST(A.[EFREJ] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [EFREJ]  --  -Inicio validez p.costes indirect.d.adquisic.sobre dif.d.prec-Check: -Datatype:NUMC-Len:(4,0)
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-FROM {{ var('linked_server') }}.{{ source('SAPPRD', 'T001K')}} A
-INNER JOIN {{ var('linked_server') }}.{{ source('SAPPRD', 'T001')}} S WITH (NOLOCK)
+FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001K')}} A
+INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001')}} S WITH (NOLOCK)
   ON S.MANDT = A.MANDT
     AND S.BUKRS = A.BUKRS
 WHERE S.MANDT = '300'

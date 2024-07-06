@@ -6,6 +6,8 @@
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
     pre_hook=[
       "SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
             ],
@@ -64,7 +66,7 @@ SELECT ISNULL(CAST(A.[MATNR] COLLATE DATABASE_DEFAULT AS VARCHAR(18)),'')  AS [M
     , ISNULL(CAST(A.[BATCH_TYPE] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [BATCH_TYPE]  --  -Type of Batch-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-FROM {{ var('linked_server') }}.{{ source('SAPPRD', 'MCH1')}} A
+FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'MCH1')}} A
 WHERE A.MANDT = '300'
 {% if is_incremental() %}
   AND (

@@ -7,7 +7,9 @@
     {%- set dest_cols_csv = get_quoted_csv(dest_columns | map(attribute="name")) -%}
     {%- set merge_update_columns = config.get('merge_update_columns') -%}
     {%- set merge_exclude_columns = config.get('merge_exclude_columns') -%}
+    {%- set merge_check_diff_exclude_columns = config.get('merge_check_diff_exclude_columns') -%}
     {%- set update_columns = get_merge_update_columns(merge_update_columns, merge_exclude_columns, dest_columns) -%}
+    {%- set if_exists_diff_columns = get_merge_update_columns(merge_update_columns, merge_check_diff_exclude_columns, dest_columns) -%}
     {%- set sql_header = config.get('sql_header', none) -%}
 
     {% if unique_key %}
@@ -36,14 +38,14 @@
 
     {% if unique_key %}
     when matched 
-      and exists (SELECT {% for column_name in update_columns -%}
+      and exists (SELECT {% for column_name in if_exists_diff_columns -%}
             DBT_INTERNAL_DEST.{{ column_name }} 
-            {%- if not loop.last %}, {%- endif %}
+            {%- if not loop.last and column_name not in merge_check_diff_exclude_columns %}, {%- endif %}
         {%- endfor %}
         EXCEPT
-        SELECT {% for column_name in update_columns -%}
+        SELECT {% for column_name in if_exists_diff_columns -%}
             DBT_INTERNAL_SOURCE.{{ column_name }} 
-            {%- if not loop.last %}, {%- endif %}
+            {%- if not loop.last and column_name not in merge_check_diff_exclude_columns %}, {%- endif %}
         {%- endfor %}
         )
     then update set

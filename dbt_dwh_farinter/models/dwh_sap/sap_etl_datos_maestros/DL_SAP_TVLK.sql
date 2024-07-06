@@ -7,6 +7,8 @@
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
     full_refresh= true,
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
     pre_hook=[
       "SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
             ],
@@ -90,7 +92,7 @@ SELECT ISNULL(CAST(A.[LFART] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [LF
     , ISNULL(CAST(A.[MSR_FKARA] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [MSR_FKARA]  --  -Default Billing Type-Check:TVFK-Datatype:CHAR-Len:(4,0)
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
-FROM {{ var('linked_server') }}.{{ source('SAPPRD', 'TVLK')}} A
+FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'TVLK')}} A
 WHERE A.MANDT = '300'
 
 
