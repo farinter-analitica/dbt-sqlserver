@@ -8,9 +8,12 @@
 {{ 
     config(
 		as_columnstore=false,
-		materialized="table",
-		unique_key=unique_key_list,
+		materialized="incremental",
+		incremental_strategy="farinter_merge",
 		on_schema_change="sync_all_columns",
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
+		unique_key=unique_key_list,
 		post_hook=[
       "{{ dwh_farinter_remove_incremental_temp_table() }}",
       "{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
@@ -112,6 +115,8 @@ SELECT
 		,CASE WHEN ARTCALC.Bit_Cronico = 1 THEN 'CRONICO' ELSE NULL END
 		, CASE WHEN ARTCALC.Bit_Recomendacion = 1 THEN 'RECOMENDADO' ELSE NULL END)
 	 AS Etiquetas
+    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }} AS A
 LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Categoria_Articulo')}} AS Cat
 	ON A.Emp_Id = Cat.Emp_Id AND A.Categoria_Id = Cat.Categoria_Id

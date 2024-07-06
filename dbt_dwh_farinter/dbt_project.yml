@@ -40,11 +40,17 @@ models:
     dagster_example:
       +group: "dbt_second_group_test"
     dwh_sap:
+      +tags: ["dagster_sap_gf"]
       mart_datos_maestros:
         +group: "dbt_dwh_sap_mart_datos_maestros"
       mart_finanzas:
         +group: "dbt_dwh_sap_mart_finanzas"
+      sap_etl_datos_maestros:
+        +group: "sap_etl_dwh"
+        +database: "DL_FARINTER"
+       
     dwh_kielsa:
+      +tags: ["dagster_kielsa_gf"]
 #      mart_finanzas:
 #        +group: "dbt_dwh_kielsa_mart_finanzas"
       mart_datos_maestros:
@@ -52,16 +58,27 @@ models:
         +meta:
             dagster:
                 group: "dbt_dwh_kielsa_mart_datos_maestros"
+      mart_kpp:
+        +group: 'dbt_dwh_kielsa_mart_kpp'
+        +meta:
+            dagster:
+                group: 'dbt_dwh_kielsa_mart_kpp'
 
 
 sources:
   dbt_dwh_farinter:
     dwh_kielsa:
+      +tags: ["dagster_kielsa_gf"]
       mart_datos_maestros:
         +group: 'ldcom_etl_dwh'
+      mart_kpp:
+        +group: 'dbt_dwh_kielsa_mart_kpp'
     dwh_sap:
+      +tags: ["dagster_sap_gf"]
       mart_finanzas:
         +group: 'sap_etl_dwh'
+      sap_etl_datos_maestros:
+        +group: 'sap_prd'
 #    marts:
 #      +group: "marts_group"
 #      mart1:
@@ -69,3 +86,11 @@ sources:
 #      mart2:
 #       +group: "mart2_group"
 #  +post_hook:    "{{dwh_farinter_create_primary_key(this,columns=['Sociedad_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}"
+
+
+vars:
+  P_SAPPRD_LS: SAPPRD #Linked server de SAP PRD
+  P_SQLLDSUBS_LS: REPLICASLD #Linked server de Replicas de KIelsa, SITEPLUS y otros
+
+
+

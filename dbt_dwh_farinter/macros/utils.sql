@@ -29,10 +29,10 @@
         ISNULL(CAST(0 AS {{column.data_type}}),'')
     {%- elif column.data_type|lower in ["timestamp", "timestamp_ntz", "timestamp_ltz", "date", "datetime", "datetime2", "datetimeoffset"] and 
             "fecha_carga" not in column.name|lower and "fecha_actualizado" not in column.name|lower %}
-        ISNULL(CAST('1900-01-01' AS {{column.data_type}}),'')
+        ISNULL(CAST('1900-01-01' AS {{column.data_type}}),'1900-01-01')
     {%- elif column.data_type|lower in ["timestamp", "timestamp_ntz", "timestamp_ltz", "date", "datetime", "datetime2", "datetimeoffset"] and 
             ("fecha_carga" in column.name|lower or "fecha_actualizado" in column.name|lower) %}
-        ISNULL(CAST(current_timestamp AS {{column.data_type}}),'')
+        ISNULL(CAST(current_timestamp AS {{column.data_type}}),'1900-01-01')
     {%- elif column.data_type|lower == "boolean"  or column.data_type|lower == "bit"  %}
         ISNULL(CAST(0 AS {{column.data_type}}),'')
     {%- else %}
@@ -47,10 +47,23 @@
 
 
 {%- macro dwh_farinter_create_dummy_data(unique_key, is_incremental=is_incremental(), show_info=False) %}
-{%- if not is_incremental %}
     {%- set predicates = [] %}
-    {%- do log("Entering dwh_farinter_create_dummy_data macro", info=show_info) %}
-
+    {%- set all_columns_list_base_type = adapter.get_columns_in_relation(this) %}
+    {%- set merge_update_columns = config.get('merge_update_columns') -%}
+    {%- set merge_exclude_columns = config.get('merge_exclude_columns') -%}
+    {%- set merge_check_diff_exclude_columns = config.get('merge_check_diff_exclude_columns') -%}
+    {# set update_columns = get_merge_update_columns(merge_update_columns, merge_exclude_columns, dest_columns=all_columns_list_base_type) #}
+    {%- if merge_exclude_columns -%}
+        {%- set update_columns = [] -%}
+        {%- for column in all_columns_list_base_type -%}
+        {% if column.column | lower not in merge_exclude_columns | map("lower") | list %}
+            {%- do update_columns.append(column) -%}
+        {% endif %}
+        {%- endfor -%}
+    {%- else -%}
+        {%- set update_columns = all_columns_list_base_type -%}
+    {%- endif -%}
+    {%- set unique_key = config.require('unique_key') -%}
     {%- if unique_key %}
         {%- do log("Unique key is defined: " ~ unique_key, info=show_info) %}
         {%- if unique_key is sequence and unique_key is not mapping and unique_key is not string %}
@@ -70,42 +83,42 @@
         {%- do log("Unique key is not defined, adding FALSE predicate", info=show_info) %}
     {%- endif %}
         ;
-    {%- set all_columns = adapter.get_columns_in_relation(this) %}
-    {%- if all_columns %}
-        {%- do log("All columns in relation: " ~ all_columns, info=show_info) %}
+    {%- set update_columns = update_columns if update_columns else all_columns_list_base_type %}
+    {%- if all_columns_list_base_type %}
+        {%- do log("All columns in relation: " ~ all_columns_list_base_type, info=show_info) %}
         merge into {{ this }} dbtTARGET
         using (select
-            {%- for column in all_columns %}
+            {%- for column in all_columns_list_base_type %}
                 {%- if not loop.first %},{%- endif -%}
                 {{ dwh_farinter_get_default_dummy_value(column) }} as {{ column.name }}
             {%- endfor %}
         ) dbtSOURCE
         on {{ predicates | join(" and ") }}
         when matched and 
-            exists (SELECT {%- for column in all_columns %}
+            exists (SELECT {%- for column in update_columns %}
                 dbtTARGET.{{ column.name }} 
                 {%- if not loop.last %}, {%- endif %}
             {%- endfor %}
             EXCEPT
-            SELECT {%- for column in all_columns %}
+            SELECT {%- for column in update_columns %}
                 dbtSOURCE.{{ column.name }} 
                 {%- if not loop.last %}, {%- endif %}
             {%- endfor %}
             ) 
         then update set
-            {%- for column in all_columns %}
+            {%- for column in update_columns %}
                 {%- if not loop.first %},{%- endif %}
                 dbtTARGET.{{ column.name }} = dbtSOURCE.{{ column.name }}
             {%- endfor %}
         when not matched then
         insert (
-            {%- for column in all_columns %}
+            {%- for column in all_columns_list_base_type %}
                 {%- if not loop.first %},{%- endif %}
                 {{ column.name }}
             {%- endfor %}
         )
         values (
-            {%- for column in all_columns %}
+            {%- for column in all_columns_list_base_type %}
                 {%- if not loop.first %},{%- endif %}
                 dbtSOURCE.{{ column.name }}
             {%- endfor %}
@@ -114,9 +127,6 @@
     {%- else %}
         {%- do log("No columns found in relation", info=show_info) %}
     {%- endif %}
-{%- else %}
-    {%- do log("Incremental mode is enabled, skipping dummy data creation", info=show_info) %}
-{%- endif %}
 {%- endmacro %}
 
 
@@ -129,11 +139,11 @@
 UNION ALL
     {%- set predicates = [] %}
     {%- do log("Entering dwh_farinter_create_dummy_data macro", info=show_info) %}
-    {%- set all_columns = adapter.get_columns_in_relation(this) %}
-    {%- if all_columns %}
-        {%- do log("All columns in relation: " ~ all_columns, info=show_info) %}
+    {%- set all_columns_list_base_type = adapter.get_columns_in_relation(this) %}
+    {%- if all_columns_list_base_type %}
+        {%- do log("All columns in relation: " ~ all_columns_list_base_type, info=show_info) %}
         select
-        {%- for column in all_columns -%}
+        {%- for column in all_columns_list_base_type -%}
             {%- if not loop.first %},{%- endif -%}
             {{ dwh_farinter_get_default_dummy_value(column) }} as {{ column.name }}
         {%- endfor -%}  
@@ -147,42 +157,103 @@ UNION ALL
 
 
 
-{% macro run_single_value_query_and_return(relation=this,query='',relation_not_found_value='NULL') %}
-    {%- if column_name == '' -%}
-        {% do log("Query not specified.", error=True) %}
+{% macro run_single_value_query_on_relation_and_return(relation=this,query='',relation_not_found_value='NULL') %}
+    {% do log("Entering run_single_value_query_on_relation_and_return macro", info=True) %}
+    {%- if query == '' -%}
+        {% do log("Query not specified.", info=True) %}
         {% do return("NULL") %}
     {%- endif %}
     {%- set query_check %}
-        USE [{{ relation.database }}];
-        SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
+            USE [{{ relation.database }}];
+            SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
     {%- endset %}	
-    {% do log("Running query: "  ~ query_check, info=False)         %}
-    {%- set result = run_query(query_to_run) %}
-    {%- if execute and result is not none and 'columns' in result and result.columns|length > 0  %}
-    {# Execute only on runtime Return the first column #}
-        {%- set result_list = result.columns[0].values() | default([0]) %}
+    {% do log("Running query: "  ~ query_check, info=True)         %}
+    {%- if execute  %}
+        {%- set results = run_query(query_check) %}
+        {% if results|length > 0 %}
+        {# Execute only on runtime Return the first column #}
+            {% print(results) %}
+            {%- set results_list = results.columns[0] | default([0]) %}
+            {% do log("Something found", info=True) %}
+        {%- else %}
+            {% do log("Empty result", info=True) %}
+            {%- set results_list = [0] %}
+        {%- endif %}
     {%- else %}
-        {%- set result_list = [0] %}
+        {%- set results_list = [0] %}
+        {% do log("Not executed", info=True) %}
     {%- endif %}
-    {%- set value = result_list[0]  %}
-    {% if value != 1 %}
+    {%- set value = results_list[0]  %}
+    {% if value|int != 1 %}
+        {% do log("Relation not found", info=True) %}
         {% do return(relation_not_found_value) %}
     {% endif %}
 
     {%- set query_to_run %}
         USE [{{ relation.database }}];
-        query
+        {{query}};
     {%- endset %}
-    {% do log("Running query: " ~ query_to_run, info=False)         %}
-    {%- set result = run_query(query_to_run) %}
-    {%- if execute and result is not none and 'columns' in result and result.columns|length > 0 %}
-    {# Execute only on runtime Return the first column #}
-        {%- set result_list = result.columns[0].values() | default([0]) %}
+    {% do log("Running query: " ~ query_to_run, info=True)         %}
+    {%- if execute  %}
+        {%- set results = run_query(query_to_run) %}
+        {%- if results|length > 0 %}
+        {# Execute only on runtime Return the first column #}
+            {%- set results_list = results.columns[0] %}
+            {% do log("Something found" ~ results_list, info=True) %}
+        {%- else %}
+            {%- set results_list = [relation_not_found_value] %}
+        {%- endif %}
+        {%- set value = results_list[0]  %}
     {%- else %}
-        {%- set result_list = [0] %}
+        {%- set value = relation_not_found_value %}
     {%- endif %}
-    {%- set value = result_list[0]  %}
 
     {% do return(value) %}
+
+{% endmacro %}
+
+{% macro run_execute_query_on_relation_without_return(relation=this,query='') %}
+    {% do log("Entering run_execute_query_on_relation_without_return macro", info=True) %}
+    {%- if query == '' -%}
+        {% do log("Query not specified.", info=True) %}
+    {%- endif %}
+    {%- set query_check %}
+        USE [{{ relation.database }}];
+        SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
+    {%- endset %}	
+    {% do log("Running query: "  ~ query_check, info=True)         %}
+    {%- if execute  %}
+    {%- set results = run_query(query_check) %}
+        {% if results|length > 0 %}
+        {# Execute only on runtime Return the first column #}
+            {%- set results_list = results.columns[0] | default([0]) %}
+            {% do log("Something found", info=True) %}
+        {%- else %}
+            {% do log("Empty result", info=True) %}
+            {%- set results_list = [0] %}
+        {%- endif %}
+    {%- else %}
+        {%- set results_list = [0] %}
+        {% do log("Not executed", info=True) %}
+    {%- endif %}
+    {%- set value = results_list[0]  %}
+    {% if value|int != 1 %}
+        {% do log("Relation not found", info=True) %}
+        {% do return %}
+    {% else %}
+
+        {%- set query_to_run %}
+            USE [{{ relation.database }}];
+            {{query}}
+        {%- endset %}
+        {% if execute  %}
+            {% do log("Running query: " ~ query_to_run, info=True) %}
+            {%- do run_query(query_to_run) %}
+            {% do log("Query executed", info=True) %}
+        {% else %}
+            {% do log("Not executed", info=True) %}
+        {% endif %}
+
+    {% endif %}
 
 {% endmacro %}

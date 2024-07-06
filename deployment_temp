@@ -1,0 +1,20 @@
+BASH
+pip uninstall dagster_sap dagster_kielsa
+
+pip -V
+
+
+pip install --force-reinstall -e dagster_shared_gf --config-settings editable_mode=compat
+pip install -e dagster_sap_gf --config-settings editable_mode=compat
+pip install -e dagster_kielsa_gf --config-settings editable_mode=compat
+pip install -r dev_requirements.txt
+
+restart service
+su analiticasu
+pass
+systemctl status dagster_<prd/dev>
+systemctl status dagster_prd
+systemctl status dagster_dev
+sudo systemctl restart dagster_<prd/dev>
+sudo systemctl restart dagster_prd
+sudo systemctl restart dagster_dev

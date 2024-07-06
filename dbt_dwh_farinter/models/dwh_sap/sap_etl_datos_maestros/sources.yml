@@ -1,0 +1,19 @@
+sources:
+  - name: SAPPRD
+    description: "Base de PRD SAP, usar con variable de linked server"
+    database: PRD
+    schema: prd
+    tables:
+      - name: T001
+      - name: MARA
+      - name: MARC
+      - name: MARD
+      - name: T001W
+      - name: T001L
+      - name: T001K
+      - name: T006A
+      - name: TVLK
+      - name: MCHB
+      - name: MCHA
+      - name: MCH1
+      - name: MBEW
