@@ -1,6 +1,6 @@
 from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext, Failure, EnvVar, AssetKey
 from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
-from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.shared_functions import get_for_current_env, search_for_word_in_text
 from dagster_shared_gf.shared_variables import env_str
 from dagster_shared_gf.load_env_run import load_env_vars
 import subprocess
@@ -38,7 +38,6 @@ def filter_logs_std(logs):
         if not any(pattern.search(line) for pattern in exclude_patterns):
             filtered_lines.append(" ".join(line.split()))
     return "\n".join(filtered_lines)
-
 
 # Operation to fetch workflows from the database
 @op(required_resource_keys={"db_analitica_etl"})
@@ -90,8 +89,15 @@ def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_cont
             result = subprocess.check_output(command, input=password.encode('utf-8'), stderr=subprocess.STDOUT)
             current_context.log.info(filter_logs_std(result.decode('utf-8')))
         except subprocess.CalledProcessError as e:
-            current_context.log.error(f"Workflow execution failed: {filter_logs_std(e.output.decode('utf-8'))}")
-            raise Failure("Workflow execution failed.")
+            filtered_logs:str = filter_logs_std(e.output.decode('utf-8'))
+            #check if it really contains error on the message
+            if search_for_word_in_text(text=filtered_logs, word="ERROR"):
+                current_context.log.error(f"Workflow execution failed: {filtered_logs}")
+                e.__traceback__ = None
+                raise Failure("Workflow execution failed.")
+            else:
+                current_context.log.warn(f"Workflow execution aparently succeeded even with this response: {filtered_logs}")
+
     else:
         current_context.log.info(f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments.")
     return
@@ -206,3 +212,18 @@ GRANT USAGE ON SCHEMA knime TO dagster_instance_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA knime TO dagster_instance_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA knime GRANT SELECT ON TABLES TO dagster_instance_role;
 """
+
+if __name__ == "__main__":
+    test_string='this is a erROr string'
+    if "ERROR" in test_string:
+        print("it contains error simple")
+    else:
+        print("it does not contain error simple")
+
+    if search_for_word_in_text(test_string,"ERROR"):
+        print("it contains error")
+    else:
+        print("it does not contain error")
+    #tests for search_for_word_in_text
+    assert search_for_word_in_text(test_string,"ERROR") is not None
+    assert search_for_word_in_text(test_string,"esrror") is None

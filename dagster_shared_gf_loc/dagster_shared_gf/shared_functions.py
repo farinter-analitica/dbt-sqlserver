@@ -6,6 +6,7 @@ from typing import List, Type, Callable
 from dagster import config_from_files
 from dagster_graphql import DagsterGraphQLClient
 from dotenv import load_dotenv
+import re
 
 # Function to filter functions by keyword
 def get_all_instances_of_class(class_type_list):
@@ -179,3 +180,5 @@ def get_for_current_env(dict: dict[str:any] = {"dev" : "any_return_for_dev", "pr
     """	
     return dict.get(env, dict.get("dev"))
     
+def search_for_word_in_text(text, word) -> re.Match:
+    return re.search(rf'\b{word}\b', text, re.IGNORECASE)
