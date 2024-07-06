@@ -27,7 +27,6 @@ for asset in all_assets:
     all_asset_keys.update(asset.keys)
 
 dbt_sources_assets:list = [source_asset for source_asset in dbt_sources.source_assets if source_asset.key not in all_asset_keys]
-dbt_sources_assets:list = [] if dbt_sources_assets is None else dbt_sources_assets
 
 from dagster_kielsa_gf.assets import dbt_dwh_kielsa
 from dagster_shared_gf import all_shared_resources
