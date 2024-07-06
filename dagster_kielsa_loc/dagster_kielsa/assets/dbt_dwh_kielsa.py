@@ -5,3 +5,4 @@ from dagster_shared_gf.resources.dbt_resources import dbt_manifest
 @dbt_assets(manifest=dbt_manifest, select="tag:dagster_kielsa_gf")
 def dbt_dwh_kielsa_mart_datos_maestros_assets(context: AssetExecutionContext, dbt_resource: DbtCliResource):
     yield from dbt_resource.cli(["build"], context=context).stream()
+
