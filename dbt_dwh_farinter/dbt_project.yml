@@ -40,6 +40,7 @@ models:
     dagster_example:
       +group: "dbt_second_group_test"
     dwh_sap:
+      +tags: ["dagster_sap_gf"]
       mart_datos_maestros:
         +group: "dbt_dwh_sap_mart_datos_maestros"
       mart_finanzas:
@@ -67,11 +68,13 @@ models:
 sources:
   dbt_dwh_farinter:
     dwh_kielsa:
+      +tags: ["dagster_kielsa_gf"]
       mart_datos_maestros:
         +group: 'ldcom_etl_dwh'
       mart_kpp:
         +group: 'dbt_dwh_kielsa_mart_kpp'
     dwh_sap:
+      +tags: ["dagster_sap_gf"]
       mart_finanzas:
         +group: 'sap_etl_dwh'
       sap_etl_datos_maestros:

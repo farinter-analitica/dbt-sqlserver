@@ -1,7 +1,7 @@
 from dagster import define_asset_job
 from dagster import asset, AssetSelection, RunConfig, AssetKey
 from dagster_shared_gf.shared_functions import get_variables_created_by_function
-from .assets.dbt_sap_etl_dwh import MyDbtConfig
+from .assets.dbt_dwh_sap import MyDbtConfig
 
 # Define the job and add to definitions on main __init__.py
 
