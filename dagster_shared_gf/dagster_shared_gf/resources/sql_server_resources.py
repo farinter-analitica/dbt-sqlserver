@@ -66,9 +66,9 @@ class SQLServerResource(ConfigurableResource):
             f"PWD={self.password};"
             f"TrustServerCertificate={self.trust_server_certificate};"
         )
-        conn = pyodbc.connect(connection_string, autocommit=autocommit)
-        
+        conn = None
         try:
+            conn = pyodbc.connect(connection_string, autocommit=autocommit)
             yield conn
         finally:
             if conn:
@@ -166,16 +166,17 @@ class SQLServerResource(ConfigurableResource):
         """
         try:
             if connection is None:
-                with self.get_connection(database=database, autocommit = True) as conn:
-                    cursor = conn.cursor()
+                with self.get_connection(database=database, autocommit = True) as new_conn:
+                    cursor = new_conn.cursor()
                     cursor.execute(query)
-                    if not conn.autocommit:
-                        conn.commit()
+                    if not new_conn.autocommit:
+                        new_conn.commit()
             else:
-                cursor = conn.cursor()
+                existing_conn = connection
+                cursor = existing_conn.cursor()
                 cursor.execute(query)
-                if not conn.autocommit:
-                    conn.commit()
+                if not existing_conn.autocommit:
+                    existing_conn.commit()
                 
         except pyodbc.Error as e:
             # Add proper logging here

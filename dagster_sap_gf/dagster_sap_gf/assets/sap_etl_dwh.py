@@ -127,4 +127,5 @@ if __name__ == '__main__':
     from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
     from dagster import build_asset_context
     ##
-    print(generate_store_procedure_assets())
+    #print(generate_store_procedure_assets())
+    DL_SAP_T001(context=build_asset_context(), dwh_farinter_dl=dwh_farinter_dl)
