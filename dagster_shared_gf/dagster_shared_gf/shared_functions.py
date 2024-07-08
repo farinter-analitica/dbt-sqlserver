@@ -10,7 +10,6 @@ from dagster_graphql import DagsterGraphQLClient
 from dotenv import load_dotenv
 import re
 from trycast import isassignable
-from beartype.door import is_bearable
 
 def get_job_status(job_name: str) -> str:
     # Define the GraphQL query to get the status of a specific job
