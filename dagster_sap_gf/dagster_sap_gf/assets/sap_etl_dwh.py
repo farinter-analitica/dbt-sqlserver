@@ -124,7 +124,7 @@ store_procedure_assets: List[AssetsDefinition] = generate_hourly_store_procedure
 @asset(key_prefix= ["DL_FARINTER"]
  #       , name="sp_start_job_sap_cadahora"
         , tags= tags_repo.Replicas.tag | tags_repo.HourlyUnique.tag #replicas_tag | hourly_unique_tag
-        , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_dwh_sap.dbt_sap_etl_dwh_assets])
+        , deps=store_procedure_assets+list([DL_SAP_T001])+list()
         , compute_kind="sqlserver"
         )
 def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
@@ -175,15 +175,14 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
 
 #sp_start_job_sap_diario.with_attributes(group_names_by_key={list(sp_start_job_sap_diario.keys())[-1]: "sap_etl_dwh"})
 #all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") # no se puede usar ya que importamos otros assets desde assets.py
-all_assets_without_group = get_all_instances_of_class([AssetsDefinition]) + store_procedure_assets
+#all_assets_without_group = get_all_instances_of_class([AssetsDefinition]) + store_procedure_assets
 #add group_name="sap_etl_dwh" to all_assets
 #all_assets = [*map(lambda asset: asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}), all_assets)]
 #list comprehension equivalent
-print(all_assets_without_group)
-all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
-
-
-
+#print(all_assets_without_group)
+#como agregar atributos de grupo por ejemplo:
+#all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
+all_assets = load_assets_from_current_module()
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
@@ -212,10 +211,10 @@ if __name__ == '__main__':
     context = build_asset_context()
     #env_str='PRD'
     #DL_SAP_BSEG(context, dwh_farinter_dl)
-    print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
-    print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
-    print("type " +  str(type(all_assets_hourly_freshness_checks)))
-    print(sp_start_job_sap_diario.tags_by_key[list(sp_start_job_sap_diario.keys)[-1]])
-    print("checks: " + str(all_asset_checks))
-
+    # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
+    # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
+    # print("type " +  str(type(all_assets_hourly_freshness_checks)))
+    # print(sp_start_job_sap_diario.tags_by_key[list(sp_start_job_sap_diario.keys)[-1]])
+    # print("checks: " + str(all_asset_checks))
+    print(all_assets)
     #print("checks fres: " + str(all_asset_freshness_checks))

@@ -1,4 +1,4 @@
-from dagster import AssetExecutionContext, Config, AssetsDefinition, build_last_update_freshness_checks, load_asset_checks_from_current_module, AssetChecksDefinition
+from dagster import AssetExecutionContext, Config, AssetsDefinition, build_last_update_freshness_checks, load_asset_checks_from_current_module, AssetChecksDefinition, load_assets_from_current_module
 from pydantic import Field
 from dagster_dbt import DbtCliResource, dbt_assets
 from datetime import timedelta
@@ -24,7 +24,7 @@ def dbt_sap_etl_dwh_assets(context: AssetExecutionContext, dbt_resource: DbtCliR
     yield from dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
 
 
-all_assets = get_all_instances_of_class([AssetsDefinition]) 
+all_assets = load_assets_from_current_module()
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
@@ -32,7 +32,7 @@ all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     deadline_cron="0 9 * * 1-6",
 )
 #print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks = build_last_update_freshness_checks(
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
     lower_bound_delta=timedelta(hours=13),
     deadline_cron="0 10-16 * * 1-6",
