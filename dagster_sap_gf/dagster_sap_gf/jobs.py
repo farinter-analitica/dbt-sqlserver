@@ -26,7 +26,9 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(name="dbt_dwh_sap_etl_dw
 sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups("sap_etl_dwh").downstream()
 sap_etl_dwh_all_downstream_assets = sap_etl_dwh_all_downstream_assets - sap_etl_dwh_all_downstream_assets.tag(key="periodo_unico", value="por_hora")
 sap_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="sap_etl_dwh_all_downstream_job"
-                                                            , selection=sap_etl_dwh_all_downstream_assets)
+                                                            , selection=sap_etl_dwh_all_downstream_assets
+                                                            , tags= {"dagster/max_runtime": (4*60*60)} # max 4 hours in seconds, then mark it as failed.
+                                                            )
 
 
 #Definir assets por hora que se extraen de dbt, agregar todos los downstream que tenga la etiqueta por_hora y agregar replicas_sap con la misma etiqueta
@@ -35,7 +37,9 @@ sap_etl_dwh_hourly_all_downstream_assets: AssetSelection =  AssetSelection.asset
     | (AssetSelection.assets(*sap_dbt_etl_dwh_hourly_asset_keys).downstream() & AssetSelection.tag(key="periodo", value="por_hora")) \
     | (AssetSelection.tag(key="replicas_sap", value="true") & AssetSelection.tag(key="periodo", value="por_hora"))
 sap_etl_dwh_hourly_all_downstream_job: define_asset_job = define_asset_job(name="sap_etl_dwh_hourly_all_downstream_job"
-                                                            , selection=sap_etl_dwh_hourly_all_downstream_assets)
+                                                            , selection=sap_etl_dwh_hourly_all_downstream_assets
+                                                            , tags= {"dagster/max_runtime": (50*60)} # max 50 minutes in seconds, then mark it as failed.
+                                                            )
 
 
 dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros_assets"

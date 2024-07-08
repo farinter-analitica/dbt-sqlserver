@@ -1,91 +1,83 @@
-from dataclasses import dataclass, field
-from typing import Mapping
-
-@dataclass
-class TagsRepositoryGF:
+import inspect
+from typing import Any, get_origin, get_args, Sequence, List, get_type_hints, Iterable, Type
+from dagster import AssetChecksDefinition, AssetsDefinition, build_last_update_freshness_checks, asset
+from datetime import timedelta
+from inspect import signature, get_annotations, getmro
+from trycast import isassignable
+from trycast import type_repr
+def get_full_type_info(obj: Any) -> str:
     """
-    Repository for tags.
+    Gets the full typing information of the given object, including origin and type arguments.
 
-    This class provides a way to define and retrieve tags for different purposes.
-    Each tag is represented by a class that inherits from the _base_tag_class.
-    These classes are dynamically generated based on the tags defined in the `tags` dictionary.
+    Args:
+        obj (Any): The object to inspect.
 
-    To get a tag mapping, you can either call the tag class directly, or access the `tag` attribute.
-    For example:
-
-    ```python
-    tags_repo = TagsRepositoryGF()
-    hourly_tag = tags_repo.Hourly()
-    print(hourly_tag.tag)  # prints {"periodo": "por_hora"}
-    print(tags_repo.Hourly.tag)  # also prints {"periodo": "por_hora"}
-    ```
-
-    The `tags` dictionary should be defined in the TagsRepositoryGF class.
+    Returns:
+        str: A string representation of the object's full type information.
     """
-    @dataclass
-    class _base_tag_class:
-        """Base class for all tags"""
-        key: str
-        value: str
-        tag: Mapping[str, str] = field(init=False, default=None)
-
-        def __post_init__(self):
-            self.tag = {self.key: self.value}
-
-        def __new__(cls, *args, **kwargs):
-            instance = super().__new__(cls)
-            instance.key = cls.key
-            instance.value = cls.value
-            instance.tag = {cls.key: cls.value}
-            return instance.tag
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __call__(self):
-            return self.tag
-
-        @classmethod
-        def __init_subclass__(cls, key: str, value: str, **kwargs):
-            super().__init_subclass__(**kwargs)
-            cls.key = key
-            cls.value = value
-            cls.tag = {cls.key: cls.value}
-
-    class Hourly(_base_tag_class, key="periodo", value="por_hora"):
-        """{"periodo": "por_hora"}"""
-
-    class Replicas(_base_tag_class, key="replicas_sap", value="true"):
-        """{"replicas_sap": "true"}"""
-
-    class HourlyUnique(_base_tag_class, key="periodo_unico", value="por_hora"):
-        """{"periodo_unico": "por_hora"}"""
-
-    class Daily(_base_tag_class, key="periodo", value="diario"):
-        """{"periodo": "diario"}"""
-
-    class DailyUnique(_base_tag_class, key="periodo_unico", value="diario"):
-        """{"periodo_unico": "diario"}"""
-
+    def get_type_str(typ: Any) -> str:
+        origin = get_origin(typ)
+        args = get_args(typ)
+        if origin and args:
+            args_str = ', '.join(get_type_str(arg) for arg in args)
+            return f"{origin.__name__}[{args_str}]"
+        elif origin:
+            return origin.__name__
+        return str(typ)
+    
+    def infer_type(obj):
+        if isinstance(obj, list):
+            if len(obj) > 0:
+                element_type = infer_type(obj[0])
+                return List[element_type]
+            else:
+                return List
+        elif isinstance(obj, Sequence) and not isinstance(obj, str):
+            if len(obj) > 0:
+                element_type = infer_type(obj[0])
+                return Sequence[element_type]
+            else:
+                return Sequence
+        else:
+            return type(obj)
+    
+    obj_type = infer_type(obj)
+    return get_type_str(obj_type)
+# Example usage
 if __name__ == "__main__":
-    # Example usage:
-    my_tag: Mapping[str, str] = TagsRepositoryGF.Hourly()
-    print(my_tag)  # Output: {"periodo": "por_hora"}
-    print(TagsRepositoryGF.Hourly.key)
-    my_second_tag: Mapping[str, str] = TagsRepositoryGF.Daily()
-    my_another_tag: Mapping[str, str] = TagsRepositoryGF.HourlyUnique()
-    print(my_tag)  # Output: {"periodo": "por_hora"}
-    all_tags = {**my_tag, **my_another_tag, **my_second_tag}
-    print(all_tags)  # Output: {"periodo": "diario", "periodo_unico": "por_hora"}
-    # Example usage and assertions
-    assert TagsRepositoryGF.Hourly() == {"periodo": "por_hora"}
-    assert TagsRepositoryGF.Replicas() == {"replicas_sap": "true"}
-    assert TagsRepositoryGF.HourlyUnique() == {"periodo_unico": "por_hora"}
-    assert TagsRepositoryGF.Daily() == {"periodo": "diario"}
-    assert TagsRepositoryGF.DailyUnique() == {"periodo_unico": "diario"}
-    assert TagsRepositoryGF.Hourly.key == "periodo"
-    assert TagsRepositoryGF.Hourly.tag == {"periodo": "por_hora"}
-    assert TagsRepositoryGF.Hourly.value == "por_hora"
-    # Combining tags
-    combined_tags = {**TagsRepositoryGF.Hourly(), **TagsRepositoryGF.Daily(), **TagsRepositoryGF.HourlyUnique()}
-    assert combined_tags == {"periodo": "diario", "periodo_unico": "por_hora"}
+    from typing import Sequence
+    from dagster import AssetChecksDefinition, AssetsDefinition, build_last_update_freshness_checks, asset
+    from datetime import timedelta
+
+    hello = Sequence[List[AssetChecksDefinition]]
+
+    print("Origin of hello:", get_origin(hello))  # Expected: <class 'collections.abc.Sequence'>
+    print("Arguments of hello:", get_args(hello))  # Expected: (<class 'dagster.AssetsDefinition'>,)
+
+    @asset
+    def DL_SAP_T001() -> None:
+        pass
+
+    asdasdasd = build_last_update_freshness_checks(
+        assets=[DL_SAP_T001],
+        lower_bound_delta=timedelta(hours=26),
+        deadline_cron="0 9 * * 1-6",
+    )
+
+    print("get_args of asdasdasd:", get_args(type(asdasdasd)))
+    print("get_origin of asdasdasd:", get_origin(type(asdasdasd)))
+    print("type of asdasdasd:", type(asdasdasd))
+
+    # Get the full type information
+    full_type_info = get_full_type_info(asdasdasd)
+    print("Full type info:", full_type_info)
+    print("Full type info type:", AssetChecksDefinition)
+    print(asdasdasd)
+    print(Sequence[AssetChecksDefinition])
+    print("type0 0" + str(type(Sequence[AssetChecksDefinition])))
+    if isassignable(asdasdasd, Sequence[AssetChecksDefinition]):
+        print("yes")
+    else:
+        print("no")
+    print(type_repr(asdasdasd))
+    print(asdasdasd.__repr__)

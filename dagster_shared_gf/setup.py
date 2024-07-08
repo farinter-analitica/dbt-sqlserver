@@ -13,6 +13,7 @@ setup(
         "dagster-webserver>=1.7,<2.0",
         "dagster-postgres",
         "dagster-cloud",
+        "trycast",
         "pandas",
         "pyodbc",
     ],

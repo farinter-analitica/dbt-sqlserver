@@ -1,69 +1,16 @@
 
 import inspect, os, requests
-from typing import Dict, Any, Mapping, Literal
+from typing import Dict, Any, Mapping, Literal, TypeVar, get_args, get_origin, List, Type, Callable, Iterable, Sequence
+from types import ModuleType
 from pydantic import Field
+from datetime import timedelta
 from pathlib import Path
-from typing import List, Type, Callable
 from dagster import config_from_files, AssetsDefinition
 from dagster_graphql import DagsterGraphQLClient
 from dotenv import load_dotenv
 import re
-
-# Function to filter functions by keyword
-def get_all_instances_of_class(class_type_list):
-    caller_frame = inspect.currentframe().f_back
-    caller_module = inspect.getmodule(caller_frame)
-
-    # convert to tuple if list received
-
-    types_tuple = tuple(class_type_list)
-
-    # Collect all schedule instances from the caller's module
-    all_instances = {name: obj for name, obj in caller_module.__dict__.items() if isinstance(obj, types_tuple)} 
-    # to list
-    all_instances_list = list(all_instances.values())
-    return all_instances_list
-
-    # print([dbt_dwh_sap_mart_schedule])
-    # print(globals())
-    #print(get_instances_of_class(ScheduleDefinition))
-    # print(get_functions_by_keyword("_schedule"))
-
-# Function to get mock arguments for a function
-def get_mock_args(func: Callable) -> dict:
-    sig = inspect.signature(func)
-    mock_args = {}
-    for param in sig.parameters.values():
-        if param.default != inspect.Parameter.empty:
-            mock_args[param.name] = param.default
-        elif param.annotation == int:
-            mock_args[param.name] = 0
-        elif param.annotation == float:
-            mock_args[param.name] = 0.0
-        elif param.annotation == bool:
-            mock_args[param.name] = False
-        elif param.annotation == list:
-            mock_args[param.name] = []
-        elif param.annotation == dict:
-            mock_args[param.name] = {}
-        else:
-            mock_args[param.name] = 'mock'
-    return mock_args
-
-# Function to filter variables created by a specific function
-def get_variables_created_by_function(creation_function: Callable) -> List:
-    # Create an instance using the provided function to determine its type
-    mock_args = get_mock_args(creation_function)
-    example_instance = creation_function(**mock_args)
-    instance_type = type(example_instance)
-
-    caller_frame = inspect.currentframe().f_back
-    caller_module = inspect.getmodule(caller_frame)
-
-    # Collect all variables that are instances of the determined type
-    variables = {name: obj for name, obj in caller_module.__dict__.items() if isinstance(obj, instance_type)}
-    return list(variables.values())
-
+from trycast import isassignable
+from beartype.door import is_bearable
 
 def get_job_status(job_name: str) -> str:
     # Define the GraphQL query to get the status of a specific job
@@ -210,7 +157,7 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
         return any(item in asset_tags.items() for item in tags.items())
 
     filtered_assets = []
-    
+    asset_def: AssetsDefinition | Any
     for asset_def in assets_definitions:
         asset_tags = asset_def.tags_by_key[list(asset_def.keys)[-1]]
 
@@ -224,3 +171,156 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
             filtered_assets.append(asset_def)
     
     return filtered_assets
+
+import importlib
+
+def get_full_type_info(obj: Any) -> str:
+    """
+    Gets the full typing information of the given object, including origin and type arguments.
+
+    Args:
+        obj (Any): The object to inspect.
+
+    Returns:
+        str: A string representation of the object's full type information.
+    """
+    def get_type_str(typ: Any) -> str:
+        origin = get_origin(typ)
+        args = get_args(typ)
+        if origin and args:
+            args_str = ', '.join(get_type_str(arg) for arg in args)
+            return f"{origin.__name__}[{args_str}]"
+        elif origin:
+            return origin.__name__
+        return str(typ)
+    
+    def infer_type(obj):
+        if isinstance(obj, list):
+            if len(obj) > 0:
+                element_type = infer_type(obj[0])
+                return List[element_type]
+            else:
+                return List
+        elif isinstance(obj, Sequence) and not isinstance(obj, str):
+            if len(obj) > 0:
+                element_type = infer_type(obj[0])
+                return Sequence[element_type]
+            else:
+                return Sequence
+        else:
+            return type(obj)
+    
+    obj_type = infer_type(obj)
+    return get_type_str(obj_type)
+
+def check_instance(obj: Any, class_type: Type[Any]) -> bool:
+    """
+    Recursively checks if an object is an instance of the specified class type, including nested iterables.
+
+    Args:
+        obj (Any): The object to check.
+        class_type (Type[Any]): The class type to check against.
+
+    Returns:
+        bool: True if obj is an instance of class_type or nested within an iterable of class_type, False otherwise.
+    """
+    if isinstance(obj, Iterable) and isinstance(class_type, Iterable):
+        return all(check_instance(o, t) for o, t in zip(obj, class_type))
+    elif isinstance(obj, class_type):
+        return True
+    return False
+
+def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: ModuleType = None) -> List[Any]:
+    """
+    Returns a list of all instances of the specified class types in the given module or the caller's module if no module is provided.
+
+    Args:
+        class_type_list (Iterable[Type[Any]]): The class types to search for.
+        module (ModuleType, optional): The module to search in. If not provided, the caller's module is used. Defaults to None.
+
+    Returns:
+        List[Any]: A list of all instances of the specified class types.
+    """
+    if module is None:
+        caller_frame = inspect.currentframe().f_back
+        module_to_use = inspect.getmodule(caller_frame)
+    else:
+        module_to_use = module
+
+    all_instances_list = []
+    for class_type in class_type_list:
+        variables = {name: obj for name, obj in module_to_use.__dict__.items() if isassignable(obj, class_type)}
+        all_instances_list.extend(variables.values())
+    return all_instances_list
+# Function to get mock arguments for a function
+def get_mock_args(func: Callable) -> dict:
+    def get_mock_value(annotation: Any) -> Any:
+        mock_values = {
+            int: 0,
+            float: 0.0,
+            bool: False,
+            str: 'mock',
+            list: [],
+            dict: {},
+            set: set(),
+            tuple: (),
+            bytes: b'',
+            bytearray: bytearray(),
+            timedelta: timedelta(hours=0),
+            type(None): None
+        }
+        return mock_values.get(annotation, 'mnd')
+    sig = inspect.signature(func)
+    mock_args = {}
+
+    for param in sig.parameters.values():
+        if param.default != inspect.Parameter.empty:
+            mock_args[param.name] = param.default
+        else:
+            try:
+                mock_args[param.name] = get_mock_value(param.annotation)
+            except:
+                mock_args[param.name] = 'mnd'
+    
+    return mock_args
+
+# Function to filter variables created by a specific function
+def get_variables_created_by_function(creation_function: Callable, module:ModuleType = None) -> List:
+    # Create an instance using the provided function to determine its type
+    mock_args = get_mock_args(creation_function)
+    example_instance = creation_function(**mock_args)
+    instance_type = type(example_instance)
+    if module is None:
+        caller_frame = inspect.currentframe().f_back
+        module_to_use = inspect.getmodule(caller_frame)
+    else:
+        module_to_use = module
+
+    # Collect all variables that are instances of the determined type
+    variables = {name: obj for name, obj in module_to_use.__dict__.items() if isinstance(obj, instance_type)}
+    return list(variables.values())
+
+def import_variable_from_module(variable_name: str, module: ModuleType = None) -> Any:
+    """
+    Imports a specified variable from a given module.
+
+    Args:
+        variable_name (str): The name of the variable to import.
+        module (ModuleType, optional): The module to import from. If not provided, the caller's module is used. Defaults to None.
+
+    Returns:
+        The value of the specified variable from the module.
+
+    Raises:
+        AttributeError: If the specified variable is not found in the module.
+    """
+    if module is None:
+        caller_frame = inspect.currentframe().f_back
+        module_to_use = inspect.getmodule(caller_frame)
+    else:
+        module_to_use = module
+
+    if not hasattr(module_to_use, variable_name):
+        return None
+        #raise AttributeError(f"Module '{module_to_use.__name__}' has no attribute '{variable_name}'")
+    return getattr(module_to_use, variable_name)
