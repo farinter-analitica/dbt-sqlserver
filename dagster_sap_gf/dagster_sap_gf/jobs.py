@@ -11,8 +11,8 @@ from .assets.dbt_dwh_sap import MyDbtConfig
 
 
 dbt_dwh_sap_marts_job = define_asset_job(name="dbt_dwh_sap_marts_job"
-                                                            , selection=AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros_assets"
-                                                                                              , "dbt_dwh_sap_mart_finanzas_assets"))
+                                                            , selection=AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros"
+                                                                                              , "dbt_dwh_sap_mart_finanzas"))
 
 
 dbt_dwh_sap_etl_dwh_job = define_asset_job(name="dbt_dwh_sap_etl_dwh_job"
@@ -42,8 +42,8 @@ sap_etl_dwh_hourly_all_downstream_job: define_asset_job = define_asset_job(name=
                                                             )
 
 
-dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros_assets"
-                                                                                              , "dbt_dwh_sap_mart_finanzas_assets") - sap_etl_dwh_all_downstream_assets
+dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros"
+                                                                                              , "dbt_dwh_sap_mart_finanzas") - sap_etl_dwh_all_downstream_assets
 dbt_dwh_sap_marts_all_orphan_job = define_asset_job(name="dbt_dwh_sap_marts_all_orphan_job"
                                                             , selection=dbt_dwh_sap_marts_all_orphan_assets)                                                                         
 
