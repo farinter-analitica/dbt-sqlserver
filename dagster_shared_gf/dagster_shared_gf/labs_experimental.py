@@ -1,11 +1,5 @@
-from dagster_shared_gf.shared_functions import dagster_instance_current_env
-from pydantic import Field
-from typing import Any, Mapping, Annotated, Union, Dict, Optional
 from dataclasses import dataclass, field
-import types
-env_str:str = dagster_instance_current_env.env
-
-asdasd = Annotated[str, Field(default=env_str)]
+from typing import Mapping
 
 @dataclass
 class TagsRepositoryGF:
@@ -73,19 +67,16 @@ class TagsRepositoryGF:
     class DailyUnique(_base_tag_class, key="periodo_unico", value="diario"):
         """{"periodo_unico": "diario"}"""
 
-
-
 if __name__ == "__main__":
     # Example usage:
     my_tag: Mapping[str, str] = TagsRepositoryGF.Hourly()
-    print(my_tag)  # Output: {"color": "blue"}
+    print(my_tag)  # Output: {"periodo": "por_hora"}
     print(TagsRepositoryGF.Hourly.key)
     my_second_tag: Mapping[str, str] = TagsRepositoryGF.Daily()
     my_another_tag: Mapping[str, str] = TagsRepositoryGF.HourlyUnique()
-    print(my_tag)  # Output: "color"
-    #print(my_tag.value)  # Output: "blue"
-    all_tags = my_tag | my_another_tag | my_second_tag
-    print(all_tags)  # Output: {"color": "blue", "weight": "100", "size": "big"}
+    print(my_tag)  # Output: {"periodo": "por_hora"}
+    all_tags = {**my_tag, **my_another_tag, **my_second_tag}
+    print(all_tags)  # Output: {"periodo": "diario", "periodo_unico": "por_hora"}
     # Example usage and assertions
     assert TagsRepositoryGF.Hourly() == {"periodo": "por_hora"}
     assert TagsRepositoryGF.Replicas() == {"replicas_sap": "true"}
@@ -94,10 +85,7 @@ if __name__ == "__main__":
     assert TagsRepositoryGF.DailyUnique() == {"periodo_unico": "diario"}
     assert TagsRepositoryGF.Hourly.key == "periodo"
     assert TagsRepositoryGF.Hourly.tag == {"periodo": "por_hora"}
-    assert TagsRepositoryGF.Hourly.value ==  "por_hora"
+    assert TagsRepositoryGF.Hourly.value == "por_hora"
     # Combining tags
     combined_tags = {**TagsRepositoryGF.Hourly(), **TagsRepositoryGF.Daily(), **TagsRepositoryGF.HourlyUnique()}
     assert combined_tags == {"periodo": "diario", "periodo_unico": "por_hora"}
-
-
-
