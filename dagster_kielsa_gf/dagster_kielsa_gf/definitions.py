@@ -4,7 +4,6 @@ from dagster import Definitions, load_assets_from_modules
 from dagster_dbt import DbtCliResource
 
 from dagster_kielsa_gf.assets import (examples
-                                   , kielsa_general
                                    , dbt_example
                                    , dbt_dwh_kielsa
                                    , dbt_sources
@@ -12,14 +11,13 @@ from dagster_kielsa_gf.assets import (examples
                                    , knime_asset_factory)
 
 examples = load_assets_from_modules([examples], group_name="examples")
-kielsa_general = load_assets_from_modules([kielsa_general], group_name="kielsa_general")
 dbt_example = load_assets_from_modules([dbt_example] #, group_name="dbt_examples" #group name already on the dbt models
                                        )
 dbt_dwh_kielsa_assets =  load_assets_from_modules([dbt_dwh_kielsa])
 ldcom_etl_dwh_assets = load_assets_from_modules([ldcom_etl_dwh], group_name="ldcom_etl_dwh")
 knime_assets = knime_asset_factory.knime_assets_definitions
 
-all_assets = examples + kielsa_general + dbt_example  + dbt_dwh_kielsa_assets + ldcom_etl_dwh_assets + knime_assets
+all_assets = examples + dbt_example  + dbt_dwh_kielsa_assets + ldcom_etl_dwh_assets + knime_assets
 
 # Extract the asset keys from the AssetsDefinition instances
 all_asset_keys = set()

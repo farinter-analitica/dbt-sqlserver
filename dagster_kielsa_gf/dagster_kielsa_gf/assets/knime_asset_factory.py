@@ -42,7 +42,7 @@ def filter_logs_std(logs):
 def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str]]:
     query =f"""
     SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
-    FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"dev", "prd":"prd"})}';"""
+    FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"DEV", "prd":"PRD"})}';"""
     results = context.resources.db_analitica_etl.query(query)
     if not results:
         context.log.error("No workflows found in the database.")
