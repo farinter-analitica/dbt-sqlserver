@@ -1,9 +1,10 @@
 
 import inspect, os, requests
-from typing import Dict, Any
+from typing import Dict, Any, Mapping, Literal
+from pydantic import Field
 from pathlib import Path
 from typing import List, Type, Callable
-from dagster import config_from_files
+from dagster import config_from_files, AssetsDefinition
 from dagster_graphql import DagsterGraphQLClient
 from dotenv import load_dotenv
 import re
@@ -182,3 +183,44 @@ def get_for_current_env(dict: dict[str:any] = {"dev" : "any_return_for_dev", "pr
     
 def search_for_word_in_text(text: str, word: str) -> re.Match:
     return re.search(rf'\b{word}\b', text, re.IGNORECASE)
+
+
+# Function to filter assets by tags
+from typing import List, Mapping, Any, Literal, Union
+
+def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]],
+                          tags: Mapping[str, str],
+                          filter_type: Literal["all_tags_match", "any_tag_matches", "exclude_if_all_tags", "exclude_if_any_tag"] = "all_tags_match"
+                          ) -> List[Union[Any, AssetsDefinition]]:
+    """
+    Filters a list of assets based on the specified tags and filter type.
+
+    Args:
+        assets_definitions (List[Union[Any, AssetsDefinition]]): The list of assets to filter.
+        tags (Mapping[str, str]): The tags to filter the assets by.
+        filter_type (Literal["all_tags_match", "any_tag_matches", "exclude_if_all_tags", "exclude_if_any_tag"], optional): The filter type to use. Defaults to "all_tags_match".
+
+    Returns:
+        List[Union[Any, AssetsDefinition]]: The filtered list of assets.
+    """
+    def match_all(asset_tags: Mapping[str, str], tags: Mapping[str, str]) -> bool:
+        return all(item in asset_tags.items() for item in tags.items())
+    
+    def match_any(asset_tags: Mapping[str, str], tags: Mapping[str, str]) -> bool:
+        return any(item in asset_tags.items() for item in tags.items())
+
+    filtered_assets = []
+    
+    for asset_def in assets_definitions:
+        asset_tags = asset_def.tags_by_key[list(asset_def.keys)[-1]]
+
+        if filter_type == "all_tags_match" and match_all(asset_tags, tags):
+            filtered_assets.append(asset_def)
+        elif filter_type == "any_tag_matches" and match_any(asset_tags, tags):
+            filtered_assets.append(asset_def)
+        elif filter_type == "exclude_if_all_tags" and not match_all(asset_tags, tags):
+            filtered_assets.append(asset_def)
+        elif filter_type == "exclude_if_any_tag" and not match_any(asset_tags, tags):
+            filtered_assets.append(asset_def)
+    
+    return filtered_assets

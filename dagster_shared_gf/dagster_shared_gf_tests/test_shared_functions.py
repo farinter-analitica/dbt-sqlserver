@@ -1,6 +1,6 @@
 from dagster import define_asset_job, ScheduleDefinition
-
-from dagster_shared_gf.shared_functions import get_all_instances_of_class, get_variables_created_by_function
+import pytest
+from dagster_shared_gf.shared_functions import *
 
 # Example class and function definitions for testing
 
@@ -38,5 +38,48 @@ def test_get_variables_created_by_function():
     variables = get_variables_created_by_function(define_asset_job)
     assert len(variables) == 1, f"Expected 1 variables, got {len(variables)}"
     assert test_job in variables, "Expected test_job to be in variables"
+
+
+
+class MockAsset:
+    def __init__(self, tags):
+        self.tags_by_key = {'key1': tags}
+        self.keys = ['key1']
+
+@pytest.fixture
+def asset1():
+    return MockAsset({'tag1': 'value1', 'tag2': 'value2'})
+
+@pytest.fixture
+def asset2():
+    return MockAsset({'tag2': 'value2'})
+
+@pytest.fixture
+def asset3():
+    return MockAsset({'tag3': 'value3'})
+
+@pytest.fixture
+def assets_definitions(asset1, asset2, asset3):
+    return [asset1, asset2, asset3]
+
+def test_all_tags_match(assets_definitions, asset1):
+    tags = {'tag1': 'value1', 'tag2': 'value2'}
+    result = filter_assets_by_tags(assets_definitions, tags, "all_tags_match")
+    assert result == [asset1]
+
+def test_any_tag_matches(assets_definitions, asset1):
+    tags = {'tag1': 'value1'}
+    result = filter_assets_by_tags(assets_definitions, tags, "any_tag_matches")
+    assert result == [asset1]
+
+def test_exclude_if_all_tags(assets_definitions, asset2, asset3):
+    tags = {'tag1': 'value1', 'tag2': 'value2'}
+    result = filter_assets_by_tags(assets_definitions, tags, "exclude_if_all_tags")
+    assert result == [asset2, asset3]
+
+def test_exclude_if_any_tag(assets_definitions, asset3):
+    tags = {'tag2': 'value2'}
+    result = filter_assets_by_tags(assets_definitions, tags, "exclude_if_any_tag")
+    assert result == [asset3]
 
 print("All tests passed!")
