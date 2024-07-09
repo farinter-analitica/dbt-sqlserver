@@ -5,6 +5,7 @@ import pyodbc
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
 import contextlib
+import base64
 
 env_str = shared_vars.env_str
 
@@ -22,7 +23,7 @@ class SQLServerBaseResource:
     server: str
     databases: list[str]  # List of databases
     user: str
-    _password: str
+    password: str
     default_database: str   # Default database
     trust_server_certificate: str = 'no'  # 'yes' or 'no', default should be no for public IPs.
     allow_any_database: bool = False  # Allow any database to be used, default should be False.
@@ -34,6 +35,7 @@ class SQLServerBaseResource:
             raise ValueError("databases list cannot be empty")
         if not self.allow_any_database and self.default_database not in self.databases:
             raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
+        self.password = base64.b64encode(self.password.encode('utf-8'))
         
     @classmethod
     def log_event(type: Literal["info", "warning", "error"], message: str):
@@ -68,7 +70,7 @@ class SQLServerBaseResource:
             f"SERVER={self.server};"
             f"DATABASE={database};"
             f"UID={self.user};"
-            f"PWD={self._password};"
+            f"PWD={base64.b64decode(self.password).decode('utf-8')};"
             f"TrustServerCertificate={self.trust_server_certificate};"
         )
         conn = None
@@ -190,11 +192,11 @@ class SQLServerBaseResource:
             raise e
         
 class SQLServerNonRuntimeResource(SQLServerBaseResource):
-    def __init__(self, server: str, databases: List[str], user: str, _password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
+    def __init__(self, server: str, databases: List[str], user: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
         self.server = server
         self.databases = databases
         self.user = user
-        self._password = _password
+        self.password = password
         self.default_database = default_database
         self.trust_server_certificate = trust_server_certificate
         self.allow_any_database = allow_any_database
@@ -214,7 +216,7 @@ dwh_farinter = SQLServerResource(
     server= p_server,
     databases= ["BI_FARINTER", "ADM_FARINTER", "DL_FARINTER", "IA_FARINTER", "CRM_FARINTER"],
     user=p_user,
-    _password=p_password,
+    password=p_password,
     trust_server_certificate='yes',
     default_database="DL_FARINTER"
 )
@@ -223,7 +225,7 @@ dwh_farinter_adm = SQLServerResource(
     server= dwh_farinter.server,
     databases= dwh_farinter.databases,
     user=dwh_farinter.user,
-    _password=dwh_farinter._password,
+    password=dwh_farinter.password,
     trust_server_certificate=dwh_farinter.trust_server_certificate,
     default_database="ADM_FARINTER"
 
@@ -233,7 +235,7 @@ dwh_farinter_dl = SQLServerResource(
     server= dwh_farinter.server,
     databases= dwh_farinter.databases,
     user=dwh_farinter.user,
-    _password=dwh_farinter._password,
+    password=dwh_farinter.password,
     trust_server_certificate=dwh_farinter.trust_server_certificate,
     default_database="DL_FARINTER"
     )
@@ -243,7 +245,7 @@ dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server= p_server,
     databases= ["no_database_specified"],
     user=p_user,
-    _password=p_password.get_value(),
+    password=p_password.get_value(),
     trust_server_certificate='yes',
     default_database="no_database_specified",
     allow_any_database=True
