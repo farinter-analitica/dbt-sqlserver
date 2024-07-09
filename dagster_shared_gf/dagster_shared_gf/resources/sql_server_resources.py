@@ -1,5 +1,5 @@
 from dagster import ConfigurableResource, EnvVar, asset, Definitions
-from typing import List
+from typing import List, Literal
 import os
 import pyodbc
 from dagster_shared_gf import shared_variables as shared_vars
@@ -18,21 +18,26 @@ p_password = get_for_current_env({"dev": EnvVar("DAGSTER_SECRET_DEV_DWH_FARINTER
 p_driver = os.environ.get('DAGSTER_SQL_SERVER_ODBC_DRIVER')
 
 
-class SQLServerResource(ConfigurableResource):
+class SQLServerBaseResource:
     server: str
-    databases: list  # List of databases
+    databases: list[str]  # List of databases
     user: str
     password: str
-    trust_server_certificate: str = 'no'  # 'yes' or 'no', default should be no for public IPs.
     default_database: str   # Default database
+    trust_server_certificate: str = 'no'  # 'yes' or 'no', default should be no for public IPs.
+    allow_any_database: bool = False  # Allow any database to be used, default should be False.
 
     def __post_init__(self):
         if self.trust_server_certificate not in ['yes', 'no']:
             raise ValueError("trust_server_certificate must be 'yes' or 'no'")
-        if not self.databases:
+        if not self.allow_any_database and not self.databases:
             raise ValueError("databases list cannot be empty")
-        if self.default_database not in self.databases:
+        if not self.allow_any_database and self.default_database not in self.databases:
             raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
+        
+    @staticmethod
+    def log_event(type: Literal["info", "warning", "error"], message: str):
+        print(f"{type}: {message}")
 
     @contextlib.contextmanager
     def get_connection(self,  database: str = "", autocommit: bool=False):
@@ -55,7 +60,7 @@ class SQLServerResource(ConfigurableResource):
         """
         if database == "":
             database = self.default_database
-        if database not in self.databases:
+        if not self.allow_any_database and  database not in self.databases:
             raise ValueError(f"Database {database} is not in the allowed list.")
         
         connection_string = (
@@ -128,15 +133,15 @@ class SQLServerResource(ConfigurableResource):
         except pyodbc.DatabaseError as opex:           
             if opex.args[0] == '42S02':
                 #print("Table does not exist error handling")
-                self.get_resource_context().log.info(f"Table does not exist error handling. Returning None to caller.")
+                self.log_event('info',f"Table does not exist error handling. Returning None to caller.")
                 return None
                 # Handle the error specific to table not existing
             else:
                 #print(f"An unexpected database error occurred: {str(opex)}")
-                self.get_resource_context().log.info(f"An unexpected database error occurred: {str(opex)}. Returning None to caller.")
+                self.log_event('error', f"An unexpected database error occurred: {str(opex)}. Returning None to caller.")
                 return None
         except pyodbc.Error as e:
-            self.get_resource_context().log.error(f"An unexpected error occurred. Returning None to caller.")
+            self.log_event('error', f"Error executing and committing query: {str(e.args)}.")
             e.__traceback__ = None
             raise e
             
@@ -180,9 +185,29 @@ class SQLServerResource(ConfigurableResource):
                 
         except pyodbc.Error as e:
             # Add proper logging here
-            self.get_resource_context().log.error(f"Error executing and committing query.")
+            self.log_event('error', f"Error executing and committing query: {str(e.args)}.")
             e.__traceback__ = None
             raise e
+        
+class SQLServerNonRuntimeResource(SQLServerBaseResource):
+    def __init__(self, server: str, databases: List[str], user: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
+        self.server = server
+        self.databases = databases
+        self.user = user
+        self.password = password
+        self.default_database = default_database
+        self.trust_server_certificate = trust_server_certificate
+        self.allow_any_database = allow_any_database
+
+class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
+    @staticmethod
+    def log_event(self, type: Literal['info'] | Literal['warning'] | Literal['error'], message: str):
+        if type == "info":
+            self.get_resource_context().log.info(f"An unexpected error occurred. Returning None to caller.")
+        elif type == "warning":
+            self.get_resource_context().log.warning(f"An unexpected error occurred. Returning None to caller.")
+        elif type == "error":
+            self.get_resource_context().log.error(f"An unexpected error occurred. Returning None to caller.")
 
 
 dwh_farinter = SQLServerResource(
@@ -212,3 +237,14 @@ dwh_farinter_dl = SQLServerResource(
     trust_server_certificate=dwh_farinter.trust_server_certificate,
     default_database="DL_FARINTER"
     )
+
+        
+dwh_farinter_database_admin = SQLServerNonRuntimeResource(
+    server= p_server,
+    databases= ["no_database_specified"],
+    user=p_user,
+    password=p_password.get_value(),
+    trust_server_certificate='yes',
+    default_database="no_database_specified",
+    allow_any_database=True
+)
