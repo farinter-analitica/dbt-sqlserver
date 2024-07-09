@@ -3,7 +3,7 @@ import subprocess
 from dagster_shared_gf.load_env_run import load_env_vars
 import os
 from pathlib import Path
-load_env_vars([])
+load_env_vars()
 
 paths: list[Path] =[os.path.join(Path(__file__).parent.resolve(), path) for path in ["dagster_kielsa_gf", "dagster_sap_gf", "dagster_shared_gf"]]
 
