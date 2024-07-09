@@ -35,10 +35,10 @@ def DL_SAP_T001(context: AssetExecutionContext
     with dwh_farinter_dl.get_connection(database) as conn:
         last_date_updated_query: str = f"""SELECT MAX(Fecha_Actualizado) FROM [{database}].[{schema}].[{table}]"""
         last_date_updated_result: List[Any] = dwh_farinter_dl.query(query=last_date_updated_query, connection = conn)
-        last_date_updated: date = "1900-01-01"
+        last_date_updated: date = date(1900, 1, 1)
         if last_date_updated_result:
             try:
-                last_date_updated: date = last_date_updated_result[0][0].date()
+                last_date_updated: date = datetime.fromisoformat(last_date_updated_result[0][0]).date()
             except:
                 context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
         final_query = final_query.format(last_date_updated=last_date_updated.isoformat())
@@ -80,7 +80,7 @@ def DL_SAP_BSEG(context: AssetExecutionContext
                 last_date_updated: date = datetime.strptime(last_date_updated_result[0][0], "%Y%m%d").date()
             except:
                 context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
-        final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat())
+        final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat(),p_IndicadorActualizarTodo = 0)
         #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
         

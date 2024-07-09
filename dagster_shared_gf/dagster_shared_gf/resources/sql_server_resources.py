@@ -7,6 +7,22 @@ from dagster_shared_gf.shared_functions import get_for_current_env
 import contextlib
 import base64
 
+def encode_password(input_str: str) -> str:
+    # Convert the string to bytes
+    input_bytes = input_str.encode('utf-8')
+    # Perform base64 encoding
+    encoded_bytes = base64.urlsafe_b64encode(input_bytes)
+    # Convert the bytes back to a string
+    return encoded_bytes.decode('utf-8')
+
+def decode_password(encoded_str: str) -> str:
+    # Convert the encoded string back to bytes
+    encoded_bytes = encoded_str.encode('utf-8')
+    # Perform base64 decoding
+    decoded_bytes = base64.urlsafe_b64decode(encoded_bytes)
+    # Convert the bytes back to the original string
+    return decoded_bytes.decode('utf-8')
+
 env_str = shared_vars.env_str
 
 # Set environment variables
@@ -35,7 +51,7 @@ class SQLServerBaseResource:
             raise ValueError("databases list cannot be empty")
         if not self.allow_any_database and self.default_database not in self.databases:
             raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
-        self.password = base64.b64encode(self.password.encode('ascii'))
+        self.password = str(self.password.encode('utf-8'))
         
     @classmethod
     def log_event(type: Literal["info", "warning", "error"], message: str):
@@ -70,7 +86,7 @@ class SQLServerBaseResource:
             f"SERVER={self.server};"
             f"DATABASE={database};"
             f"UID={self.user};"
-            f"PWD={base64.b64decode(self.password).decode('ascii')};"
+            f"PWD={bytes(self.password,encoding='utf-8').decode('utf-8')};"
             f"TrustServerCertificate={self.trust_server_certificate};"
         )
         conn = None

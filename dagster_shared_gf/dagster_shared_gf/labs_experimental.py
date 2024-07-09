@@ -1,89 +1,28 @@
-import inspect
-from typing import Any, get_origin, get_args, Sequence, List,  Iterable, Type, Protocol
-from dagster import AssetChecksDefinition, AssetsDefinition, build_last_update_freshness_checks, asset
-from datetime import timedelta
-from inspect import signature, get_annotations, getmro
-from trycast import isassignable, eval_type
-from trycast import type_repr
-def get_full_type_info(obj: Any) -> str:
-    """
-    Gets the full typing information of the given object, including origin and type arguments.
+import base64
 
-    Args:
-        obj (Any): The object to inspect.
+def encode_password(input_str: str) -> str:
+    # Convert the string to bytes
+    input_bytes = input_str.encode('utf-8')
+    # Perform base64 encoding
+    encoded_bytes = base64.urlsafe_b64encode(input_bytes)
+    # Convert the bytes back to a string
+    return encoded_bytes.decode('utf-8')
 
-    Returns:
-        str: A string representation of the object's full type information.
-    """
-    def get_type_str(typ: Any) -> str:
-        origin = get_origin(typ)
-        args = get_args(typ)
-        if origin and args:
-            args_str = ', '.join(get_type_str(arg) for arg in args)
-            return f"{origin.__name__}[{args_str}]"
-        elif origin:
-            return origin.__name__
-        return str(typ)
-    
-    def infer_type(obj):
-        if isinstance(obj, list):
-            if len(obj) > 0:
-                element_type = infer_type(obj[0])
-                return List[element_type]
-            else:
-                return List
-        elif isinstance(obj, Sequence) and not isinstance(obj, str):
-            if len(obj) > 0:
-                element_type = infer_type(obj[0])
-                return Sequence[element_type]
-            else:
-                return Sequence
-        else:
-            return type(obj)
-    
-    obj_type = infer_type(obj)
-    return get_type_str(obj_type)
+def decode_password(encoded_str: str) -> str:
+    # Convert the encoded string back to bytes
+    encoded_bytes = encoded_str.encode('utf-8')
+    # Perform base64 decoding
+    decoded_bytes = base64.urlsafe_b64decode(encoded_bytes)
+    # Convert the bytes back to the original string
+    return decoded_bytes.decode('utf-8')
 
-class HasGetItem(Protocol):     
-    def __getitem__(self, __key:Any) -> Any:
-        pass
-# Example usage
-if __name__ == "__main__":
-    from typing import Sequence
-    from dagster import AssetChecksDefinition, AssetsDefinition, build_last_update_freshness_checks, asset
-    from datetime import timedelta
+# Example usage:
+original_str = "!#$$^&^&((*^@!@32235masdasAASDsdd_<>??''23"
+encoded_str = encode_password(original_str)
+decoded_str = decode_password(encoded_str)
 
-    hello = Sequence[List[AssetChecksDefinition]]
+assert original_str == decoded_str, "The decoded string does not match the original."
 
-    print("Origin of hello:", get_origin(hello))  # Expected: <class 'collections.abc.Sequence'>
-    print("Arguments of hello:", get_args(hello))  # Expected: (<class 'dagster.AssetsDefinition'>,)
-
-    @asset
-    def DL_SAP_T001() -> None:
-        pass
-
-    asdasdasd = build_last_update_freshness_checks(
-        assets=[DL_SAP_T001],
-        lower_bound_delta=timedelta(hours=26),
-        deadline_cron="0 9 * * 1-6",
-    )
-
-    print("get_args of asdasdasd:", get_args(type(asdasdasd)))
-    print("get_origin of asdasdasd:", get_origin(type(asdasdasd)))
-    print("type of asdasdasd:", type(asdasdasd))
-
-    # Get the full type information
-    full_type_info = get_full_type_info(asdasdasd)
-    print("Full type info:", full_type_info)
-    print("Full type info type:", AssetChecksDefinition)
-    print(asdasdasd)
-    print(Sequence[AssetChecksDefinition])
-    print("type0 0" + str(type(Sequence[AssetChecksDefinition])))
-    if isassignable(asdasdasd, Sequence[AssetChecksDefinition]):
-        print("yes")
-    else:
-        print("no")
-    print(type_repr(asdasdasd))
-    print(asdasdasd)
-    print(type(asdasdasd))
-    print(type(eval_type(asdasdasd, globals(), locals())))
+print(f"Original: {original_str}")
+print(f"Encoded: {encoded_str}")
+print(f"Decoded: {decoded_str}")
