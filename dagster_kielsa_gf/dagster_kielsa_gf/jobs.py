@@ -20,11 +20,11 @@ dbt_dwh_kielsa_marts_assets: AssetSelection = AssetSelection.groups("dbt_dwh_kie
 dbt_dwh_kielsa_marts_job = define_asset_job(name="dbt_dwh_kielsa_marts_job"
                                                             , selection=dbt_dwh_kielsa_marts_assets)
 
-ldcom_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups("ldcom_etl_dwh").downstream()
-ldcom_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="ldcom_etl_dwh_all_downstream_job"
-                                                             , selection=ldcom_etl_dwh_all_downstream_assets)
+kielsa_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups("ldcom_etl_dwh","recetas_libros_etl_dwh").downstream()
+kielsa_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="kielsa_etl_dwh_all_downstream_job"
+                                                             , selection=kielsa_etl_dwh_all_downstream_assets)
 
-dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = dbt_dwh_kielsa_marts_assets - ldcom_etl_dwh_all_downstream_assets
+dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = dbt_dwh_kielsa_marts_assets - kielsa_etl_dwh_all_downstream_assets
 dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(name="dbt_dwh_kielsa_marts_orphan_assets_job"
                                                             , selection=dbt_dwh_kielsa_marts_assets_not_in_downstream)
 

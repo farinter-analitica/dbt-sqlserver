@@ -8,12 +8,15 @@ from dagster_kielsa_gf.assets import (examples
                                    , dbt_dwh_kielsa
                                    , dbt_sources
                                    , ldcom_etl_dwh
-                                   , knime_asset_factory)
+                                   , knime_asset_factory
+                                   ,recetas_libros_etl_dwh)
 
 examples = load_assets_from_modules([examples], group_name="examples")
 
-all_assets = examples + dbt_example.all_assets  + dbt_dwh_kielsa.all_assets + ldcom_etl_dwh.all_assets + knime_asset_factory.all_assets
-all_asset_checks = dbt_example.all_asset_checks + dbt_dwh_kielsa.all_asset_checks + ldcom_etl_dwh.all_asset_checks + knime_asset_factory.all_asset_checks
+all_assets = examples + dbt_example.all_assets  + dbt_dwh_kielsa.all_assets \
+    + ldcom_etl_dwh.all_assets + knime_asset_factory.all_assets + recetas_libros_etl_dwh.all_assets
+all_asset_checks = dbt_example.all_asset_checks + dbt_dwh_kielsa.all_asset_checks \
+    + ldcom_etl_dwh.all_asset_checks + knime_asset_factory.all_asset_checks + recetas_libros_etl_dwh.all_asset_checks
 
 # Extract the asset keys from the AssetsDefinition instances
 all_asset_keys = set()

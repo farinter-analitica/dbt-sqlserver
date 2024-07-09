@@ -17,6 +17,19 @@ def DL_Kielsa_Sucursal(dwh_farinter_dl: SQLServerResource) -> None:
 def DL_Kielsa_Bodega(dwh_farinter_dl: SQLServerResource) -> None: 
     dwh_farinter_dl.execute_and_commit("EXEC [DL_FARINTER].[dbo].[DL_paCargarKielsa_Bodega]")
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
