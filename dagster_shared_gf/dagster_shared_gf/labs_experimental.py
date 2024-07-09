@@ -1,9 +1,9 @@
 import inspect
-from typing import Any, get_origin, get_args, Sequence, List, get_type_hints, Iterable, Type
+from typing import Any, get_origin, get_args, Sequence, List,  Iterable, Type, Protocol
 from dagster import AssetChecksDefinition, AssetsDefinition, build_last_update_freshness_checks, asset
 from datetime import timedelta
 from inspect import signature, get_annotations, getmro
-from trycast import isassignable
+from trycast import isassignable, eval_type
 from trycast import type_repr
 def get_full_type_info(obj: Any) -> str:
     """
@@ -43,6 +43,10 @@ def get_full_type_info(obj: Any) -> str:
     
     obj_type = infer_type(obj)
     return get_type_str(obj_type)
+
+class HasGetItem(Protocol):     
+    def __getitem__(self, __key:Any) -> Any:
+        pass
 # Example usage
 if __name__ == "__main__":
     from typing import Sequence
@@ -80,4 +84,6 @@ if __name__ == "__main__":
     else:
         print("no")
     print(type_repr(asdasdasd))
-    print(asdasdasd.__repr__)
+    print(asdasdasd)
+    print(type(asdasdasd))
+    print(type(eval_type(asdasdasd, globals(), locals())))

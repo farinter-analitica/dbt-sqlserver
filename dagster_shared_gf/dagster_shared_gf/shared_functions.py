@@ -1,6 +1,7 @@
 
-import inspect, os, requests
+import inspect, os, requests, re, itertools
 from typing import Dict, Any, Mapping, Literal, TypeVar, get_args, get_origin, List, Type, Callable, Iterable, Sequence
+
 from types import ModuleType
 from pydantic import Field
 from datetime import timedelta
@@ -8,8 +9,7 @@ from pathlib import Path
 from dagster import config_from_files, AssetsDefinition
 from dagster_graphql import DagsterGraphQLClient
 from dotenv import load_dotenv
-import re
-from trycast import isassignable
+from trycast import isassignable, eval_type
 
 def get_job_status(job_name: str) -> str:
     # Define the GraphQL query to get the status of a specific job
@@ -250,7 +250,7 @@ def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Mod
     for class_type in class_type_list:
         variables = {name: obj for name, obj in module_to_use.__dict__.items() if isassignable(obj, class_type)}
         all_instances_list.extend(variables.values())
-    return all_instances_list
+    return list(itertools.chain(all_instances_list))
 # Function to get mock arguments for a function
 def get_mock_args(func: Callable) -> dict:
     def get_mock_value(annotation: Any) -> Any:
@@ -284,7 +284,7 @@ def get_mock_args(func: Callable) -> dict:
     return mock_args
 
 # Function to filter variables created by a specific function
-def get_variables_created_by_function(creation_function: Callable, module:ModuleType = None) -> List:
+def get_all_parent_instances_created_by_function(creation_function: Callable, module:ModuleType = None) -> List:
     # Create an instance using the provided function to determine its type
     mock_args = get_mock_args(creation_function)
     example_instance = creation_function(**mock_args)
@@ -296,8 +296,7 @@ def get_variables_created_by_function(creation_function: Callable, module:Module
         module_to_use = module
 
     # Collect all variables that are instances of the determined type
-    variables = {name: obj for name, obj in module_to_use.__dict__.items() if isinstance(obj, instance_type)}
-    return list(variables.values())
+    return get_all_instances_of_class([instance_type], module_to_use)
 
 def import_variable_from_module(variable_name: str, module: ModuleType = None) -> Any:
     """

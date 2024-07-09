@@ -1,6 +1,7 @@
-from dagster import define_asset_job, ScheduleDefinition
+from dagster import define_asset_job, ScheduleDefinition, JobDefinition
 import pytest
 from dagster_shared_gf.shared_functions import *
+from dagster_shared_gf.shared_variables import UnresolvedAssetJobDefinition
 
 # Example class and function definitions for testing
 
@@ -35,7 +36,7 @@ def test_get_all_instances_of_class():
 
 # Test get_variables_created_by_function
 def test_get_variables_created_by_function():
-    variables = get_variables_created_by_function(define_asset_job)
+    variables = get_all_instances_of_class(class_type_list=[UnresolvedAssetJobDefinition])
     assert len(variables) == 1, f"Expected 1 variables, got {len(variables)}"
     assert test_job in variables, "Expected test_job to be in variables"
 

@@ -1,7 +1,6 @@
 from dagster_kielsa_gf import defs
 from dagster import asset, define_asset_job, Definitions, AssetSelection, AssetSpec, JobDefinition
-from dagster._core.definitions.unresolved_asset_job_definition import UnresolvedAssetJobDefinition
-from dagster._core.definitions.asset_spec import AssetExecutionType
+from dagster_shared_gf.shared_variables import AssetExecutionType, UnresolvedAssetJobDefinition
 from typing import Sequence
 
 defs: Definitions = defs ##import your defs

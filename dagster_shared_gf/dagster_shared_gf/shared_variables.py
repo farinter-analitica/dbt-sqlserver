@@ -1,12 +1,12 @@
 from dagster_shared_gf.shared_functions import dagster_instance_current_env
+from dagster._core.definitions.unresolved_asset_job_definition import UnresolvedAssetJobDefinition #to use shared
+from dagster._core.definitions.asset_spec import AssetExecutionType #to use shared
 from pydantic import Field
 from typing import Any, Mapping, Annotated, Union, Dict, Optional
 from dataclasses import dataclass, field
 import types
 env_str:str = dagster_instance_current_env.env
-
-asdasd = Annotated[str, Field(default=env_str)]
-
+shared_class_holder = [UnresolvedAssetJobDefinition, AssetExecutionType]
 @dataclass
 class TagsRepositoryGF:
     """

@@ -8,7 +8,7 @@ from dagster import (asset
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF
-from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class, get_variables_created_by_function
+from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
 import dagster_sap_gf.assets.dbt_dwh_sap as dbt_dwh_sap
 from pathlib import Path
 from typing import List, Dict, Any, Mapping, Sequence, get_args, get_origin, Union

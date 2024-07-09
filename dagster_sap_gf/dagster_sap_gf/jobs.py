@@ -1,6 +1,7 @@
 from dagster import define_asset_job
-from dagster import asset, AssetSelection, RunConfig, AssetKey
-from dagster_shared_gf.shared_functions import get_variables_created_by_function
+from dagster import asset, AssetSelection, RunConfig, AssetKey, JobDefinition
+from dagster_shared_gf.shared_functions import get_all_instances_of_class
+from dagster_shared_gf.shared_variables import UnresolvedAssetJobDefinition
 from .assets.dbt_dwh_sap import MyDbtConfig
 
 # Define the job and add to definitions on main __init__.py
@@ -47,6 +48,6 @@ dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = AssetSelection.groups("dbt
 dbt_dwh_sap_marts_all_orphan_job = define_asset_job(name="dbt_dwh_sap_marts_all_orphan_job"
                                                             , selection=dbt_dwh_sap_marts_all_orphan_assets)                                                                         
 
-all_jobs = get_variables_created_by_function(define_asset_job)
+all_jobs = get_all_instances_of_class(class_type_list=[JobDefinition, UnresolvedAssetJobDefinition])
 
 __all__ = list(map(lambda x: x.name, all_jobs) )
