@@ -29,6 +29,7 @@ from dagster_kielsa_gf.assets import dbt_dwh_kielsa
 from dagster_shared_gf import all_shared_resources
 from dagster_kielsa_gf.jobs import all_jobs
 from dagster_kielsa_gf.schedules import all_schedules
+from dagster_kielsa_gf.sensors import all_sensors
 
 all_resources = all_shared_resources
 
@@ -38,7 +39,8 @@ defs = Definitions(
     asset_checks=all_asset_checks,
     resources= all_resources,
     jobs=all_jobs,
-    schedules=all_schedules
+    schedules=all_schedules,
+    sensors=all_sensors
 )
 
 # @repository

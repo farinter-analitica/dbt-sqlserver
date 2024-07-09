@@ -3,7 +3,7 @@ from typing import Sequence, Mapping, Any
 from dagster_shared_gf.shared_functions import filter_assets_by_tags
 from dagster import (Definitions
                      , load_assets_from_modules
-                     , build_last_update_freshness_checks
+                     , build_sensor_for_freshness_checks
                      , AssetsDefinition)
 from datetime import timedelta
 from .assets import (dbt_dwh_sap
@@ -25,6 +25,7 @@ dbt_sources_assets = [source_asset for source_asset in dbt_sources.source_assets
 from dagster_shared_gf import all_shared_resources
 from dagster_sap_gf.jobs import all_jobs
 from dagster_sap_gf.schedules import all_schedules
+from dagster_sap_gf.sensors import all_sensors
 
 dagster_sap_gf_resources = all_shared_resources
 
@@ -33,5 +34,6 @@ defs = Definitions(
     asset_checks=all_asset_checks,
     resources= dagster_sap_gf_resources,
     jobs=all_jobs,
+    sensors=all_sensors,
     schedules=all_schedules
 )
