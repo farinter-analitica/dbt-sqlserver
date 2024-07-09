@@ -182,7 +182,7 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
 #print(all_assets_without_group)
 #como agregar atributos de grupo por ejemplo:
 #all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
-all_assets = load_assets_from_current_module(group_name="sap_etl_dwh")
+all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") + store_procedure_assets
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
