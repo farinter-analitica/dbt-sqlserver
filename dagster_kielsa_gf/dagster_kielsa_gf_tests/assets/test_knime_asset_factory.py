@@ -1,0 +1,38 @@
+
+from dagster_shared_gf.load_env_run import load_env_vars
+from dagster_kielsa_gf.assets.knime_asset_factory import knime_asset_creation_graph, filter_logs_std
+
+def test_knime_asset_factory():
+    load_env_vars(joinpath_str=["..",".."])
+    from dagster_shared_gf.resources.postgresql_resources import db_analitica_etl
+    # Build the context with the resources
+    #builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
+    builded_resources = {"db_analitica_etl":db_analitica_etl}
+    # Fetch workflows and create assets
+    asset_definitions = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
+    print([asset.key for asset in asset_definitions])
+    assert len(asset_definitions) > 0, "No assets were created for the knnime workflows."
+
+def test_filter_logs_std():
+    logs = """
+    INFO This is a normal log line.
+    ERROR StatusLogger Log4j2 could not find a logging implementation.
+    Execution failed in Try-Catch block.
+    WARN Errors overwriting node settings with flow variables.
+    Node\t No new variables defined.
+    Node\t The node configuration changed.
+    WARN Component does not have input data.
+    WARN No grouping column included.
+    WARN Errors loading flow variables into node.
+    WARN No such variable.
+    WARN The table structures of active ports are not compatible.
+    WARN No aggregation column defined.
+    WARN The input table has fewer rows 10 than the specified k.
+    WARN Node All partition issues.
+    WARN Node Multiple inputs are active.
+    DEBUG A debug message.
+    INFO Another info message.
+    """
+    expected_logs = """INFO This is a normal log line.\nDEBUG A debug message.\nINFO Another info message."""
+    filtered_logs = filter_logs_std(logs)
+    assert filtered_logs == expected_logs, f"Expected:\n{expected_logs}\nGot:\n{filtered_logs}"       

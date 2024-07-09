@@ -1,11 +1,26 @@
-from dagster import asset, op, In, Out, graph, OpExecutionContext, build_op_context, AssetsDefinition, AssetExecutionContext, Failure, EnvVar, AssetKey
+from dagster import (asset, op, In, Out, graph, AssetChecksDefinition
+                     , OpExecutionContext, load_assets_from_current_module, load_asset_checks_from_current_module
+                     , build_last_update_freshness_checks
+                     , AssetsDefinition, AssetExecutionContext, Failure, EnvVar, AssetKey)
 from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
-from dagster_shared_gf.shared_functions import get_for_current_env, search_for_word_in_text
-from dagster_shared_gf.shared_variables import env_str
+from dagster_shared_gf.shared_functions import get_for_current_env, search_for_word_in_text, filter_assets_by_tags
+from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF
 from dagster_shared_gf.load_env_run import load_env_vars
 import subprocess
-from typing import List, Dict
+from typing import List, Dict, Sequence
+from datetime import timedelta
 import re
+
+tags_repo = TagsRepositoryGF
+
+"""
+#Add privileges to analitica for 
+GRANT CONNECT ON DATABASE analitica TO dagster_instance_role;
+
+GRANT USAGE ON SCHEMA knime TO dagster_instance_role;
+GRANT SELECT ON ALL TABLES IN SCHEMA knime TO dagster_instance_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA knime GRANT SELECT ON TABLES TO dagster_instance_role;
+"""
 
 def filter_logs_std(logs):
     exclude_patterns = [
@@ -59,10 +74,6 @@ def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str]]:
             }
             for row in results
         ]
-
-
-
-
 
 def execute_knime_workflow(knime_bin: str, workflow_directory: str, current_context: AssetExecutionContext) -> None:
     if not current_context:
@@ -155,78 +166,29 @@ def knime_asset_creation_graph():    # first = first_op()     second = second_op
 def knime_wf_DWHFP_SalidaExportarAExcel() -> None:
     return None
 
+from dagster_shared_gf.resources.postgresql_resources import db_analitica_etl
+# Build the context with the resources
+#builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
+builded_resources = {"db_analitica_etl":db_analitica_etl}
 
-asset_definitions: list = []
-knime_assets_definitions: list = []
-# The main script to configure and run the job
-if __name__ == "__main__":
-    current_test = 2
-    match current_test:
-        case 1:
-            from dagster_shared_gf.load_env_run import load_env_vars
-            load_env_vars(joinpath_str=["..",".."])
-            from dagster_shared_gf.resources.postgresql_resources import db_analitica_etl
-            # Build the context with the resources
-            #builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
-            builded_resources = {"db_analitica_etl":db_analitica_etl}
-            # Fetch workflows and create assets
-            asset_definitions = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
-            print([asset.key for asset in asset_definitions])
-            assert len(asset_definitions) > 0, "No assets were created for the knnime workflows."
-        case 2:
-            logs = """
-            INFO This is a normal log line.
-            ERROR StatusLogger Log4j2 could not find a logging implementation.
-            Execution failed in Try-Catch block.
-            WARN Errors overwriting node settings with flow variables.
-            Node\t No new variables defined.
-            Node\t The node configuration changed.
-            WARN Component does not have input data.
-            WARN No grouping column included.
-            WARN Errors loading flow variables into node.
-            WARN No such variable.
-            WARN The table structures of active ports are not compatible.
-            WARN No aggregation column defined.
-            WARN The input table has fewer rows 10 than the specified k.
-            WARN Node All partition issues.
-            WARN Node Multiple inputs are active.
-            DEBUG A debug message.
-            INFO Another info message.
-            """
-            expected_logs = """INFO This is a normal log line.\nDEBUG A debug message.\nINFO Another info message."""
-            filtered_logs = filter_logs_std(logs)
-            assert filtered_logs == expected_logs, f"Expected:\n{expected_logs}\nGot:\n{filtered_logs}"       
-else:
-    from dagster_shared_gf.resources.postgresql_resources import db_analitica_etl
-    builded_resources = {"db_analitica_etl":db_analitica_etl}
-    # Fetch workflows and create assets
-    asset_definitions = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
-    # Check for placeholders
-    if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in asset_definitions]:
-        asset_definitions.append(knime_wf_DWHFP_SalidaExportarAExcel)
-    knime_assets_definitions = asset_definitions
+all_assets = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
 
+# Check for placeholders
+if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:
+    all_assets.append(knime_wf_DWHFP_SalidaExportarAExcel)
 
-"""
-#Add privileges to analitica for 
-GRANT CONNECT ON DATABASE analitica TO dagster_instance_role;
+all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+    lower_bound_delta=timedelta(hours=26),
+    deadline_cron="0 9 * * 1-6",
+)
+#print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+    lower_bound_delta=timedelta(hours=13),
+    deadline_cron="0 10-16 * * 1-6",
+)
 
-GRANT USAGE ON SCHEMA knime TO dagster_instance_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA knime TO dagster_instance_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA knime GRANT SELECT ON TABLES TO dagster_instance_role;
-"""
+all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
 
-if __name__ == "__main__":
-    test_string='this is a erROr string'
-    if "ERROR" in test_string:
-        print("it contains error simple")
-    else:
-        print("it does not contain error simple")
-
-    if search_for_word_in_text(test_string,"ERROR"):
-        print("it contains error")
-    else:
-        print("it does not contain error")
-    #tests for search_for_word_in_text
-    assert search_for_word_in_text(test_string,"ERROR") is not None
-    assert search_for_word_in_text(test_string,"esrror") is None

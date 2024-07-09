@@ -4,14 +4,19 @@ import os
 import psycopg2
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.load_env_run import load_env_vars
 import contextlib
 
 Connection = Any
 Row = Any
+
+if not os.environ.get("DAGSTER_PG_USERNAME"):
+    load_env_vars()
 # Set environment variables
 p_server = get_for_current_env({"local": "172.16.2.235","dev": "localhost","prd": "localhost"})
 p_user = get_for_current_env({"dev": os.environ.get("DAGSTER_PG_USERNAME")})
 p_password = get_for_current_env({"dev": EnvVar("DAGSTER_PG_PASSWORD")})
+
 
 class PostgreSQLResource(ConfigurableResource):
     server: str

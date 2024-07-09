@@ -11,13 +11,9 @@ from dagster_kielsa_gf.assets import (examples
                                    , knime_asset_factory)
 
 examples = load_assets_from_modules([examples], group_name="examples")
-dbt_example = load_assets_from_modules([dbt_example] #, group_name="dbt_examples" #group name already on the dbt models
-                                       )
-dbt_dwh_kielsa_assets =  load_assets_from_modules([dbt_dwh_kielsa])
-ldcom_etl_dwh_assets = load_assets_from_modules([ldcom_etl_dwh], group_name="ldcom_etl_dwh")
-knime_assets = knime_asset_factory.knime_assets_definitions
 
-all_assets = examples + dbt_example  + dbt_dwh_kielsa_assets + ldcom_etl_dwh_assets + knime_assets
+all_assets = examples + dbt_example.all_assets  + dbt_dwh_kielsa.all_assets + ldcom_etl_dwh.all_assets + knime_asset_factory.all_assets
+all_asset_checks = dbt_example.all_asset_checks + dbt_dwh_kielsa.all_asset_checks + ldcom_etl_dwh.all_asset_checks + knime_asset_factory.all_asset_checks
 
 # Extract the asset keys from the AssetsDefinition instances
 all_asset_keys = set()
@@ -36,6 +32,7 @@ all_resources = all_shared_resources
 
 defs = Definitions(
     assets=all_assets + dbt_sources_assets,
+    asset_checks=all_asset_checks,
     resources= all_resources,
     jobs=all_jobs,
     schedules=all_schedules
