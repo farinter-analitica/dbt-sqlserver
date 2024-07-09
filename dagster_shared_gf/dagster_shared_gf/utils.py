@@ -7,7 +7,7 @@ def get_user_databases(sql_server: SQLServerNonRuntimeResource):
     with sql_server.get_connection(database='master') as conn:
         query = """
         SELECT database_id, name 
-        FROM sys.databases 
+        FROM sys.databases  WITH (NOLOCK)
         WHERE [state] <> 6 AND database_id > 4
         """
         return sql_server.query(query, connection=conn)
@@ -22,7 +22,7 @@ def get_all_dependencies(sql_server: SQLServerNonRuntimeResource, db_id: int, db
             ISNULL(referenced_database_name, DB_NAME({db_id})) AS referenced_database,
             referenced_schema_name,
             referenced_entity_name
-        FROM sys.sql_expression_dependencies
+        FROM sys.sql_expression_dependencies WITH (NOLOCK)
         """
         return sql_server.query(query, connection=conn)
 
@@ -119,14 +119,13 @@ def generate_dag(dependencies):
         referenced_node = f"{dep['Referenced_Database']}.{dep['Referenced_Schema']}.{dep['Referenced_Object_Name']}"
         G.add_edge(referencing_node, referenced_node)
 
-    pos = nx.spring_layout(G)
     plt.figure(figsize=(12, 8))
     nx.draw_spring(G, with_labels=True, arrows=True)
     plt.title("Dependencies DAG")
     plt.show()
 
 if __name__ == '__main__':
-    object_name = 'DL_Kielsa_FacturasPosiciones'
+    object_name = 'DL_Kielsa_RecetasCabecera'
     schema_name = 'dbo'
     
     dependencies = collect_dependencies(sql_server=dwh_farinter_database_admin, object_name=object_name, schema_name=schema_name)
