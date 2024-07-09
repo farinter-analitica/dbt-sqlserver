@@ -35,7 +35,7 @@ class SQLServerBaseResource:
             raise ValueError("databases list cannot be empty")
         if not self.allow_any_database and self.default_database not in self.databases:
             raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
-        self.password = base64.b64encode(self.password.encode('utf-8'))
+        self.password = base64.b64encode(self.password.encode('ascii'))
         
     @classmethod
     def log_event(type: Literal["info", "warning", "error"], message: str):
@@ -70,7 +70,7 @@ class SQLServerBaseResource:
             f"SERVER={self.server};"
             f"DATABASE={database};"
             f"UID={self.user};"
-            f"PWD={base64.b64decode(self.password).decode('utf-8')};"
+            f"PWD={base64.b64decode(self.password).decode('ascii')};"
             f"TrustServerCertificate={self.trust_server_certificate};"
         )
         conn = None
