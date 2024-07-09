@@ -70,14 +70,14 @@ def DL_SAP_BSEG(context: AssetExecutionContext
         last_aniomes_id_query: str = f"""SELECT MAX(AnioMes_Id) FROM [{database}].[{schema}].[{table}] WITH (NOLOCK);"""
         last_aniomes_id_result: List[Any] = dwh_farinter_dl.query(query=last_aniomes_id_query, connection = conn)        
         last_date_updated_query: str = f"""
-            SELECT MAX(Fecha_Actualizado) FROM [{database}].[{schema}].[{table}] 
+            SELECT MAX(AEDAT) FROM [{database}].[{schema}].[{table}] 
             WHERE AnioMes_Id >= {last_aniomes_id_result[0][0] if last_aniomes_id_result else (datetime.now().year*100-5)+1};
             """
         last_date_updated_result: List[Any] = dwh_farinter_dl.query(query=last_date_updated_query, connection = conn)
-        last_date_updated: date = (datetime.now()-timedelta(days=5*365)).date().isoformat()
+        last_date_updated: date = (datetime.now()-timedelta(days=5*365)).date()
         if last_date_updated_result:
             try:
-                last_date_updated: date = last_date_updated_result[0][0].date()
+                last_date_updated: date = datetime.strptime(last_date_updated_result[0][0], "%Y%m%d").date()
             except:
                 context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
         final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat())

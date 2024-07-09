@@ -22,7 +22,7 @@ class SQLServerBaseResource:
     server: str
     databases: list[str]  # List of databases
     user: str
-    password: str
+    _password: str
     default_database: str   # Default database
     trust_server_certificate: str = 'no'  # 'yes' or 'no', default should be no for public IPs.
     allow_any_database: bool = False  # Allow any database to be used, default should be False.
@@ -35,7 +35,7 @@ class SQLServerBaseResource:
         if not self.allow_any_database and self.default_database not in self.databases:
             raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
         
-    @staticmethod
+    @classmethod
     def log_event(type: Literal["info", "warning", "error"], message: str):
         print(f"{type}: {message}")
 
@@ -68,7 +68,7 @@ class SQLServerBaseResource:
             f"SERVER={self.server};"
             f"DATABASE={database};"
             f"UID={self.user};"
-            f"PWD={self.password};"
+            f"PWD={self._password};"
             f"TrustServerCertificate={self.trust_server_certificate};"
         )
         conn = None
@@ -190,17 +190,17 @@ class SQLServerBaseResource:
             raise e
         
 class SQLServerNonRuntimeResource(SQLServerBaseResource):
-    def __init__(self, server: str, databases: List[str], user: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
+    def __init__(self, server: str, databases: List[str], user: str, _password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
         self.server = server
         self.databases = databases
         self.user = user
-        self.password = password
+        self._password = _password
         self.default_database = default_database
         self.trust_server_certificate = trust_server_certificate
         self.allow_any_database = allow_any_database
 
 class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
-    @staticmethod
+    @classmethod
     def log_event(self, type: Literal['info'] | Literal['warning'] | Literal['error'], message: str):
         if type == "info":
             self.get_resource_context().log.info(f"An unexpected error occurred. Returning None to caller.")
@@ -214,7 +214,7 @@ dwh_farinter = SQLServerResource(
     server= p_server,
     databases= ["BI_FARINTER", "ADM_FARINTER", "DL_FARINTER", "IA_FARINTER", "CRM_FARINTER"],
     user=p_user,
-    password=p_password,
+    _password=p_password,
     trust_server_certificate='yes',
     default_database="DL_FARINTER"
 )
@@ -223,7 +223,7 @@ dwh_farinter_adm = SQLServerResource(
     server= dwh_farinter.server,
     databases= dwh_farinter.databases,
     user=dwh_farinter.user,
-    password=dwh_farinter.password,
+    _password=dwh_farinter._password,
     trust_server_certificate=dwh_farinter.trust_server_certificate,
     default_database="ADM_FARINTER"
 
@@ -233,7 +233,7 @@ dwh_farinter_dl = SQLServerResource(
     server= dwh_farinter.server,
     databases= dwh_farinter.databases,
     user=dwh_farinter.user,
-    password=dwh_farinter.password,
+    _password=dwh_farinter._password,
     trust_server_certificate=dwh_farinter.trust_server_certificate,
     default_database="DL_FARINTER"
     )
@@ -243,7 +243,7 @@ dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server= p_server,
     databases= ["no_database_specified"],
     user=p_user,
-    password=p_password.get_value(),
+    _password=p_password.get_value(),
     trust_server_certificate='yes',
     default_database="no_database_specified",
     allow_any_database=True
