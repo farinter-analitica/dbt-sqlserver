@@ -190,24 +190,25 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
 #print(all_assets_without_group)
 #como agregar atributos de grupo por ejemplo:
 #all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
-all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") #+ store_procedure_assets
+if not __name__ == '__main__':
+    all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") #+ store_procedure_assets
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-#print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-    lower_bound_delta=timedelta(hours=13),
-    deadline_cron="0 10-16 * * 1-6",
-)
+    all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+        lower_bound_delta=timedelta(hours=26),
+        deadline_cron="0 9 * * 1-6",
+    )
+    #print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
+    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+        lower_bound_delta=timedelta(hours=13),
+        deadline_cron="0 10-16 * * 1-6",
+    )
 
-#all_asset_checks = load_asset_checks_from_current_module()
-#all_asset_checks: List[AssetChecksDefinition] = itertools.chain.from_iterable(get_all_instances_of_class([Sequence[AssetChecksDefinition]]))
-all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
-all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+    #all_asset_checks = load_asset_checks_from_current_module()
+    #all_asset_checks: List[AssetChecksDefinition] = itertools.chain.from_iterable(get_all_instances_of_class([Sequence[AssetChecksDefinition]]))
+    all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+    all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
 
 if __name__ == '__main__':
     ##testing
@@ -218,11 +219,12 @@ if __name__ == '__main__':
     #print((timedelta(days=-5*365) + datetime.now()).date().isoformat())
     context = build_asset_context()
     #env_str='PRD'
-    #DL_SAP_T001(context, dwh_farinter_dl)
+    def tests():
+        DL_SAP_T001(context, dwh_farinter_dl)
     # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
     # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
     # print("type " +  str(type(all_assets_hourly_freshness_checks)))
     # print(sp_start_job_sap_diario.tags_by_key[list(sp_start_job_sap_diario.keys)[-1]])
     # print("checks: " + str(all_asset_checks))
-    print(all_assets)
+    #print(all_assets)
     #print("checks fres: " + str(all_asset_freshness_checks))
