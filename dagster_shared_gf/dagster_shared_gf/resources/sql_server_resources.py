@@ -7,6 +7,8 @@ from dagster_shared_gf.shared_functions import get_for_current_env
 import contextlib
 import base64
 
+Row = pyodbc.Row
+
 def encode_password(input_str: str) -> str:
     # Convert the string to bytes
     input_bytes = input_str.encode('utf-8')
@@ -104,7 +106,7 @@ class SQLServerBaseResource:
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
-    def query(self, query: str, connection: pyodbc.Connection = None, database: str = "", fetch_one: bool = False, autocommit: bool = True) -> List[pyodbc.Row]:
+    def query(self, query: str, connection: pyodbc.Connection = None, database: str = "", fetch_one: bool = False, autocommit: bool = True) -> List[Row]:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows or single row,
         this doesn't work well for single valued queries, instead use fetch_one = True to get a single value/row.
