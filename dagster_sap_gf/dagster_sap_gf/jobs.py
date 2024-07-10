@@ -13,7 +13,8 @@ from .assets.dbt_dwh_sap import MyDbtConfig
 
 dbt_dwh_sap_marts_job = define_asset_job(name="dbt_dwh_sap_marts_job"
                                                             , selection=AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros"
-                                                                                              , "dbt_dwh_sap_mart_finanzas"))
+                                                                                              , "dbt_dwh_sap_mart_finanzas"
+                                                                                              , "dbt_dwh_sap_mart_mm"))
 
 
 dbt_dwh_sap_etl_dwh_job = define_asset_job(name="dbt_dwh_sap_etl_dwh_job"

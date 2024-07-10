@@ -27,3 +27,6 @@ groups:
   - name: dbt_dwh_kielsa_mart_kpp
     owner:
       email: brian.padilla@farinter.com
+  - name: dbt_dwh_sap_mart_mm
+    owner:
+      email: brian.padilla@farinter.com

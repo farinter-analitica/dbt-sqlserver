@@ -45,6 +45,8 @@ models:
         +group: "dbt_dwh_sap_mart_datos_maestros"
       mart_finanzas:
         +group: "dbt_dwh_sap_mart_finanzas"
+      mart_mm:
+        +group: "dbt_dwh_sap_mart_mm"
       sap_etl_datos_maestros:
         +group: "sap_etl_dwh"
         +database: "DL_FARINTER"
@@ -86,6 +88,8 @@ sources:
       mart_finanzas:
         +group: 'sap_etl_dwh'
       sap_etl_datos_maestros:
+        +group: 'sap_prd'
+      sap_etl_mm:
         +group: 'sap_prd'
 #    marts:
 #      +group: "marts_group"
