@@ -1,5 +1,5 @@
-from dagster import ConfigurableResource, EnvVar, asset, Definitions
-from typing import List, Literal
+from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, Definitions
+from typing import List, Literal, Generator
 import os
 import pyodbc
 from dagster_shared_gf import shared_variables as shared_vars
@@ -46,7 +46,8 @@ class SQLServerBaseResource:
     trust_server_certificate: str = 'no'  # 'yes' or 'no', default should be no for public IPs.
     allow_any_database: bool = False  # Allow any database to be used, default should be False.
 
-    def __post_init__(self):
+    @staticmethod
+    def _validate_init(self):
         if self.trust_server_certificate not in ['yes', 'no']:
             raise ValueError("trust_server_certificate must be 'yes' or 'no'")
         if not self.allow_any_database and not self.databases:
@@ -60,7 +61,7 @@ class SQLServerBaseResource:
         print(f"{type}: {message}")
 
     @contextlib.contextmanager
-    def get_connection(self,  database: str = "", autocommit: bool=False):
+    def get_connection(self,  database: str = "", autocommit: bool=False) -> Generator[pyodbc.Connection, None, None]:
         """
         A context manager that provides a connection to a SQL Server database, beware, by default is non autocommit.
 
@@ -106,7 +107,7 @@ class SQLServerBaseResource:
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
-    def query(self, query: str, connection: pyodbc.Connection = None, database: str = "", fetch_one: bool = False, autocommit: bool = True) -> List[Row]:
+    def query(self, query: str, connection: pyodbc.Connection | None = None, database: str = "", fetch_one: bool = False, autocommit: bool = True) -> List[Row]:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows or single row,
         this doesn't work well for single valued queries, instead use fetch_one = True to get a single value/row.
@@ -167,7 +168,7 @@ class SQLServerBaseResource:
             
 #            print(f"An unexpected error occurred: {str(e)}")
 
-    def execute_and_commit(self, query: str, connection: pyodbc.Connection = None, database: str = ""):
+    def execute_and_commit(self, query: str, connection: pyodbc.Connection | None = None, database: str = ""):
         """
         Executes an SQL query on a database connection, 
         beware, by default is autocommit when using auto generated connection instead of a provided connection.
@@ -218,16 +219,22 @@ class SQLServerNonRuntimeResource(SQLServerBaseResource):
         self.default_database = default_database
         self.trust_server_certificate = trust_server_certificate
         self.allow_any_database = allow_any_database
+        self._validate_init(self)
 
+# setup_for_execution  init with context
 class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
+
     @classmethod
     def log_event(self, type: Literal['info'] | Literal['warning'] | Literal['error'], message: str):
         if type == "info":
-            self.get_resource_context().log.info(f"An unexpected error occurred. Returning None to caller.")
+            self.get_resource_context(self).log.info(f"An unexpected error occurred. Returning None to caller.")
         elif type == "warning":
-            self.get_resource_context().log.warning(f"An unexpected error occurred. Returning None to caller.")
+            self.get_resource_context(self).log.warning(f"An unexpected error occurred. Returning None to caller.")
         elif type == "error":
-            self.get_resource_context().log.error(f"An unexpected error occurred. Returning None to caller.")
+            self.get_resource_context(self).log.error(f"An unexpected error occurred. Returning None to caller.")
+
+    def setup_for_execution(self, context: InitResourceContext) -> None:
+        return super()._validate_init(self)
 
 
 dwh_farinter = SQLServerResource(
@@ -268,3 +275,14 @@ dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     default_database="no_database_specified",
     allow_any_database=True
 )
+
+if __name__ == "__main__":
+    x=SQLServerNonRuntimeResource(
+            server="server",
+            databases=[],
+            user="user",
+            password="password",
+            default_database="default_database",
+            trust_server_certificate="yes",
+            allow_any_database=False
+        )
