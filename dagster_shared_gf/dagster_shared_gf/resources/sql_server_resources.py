@@ -98,12 +98,12 @@ class SQLServerBaseResource:
             raise RuntimeError(f"Error closing connection: {e}")
         
     def cursor_fetch_first_result(self, cursor: pyodbc.Cursor, fetch_one: bool = False):
-        print(cursor.messages) # cursor.messages
-        print(cursor) # cursor.statement
+        #print(cursor.messages) # cursor.messages
+        #print(cursor) # cursor.statement
         while cursor.nextset():
             print("NEXTSET")
             try:
-                print(cursor.fetchone() if fetch_one else cursor.fetchall())
+                #print(cursor.fetchone() if fetch_one else cursor.fetchall())
                 return cursor.fetchone() if fetch_one else cursor.fetchall()
             
             except Exception as e:
@@ -159,12 +159,10 @@ class SQLServerBaseResource:
                 # Handle the error specific to table not existing
             else:
                 #print(f"An unexpected database error occurred: {str(opex)}")
-                self.log_event('error', f"An unexpected database error occurred: {str(opex)}. Returning None to caller.")
-                opex.__traceback__ = None
+                self.log_event('error', f"An unexpected database error occurred: {str(opex)}.")
                 raise opex
         except pyodbc.Error as e:
             self.log_event('error', f"Error executing and committing query: {str(e.args)}.")
-            e.__traceback__ = None
             raise e
             
 #            print(f"An unexpected error occurred: {str(e)}")
@@ -216,27 +214,28 @@ class SQLServerNonRuntimeResource(SQLServerBaseResource):
         self.server = server
         self.databases = databases
         self.user = user
-        self.password = password.get_value()
+        self.password = password
         self.default_database = default_database
         self.trust_server_certificate = trust_server_certificate
         self.allow_any_database = allow_any_database
 
 # setup_for_execution  init with context
 class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
-    # def setup_for_execution(self, context: InitResourceContext):
-    #     self.context_got = self.get_resource_context()
-    #     return self
+    _context: InitResourceContext = None
+    def setup_for_execution(self, context: InitResourceContext):
+        self._context = context
 
-    @classmethod
-    def log_event(self, type: Literal['info'] | Literal['warning'] | Literal['error'], message: str):
-        print(message)
-        # context = self.get_resource_context()
-        # if type == "info":
-        #     context.log.info(f"An unexpected error occurred. Returning None to caller.")
-        # elif type == "warning":
-        #     context.log.warning(f"An unexpected error occurred. Returning None to caller.")
-        # elif type == "error":
-        #     context.log.error(f"An unexpected error occurred. Returning None to caller.")
+    def log_event(self, type: Literal['info', 'warning', 'error'], message: str):
+        if not hasattr(self, '_context') or self._context is None:
+            raise ValueError("Context has not been set. Call setup_for_execution first.")
+        
+        if type == "info":
+            self._context.log.info(message)
+        elif type == "warning":
+            self._context.log.warning(message)
+        elif type == "error":
+            self._context.log.error(message)
+
 
 
 dwh_farinter = SQLServerResource(
@@ -272,7 +271,7 @@ dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server= p_server,
     databases= ["no_database_specified"],
     user=p_user,
-    password=p_password,
+    password=p_password.get_value(),
     trust_server_certificate='yes',
     default_database="no_database_specified",
     allow_any_database=True

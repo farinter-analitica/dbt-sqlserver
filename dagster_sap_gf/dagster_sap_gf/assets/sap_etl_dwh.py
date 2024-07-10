@@ -136,7 +136,7 @@ store_procedure_assets: List[AssetsDefinition] = generate_hourly_store_procedure
         , compute_kind="sqlserver"
         )
 def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
-    if env_str != "prd": 
+    if env_str not in ("prd","local"): 
         context.log.info(f"Skipping sp_start_job_sap_cadahora for env {env_str}")
         return
     job_name = 'SAP_CadaHora'
