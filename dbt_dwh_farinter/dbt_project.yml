@@ -48,7 +48,10 @@ models:
       sap_etl_datos_maestros:
         +group: "sap_etl_dwh"
         +database: "DL_FARINTER"
-       
+      sap_etl_mm:
+        +group: "sap_etl_dwh"
+        +database: "DL_FARINTER"
+
     dwh_kielsa:
       +tags: ["dagster_kielsa_gf"]
 #      mart_finanzas:
