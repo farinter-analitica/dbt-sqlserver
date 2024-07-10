@@ -143,8 +143,8 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
     final_query = \
     f"""
     DECLARE @job_result int = 0;
-    EXECUTE @job_result =msdb.dbo.sp_start_job @job_name = {job_name};
-    SELECT @job_result;
+    EXECUTE @job_result = msdb.dbo.sp_start_job @job_name = {job_name};
+    SELECT @job_result as job_result;
     """
     results = dwh_farinter_dl.query(final_query, fetch_one=True)
     #check if sp returned 0 for errors

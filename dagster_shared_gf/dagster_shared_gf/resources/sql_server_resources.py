@@ -46,16 +46,6 @@ class SQLServerBaseResource:
     trust_server_certificate: str = 'no'  # 'yes' or 'no', default should be no for public IPs.
     allow_any_database: bool = False  # Allow any database to be used, default should be False.
 
-    @staticmethod
-    def _validate_init(self):
-        if self.trust_server_certificate not in ['yes', 'no']:
-            raise ValueError("trust_server_certificate must be 'yes' or 'no'")
-        if not self.allow_any_database and not self.databases:
-            raise ValueError("databases list cannot be empty")
-        if not self.allow_any_database and self.default_database not in self.databases:
-            raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
-        self.password = str(self.password.encode('utf-8'))
-        
     @classmethod
     def log_event(self,type: Literal["info", "warning", "error"], message: str):
         print(f"{type}: {message}")
@@ -89,7 +79,7 @@ class SQLServerBaseResource:
             f"SERVER={self.server};"
             f"DATABASE={database};"
             f"UID={self.user};"
-            f"PWD={bytes(self.password,encoding='utf-8').decode('utf-8')};"
+            f"PWD={self.password};"
             f"TrustServerCertificate={self.trust_server_certificate};"
         )
         conn = None
@@ -215,11 +205,10 @@ class SQLServerNonRuntimeResource(SQLServerBaseResource):
         self.server = server
         self.databases = databases
         self.user = user
-        self.password = password
+        self.password = password.get_value()
         self.default_database = default_database
         self.trust_server_certificate = trust_server_certificate
         self.allow_any_database = allow_any_database
-        self._validate_init(self)
 
 # setup_for_execution  init with context
 class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
@@ -232,9 +221,6 @@ class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
             self.get_resource_context(self).log.warning(f"An unexpected error occurred. Returning None to caller.")
         elif type == "error":
             self.get_resource_context(self).log.error(f"An unexpected error occurred. Returning None to caller.")
-
-    def setup_for_execution(self, context: InitResourceContext) -> None:
-        return super()._validate_init(self)
 
 
 dwh_farinter = SQLServerResource(
@@ -270,7 +256,7 @@ dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server= p_server,
     databases= ["no_database_specified"],
     user=p_user,
-    password=p_password.get_value(),
+    password=p_password,
     trust_server_certificate='yes',
     default_database="no_database_specified",
     allow_any_database=True

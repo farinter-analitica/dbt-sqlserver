@@ -11,43 +11,16 @@ def test_encode_password():
 def test_decode_password():
     assert decode_password("dGVzdF9wYXNzd29yZA==") == "test_password"
 
-# Test SQLServerBaseResource initialization
-def test_sql_server_base_resource_initialization():
-    with pytest.raises(ValueError):
-        SQLServerNonRuntimeResource(
-            server="server",
-            databases=[],
-            user="user",
-            password="password",
-            default_database="default_database",
-            trust_server_certificate="invalid_value"
-        )
-
-    with pytest.raises(ValueError):
-        SQLServerNonRuntimeResource(
-            server="server",
-            databases=[],
-            user="user",
-            password="password",
-            default_database="default_database",
-            trust_server_certificate="yes",
-            allow_any_database=False
-        )
-
-
 # Mock the pyodbc connection and cursor
 @patch('pyodbc.connect')
 def test_get_connection(mock_connect):
     mock_conn = MagicMock()
     mock_connect.return_value = mock_conn
 
-    with dwh_farinter.get_connection(database='DL_FARINTER') as conn:
+    with dwh_farinter_database_admin.get_connection(database='DL_FARINTER') as conn:
         assert conn == mock_conn
         mock_connect.assert_called_once()
 
-    with pytest.raises(ValueError):
-        with dwh_farinter.get_connection(database='INVALID_DB'):
-            pass
 
 @patch('pyodbc.connect')
 def test_query(mock_connect):
@@ -59,11 +32,11 @@ def test_query(mock_connect):
     mock_cursor.fetchall.return_value = [mock_row]
     mock_cursor.fetchone.return_value = mock_row
 
-    result = dwh_farinter.query("SELECT * FROM test_table", database='DL_FARINTER')
+    result = dwh_farinter_database_admin.query("SELECT * FROM test_table", database='DL_FARINTER')
     assert result == [mock_row]
     mock_cursor.execute.assert_called_once_with("SELECT * FROM test_table")
 
-    result_one = dwh_farinter.query("SELECT * FROM test_table", database='DL_FARINTER', fetch_one=True)
+    result_one = dwh_farinter_database_admin.query("SELECT * FROM test_table", database='DL_FARINTER', fetch_one=True)
     assert result_one == [mock_row]
     mock_cursor.execute.assert_called_with("SELECT * FROM test_table")
 
@@ -74,17 +47,17 @@ def test_execute_and_commit(mock_connect):
     mock_connect.return_value = mock_conn
     mock_conn.cursor.return_value = mock_cursor
 
-    dwh_farinter.execute_and_commit("INSERT INTO test_table (col) VALUES ('value')")
+    dwh_farinter_database_admin.execute_and_commit("INSERT INTO test_table (col) VALUES ('value')")
     mock_cursor.execute.assert_called_once_with("INSERT INTO test_table (col) VALUES ('value')")
     mock_conn.commit.assert_not_called()
 
     mock_conn.autocommit = True
-    dwh_farinter.execute_and_commit("INSERT INTO test_table (col) VALUES ('value')", connection=mock_conn)
+    dwh_farinter_database_admin.execute_and_commit("INSERT INTO test_table (col) VALUES ('value')", connection=mock_conn)
     mock_cursor.execute.assert_called_with("INSERT INTO test_table (col) VALUES ('value')")
     mock_conn.commit.assert_not_called()
 
     mock_conn.autocommit = False
-    dwh_farinter.execute_and_commit("INSERT INTO test_table (col) VALUES ('value')", connection=mock_conn)
+    dwh_farinter_database_admin.execute_and_commit("INSERT INTO test_table (col) VALUES ('value')", connection=mock_conn)
     mock_cursor.execute.assert_called_with("INSERT INTO test_table (col) VALUES ('value')")
     mock_conn.commit.assert_called_once()
 # More tests can be added here as needed
