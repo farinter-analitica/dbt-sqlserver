@@ -209,20 +209,21 @@ def generate_dag(graph_dict: GraphDict):
                     neighbor = neighbor[neighbor.rfind(".", 0)+1:]
                 is_downstream = direction == '>'
                 
-                if node == source_node or neighbor == source_node:
-                    graph.add_node(node, node_size=500, node_color='blue' if is_downstream else 'green')
-                    graph.add_node(neighbor, node_size=500, node_color='blue' if is_downstream else 'green')
                 if not graph.has_node(node):
                     graph.add_node(node, node_color="grey", node_size=200)
+                    if node == source_node or neighbor == source_node:
+                        graph.add_node(node, node_size=450, node_color='blue' if is_downstream else 'green')
                 if not graph.has_node(neighbor):
                     graph.add_node(neighbor, node_color="grey", node_size=200)
+                    if node == source_node or neighbor == source_node:
+                        graph.add_node(neighbor, node_size=450, node_color='blue' if is_downstream else 'green')
                 graph.add_edge(node if is_downstream else neighbor
                                 , neighbor if is_downstream else node
                                 , direction=direction
                                 , edge_color='blue' if is_downstream else 'green'
                             )
 
-    graph.nodes[source_node]['node_color'] = 'yellow'
+    graph.add_node(source_node, node_color = 'yellow', node_size=600)
     for layer, nodes in enumerate(nx.topological_generations(graph)):
         # `multipartite_layout` expects the layer as a node attribute, so add the
         # numeric layer value as a node attribute
@@ -238,7 +239,7 @@ def generate_dag(graph_dict: GraphDict):
     nx.draw_networkx_nodes(graph, pos
                             , node_color=[graph.nodes[node].get("node_color", "gray") for node in graph.nodes()]
                             , node_size=[graph.nodes[node].get("node_size", 200) for node in graph.nodes()])
-    nx.draw_networkx_edges(graph, pos, edge_color=[graph.edges[edge].get("edge_color", "gray") for edge in graph.edges()], arrows=True, alpha=0.5, connectionstyle='arc3,rad=0.2')
+    nx.draw_networkx_edges(graph, pos, edge_color=[graph.edges[edge].get("edge_color", "gray") for edge in graph.edges()], arrows=True, alpha=0.5, connectionstyle='arc3,rad=0.1')
     nx.draw_networkx_labels(graph, pos, font_size=8, font_color='black')
     plt.title("Dependencies DAG")
     plt.axis('off')
@@ -258,7 +259,7 @@ if __name__ == '__main__':
                    }    
     if_debug_print("Printing events: " + str(printing_events), printing_events_name="printing_events")
     starting_node_servername = get_server_name_str(sql_server=dwh_farinter_database_admin)
-    starting_node_object_name = 'DL_paCargarKielsa_Recetas'
+    starting_node_object_name = 'DL_paCargarKielsa_FacturasPosiciones'
     starting_node_schema_name = 'dbo'
     starting_node_db_name = 'DL_FARINTER'
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
@@ -276,5 +277,5 @@ if __name__ == '__main__':
     # print(len(dependencies_for_starting))
 
     if not debug:
-        #print_dag_as_json(collected_dependencies)
+        print_dag_as_json(collected_dependencies)
         generate_dag(collected_dependencies)
