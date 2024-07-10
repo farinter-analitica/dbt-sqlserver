@@ -43,7 +43,7 @@ class SQLServerBaseResource:
     user: str
     password: str
     default_database: str   # Default database
-    trust_server_certificate: str = 'no'  # 'yes' or 'no', default should be no for public IPs.
+    trust_server_certificate: Literal['yes', 'no'] = 'no'  # 'yes' or 'no', default should be no for public IPs.
     allow_any_database: bool = False  # Allow any database to be used, default should be False.
 
     @classmethod
