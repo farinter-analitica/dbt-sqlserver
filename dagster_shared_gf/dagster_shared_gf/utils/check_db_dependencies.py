@@ -2,11 +2,12 @@ from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_databa
 from typing import Literal, Dict, List
 import networkx as nx
 import matplotlib.pyplot as plt
-import json, sys
-import  inspect
+import json
 
+DirOperator = Literal['>', '<']
+DependencyDict = Dict[DirOperator, List[str]]
+GraphDict = Dict[str, DependencyDict] # GraphDict = Dict[str, Dict[Literal['>', '<'], List[str]]]
 debug = False
-
 printing_events = {}
 
 def if_debug_print(*values, printing_events_name:str = "generic", extra_conditions: bool = True, **kwargs) -> None:
@@ -78,10 +79,6 @@ def collect_dependencies(sql_server: SQLServerNonRuntimeResource):
         if_debug_print(str(db_dependencies)[:1000], printing_events_name=collect_dependencies.__name__)
     return all_dependencies
 
-DirOperator = Literal['>', '<']
-DependencyDict = Dict[DirOperator, List[str]]
-GraphDict = Dict[str, DependencyDict]
-
 def merge_dict_graphs(graph_dict1: GraphDict, graph_dict2: GraphDict) -> GraphDict:
     """
     Merges two dependency graphs while preserving all keys and values.
@@ -91,7 +88,7 @@ def merge_dict_graphs(graph_dict1: GraphDict, graph_dict2: GraphDict) -> GraphDi
         graph2 (GraphDict): Second graph to merge.
 
     Returns:
-        GraphDict: Merged graph.
+        GraphDict: Merged graph. Dict[str, Dict[Literal['>', '<'], List[str]]]
     """
     merged_graph = {}
 
@@ -176,24 +173,82 @@ def collect_dependencies_dict(starting_relation_path: str, all_dependencies: lis
     all_dependencies_dict = merge_dict_graphs(downstream_dependencies, upstream_dependencies)
     
     return all_dependencies_dict
+
 def print_dag_as_json(dependencies: GraphDict):
     """print the GraphDict as json, nothing else"""	
-    print(f"Dependencies JSON for {GraphDict.keys()[0]}:")
+    print(f"Dependencies JSON for {list(dependencies.keys())[0]}:")
     print(json.dumps(dependencies, indent=4))
 
-def generate_dag(dependencies: list[Row | tuple], starting_relation_path: str):
-    """generate and show the dag, nothing else"""
-    graph = nx.DiGraph()
-    for dep in dependencies:
-        graph.add_edge(dep.referencing_relation_path, dep.referenced_relation_path)
+def generate_dag(graph_dict: GraphDict):
+    """
+    Generates and displays a DAG based on the provided graph dictionary.
 
+    Args:
+        graph_dict (GraphDict): A dictionary representing the graph structure.
+
+    Returns:
+        None: Displays the DAG plot.
+    """
+    graph = nx.DiGraph()
+    source_node = next(iter(graph_dict.keys()))
+    source_node = source_node[source_node.rfind(".", 0)+1:]
+
+    # Add nodes and edges from the graph_dict
+    for node, dependencies in graph_dict.items():
+        node = node[node.rfind(".", 0)+1:]
+        for direction, neighbors in dependencies.items():
+            for neighbor in neighbors:
+                if neighbor == '....more....':
+                    continue
+                    # neighbor = '...more_of_' + node
+                    # graph.add_node(neighbor
+                    #             , node_color='blue' if is_downstream else 'green'
+                    #             , node_size=100
+                    #             )
+                else:
+                    neighbor = neighbor[neighbor.rfind(".", 0)+1:]
+                is_downstream = direction == '>'
+                
+                if node == source_node or neighbor == source_node:
+                    graph.add_node(node, node_size=500, node_color='blue' if is_downstream else 'green')
+                    graph.add_node(neighbor, node_size=500, node_color='blue' if is_downstream else 'green')
+                if not graph.has_node(node):
+                    graph.add_node(node, node_color="grey", node_size=200)
+                if not graph.has_node(neighbor):
+                    graph.add_node(neighbor, node_color="grey", node_size=200)
+                graph.add_edge(node if is_downstream else neighbor
+                                , neighbor if is_downstream else node
+                                , direction=direction
+                                , edge_color='blue' if is_downstream else 'green'
+                            )
+
+    graph.nodes[source_node]['node_color'] = 'yellow'
+    for layer, nodes in enumerate(nx.topological_generations(graph)):
+        # `multipartite_layout` expects the layer as a node attribute, so add the
+        # numeric layer value as a node attribute
+        for node in nodes:
+            graph.nodes[node]["layer"] = layer
+
+    # Draw the graph
     plt.figure(figsize=(12, 8))
-    nx.draw_spring(graph, with_labels=True, arrows=True)
-    plt.title(f"Dependencies DAG for {starting_relation_path}")
+    pos = nx.multipartite_layout(graph
+                                 , subset_key="layer"
+                                 #, seed=42
+                                 )
+    nx.draw_networkx_nodes(graph, pos
+                            , node_color=[graph.nodes[node].get("node_color", "gray") for node in graph.nodes()]
+                            , node_size=[graph.nodes[node].get("node_size", 200) for node in graph.nodes()])
+    nx.draw_networkx_edges(graph, pos, edge_color=[graph.edges[edge].get("edge_color", "gray") for edge in graph.edges()], arrows=True, alpha=0.5, connectionstyle='arc3,rad=0.2')
+    nx.draw_networkx_labels(graph, pos, font_size=8, font_color='black')
+    plt.title("Dependencies DAG")
+    plt.axis('off')
+    #plt.savefig('G_dag.png',format='PNG')
     plt.show()
 
+
+
 if __name__ == '__main__':
-    debug = True
+    debug = False
     printing_events= {
                         "main" : 99
                         , get_all_dependencies_tuples.__name__: 0
@@ -212,14 +267,14 @@ if __name__ == '__main__':
     max_direct_indirects_breadth = 2  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
 
     all_dependencies = collect_dependencies(sql_server=dwh_farinter_database_admin)
-    collected_direct_dependencies = collect_dependencies_dict(starting_relation_path=full_starting_relation_path,all_dependencies= all_dependencies)
-    if_debug_print(collected_direct_dependencies, printing_events_name="collected_direct_dependencies")
+    collected_dependencies = collect_dependencies_dict(starting_relation_path=full_starting_relation_path,all_dependencies= all_dependencies)
+    if_debug_print(collected_dependencies, printing_events_name="collected_dependencies")
     
 
     # dependencies_for_starting = dependencies_from_starting_point(full_starting_relation_path, all_dependencies, max_direct_indirects_depth, max_direct_indirects_breadth)
 
     # print(len(dependencies_for_starting))
 
-    # if not debug:
-    #     print_dag_as_json(dependencies_for_starting, full_starting_relation_path)
-    #     generate_dag(dependencies_for_starting, full_starting_relation_path)
+    if not debug:
+        #print_dag_as_json(collected_dependencies)
+        generate_dag(collected_dependencies)
