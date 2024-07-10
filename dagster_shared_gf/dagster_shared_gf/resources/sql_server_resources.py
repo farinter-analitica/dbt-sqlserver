@@ -97,6 +97,22 @@ class SQLServerBaseResource:
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
+    def cursor_fetch_first_result(self, cursor: pyodbc.Cursor, fetch_one: bool = False):
+        print(cursor.messages) # cursor.messages
+        print(cursor) # cursor.statement
+        while cursor.nextset():
+            print("NEXTSET")
+            try:
+                print(cursor.fetchone() if fetch_one else cursor.fetchall())
+                return cursor.fetchone() if fetch_one else cursor.fetchall()
+            
+            except Exception as e:
+                print(e)
+                self.log_event('info', "Skipping non rs message: {}".format(e))
+            continue
+
+
+        
     def query(self, query: str, connection: pyodbc.Connection | None = None, database: str = "", fetch_one: bool = False, autocommit: bool = True) -> List[Row]:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows or single row,
@@ -127,20 +143,14 @@ class SQLServerBaseResource:
         """
         try:
             if connection is None:
-                with self.get_connection(database=database, autocommit = autocommit) as conn:
-                    cursor = conn.cursor()
+                with self.get_connection(database=database, autocommit = autocommit) as new_conn:
+                    cursor = new_conn.cursor()
                     cursor.execute(query)
-                    if fetch_one:
-                        return [cursor.fetchone()]
-                    else:
-                        return cursor.fetchall()
+                    return self.cursor_fetch_first_result(cursor=cursor, fetch_one=fetch_one)
             else:
                 cursor = connection.cursor()
                 cursor.execute(query)
-                if fetch_one:
-                    return [cursor.fetchone()]
-                else:
-                    return cursor.fetchall()
+                return self.cursor_fetch_first_result(cursor=cursor, fetch_one=fetch_one)
         except pyodbc.DatabaseError as opex:           
             if opex.args[0] == '42S02':
                 #print("Table does not exist error handling")
@@ -150,7 +160,8 @@ class SQLServerBaseResource:
             else:
                 #print(f"An unexpected database error occurred: {str(opex)}")
                 self.log_event('error', f"An unexpected database error occurred: {str(opex)}. Returning None to caller.")
-                return None
+                opex.__traceback__ = None
+                raise opex
         except pyodbc.Error as e:
             self.log_event('error', f"Error executing and committing query: {str(e.args)}.")
             e.__traceback__ = None
@@ -212,15 +223,20 @@ class SQLServerNonRuntimeResource(SQLServerBaseResource):
 
 # setup_for_execution  init with context
 class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
+    # def setup_for_execution(self, context: InitResourceContext):
+    #     self.context_got = self.get_resource_context()
+    #     return self
 
     @classmethod
     def log_event(self, type: Literal['info'] | Literal['warning'] | Literal['error'], message: str):
-        if type == "info":
-            self.get_resource_context(self).log.info(f"An unexpected error occurred. Returning None to caller.")
-        elif type == "warning":
-            self.get_resource_context(self).log.warning(f"An unexpected error occurred. Returning None to caller.")
-        elif type == "error":
-            self.get_resource_context(self).log.error(f"An unexpected error occurred. Returning None to caller.")
+        print(message)
+        # context = self.get_resource_context()
+        # if type == "info":
+        #     context.log.info(f"An unexpected error occurred. Returning None to caller.")
+        # elif type == "warning":
+        #     context.log.warning(f"An unexpected error occurred. Returning None to caller.")
+        # elif type == "error":
+        #     context.log.error(f"An unexpected error occurred. Returning None to caller.")
 
 
 dwh_farinter = SQLServerResource(

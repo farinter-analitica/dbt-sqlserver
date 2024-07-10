@@ -147,11 +147,12 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
     SELECT @job_result as job_result;
     """
     results = dwh_farinter_dl.query(final_query, fetch_one=True)
-    #check if sp returned 0 for errors
+    #check if sp returned 1 for errors
     if results is None:
-        context.log.info(f"Job {job_name} executed successfully.")
-        return
-    if results[0] == 0:
+        context.log.error(f"Job {job_name} not executed, fail.")
+    elif results[0] == 1: 
+        context.log.error(f"Job {job_name} not executed, fail.")
+    elif results == 0:
         context.log.info(f"Job {job_name} executed successfully.")
     else:
         context.log.error(f"Job {job_name} not executed, fail.")
@@ -171,14 +172,16 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
     SELECT @job_result as job_result;
     """
     results = dwh_farinter_dl.query(final_query, fetch_one=True)
-    #check if sp returned 0 for errors
+    #check if sp returned 1 for errors
     if results is None:
-        context.log.info(f"Job {job_name} executed successfully.")
-        return
-    if results[0] == 0:
+        context.log.error(f"Job {job_name} not executed, fail.")
+    elif results[0] == 1: 
+        context.log.error(f"Job {job_name} not executed, fail.")
+    elif results == 0:
         context.log.info(f"Job {job_name} executed successfully.")
     else:
         context.log.error(f"Job {job_name} not executed, fail.")
+
 
 
 #sp_start_job_sap_diario.with_attributes(group_names_by_key={list(sp_start_job_sap_diario.keys())[-1]: "sap_etl_dwh"})
@@ -219,8 +222,12 @@ if __name__ == '__main__':
     #print((timedelta(days=-5*365) + datetime.now()).date().isoformat())
     context = build_asset_context()
     #env_str='PRD'
-    def tests():
+    def tests1():
         DL_SAP_T001(context, dwh_farinter_dl)
+    def tests2():
+        sp_start_job_sap_cadahora(context, dwh_farinter_dl)
+    #tests1()
+    tests2()
     # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
     # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
     # print("type " +  str(type(all_assets_hourly_freshness_checks)))
