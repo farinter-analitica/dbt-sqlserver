@@ -54,7 +54,7 @@ class SQLServerBaseResource:
         self.password = str(self.password.encode('utf-8'))
         
     @classmethod
-    def log_event(type: Literal["info", "warning", "error"], message: str):
+    def log_event(self,type: Literal["info", "warning", "error"], message: str):
         print(f"{type}: {message}")
 
     @contextlib.contextmanager
