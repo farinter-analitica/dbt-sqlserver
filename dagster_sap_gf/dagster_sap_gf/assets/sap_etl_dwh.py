@@ -19,31 +19,39 @@ from trycast import type_repr
 #vars
 file_path = Path(__file__).parent.resolve()
 tags_repo = TagsRepositoryGF 
-@asset(key_prefix= ["DL_FARINTER"]
-        , tags=tags_repo.Replicas.tag
-        , compute_kind="sqlserver"
-        )
-def DL_SAP_T001(context: AssetExecutionContext
-                , dwh_farinter_dl: SQLServerResource
-                ) -> None: 
+
+@asset(
+    key_prefix=["DL_FARINTER"],
+    tags=tags_repo.Replicas.tag,
+    compute_kind="sqlserver"
+)
+def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
     table = "DL_SAP_T001"
     database = "DL_FARINTER"
     schema = "dbo"
     sql_file_path = file_path.joinpath(f"sap_etl_dwh_sql/{table}.sql").resolve()
-    with open(sql_file_path, encoding="utf8") as procedure:
-        final_query = str(procedure.read())
-    with dwh_farinter_dl.get_connection(database) as conn:
-        last_date_updated_query: str = f"""SELECT MAX(Fecha_Actualizado) FROM [{database}].[{schema}].[{table}]"""
-        last_date_updated_result: List[Any] = dwh_farinter_dl.query(query=last_date_updated_query, connection = conn)
-        last_date_updated: date = date(1900, 1, 1)
-        if last_date_updated_result:
-            try:
-                last_date_updated: date = datetime.fromisoformat(last_date_updated_result[0][0]).date()
-            except:
-                context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
-        final_query = final_query.format(last_date_updated=last_date_updated.isoformat())
-        #print(final_query)
-        dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
+    
+    try:
+        with open(sql_file_path, encoding="utf8") as procedure:
+            final_query = procedure.read()
+    except IOError as e:
+        context.log.error(f"Error reading SQL file: {e}")
+        return
+
+    try:
+        with dwh_farinter_dl.get_connection(database) as conn:
+            last_date_updated_query: str = f"""SELECT MAX(Fecha_Actualizado) FROM [{database}].[{schema}].[{table}]"""
+            last_date_updated_result: List[tuple] = dwh_farinter_dl.query(query=last_date_updated_query, connection=conn)
+            last_date_updated: date = date(1900, 1, 1)
+            if last_date_updated_result and last_date_updated_result[0][0] is not None:
+                try:
+                    last_date_updated = datetime.fromisoformat(last_date_updated_result[0][0]).date()
+                except ValueError as e:
+                    context.log.error(f"Error converting date: {e}, defaulting to {last_date_updated}.")
+            final_query = final_query.format(last_date_updated=last_date_updated.isoformat())
+            dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+    except Exception as e:
+        context.log.error(f"Error during database operation: {e}")
         
     #return last_date_updated
 
@@ -123,7 +131,7 @@ store_procedure_assets: List[AssetsDefinition] = generate_hourly_store_procedure
 
 @asset(key_prefix= ["DL_FARINTER"]
  #       , name="sp_start_job_sap_cadahora"
-        , tags= tags_repo.Replicas.tag | tags_repo.HourlyUnique.tag #replicas_tag | hourly_unique_tag
+        , tags= tags_repo.Replicas.tag | tags_repo.Hourly.tag | tags_repo.HourlyUnique.tag #replicas_tag | hourly_unique_tag
         , deps=store_procedure_assets+list([DL_SAP_T001])+list()
         , compute_kind="sqlserver"
         )
@@ -149,7 +157,7 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
         context.log.error(f"Job {job_name} not executed, fail.")
 
 @asset(key_prefix= ["DL_FARINTER"]
-        , tags=tags_repo.Replicas.tag | tags_repo.DailyUnique.tag #replicas_tag | daily_unique_tag
+        , tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.DailyUnique.tag #replicas_tag | daily_unique_tag
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_dwh_sap.dbt_sap_etl_dwh_assets])
 #        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa") #deprecated
         , compute_kind="sqlserver"
@@ -210,7 +218,7 @@ if __name__ == '__main__':
     #print((timedelta(days=-5*365) + datetime.now()).date().isoformat())
     context = build_asset_context()
     #env_str='PRD'
-    #DL_SAP_BSEG(context, dwh_farinter_dl)
+    #DL_SAP_T001(context, dwh_farinter_dl)
     # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
     # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
     # print("type " +  str(type(all_assets_hourly_freshness_checks)))
