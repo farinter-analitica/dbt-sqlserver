@@ -29,6 +29,9 @@
 {% else %}
 	{% set last_date = '1900-01-01'|string %}
 {% endif %}
+
+WITH T AS
+(
 SELECT
     [BUKRS] AS Sociedad_Id  
     , [MATNR] AS [Articulo_Id]
@@ -52,4 +55,7 @@ WHERE 1=1
 {% else %}
   --and S.LAEDA >= '00000000'
 {% endif %}
-
+)
+SELECT * 
+	  , ISNULL({{ dwh_farinter_hash_column(columns=unique_key_list,table_alias='T' ) }}, '') AS [HashStr_SocArtLotPedCar] --IdUnico, no cambiar orden
+FROM T
