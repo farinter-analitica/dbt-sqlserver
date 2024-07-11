@@ -1,6 +1,6 @@
 from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, Definitions
 from pydantic import Field
-from typing import List, Literal, Generator
+from typing import List, Literal, Generator, Any
 
 import os
 import pyodbc
@@ -99,26 +99,25 @@ class SQLServerBaseResource:
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
-    def cursor_fetch_first_result(self, cursor: pyodbc.Cursor, fetch_one: bool = False):
-        #print(cursor.messages) # cursor.messages
-        #print(cursor) # cursor.statement
-        while cursor.nextset():
-            print("NEXTSET")
-            try:
-                #print(cursor.fetchone() if fetch_one else cursor.fetchall())
-                return cursor.fetchone() if fetch_one else cursor.fetchall()
+    def cursor_fetch_first_result(self, cursor: pyodbc.Cursor, fetch_val: bool = False):
+        result = None
+        try:
+            result=cursor.fetchval() if fetch_val else cursor.fetchall()
+        except pyodbc.ProgrammingError as e:
+            self.log_event('info', "Skipping non rs message: {}".format(e))
+            while cursor.nextset():
+                try:
+                    result = cursor.fetchval() if fetch_val else cursor.fetchall()
+                except pyodbc.ProgrammingError as e:
+                    self.log_event('info', "Skipping non rs message: {}".format(e))
+                continue
             
-            except Exception as e:
-                print(e)
-                self.log_event('info', "Skipping non rs message: {}".format(e))
-            continue
+        return result
 
-
-        
-    def query(self, query: str, connection: pyodbc.Connection | None = None, database: str = "", fetch_one: bool = False, autocommit: bool = True) -> List[Row]:
+    def query(self, query: str, connection: pyodbc.Connection | None = None, database: str = "", fetch_val: bool = False, autocommit: bool = True) -> List[Row] | Any:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows or single row,
-        this doesn't work well for single valued queries, instead use fetch_one = True to get a single value/row.
+        this doesn't work well for return values, use a select and optional fetch_val = true instead.
         beware, by default is autocommit when using auto generated connection instead of a provided connection.
 
         Args:
@@ -148,11 +147,11 @@ class SQLServerBaseResource:
                 with self.get_connection(database=database, autocommit = autocommit) as new_conn:
                     cursor = new_conn.cursor()
                     cursor.execute(query)
-                    return self.cursor_fetch_first_result(cursor=cursor, fetch_one=fetch_one)
+                    return self.cursor_fetch_first_result(cursor=cursor, fetch_val=fetch_val)
             else:
                 cursor = connection.cursor()
                 cursor.execute(query)
-                return self.cursor_fetch_first_result(cursor=cursor, fetch_one=fetch_one)
+                return self.cursor_fetch_first_result(cursor=cursor, fetch_val=fetch_val)
         except pyodbc.DatabaseError as opex:           
             if opex.args[0] == '42S02':
                 #print("Table does not exist error handling")

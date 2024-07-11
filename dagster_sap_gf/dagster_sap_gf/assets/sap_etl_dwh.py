@@ -45,7 +45,7 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
             last_date_updated: date = date(1900, 1, 1)
             if last_date_updated_result and last_date_updated_result[0][0] is not None:
                 try:
-                    last_date_updated = datetime.fromisoformat(last_date_updated_result[0][0]).date()
+                    last_date_updated = datetime.fromisoformat(str(last_date_updated_result[0][0])).date()
                 except ValueError as e:
                     context.log.error(f"Error converting date: {e}, defaulting to {last_date_updated}.")
             final_query = final_query.format(last_date_updated=last_date_updated.isoformat())
@@ -142,15 +142,16 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
     job_name = 'SAP_CadaHora'
     final_query = \
     f"""
-    DECLARE @job_result int = 0;
-    EXECUTE @job_result = msdb.dbo.sp_start_job @job_name = {job_name};
-    SELECT @job_result as job_result;
+    SET NOCOUNT ON;
+    DECLARE @job_result int = 0; 
+    {f"EXECUTE @job_result = msdb.dbo.sp_start_job @job_name = '{job_name}';" if env_str == "prd" else "SET @job_result = 0;"}
+    SELECT @job_result as job_result, '{job_name}' as job_name ;
     """
-    results = dwh_farinter_dl.query(final_query, fetch_one=True)
+    results = dwh_farinter_dl.query(final_query, fetch_val=True)
     #check if sp returned 1 for errors
     if results is None:
         context.log.error(f"Job {job_name} not executed, fail.")
-    elif results[0] == 1: 
+    elif results == 1: 
         context.log.error(f"Job {job_name} not executed, fail.")
     elif results == 0:
         context.log.info(f"Job {job_name} executed successfully.")
@@ -168,14 +169,14 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
     final_query = \
     f"""
     DECLARE @job_result int = 0;
-    EXECUTE @job_result =msdb.dbo.sp_start_job @job_name = {job_name};
+    EXECUTE @job_result = msdb.dbo.sp_start_job @job_name = '{job_name}';
     SELECT @job_result as job_result;
     """
-    results = dwh_farinter_dl.query(final_query, fetch_one=True)
+    results = dwh_farinter_dl.query(final_query, fetch_val=True)
     #check if sp returned 1 for errors
     if results is None:
         context.log.error(f"Job {job_name} not executed, fail.")
-    elif results[0] == 1: 
+    elif results == 1: 
         context.log.error(f"Job {job_name} not executed, fail.")
     elif results == 0:
         context.log.info(f"Job {job_name} executed successfully.")
