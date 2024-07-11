@@ -1,5 +1,7 @@
 from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, Definitions
+from pydantic import Field
 from typing import List, Literal, Generator
+
 import os
 import pyodbc
 from dagster_shared_gf import shared_variables as shared_vars
@@ -43,7 +45,7 @@ class SQLServerBaseResource:
     user: str
     password: str
     default_database: str   # Default database
-    trust_server_certificate: Literal['yes', 'no'] = 'no'  # 'yes' or 'no', default should be no for public IPs.
+    trust_server_certificate: str = Field(default="no", description="Trust server certificate", pattern="^(yes|no)$")  # 'yes' or 'no', default should be no for public IPs.
     allow_any_database: bool = False  # Allow any database to be used, default should be False.
 
     @classmethod
