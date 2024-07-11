@@ -16,6 +16,7 @@ setup(
         "trycast",
         "pandas",
         "pyodbc",
+        "smbprotocol",
     ],
     extras_require={"dev": [ "pytest"]},
 )

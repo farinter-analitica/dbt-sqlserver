@@ -2,12 +2,10 @@ from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, De
 from pydantic import Field
 from typing import List, Literal, Generator, Any
 
-import os
-import pyodbc
+import os, base64, contextlib, pyodbc
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
-import contextlib
-import base64
+
 
 Row = pyodbc.Row
 

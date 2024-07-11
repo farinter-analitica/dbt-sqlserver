@@ -73,6 +73,8 @@ class TagsRepositoryGF:
     class DailyUnique(_base_tag_class, key="periodo_unico", value="diario"):
         """{"periodo_unico": "diario"}"""
 
+    class SmbDataRepository(_base_tag_class, key="smb_data_repository", value="data_repo"):
+        """{"smb_data_repository": "data_repo"}"""
 
 
 if __name__ == "__main__":
