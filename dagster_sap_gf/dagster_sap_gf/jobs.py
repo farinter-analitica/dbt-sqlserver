@@ -34,7 +34,7 @@ sap_etl_dwh_all_downstream_job: define_asset_job = define_asset_job(name="sap_et
 
 
 #Definir assets por hora que se extraen de dbt, agregar todos los downstream que tenga la etiqueta por_hora y agregar replicas_sap con la misma etiqueta
-sap_dbt_etl_dwh_hourly_asset_keys = [AssetKey(Asset) for Asset in ["DL_SAP_MARC","DL_SAP_MARD","DL_SAP_MARA","DL_SAP_MCHB"]]
+sap_dbt_etl_dwh_hourly_asset_keys = [AssetKey(Asset) for Asset in ["DL_SAP_MARC","DL_SAP_MARD","DL_SAP_MARA","DL_SAP_MCHB","DL_SAP_MCH1"]]
 sap_etl_dwh_hourly_all_downstream_assets: AssetSelection =  AssetSelection.assets(*sap_dbt_etl_dwh_hourly_asset_keys) \
     | (AssetSelection.assets(*sap_dbt_etl_dwh_hourly_asset_keys).downstream() & AssetSelection.tag(key="periodo", value="por_hora")) \
     | (AssetSelection.tag(key="replicas_sap", value="true") & AssetSelection.tag(key="periodo", value="por_hora"))
