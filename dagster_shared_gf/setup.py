@@ -17,6 +17,10 @@ setup(
         "pandas",
         "pyodbc",
         "smbprotocol",
+        "polars",
+        "fastexcel",
+        "openpyxl",
+        "xlsx2csv",
     ],
     extras_require={"dev": [ "pytest"]},
 )

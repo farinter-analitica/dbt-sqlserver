@@ -2,7 +2,7 @@ from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, De
 from pydantic import Field
 from typing import List, Literal, Generator, Any
 
-import os, base64, contextlib, pyodbc
+import os, base64, contextlib, pyodbc, sqlalchemy
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
 
@@ -40,9 +40,10 @@ p_driver = os.environ.get('DAGSTER_SQL_SERVER_ODBC_DRIVER')
 class SQLServerBaseResource:
     server: str
     databases: list[str]  # List of databases
-    user: str
+    username: str
     password: str
     default_database: str   # Default database
+    driver: str = p_driver
     trust_server_certificate: str = Field(default="no", description="Trust server certificate", pattern="^(yes|no)$")  # 'yes' or 'no', default should be no for public IPs.
     allow_any_database: bool = False  # Allow any database to be used, default should be False.
 
@@ -51,10 +52,13 @@ class SQLServerBaseResource:
         print(f"{type}: {message}")
 
     @contextlib.contextmanager
-    def get_connection(self,  database: str = "", autocommit: bool=False) -> Generator[pyodbc.Connection, None, None]:
+    def get_connection(self,  database: str = ""
+                       , autocommit: bool=False
+                       , engine: Literal["pyodbc", "sqlalchemy"] = "pyodbc"
+                       ) -> Generator[pyodbc.Connection | sqlalchemy.Connection, None, None]:
         """
         A context manager that provides a connection to a SQL Server database, beware, by default is non autocommit.
-
+        Pyodbc engine is used by default, sqlalchemy can only return connections and will fail on query and execute if provided.
         Args:
             database (str, optional): The name of the database to connect to. If not provided, the default database will be used.
             autocommit (bool, optional): Whether to enable autocommit. Defaults to False.
@@ -73,18 +77,35 @@ class SQLServerBaseResource:
             database = self.default_database
         if not self.allow_any_database and  database not in self.databases:
             raise ValueError(f"Database {database} is not in the allowed list.")
-        
-        connection_string = (
-            f"DRIVER={p_driver};"
-            f"SERVER={self.server};"
-            f"DATABASE={database};"
-            f"UID={self.user};"
-            f"PWD={self.password};"
-            f"TrustServerCertificate={self.trust_server_certificate};"
-        )
+        if engine == "pyodbc":
+            connection_string = (
+                f"DRIVER={self.driver};"
+                f"SERVER={self.server};"
+                f"DATABASE={database};"
+                f"UID={self.username};"
+                f"PWD={self.password};"
+                f"TrustServerCertificate={self.trust_server_certificate};"
+            )
+        elif engine == "sqlalchemy":
+            connection_url = sqlalchemy.URL.create(
+                "mssql+pyodbc",
+                username=self.username,
+                password=self.password,
+                host=self.server,
+                database=database,
+                query={"driver": self.driver, "TrustServerCertificate": self.trust_server_certificate},
+            )
+
+
         conn = None
         try:
-            conn = pyodbc.connect(connection_string, autocommit=autocommit)
+            if engine == "pyodbc":
+                conn = pyodbc.connect(connection_string, autocommit=autocommit)
+            elif engine == "sqlalchemy":
+                conn = sqlalchemy.create_engine(connection_url
+                                                , isolation_level="AUTOCOMMIT" if autocommit else None
+                                                , poolclass=sqlalchemy.pool.NullPool
+                                                ).connect()
             yield conn
         finally:
             if conn:
@@ -93,7 +114,7 @@ class SQLServerBaseResource:
     def close_connection(self, connection: pyodbc.Connection):
         try:
             connection.close()
-        except pyodbc.Error as e:
+        except Exception as e:
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
@@ -207,12 +228,16 @@ class SQLServerBaseResource:
             self.log_event('error', f"Error executing and committing query: {str(e.args)}.")
             e.__traceback__ = None
             raise e
+
+    def text(self, string: str) -> sqlalchemy.sql.text:
+        """Text type that can be used in SQLAlchemy expressions to execute queries."""
+        return sqlalchemy.text(string)
         
 class SQLServerNonRuntimeResource(SQLServerBaseResource):
     def __init__(self, server: str, databases: List[str], user: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
         self.server = server
         self.databases = databases
-        self.user = user
+        self.username = user
         self.password = password
         self.default_database = default_database
         self.trust_server_certificate = trust_server_certificate
@@ -240,7 +265,7 @@ class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
 dwh_farinter = SQLServerResource(
     server= p_server,
     databases= ["BI_FARINTER", "ADM_FARINTER", "DL_FARINTER", "IA_FARINTER", "CRM_FARINTER"],
-    user=p_user,
+    username=p_user,
     password=p_password,
     trust_server_certificate='yes',
     default_database="DL_FARINTER"
@@ -249,7 +274,7 @@ dwh_farinter = SQLServerResource(
 dwh_farinter_adm = SQLServerResource(
     server= dwh_farinter.server,
     databases= dwh_farinter.databases,
-    user=dwh_farinter.user,
+    username=dwh_farinter.username,
     password=dwh_farinter.password,
     trust_server_certificate=dwh_farinter.trust_server_certificate,
     default_database="ADM_FARINTER"
@@ -259,7 +284,7 @@ dwh_farinter_adm = SQLServerResource(
 dwh_farinter_dl = SQLServerResource(
     server= dwh_farinter.server,
     databases= dwh_farinter.databases,
-    user=dwh_farinter.user,
+    username=dwh_farinter.username,
     password=dwh_farinter.password,
     trust_server_certificate=dwh_farinter.trust_server_certificate,
     default_database="DL_FARINTER"

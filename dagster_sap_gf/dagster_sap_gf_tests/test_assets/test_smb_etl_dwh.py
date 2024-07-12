@@ -3,7 +3,7 @@ from datetime import datetime, date
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 from dagster import build_asset_context, materialize_to_memory, EnvVar
-from dagster_sap_gf.assets.smb_etl_dwh import DL_Excel_Finanzas_PresupuestoHist  # Adjust the import based on your actual module structure
+from dagster_sap_gf.assets.smb_etl_dwh import DL_Finanzas_Presupuesto_Temp  # Adjust the import based on your actual module structure
 import dagster_shared_gf.resources.smb_resources as SMBResource
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf import all_shared_resources
@@ -65,12 +65,15 @@ from dagster_shared_gf import all_shared_resources
 class TestDL_Excel_Finanzas_PresupuestoHist:
     @pytest.fixture
     def setup_mocks(self, mocker):
-        self.context = build_asset_context(resources={key: value for key, value in all_shared_resources.items() if key == "smb_resource_analitica_nasgftgu02"})
+        self.context = build_asset_context(
+            resources={key: value for key, value in all_shared_resources.items() 
+                       if key in ["smb_resource_analitica_nasgftgu02", "dwh_farinter_dl"]
+                       }
+            )
         assert self.context
     def test_DL_Excel_Finanzas_PresupuestoHist(self, setup_mocks):
-        print(DL_Excel_Finanzas_PresupuestoHist(context=self.context))
+        assert DL_Finanzas_Presupuesto_Temp(context=self.context)
+         
 
-
-if __name__ == "__main__":
-    setup_mocks = TestDL_Excel_Finanzas_PresupuestoHist.setup_mocks(self=None)
-    TestDL_Excel_Finanzas_PresupuestoHist.test_DL_Excel_Finanzas_PresupuestoHist(setup_mocks=None)
+if __name__ == '__main__':
+    pytest.main(["-s","--disable-warnings", "--disable-pytest-warnings","--tb=native", __file__])
