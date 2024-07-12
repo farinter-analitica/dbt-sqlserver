@@ -83,7 +83,7 @@ DatosBase AS
 Existencias_Generales AS
 	(SELECT
 		*
-		, (Existencia / Promedio_Venta_Diario) AS Cobertura_Sucursal_Dias
+		, (Existencia / NULLIF(Promedio_Venta_Diario,0)) AS Cobertura_Sucursal_Dias
 		, SUM(Existencia) OVER (PARTITION BY Emp_Id, ArticuloPadre_Id) AS Existencia_Cadena
 		, SUM(Existencia) OVER (PARTITION BY Emp_Id, ArticuloPadre_Id, Marca) AS Existencia_Marca
 		, SUM(Existencia) OVER (PARTITION BY Emp_Id, ArticuloPadre_Id, Ciudad_Id) AS Existencia_Ciudad
