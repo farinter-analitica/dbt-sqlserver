@@ -16,7 +16,8 @@ examples_assets_job = define_asset_job(name="examples_assets_job"
                                                                                               ,"dbt_first_model" #grupo no definido pero usado directamente en models
                                                                                               ))
 dbt_dwh_kielsa_marts_assets: AssetSelection = AssetSelection.groups("dbt_dwh_kielsa_mart_datos_maestros"
-                                                                    ,"dbt_dwh_kielsa_mart_kpp")
+                                                                    ,"dbt_dwh_kielsa_mart_kpp"
+                                                                    ,"dbt_dwh_kielsa_mart_existencias")
 dbt_dwh_kielsa_marts_job = define_asset_job(name="dbt_dwh_kielsa_marts_job"
                                                             , selection=dbt_dwh_kielsa_marts_assets)
 
