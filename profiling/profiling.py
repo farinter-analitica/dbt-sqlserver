@@ -15,7 +15,7 @@ import pandas as pd
 # Database connection details
 server = dwh_farinter_dl.server
 database = dwh_farinter_dl.default_database
-username = dwh_farinter_dl.user
+username = dwh_farinter_dl.username
 password = dwh_farinter_dl.password.get_value()
 trust_certificate = dwh_farinter_dl.trust_server_certificate
 driver = 'ODBC Driver 18 for SQL Server'

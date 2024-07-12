@@ -57,10 +57,10 @@ ldcom_etl_dwh_job_schedule = ScheduleDefinition(
     default_status=stopped_default_schedule_status, #Se ejecutaran con los downstream jobs
 )
 
-ldcom_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
+kielsa_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
     cron_schedule = get_for_current_env({"dev":"30 1 * * *","prd":"30 0 * * *"}),  
     execution_timezone=default_timezone,
-    job=ldcom_etl_dwh_all_downstream_job,
+    job=kielsa_etl_dwh_all_downstream_job,
     default_status=running_default_schedule_status,
 )
 

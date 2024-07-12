@@ -1,0 +1,7 @@
+sources:
+  - name: SAPPRD
+    description: "Base de PRD SAP, usar con variable de linked server"
+    database: PRD
+    schema: prd
+    tables:
+      - name: ZMM_CARTA_COMPRO

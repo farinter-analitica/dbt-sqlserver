@@ -1,0 +1,5 @@
+snapshots:
+  - name: my_dbt_scd_example_check
+    group: dbt_first_group
+  - name: my_dbt_scd_example_timestamp
+    group: dbt_second_group_test

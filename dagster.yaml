@@ -8,3 +8,11 @@ storage:
       port: { env: DAGSTER_PG_PORT }
 auto_materialize:
   use_sensors: true
+# Opt in to run monitoring
+run_monitoring:
+  enabled: true
+  # values below are the defaults, and don't need to be specified except to override them
+  start_timeout_seconds: 180
+  cancel_timeout_seconds: 180
+  max_resume_run_attempts: 0 # experimental if above 0
+  poll_interval_seconds: 120

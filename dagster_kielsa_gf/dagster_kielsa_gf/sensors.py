@@ -1,8 +1,26 @@
-from dagster import sensor, RunRequest, DagsterRunStatus, SensorDefinition, AutoMaterializeSensorDefinition
-from dagster_kielsa_gf.jobs import *
-from dagster_shared_gf.shared_functions import (get_all_instances_of_class)
+from dagster import sensor, RunRequest, DagsterRunStatus, DefaultSensorStatus, SensorDefinition, AutoMaterializeSensorDefinition, build_sensor_for_freshness_checks
+import dagster_kielsa_gf.jobs as jobs
+from dagster_kielsa_gf.assets import (
+        dbt_dwh_kielsa
+        ,knime_asset_factory
+        ,ldcom_etl_dwh
+        ,recetas_libros_etl_dwh
+    )
+from dagster_shared_gf.shared_functions import (get_all_instances_of_class
+    , get_for_current_env)
+from dagster_shared_gf import shared_variables as shared_vars
 
-@sensor(job=dbt_dwh_kielsa_marts_job)
+env_str:str=shared_vars.env_str
+
+default_timezone: str = "America/Tegucigalpa"
+running_default_sensor_status: DefaultSensorStatus = get_for_current_env({"local":DefaultSensorStatus.STOPPED
+                                                                              ,"dev":DefaultSensorStatus.RUNNING
+                                                                              ,"prd":DefaultSensorStatus.RUNNING})
+stopped_default_sensor_status: DefaultSensorStatus = get_for_current_env({"local":DefaultSensorStatus.STOPPED
+                                                                              ,"dev":DefaultSensorStatus.STOPPED
+                                                                              ,"prd":DefaultSensorStatus.STOPPED})
+
+@sensor(job=jobs.dbt_dwh_kielsa_marts_job)
 def upstream_completion_sensor(context):
     # Check for the most recent successful run of the upstream job
     last_run = context.instance.get_runs(
@@ -13,8 +31,6 @@ def upstream_completion_sensor(context):
         # Trigger the downstream job
         yield RunRequest(run_key=None)
 
-
-
 from dagster import AssetSelection, AutoMaterializeSensorDefinition, Definitions,  AutoMaterializePolicy, AutoMaterializeRule
 
 my_custom_auto_materialize_sensor = AutoMaterializeSensorDefinition(
@@ -23,7 +39,13 @@ my_custom_auto_materialize_sensor = AutoMaterializeSensorDefinition(
     minimum_interval_seconds=60 * 15,
 )
 
+all_asset_freshness_checks = dbt_dwh_kielsa.all_asset_freshness_checks + ldcom_etl_dwh.all_asset_freshness_checks + recetas_libros_etl_dwh.all_asset_freshness_checks + knime_asset_factory.all_asset_freshness_checks
+freshness_checks_sensor = build_sensor_for_freshness_checks(
+    freshness_checks=all_asset_freshness_checks,
+    default_status=running_default_sensor_status,
+    minimum_interval_seconds=30 * 60,  # 5 minutes
+    )
 
-all_sensors = get_all_instances_of_class([SensorDefinition]) + get_all_instances_of_class([AutoMaterializeSensorDefinition])
+all_sensors = get_all_instances_of_class([SensorDefinition]) 
 
 __all__ = list(map(lambda x: x.name, all_sensors) )

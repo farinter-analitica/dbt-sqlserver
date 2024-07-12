@@ -1,9 +1,6 @@
 from dagster import asset, MaterializeResult, MetadataValue, AssetMaterialization, Output, op, Out, In, AssetIn
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 import pandas as pd  
-
-
-
 @asset
 def fetch_data_from_sql(dwh_farinter_adm: SQLServerResource):
     result = dwh_farinter_adm.query("SELECT TOP 10 prueba, int FROM tb_pruebas")
@@ -44,3 +41,11 @@ def fetch_data_from_sql_final(dwh_farinter_adm: SQLServerResource) -> Materializ
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
+
+@asset
+def select_top_facturaposicion(dwh_farinter_dl: SQLServerResource):
+
+    result = dwh_farinter_dl.query("SELECT TOP 10 * FROM DL_Kielsa_FacturaPosicionDescuento")
+    return result
+
+
