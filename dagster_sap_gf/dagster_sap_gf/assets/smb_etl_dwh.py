@@ -159,7 +159,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(f"ERROR, NO CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
         with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
-            conn.execute(dwh_farinter_dl.text(f"ALTER TABLE {schema}.{table} ADD PRIMARY KEY (Sociedad_Id, Zona_Id, Division_Id, Articulo_Id, Cliente_Id, Cuenta_Id, Vendedor_Id, AnioMes_Id)"))
+            conn.execute(dwh_farinter_dl.text(f"EXEC BI_FARINTER.dbo.BI_paCargarSAP_Hecho_PresupuestoHist"))
     except Exception as e:
         with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
             file.write(f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'}, {datetime.now().isoformat()} , {e}\n")
