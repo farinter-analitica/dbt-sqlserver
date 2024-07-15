@@ -7,7 +7,7 @@ from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.load_env_run import load_env_vars
 
-if not EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_USERNAME").get_value():
+if not EnvVar("DAGSTER_ANALITICA_FARINTERNET_USERNAME").get_value():
     load_env_vars()
 
 @dataclasses.dataclass
@@ -19,7 +19,7 @@ all_credentials: Dict[str, SMBClientConfigCredentials] = \
     {
         "analitica": SMBClientConfigCredentials(
             username=get_for_current_env(
-                {"dev": os.environ.get("DAGSTER_SECRET_ANALITICA_FARINTERNET_USERNAME")}
+                {"dev": os.environ.get("DAGSTER_ANALITICA_FARINTERNET_USERNAME")}
             ),
             password=get_for_current_env(
                 {"dev": os.environ.get("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD")}

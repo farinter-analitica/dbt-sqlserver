@@ -232,6 +232,21 @@ class SQLServerBaseResource:
     def text(self, string: str) -> sqlalchemy.sql.text:
         """Text type that can be used in SQLAlchemy expressions to execute queries."""
         return sqlalchemy.text(string)
+
+    def get_sqlalchemy_url(self) -> sqlalchemy.URL:
+        """Get the SQLAlchemy URL for the SQL Server resource."""
+        try:
+            v_password: str = str(self.password)
+        except RuntimeError:
+            v_password: str = self.password.get_value()
+        return sqlalchemy.URL.create("mssql"
+                            , username=self.username
+                            , password= v_password
+                            , host=self.server
+                            #, port=1433
+                            , database=self.default_database                         
+                            , query={"driver": self.driver
+                                , "TrustServerCertificate": self.trust_server_certificate})
         
 class SQLServerNonRuntimeResource(SQLServerBaseResource):
     def __init__(self, server: str, databases: List[str], user: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
