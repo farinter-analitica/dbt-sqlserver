@@ -21,6 +21,7 @@ setup(
         "fastexcel",
         "openpyxl",
         "xlsx2csv",
+        "dagster-embedded-elt",
     ],
     extras_require={"dev": [ "pytest"]},
 )
