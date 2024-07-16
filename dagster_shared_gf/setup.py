@@ -23,6 +23,7 @@ setup(
         "xlsx2csv",
         "dagster-embedded-elt",
         "pymongo",
+        "pymongoarrow",
     ],
     extras_require={"dev": [ "pytest"]},
 )
