@@ -16,15 +16,16 @@ from dagster_shared_gf.resources import sql_server_resources
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster import EnvVar, SourceAsset, asset, AssetExecutionContext, AssetsDefinition, AssetKey
 from dagster_embedded_elt.dlt import dlt_assets, DagsterDltResource, DagsterDltTranslator
-from typing import Dict, List, Union, Iterable
+from typing import Dict, List, Union, Iterable, Any, Mapping
 from pydantic import dataclasses, Field
+from dataclasses import asdict
 from itertools import chain
 
 env_str = shared_vars.env_str
 # Set environment variables
 
-connection_str_source = EnvVar("DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL").get_value()
-connection_url_dest = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url()
+connection_str_source:str = EnvVar("DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL").get_value()
+connection_url_dest:str = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url()
 mssql_destination = dlt.destinations.mssql(credentials=connection_url_dest.render_as_string(hide_password=False))
 
 
@@ -36,9 +37,9 @@ class DltSourceConfig:
     pipeline_name: str
     initial_value: pendulum.DateTime = Field(default_factory=lambda: get_for_current_env( {"dev": pendulum.now().subtract(years=2), "prd": pendulum.now().subtract(years=5) } ))
 
-    @classmethod
-    def all_configs(cls):
-        return cls.__dataclass_fields__.keys()
+    def all_configs(self):
+        dataclass_var_value_dict = asdict(self)
+        return dataclass_var_value_dict
     
     
 DltSourceConfigResourceList = Dict[DltSourceConfig, List[str]]
@@ -59,12 +60,12 @@ read_source_config_updated_at: DltSourceConfigResourceList = {
 
 read_source_config_multi_column: DltSourceConfigResourceList = {
     DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_updated_at", initial_value=pendulum.now().subtract(months=2)): [
-        "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+       # "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
     DltSourceConfig(cursor_path="created_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_created_at"): [
-        "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+       # "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
@@ -89,29 +90,34 @@ def create_dlt_asset(dlt_source, dlt_pipeline, name, group_name, dlt_dagster_tra
 
     return created_dlt_assets
 
+@dataclasses.dataclass
+class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
+    config: DltSourceConfig
+    def get_asset_key(self, resource: DltResource) -> AssetKey:
+        """
+        Para evitar duplicados en pipelines multi columnas de updated_at y created_at
+        """
+        return AssetKey([f"dlt_{self.config.pipeline_name}", f"{resource.name}"])          
+    def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
+        """
+        Para evitar duplicados en pipelines multi columnas de updated_at y created_at
+
+        """
+        return [AssetKey([f"mongo_db_crm_hn", f"{resource.name}"]) ]
+    def get_metadata(self, resource: DltResource) -> Mapping[str, Any]:
+        return self.config.all_configs()
+
 def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]) -> List[AssetsDefinition]:
     dlt_assets_list: List[AssetsDefinition] = []
     for dlt_source_config in mongo_db_source_configs:
         for config, collections in dlt_source_config.items():
-
-            class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
-                def get_asset_key(self, resource: DltResource) -> AssetKey:
-                    """
-                    Para evitar duplicados en pipelines multi columnas de updated_at y created_at
-                    """
-                    return AssetKey([f"dlt_{config.pipeline_name}", f"{resource.name}"])          
-                def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
-                    """
-                    Para evitar duplicados en pipelines multi columnas de updated_at y created_at
-
-                    """
-                    return [AssetKey([f"mongo_db_crm_hn", f"{resource.name}"]) ]
                   
-            source = mongodb(connection_url=connection_str_source
-                ,database="pro01"
-                ,incremental=dlt.sources.incremental(config.cursor_path
+            source = mongodb(
+                connection_url=connection_str_source,
+                database="pro01",
+                incremental=dlt.sources.incremental(config.cursor_path
                                                     ,primary_key=config.primary_key
-                                                    , initial_value=config.initial_value)
+                                                    , initial_value=config.initial_value),
                 ).with_resources(*collections)
             dlt_pipeline = dlt.pipeline(
                 pipeline_name=config.pipeline_name,
@@ -119,12 +125,12 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
                 dataset_name="mongo_db_crm_hn",
             )
 
-            dlt_assets_list.append(
-                create_dlt_asset(dlt_source=source, dlt_pipeline=dlt_pipeline
+            new_assets = create_dlt_asset(dlt_source=source, dlt_pipeline=dlt_pipeline
                     ,name=config.pipeline_name
                     ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
-                    ,dlt_dagster_translator=DagsterDltTranslatorMongodbCRMHN()
+                    ,dlt_dagster_translator=DagsterDltTranslatorMongodbCRMHN(config=config)
                     )
+            dlt_assets_list.append(new_assets
             )
 
     return list(chain(dlt_assets_list))

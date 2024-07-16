@@ -45,8 +45,8 @@ class TagsRepositoryGF:
             instance.tag = {cls.key: cls.value}
             return instance.tag
 
-        def __init__(self, *args, **kwargs):
-            pass
+        # def __init__(self, *args, **kwargs):
+        #     pass
 
         def __call__(self):
             return self.tag

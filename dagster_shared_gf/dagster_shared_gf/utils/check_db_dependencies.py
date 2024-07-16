@@ -67,7 +67,6 @@ def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: 
         return sql_server.query(query, connection=conn)
 
 
-
 def collect_dependencies(sql_server: SQLServerNonRuntimeResource):
     """get all the dependencies, even those not from the starting point to work on them recursively"""
     user_databases = get_user_databases_tuples(sql_server)
@@ -111,7 +110,7 @@ def merge_dict_graphs(graph_dict1: GraphDict, graph_dict2: GraphDict) -> GraphDi
 
     return merged_graph
 
-def collect_dependencies_dict(starting_relation_path: str, all_dependencies: list[Row | tuple]) -> GraphDict:
+def collect_dependencies_dict(starting_relation_path: str, all_dependencies: list[Row | tuple], max_ind_depth: int = -1, max_ind_breadth: int = -1) -> GraphDict:
     global printing_events
     """get all the direct dependencies from the starting point recursively, with unlimited depth and breadth"""
     def get_dependencies_for_path(path: str, all_dependencies: list[Row | tuple]
@@ -143,35 +142,65 @@ def collect_dependencies_dict(starting_relation_path: str, all_dependencies: lis
             for dep in all_dependencies:
                 if_debug_print(dep[parent_index], dep[child_index], dep[parent_index].casefold() +'¿==?'+ current_path.casefold(), printing_events_name=collect_dependencies_dict.__name__)
                 if dep[parent_index].casefold() == current_path.casefold() and dep[child_index] not in current_stream_dependencies[current_path][d_symbol]:
-                        if_debug_print(f"adding {dep[child_index]} to {current_path}", printing_events_name=collect_dependencies_dict.__name__ + "_adding...")               
-                        current_stream_dependencies[current_path][d_symbol].append(dep[child_index])
-                        current_stream_dependencies_to_check.add(dep[child_index])
-                        if breadth_limit != -1 and len(current_stream_dependencies[current_path][d_symbol]) >= breadth_limit:
-                            if_debug_print(f"adding ....more.... to {current_path} as breath limit reached", printing_events_name=collect_dependencies_dict.__name__ + "_adding_more...")
-                            current_stream_dependencies[current_path][d_symbol].append("....more....")
-                            break
+                    if_debug_print(f"adding {dep[child_index]} to {current_path}", printing_events_name=collect_dependencies_dict.__name__ + "_adding...")               
+                    current_stream_dependencies[current_path][d_symbol].append(dep[child_index])
+                    current_stream_dependencies_to_check.add(dep[child_index])
+                    if breadth_limit != -1 and len(current_stream_dependencies[current_path][d_symbol]) >= breadth_limit:
+                        if_debug_print(f"adding ....more.... to {current_path} as breath limit reached", printing_events_name=collect_dependencies_dict.__name__ + "_adding_more...")
+                        current_stream_dependencies[current_path][d_symbol].append("....more....")
+                        break
                 if depth_limit != -1 and len(current_stream_dependencies.keys())-1 >= depth_limit:
                     break       
         return current_stream_dependencies
 
-    upstream_dependencies: GraphDict = get_dependencies_for_path(starting_relation_path, all_dependencies, parent_index=1, child_index=0, d_symbol='<')
-    downstream_dependencies: GraphDict = get_dependencies_for_path(starting_relation_path, all_dependencies, parent_index=0, child_index=1, d_symbol='>')
+    upstream_dependencies: GraphDict = get_dependencies_for_path(
+        starting_relation_path,
+        all_dependencies,
+        parent_index=1,
+        child_index=0,
+        d_symbol="<",
+    )
+    downstream_dependencies: GraphDict = get_dependencies_for_path(
+        starting_relation_path,
+        all_dependencies,
+        parent_index=0,
+        child_index=1,
+        d_symbol=">",
+        breadth_limit=max_ind_breadth,
+        depth_limit=max_ind_depth        
+    )
 
     # Add one anti stream dependency for each direct dependency
     for path, dependencies in upstream_dependencies.items():
         if path != starting_relation_path:
-            new_dependencies = get_dependencies_for_path(path, all_dependencies, parent_index=0, child_index=1, d_symbol='>', depth_limit=1, breadth_limit=2)
-            dependencies['>'] = dependencies.get('>', [])
-            dependencies['>'] += new_dependencies.get(path, {}).get('>', [])
+            new_dependencies = get_dependencies_for_path(
+                path,
+                all_dependencies,
+                parent_index=0,
+                child_index=1,
+                d_symbol=">",
+                breadth_limit=max_ind_breadth,
+                depth_limit=max_ind_depth,        
+            )
+            dependencies[">"] = dependencies.get(">", [])
+            dependencies[">"] += new_dependencies.get(path, {}).get(">", [])
 
     for path, dependencies in downstream_dependencies.items():
         if path != starting_relation_path:
-            new_dependencies = get_dependencies_for_path(path, all_dependencies, parent_index=1, child_index=0, d_symbol='<', depth_limit=1, breadth_limit=2)
-            dependencies['<'] = dependencies.get('<', [])
-            dependencies['<'] += new_dependencies.get(path, {}).get('<', [])
+            new_dependencies = get_dependencies_for_path(
+                path,
+                all_dependencies,
+                parent_index=1,
+                child_index=0,
+                d_symbol="<",
+                breadth_limit=max_ind_breadth,
+                depth_limit=max_ind_depth,        
+            )
+            dependencies["<"] = dependencies.get("<", [])
+            dependencies["<"] += new_dependencies.get(path, {}).get("<", [])
 
     all_dependencies_dict = merge_dict_graphs(downstream_dependencies, upstream_dependencies)
-    
+
     return all_dependencies_dict
 
 def print_dag_as_json(dependencies: GraphDict):
@@ -208,7 +237,7 @@ def generate_dag(graph_dict: GraphDict):
                 else:
                     neighbor = neighbor[neighbor.rfind(".", 0)+1:]
                 is_downstream = direction == '>'
-                
+
                 if not graph.has_node(node):
                     graph.add_node(node, node_color="grey", node_size=200)
                     if node == source_node or neighbor == source_node:
@@ -243,34 +272,47 @@ def generate_dag(graph_dict: GraphDict):
     nx.draw_networkx_labels(graph, pos, font_size=8, font_color='black')
     plt.title("Dependencies DAG")
     plt.axis('off')
-    #plt.savefig('G_dag.png',format='PNG')
+    # plt.savefig('G_dag.png',format='PNG')
     plt.show()
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     debug = False
-    printing_events= {
-                        "main" : 99
-                        , get_all_dependencies_tuples.__name__: 0
-                        , collect_dependencies.__name__: 1
-                        , collect_dependencies_dict.__name__: 2
-                        , collect_dependencies_dict.__name__ + '_found': 2
-                   }    
-    if_debug_print("Printing events: " + str(printing_events), printing_events_name="printing_events")
-    starting_node_servername = get_server_name_str(sql_server=dwh_farinter_database_admin)
-    starting_node_object_name = 'DL_paCargarKielsa_FacturasPosiciones'
-    starting_node_schema_name = 'dbo'
-    starting_node_db_name = 'DL_FARINTER'
+    printing_events = {
+        "main": 99,
+        get_all_dependencies_tuples.__name__: 0,
+        collect_dependencies.__name__: 1,
+        collect_dependencies_dict.__name__: 2,
+        collect_dependencies_dict.__name__ + "_found": 2,
+    }
+    if_debug_print(
+        "Printing events: " + str(printing_events),
+        printing_events_name="printing_events",
+    )
+    starting_node_servername = get_server_name_str(
+        sql_server=dwh_farinter_database_admin
+    )
+    starting_node_object_name = "DL_Kielsa_FacturasPosiciones"
+    starting_node_schema_name = "dbo"
+    starting_node_db_name = "DL_FARINTER"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
-    if_debug_print("Starting point: " + full_starting_relation_path, printing_events_name="full_starting_relation_path")
-    max_direct_indirects_depth = 1  # Max depth for indirect dependencies of the starting point direct dependencies
-    max_direct_indirects_breadth = 2  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
+    if_debug_print(
+        "Starting point: " + full_starting_relation_path,
+        printing_events_name="full_starting_relation_path",
+    )
+    max_direct_indirects_depth = 0  # Max depth for indirect dependencies of the starting point direct dependencies
+    max_direct_indirects_breadth = 0  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
 
     all_dependencies = collect_dependencies(sql_server=dwh_farinter_database_admin)
-    collected_dependencies = collect_dependencies_dict(starting_relation_path=full_starting_relation_path,all_dependencies= all_dependencies)
-    if_debug_print(collected_dependencies, printing_events_name="collected_dependencies")
-    
+    collected_dependencies = collect_dependencies_dict(
+        starting_relation_path=full_starting_relation_path,
+        all_dependencies=all_dependencies,
+        max_ind_depth=max_direct_indirects_depth,
+        max_ind_breadth=max_direct_indirects_breadth,
+    )
+    if_debug_print(
+        collected_dependencies, printing_events_name="collected_dependencies"
+    )
 
     # dependencies_for_starting = dependencies_from_starting_point(full_starting_relation_path, all_dependencies, max_direct_indirects_depth, max_direct_indirects_breadth)
 

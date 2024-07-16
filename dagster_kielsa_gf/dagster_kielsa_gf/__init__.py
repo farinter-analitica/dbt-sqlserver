@@ -5,4 +5,4 @@ warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 import dagster_kielsa_gf.definitions as all_defs
 
-defs = all_defs.defs
+defs: Definitions = all_defs.defs

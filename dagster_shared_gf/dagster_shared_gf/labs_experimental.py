@@ -1,14 +1,5 @@
-import smbclient
-
-smbclient.register_session(
-    server="10.0.4.157",
-    username="FARINTERNET\ANALITICA",
-    password="Cuatro4-Dos2=2",
-    #encrypt=True,
-)
-
-print(
-    smbclient.listdir(
-        "\\10.0.4.157\data_repo\grupo_farinter\presupuesto_ventas_finanzas"
-    )
-)
+configured_schema = [None]
+configured_database = ["database"]
+configured_name = ["name"]
+components = [ *configured_schema , *configured_database , *configured_name]
+print(components)

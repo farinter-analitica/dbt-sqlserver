@@ -19,7 +19,7 @@ file_path = Path(__file__).parent.resolve()
 tags_repo = TagsRepositoryGF 
 
 @asset(
-    key_prefix=["DL_FARINTER"],
+    key_prefix=["DL_FARINTER", "dbo"],
     tags=tags_repo.Replicas.tag,
     compute_kind="sqlserver"
 )
@@ -54,7 +54,7 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
     #return last_date_updated
 
 #DL_paCargarSAP_Replica_BSEG
-@asset(key_prefix= ["DL_FARINTER"]
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
         , tags=tags_repo.Replicas.tag | {"dagster/max_runtime": str(50*60) # max 50 minutes in seconds, then mark it as failed.
                 }
         , compute_kind="sqlserver"
@@ -93,7 +93,7 @@ def DL_SAP_BSEG(context: AssetExecutionContext
 
 
 def create_store_procedure_asset(procedure_name: str, tags: Mapping[str, str]) -> AssetsDefinition:
-    @asset(key_prefix= [str("DL_FARINTER")]
+    @asset(key_prefix= ["DL_FARINTER", "dbo"]
             , name=(procedure_name)
             , tags=tags
             , compute_kind="sqlserver"
@@ -127,7 +127,7 @@ def generate_hourly_store_procedure_assets() -> List[AssetsDefinition]:
 store_procedure_assets: List[AssetsDefinition] = generate_hourly_store_procedure_assets()
 
 
-@asset(key_prefix= ["DL_FARINTER"]
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
  #       , name="sp_start_job_sap_cadahora"
         , tags= tags_repo.Replicas.tag | tags_repo.Hourly.tag | tags_repo.HourlyUnique.tag #replicas_tag | hourly_unique_tag
         , deps=store_procedure_assets+list([DL_SAP_T001])+list()
@@ -156,7 +156,7 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
     else:
         context.log.error(f"Job {job_name} not executed, fail.")
 
-@asset(key_prefix= ["DL_FARINTER"]
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
         , tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.DailyUnique.tag #replicas_tag | daily_unique_tag
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_dwh_sap.dbt_sap_etl_dwh_assets])
 #        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa") #deprecated

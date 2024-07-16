@@ -61,7 +61,7 @@ def open_file(file_path: Path, smb_resource: SMBResource
     return smbsession.open_file(file_path, mode=mode)
 
 @asset(
-    key_prefix=["DL_FARINTER"],
+    key_prefix=["DL_FARINTER", "excel"],
     tags=tags_repo.SmbDataRepository.tag,
     compute_kind="smb,sqlserver",
     # required_resource_keys={"smb_resource_analitica_nasgftgu02"},
@@ -175,7 +175,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
 ##
 
 @asset(
-    key_prefix=["BI_FARINTER"],
+    key_prefix=["BI_FARINTER", "dbo"],
     deps=[DL_Finanzas_Presupuesto_Temp],
 )
 def BI_SAP_Hecho_PresupuestoHist(context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource):
