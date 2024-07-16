@@ -181,27 +181,6 @@ def collect_dependencies(sql_server: SQLServerNonRuntimeResource, starting_relat
         all_definitions_tuples.extend(get_all_object_definitions_tuples(sql_server, db_name))
         if_debug_print(str(db_dependencies)[:1000], printing_events_name=collect_dependencies.__name__)
 
-    # existing_dependencies_set = set((dep[0], dep[1])  for dep in all_dependencies)
-    # additional_dependencies = []
-        
-    # for db in user_databases:
-    #     db_id, db_name = db  # Unpack tuple directly
-    #     with tqdm(total=len(all_dependencies), desc=f"Searching Object Definitions for {db_name}") as pbar:
-    #         for dep in all_dependencies:
-    #             if dep[0] == starting_relation_path:
-    #                 additional_dependencies.extend(search_object_definitions_for_pattern(all_definitions_tuples, dep[1], db_name))
-    #             if dep[1] == starting_relation_path:
-    #                 additional_dependencies.extend(search_object_definitions_for_pattern(all_definitions_tuples, dep[0], db_name))
-    #             pbar.update(1)
-    #     print(f"Found {len(additional_dependencies)} potential additional dependencies for {db_name}")
-
-    # added_count = 0
-    # for dep in additional_dependencies:
-    #     if dep not in existing_dependencies_set and dep[0] not in dep[1] and dep[1] not in dep[0]:    
-    #         all_dependencies.extend(additional_dependencies)
-    #         added_count += 1
-    
-    # print(f"Added {added_count} additional dependencies")
     return all_dependencies
 
 def merge_dict_graphs(graph_dict1: GraphDict, graph_dict2: GraphDict) -> GraphDict:
@@ -421,9 +400,9 @@ if __name__ == "__main__":
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_object_name = "BI_paCargarHecho_VentasHist_Kielsa"
+    starting_node_object_name = "DL_Kielsa_FacturaEncabezado"
     starting_node_schema_name = "dbo"
-    starting_node_db_name = "BI_FARINTER"
+    starting_node_db_name = "DL_FARINTER"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
     if_debug_print(
         "Starting point: " + full_starting_relation_path,
