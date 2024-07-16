@@ -105,7 +105,7 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
                     Para evitar duplicados en pipelines multi columnas de updated_at y created_at
 
                     """
-                    return [AssetKey([f"mongo_db_cdm_hn", f"{resource.name}"]) ]
+                    return [AssetKey([f"mongo_db_crm_hn", f"{resource.name}"]) ]
                   
             source = mongodb(connection_url=connection_str_source
                 ,database="pro01"
@@ -133,7 +133,7 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
 all_mongo_db_hn_assets = dlt_asset_factory(all_mongo_db_source_configs)
 
 all_mongo_db_hn_source_assets = list(
-    SourceAsset(key, group_name="dlt_mongo_db_crm_hn_etl_dwh") for key in set(chain.from_iterable(dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets))
+    SourceAsset(key, group_name="dlt_mongo_db_crm_hn_etl_dwh", tags={"dagster/storage_kind": "mongodb"}) for key in set(chain.from_iterable(dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets))
     )
 #print(mongodbdb_source_assets)
 
