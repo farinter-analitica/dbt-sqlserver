@@ -32,9 +32,9 @@ mssql_destination = dlt.destinations.mssql(credentials=connection_url_dest.rende
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
 class DltSourceConfig:
-    cursor_path: str
     primary_key: str | tuple
     pipeline_name: str
+    cursor_path: str | None = None
     initial_value: pendulum.DateTime = Field(default_factory=lambda: get_for_current_env( {"dev": pendulum.now().subtract(years=2), "prd": pendulum.now().subtract(years=5) } ))
 
     def all_configs(self):
@@ -77,7 +77,14 @@ read_source_config_multi_column: DltSourceConfigResourceList = {
     ]
 }
 
-all_mongo_db_source_configs: List[DltSourceConfigResourceList] = [read_source_config_updated_at, read_source_config_multi_column]
+read_source_config_not_incremental: DltSourceConfigResourceList = {
+    DltSourceConfig(primary_key="_id", pipeline_name="mongo_crm_hn_not_incremental"): [
+        "campaignActivity",
+    ],
+}
+
+
+all_mongo_db_source_configs: List[DltSourceConfigResourceList] = [read_source_config_updated_at, read_source_config_multi_column, read_source_config_not_incremental]
 
 
 def get_config_filtered(dlt_source_config_resource_list: DltSourceConfigResourceList, dlt_source_config: DltSourceConfig) -> List[str]:
@@ -117,7 +124,6 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
     dlt_assets_list: List[AssetsDefinition] = []
     for dlt_source_config in mongo_db_source_configs:
         for config, collections in dlt_source_config.items():
-                  
             source = mongodb(
                 connection_url=connection_str_source,
                 database="pro01",
@@ -140,6 +146,8 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
             )
 
     return list(chain(dlt_assets_list))
+
+
 
 
 all_mongo_db_hn_assets = dlt_asset_factory(all_mongo_db_source_configs)
