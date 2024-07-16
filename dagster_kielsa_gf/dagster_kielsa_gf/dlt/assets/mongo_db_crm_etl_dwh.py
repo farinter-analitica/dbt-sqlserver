@@ -16,7 +16,7 @@ from dagster_shared_gf.resources import sql_server_resources
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster import EnvVar, SourceAsset, asset, AssetExecutionContext, AssetsDefinition, AssetKey
 from dagster_embedded_elt.dlt import dlt_assets, DagsterDltResource, DagsterDltTranslator
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Iterable
 from pydantic import dataclasses, Field
 from itertools import chain
 
@@ -94,12 +94,18 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
     for dlt_source_config in mongo_db_source_configs:
         for config, collections in dlt_source_config.items():
 
-            class DagsterDltTranslatorPipelinePrefix(DagsterDltTranslator):
+            class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
                 def get_asset_key(self, resource: DltResource) -> AssetKey:
                     """
                     Para evitar duplicados en pipelines multi columnas de updated_at y created_at
                     """
                     return AssetKey([f"dlt_{config.pipeline_name}", f"{resource.name}"])          
+                def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
+                    """
+                    Para evitar duplicados en pipelines multi columnas de updated_at y created_at
+
+                    """
+                    return [AssetKey([f"mongo_db_cdm_hn", f"{resource.name}"]) ]
                   
             source = mongodb(connection_url=connection_str_source
                 ,database="pro01"
@@ -117,7 +123,7 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
                 create_dlt_asset(dlt_source=source, dlt_pipeline=dlt_pipeline
                     ,name=config.pipeline_name
                     ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
-                    ,dlt_dagster_translator=DagsterDltTranslatorPipelinePrefix()
+                    ,dlt_dagster_translator=DagsterDltTranslatorMongodbCRMHN()
                     )
             )
 
