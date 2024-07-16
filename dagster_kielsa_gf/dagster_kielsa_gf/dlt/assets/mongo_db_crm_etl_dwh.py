@@ -52,9 +52,11 @@ read_source_config_updated_at: DltSourceConfigResourceList = {
         #"crm_campaign_log", # no tiene nada
         "crm_incident", 
         "crm_call", 
+        "constantcontactcampaigns",
     ],
     DltSourceConfig(cursor_path="UpdatedAt", primary_key="_id", pipeline_name="mongo_crm_hn_updatedat"): [
         "crmCall",
+        "crm_list",
     ],
 }
 
@@ -68,7 +70,11 @@ read_source_config_multi_column: DltSourceConfigResourceList = {
        # "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+        "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
+    DltSourceConfig(cursor_path="EndDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_enddate"): [
+        "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+    ]
 }
 
 all_mongo_db_source_configs: List[DltSourceConfigResourceList] = [read_source_config_updated_at, read_source_config_multi_column]

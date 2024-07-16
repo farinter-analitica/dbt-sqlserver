@@ -402,9 +402,9 @@ if __name__ == "__main__":
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_db_name = "DL_FARINTER"
+    starting_node_db_name = "AN_FARINTER"
     starting_node_schema_name = "dbo"
-    starting_node_object_name = "DL_paCargarKielsa_VendedorSucursal"
+    starting_node_object_name = "AN_paCargarSAP_VentaCero"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
     if_debug_print(
         "Starting point: " + full_starting_relation_path,
@@ -430,4 +430,4 @@ if __name__ == "__main__":
 
     if not debug:
         print_dag_as_json(collected_dependencies)
-        generate_dag(collected_dependencies)
+        #generate_dag(collected_dependencies)

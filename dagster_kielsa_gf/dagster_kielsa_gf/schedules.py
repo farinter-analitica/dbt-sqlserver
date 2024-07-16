@@ -65,7 +65,8 @@ dlt_etl_dwh_job_schedule = ScheduleDefinition(
 )
 
 kielsa_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
-    cron_schedule = get_for_current_env({"dev":"30 1 * * *","prd":"30 0 * * *"}),  
+    cron_schedule = get_for_current_env({"dev":"0 1 * * *","prd":"10 0 * * *"}),  
+    description=f"Selection: {str(kielsa_etl_dwh_all_downstream_job.selection)}",
     execution_timezone=default_timezone,
     job=kielsa_etl_dwh_all_downstream_job,
     default_status=running_default_schedule_status,
