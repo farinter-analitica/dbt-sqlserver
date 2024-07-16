@@ -66,7 +66,48 @@ def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: 
 
         return sql_server.query(query, connection=conn)
 
+def get_object_dependencies_tuples_by_definition(sql_server: SQLServerNonRuntimeResource, full_starting_relation_path: str, db_name: str, connection=None) -> list[Row | tuple]:
+    server_name = full_starting_relation_path.split(".")[0]
+    database_name = full_starting_relation_path.split(".")[1]
+    schema_name = full_starting_relation_path.split(".")[2]
+    object_name = full_starting_relation_path.split(".")[3]
+    if database_name == db_name:
+        search_pattern = f"%{object_name}%"
+    else:
+        search_pattern = f"%{database_name}%.%{schema_name}%.%{object_name}%"
+    query = f"""
+    DECLARE @SearchPattern NVARCHAR(128)
+    SET @SearchPattern = '{search_pattern}'
 
+    SELECT  CONCAT('{server_name}', '.', '{database_name}', '.', SCHEMA_NAME(o.schema_id), '.', o.[name]) AS referencing_relation_path,
+        '{full_starting_relation_path}' AS referenced_relation_path
+    FROM sys.objects AS o
+    WHERE lower(OBJECT_DEFINITION(o.object_id)) LIKE lower(@SearchPattern)
+        AND o.[type] IN (
+        --'C',--- = Check constraint
+        --'D',--- = Default (constraint or stand-alone)
+        'P',--- = SQL stored procedure
+        --'FN',--- = SQL scalar function
+        --'R',--- = Rule
+        --'RF',--- = Replication filter procedure
+        --'TR',--- = SQL trigger (schema-scoped DML trigger, or DDL trigger at either the database or server scope)
+        --'IF',--- = SQL inline table-valued function
+        --'TF',--- = SQL table-valued function
+        'V') --- = View
+        AND is_ms_shipped = 0
+    ORDER BY o.[type]
+    ,        o.[name]
+    """
+
+    if connection is None:
+        with sql_server.get_connection(database=db_name) as conn:
+            return sql_server.query(query, connection=conn)
+    else:
+        return sql_server.query(query, connection=connection)
+    
+#test get_object_dependencies_tuples_by_definition
+# print(get_object_dependencies_tuples_by_definition(dwh_farinter_database_admin, "DWHDEV.BI_FARINTER.dbo.BI_paCargarHecho_VentasHist_Kielsa", "BI_FARINTER"))
+# raise NotImplementedError
 def collect_dependencies(sql_server: SQLServerNonRuntimeResource):
     """get all the dependencies, even those not from the starting point to work on them recursively"""
     user_databases = get_user_databases_tuples(sql_server)
@@ -76,6 +117,18 @@ def collect_dependencies(sql_server: SQLServerNonRuntimeResource):
         db_dependencies = get_all_dependencies_tuples(sql_server, db_id, db_name)
         all_dependencies.extend(db_dependencies)
         if_debug_print(str(db_dependencies)[:1000], printing_events_name=collect_dependencies.__name__)
+
+    additional_dependencies = []
+    for db in user_databases:
+        db_id, db_name = db  # Unpack tuple directly
+        with sql_server.get_connection(database=db_name) as conn:
+            for dep in all_dependencies:
+                db_dependencies = get_object_dependencies_tuples_by_definition(sql_server, dep[0], db_name, conn)
+                additional_dependencies.extend(db_dependencies)
+                db_dependencies = get_object_dependencies_tuples_by_definition(sql_server, dep[1], db_name, conn)
+                additional_dependencies.extend(db_dependencies)
+        
+    all_dependencies.extend(additional_dependencies)
     return all_dependencies
 
 def merge_dict_graphs(graph_dict1: GraphDict, graph_dict2: GraphDict) -> GraphDict:
@@ -292,9 +345,9 @@ if __name__ == "__main__":
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_object_name = "DL_Kielsa_FacturasPosiciones"
+    starting_node_object_name = "BI_paCargarHecho_VentasHist_Kielsa"
     starting_node_schema_name = "dbo"
-    starting_node_db_name = "DL_FARINTER"
+    starting_node_db_name = "BI_FARINTER"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
     if_debug_print(
         "Starting point: " + full_starting_relation_path,
