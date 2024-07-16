@@ -71,6 +71,8 @@ def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: 
         if_debug_print(query, printing_events_name=get_all_dependencies_tuples.__name__)
 
         return sql_server.query(query, connection=conn)
+#test
+#print(get_all_dependencies_tuples(dwh_farinter_database_admin, 6, "BI_FARINTER")[0])
 
 def get_all_object_definitions_tuples(sql_server: SQLServerNonRuntimeResource, db_name: str) -> list[Row | tuple]:
     with sql_server.get_connection(database=db_name) as conn:
@@ -400,9 +402,9 @@ if __name__ == "__main__":
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_object_name = "DL_Kielsa_FacturaEncabezado"
+    starting_node_db_name = "BI_FARINTER"
     starting_node_schema_name = "dbo"
-    starting_node_db_name = "DL_FARINTER"
+    starting_node_object_name = "BI_Hecho_Ventas_Kielsa"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
     if_debug_print(
         "Starting point: " + full_starting_relation_path,
