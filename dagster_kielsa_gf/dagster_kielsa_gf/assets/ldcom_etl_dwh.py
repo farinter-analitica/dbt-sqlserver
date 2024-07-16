@@ -116,7 +116,8 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_VendedorSucursal",
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
-                AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_VendedorSucursal"])],  
+                AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Empleado"]),
+                AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empresa"])],  
     },
         "BI_paCargarHecho_VentasHist_Kielsa": {
             "key_prefix": ["BI_FARINTER", "dbo"],
@@ -147,8 +148,9 @@ def create_store_procedure_asset(stored_procedure_name: str, group_name: str, pa
                                       deps=params.get("deps", None),
                                       description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]") 
                                       for name in params["name"]],
-                      group_name=group_name, compute_kind="sqlserver",)
-        def store_procedure_execution_asset(dwh_farinter_dl: SQLServerResource) -> None: 
+                      group_name=group_name, 
+                      compute_kind="sqlserver",)
+        def store_procedure_execution_asset(dwh_farinter_dl: SQLServerResource): 
             dwh_farinter_dl.execute_and_commit(f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]")
 
         return store_procedure_execution_asset
