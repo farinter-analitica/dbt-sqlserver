@@ -2,7 +2,9 @@ from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_databa
 from typing import Literal, Dict, List
 import networkx as nx
 import matplotlib.pyplot as plt
-import json
+import json, re
+from tqdm import tqdm
+
 
 DirOperator = Literal['>', '<']
 DependencyDict = Dict[DirOperator, List[str]]
@@ -25,7 +27,7 @@ def get_user_databases_tuples(sql_server: SQLServerNonRuntimeResource) -> list[R
         query = """
         SELECT database_id, name 
         FROM sys.databases  WITH (NOLOCK)
-        WHERE [state] <> 6 AND database_id > 4
+        WHERE [state] <> 6 AND database_id > 4 AND (name LIKE '%FARINTER%' OR name LIKE 'BI_%')
         """
         return sql_server.query(query, connection=conn)
 
@@ -53,20 +55,79 @@ def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: 
             SELECT 
                 CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255)) AS referencing_server_name,
                 '{db_name}' AS referencing_database_name,
-                OBJECT_SCHEMA_NAME(referencing_id, {db_id}) AS referencing_schema,
-                OBJECT_NAME(referencing_id, {db_id}) AS referencing_object_name,
-                ISNULL(referenced_server_name, CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255))) AS referenced_server_name,
-                ISNULL(referenced_database_name, DB_NAME({db_id})) AS referenced_database_name,
-                COALESCE(referenced_schema_name, OBJECT_SCHEMA_NAME(referenced_id, {db_id}), 'dbo') AS referenced_schema_name,
-                referenced_entity_name
-            FROM sys.sql_expression_dependencies WITH (NOLOCK)
+                OBJECT_SCHEMA_NAME(dep.referencing_id, {db_id}) AS referencing_schema,
+                OBJECT_NAME(dep.referencing_id, {db_id}) AS referencing_object_name,
+                ISNULL(dep.referenced_server_name, CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255))) AS referenced_server_name,
+                ISNULL(dep.referenced_database_name, DB_NAME({db_id})) AS referenced_database_name,
+                COALESCE(dep.referenced_schema_name, OBJECT_SCHEMA_NAME(dep.referenced_id, {db_id}), 'dbo') AS referenced_schema_name,
+                dep.referenced_entity_name
+            FROM sys.sql_expression_dependencies AS dep WITH (NOLOCK)
+            JOIN sys.objects AS o WITH (NOLOCK)
+                ON o.object_id = referencing_id
+            WHERE o.type IN ('U', 'V', 'P') 
+                AND o.is_ms_shipped = 0        
         ) AS dependencies           
         """
         if_debug_print(query, printing_events_name=get_all_dependencies_tuples.__name__)
 
         return sql_server.query(query, connection=conn)
 
-def get_object_dependencies_tuples_by_definition(sql_server: SQLServerNonRuntimeResource, full_starting_relation_path: str, db_name: str, connection=None) -> list[Row | tuple]:
+def get_all_object_definitions_tuples(sql_server: SQLServerNonRuntimeResource, db_name: str) -> list[Row | tuple]:
+    with sql_server.get_connection(database=db_name) as conn:
+        query = f"""
+        SELECT 
+            CONCAT(CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255)), '.', '{db_name}', '.', SCHEMA_NAME(o.schema_id), '.', name) AS referencing_relation_path
+            , lower(OBJECT_DEFINITION(o.object_id)) AS relation_definition
+        FROM sys.objects o WITH (NOLOCK)
+        WHERE o.[type] IN (
+            'P',--- = SQL stored procedure
+            'V') --- = View
+            AND is_ms_shipped = 0
+            AND OBJECT_DEFINITION(o.object_id) IS NOT NULL
+        """
+        if_debug_print(query, printing_events_name=get_all_object_definitions_tuples.__name__)
+
+        return sql_server.query(query, connection=conn)
+
+def search_object_definitions_for_pattern(object_definitions: list[Row | tuple], 
+                                          full_referenced_relation_path: str, 
+                                          db_name: str) -> list[Row | tuple]:
+    server_name = full_referenced_relation_path.split(".")[0]
+    database_name = full_referenced_relation_path.split(".")[1]
+    schema_name = full_referenced_relation_path.split(".")[2]
+    object_name = full_referenced_relation_path.split(".")[3]
+
+    if database_name == db_name:
+        search_patterns = [fr'\b{re.escape(object_name).lower()}\b']
+    else:
+        search_patterns = [
+            fr'\b{re.escape(f"{database_name}.{schema_name}.{object_name}").lower()}\b',
+            fr'\b{re.escape(f"[{database_name}].[{schema_name}].[{object_name}]").lower()}\b',
+            fr'\b{re.escape(f"\"{database_name}\".\"{schema_name}\".\"{object_name}\"").lower()}\b'
+        ]
+    search_regex = re.compile("|".join(search_patterns))
+    search = search_regex.search  # Local reference to avoid repeated attribute lookups
+
+    results = []
+    append_result = results.append  # Local reference to avoid repeated attribute lookups
+    for path, definition in object_definitions:
+        if search(path):
+            continue
+        if search(definition):
+            if_debug_print(f"Match found: {search(definition).group()} in {definition[:100]}", printing_events_name="search_object_definitions_for_pattern")
+            append_result((path, full_referenced_relation_path))  # path is the referencing_relation_path
+
+    return results
+
+#test search_object_definitions_for_pattern
+# print(search_object_definitions_for_pattern(get_all_object_definitions_tuples(dwh_farinter_database_admin, "BI_FARINTER"), "DWHDEV.BI_FARINTER.dbo.BI_Hecho_VentasHist_Kielsa", "BI_FARINTER"))
+# raise Exception("stop here")
+
+
+def get_object_dependencies_tuples_by_definition(sql_server: SQLServerNonRuntimeResource, 
+                                                 full_starting_relation_path: str, 
+                                                 db_name: str, 
+                                                 connection=None) -> list[Row | tuple]:
     server_name = full_starting_relation_path.split(".")[0]
     database_name = full_starting_relation_path.split(".")[1]
     schema_name = full_starting_relation_path.split(".")[2]
@@ -81,7 +142,7 @@ def get_object_dependencies_tuples_by_definition(sql_server: SQLServerNonRuntime
 
     SELECT  CONCAT('{server_name}', '.', '{database_name}', '.', SCHEMA_NAME(o.schema_id), '.', o.[name]) AS referencing_relation_path,
         '{full_starting_relation_path}' AS referenced_relation_path
-    FROM sys.objects AS o
+    FROM sys.objects AS o WITH (NOLOCK)
     WHERE lower(OBJECT_DEFINITION(o.object_id)) LIKE lower(@SearchPattern)
         AND o.[type] IN (
         --'C',--- = Check constraint
@@ -108,27 +169,39 @@ def get_object_dependencies_tuples_by_definition(sql_server: SQLServerNonRuntime
 #test get_object_dependencies_tuples_by_definition
 # print(get_object_dependencies_tuples_by_definition(dwh_farinter_database_admin, "DWHDEV.BI_FARINTER.dbo.BI_paCargarHecho_VentasHist_Kielsa", "BI_FARINTER"))
 # raise NotImplementedError
-def collect_dependencies(sql_server: SQLServerNonRuntimeResource):
+def collect_dependencies(sql_server: SQLServerNonRuntimeResource, starting_relation_path: str) -> list[Row | tuple]:
     """get all the dependencies, even those not from the starting point to work on them recursively"""
     user_databases = get_user_databases_tuples(sql_server)
     all_dependencies = []
+    all_definitions_tuples = []
     for db in user_databases:
         db_id, db_name = db  # Unpack tuple directly
         db_dependencies = get_all_dependencies_tuples(sql_server, db_id, db_name)
         all_dependencies.extend(db_dependencies)
+        all_definitions_tuples.extend(get_all_object_definitions_tuples(sql_server, db_name))
         if_debug_print(str(db_dependencies)[:1000], printing_events_name=collect_dependencies.__name__)
 
-    additional_dependencies = []
-    for db in user_databases:
-        db_id, db_name = db  # Unpack tuple directly
-        with sql_server.get_connection(database=db_name) as conn:
-            for dep in all_dependencies:
-                db_dependencies = get_object_dependencies_tuples_by_definition(sql_server, dep[0], db_name, conn)
-                additional_dependencies.extend(db_dependencies)
-                db_dependencies = get_object_dependencies_tuples_by_definition(sql_server, dep[1], db_name, conn)
-                additional_dependencies.extend(db_dependencies)
+    # existing_dependencies_set = set((dep[0], dep[1])  for dep in all_dependencies)
+    # additional_dependencies = []
         
-    all_dependencies.extend(additional_dependencies)
+    # for db in user_databases:
+    #     db_id, db_name = db  # Unpack tuple directly
+    #     with tqdm(total=len(all_dependencies), desc=f"Searching Object Definitions for {db_name}") as pbar:
+    #         for dep in all_dependencies:
+    #             if dep[0] == starting_relation_path:
+    #                 additional_dependencies.extend(search_object_definitions_for_pattern(all_definitions_tuples, dep[1], db_name))
+    #             if dep[1] == starting_relation_path:
+    #                 additional_dependencies.extend(search_object_definitions_for_pattern(all_definitions_tuples, dep[0], db_name))
+    #             pbar.update(1)
+    #     print(f"Found {len(additional_dependencies)} potential additional dependencies for {db_name}")
+
+    # added_count = 0
+    # for dep in additional_dependencies:
+    #     if dep not in existing_dependencies_set and dep[0] not in dep[1] and dep[1] not in dep[0]:    
+    #         all_dependencies.extend(additional_dependencies)
+    #         added_count += 1
+    
+    # print(f"Added {added_count} additional dependencies")
     return all_dependencies
 
 def merge_dict_graphs(graph_dict1: GraphDict, graph_dict2: GraphDict) -> GraphDict:
@@ -188,9 +261,13 @@ def collect_dependencies_dict(starting_relation_path: str, all_dependencies: lis
         """
         current_stream_dependencies: GraphDict = {path: {}}
         current_stream_dependencies_to_check = {path}
+        visited_paths = set()
 
         while current_stream_dependencies_to_check:
             current_path = current_stream_dependencies_to_check.pop()
+            if current_path in visited_paths:
+                continue
+            visited_paths.add(current_path)
             current_stream_dependencies[current_path] = {d_symbol: []}
             for dep in all_dependencies:
                 if_debug_print(dep[parent_index], dep[child_index], dep[parent_index].casefold() +'¿==?'+ current_path.casefold(), printing_events_name=collect_dependencies_dict.__name__)
@@ -219,8 +296,6 @@ def collect_dependencies_dict(starting_relation_path: str, all_dependencies: lis
         parent_index=0,
         child_index=1,
         d_symbol=">",
-        breadth_limit=max_ind_breadth,
-        depth_limit=max_ind_depth        
     )
 
     # Add one anti stream dependency for each direct dependency
@@ -337,6 +412,7 @@ if __name__ == "__main__":
         collect_dependencies.__name__: 1,
         collect_dependencies_dict.__name__: 2,
         collect_dependencies_dict.__name__ + "_found": 2,
+        search_object_definitions_for_pattern.__name__: 10,
     }
     if_debug_print(
         "Printing events: " + str(printing_events),
@@ -356,7 +432,7 @@ if __name__ == "__main__":
     max_direct_indirects_depth = 0  # Max depth for indirect dependencies of the starting point direct dependencies
     max_direct_indirects_breadth = 0  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
 
-    all_dependencies = collect_dependencies(sql_server=dwh_farinter_database_admin)
+    all_dependencies = collect_dependencies(sql_server=dwh_farinter_database_admin, starting_relation_path=full_starting_relation_path)
     collected_dependencies = collect_dependencies_dict(
         starting_relation_path=full_starting_relation_path,
         all_dependencies=all_dependencies,
