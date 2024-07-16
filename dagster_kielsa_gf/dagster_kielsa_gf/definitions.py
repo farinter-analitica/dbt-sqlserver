@@ -13,6 +13,7 @@ from dagster_kielsa_gf.assets import (examples
 
 examples = load_assets_from_modules([examples], group_name="examples")
 
+
 all_assets = examples + dbt_example.all_assets  + dbt_dwh_kielsa.all_assets \
     + ldcom_etl_dwh.all_assets + knime_asset_factory.all_assets + recetas_libros_etl_dwh.all_assets
 all_asset_checks = dbt_example.all_asset_checks + dbt_dwh_kielsa.all_asset_checks \
@@ -34,13 +35,19 @@ from dagster_kielsa_gf.sensors import all_sensors
 all_resources = all_shared_resources
 
 
-defs = Definitions(
-    assets=all_assets + dbt_sources_assets,
-    asset_checks=all_asset_checks,
-    resources= all_resources,
-    jobs=all_jobs,
-    schedules=all_schedules,
-    sensors=all_sensors
+import dagster_kielsa_gf.dlt.definitions as dlt_defs
+import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
+defs = Definitions.merge(
+    dlt_defs.defs, #antes todos los subrepos
+    Definitions(
+        assets=all_assets + dbt_sources_assets,
+        asset_checks=all_asset_checks,
+        resources=all_resources,
+        jobs=all_jobs,
+        schedules=all_schedules,
+        sensors=all_sensors,
+    ),
+    gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos
 )
 
 # @repository

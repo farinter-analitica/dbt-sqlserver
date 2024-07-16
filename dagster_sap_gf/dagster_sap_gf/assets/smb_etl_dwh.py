@@ -99,7 +99,17 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
         },
     )
     drop_table_count = 0
+    v_metadata = {}
     try:
+        rows_inserted = 0
+        # recopilar division de la base de datos
+        dfdc: pl.DataFrame
+        with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
+            #conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP") 
+            dfdc = pl.read_database("SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP", connection=conn)
+        dfdc = dfdc.select(["Division_Nombre","Division_Id"])
+        division_id_map_reversed: Dict = dict(dfdc.rows())        
+        context.log.info(dfdc)
         for file_descriptor in list(directory_files(directory=directory_path, smb_resource=smbres)):
             #ignore non excel files xlsx
             if not file_descriptor.name.endswith(".xlsx"):
@@ -114,14 +124,6 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                                 )           
                 df=df.select(**schema_config.expected_columns)
                 df=df.cast(schema_config.polars_schema)
-                # recopilar division de la base de datos
-                dfdc: pl.DataFrame
-                with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
-                    #conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP") 
-                    dfdc = pl.read_database("SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP", connection=conn)
-                dfdc = dfdc.select(["Division_Nombre","Division_Id"])
-                division_id_map_reversed: Dict = dict(dfdc.rows())        
-                context.log.info(dfdc)
                 # Reemplazar farma y cualquier otro nombre en division_id por su id y limpieza de datos: 
                 df=df.with_columns(Division_Id = pl.col("Division_Id").replace(division_id_map_reversed, default="00"),
                                     Zona_Id = pl.col("Zona_Id").str.zfill(6),
@@ -153,20 +155,32 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 #     print('head: ',df.head(10))
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} cargado con {row_count} filas.\n")
-
+                
+                v_metadata.update({"Archivo": {"Nombre": file_descriptor.name, "Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
+            
             except NullsException as e:
                 context.log.error(e)
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(f"ERROR, NO CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
-        with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
-            conn.execute(dwh_farinter_dl.text(f"EXEC BI_FARINTER.dbo.BI_paCargarSAP_Hecho_PresupuestoHist"))
+            except Exception as e:
+                with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                    file.write(f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'}, {datetime.now().isoformat()} , {e}\n")
+                raise e
     except Exception as e:
+        context.log.info("log de carga de archivos:" + str(v_metadata))
         with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
-            file.write(f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'}, {datetime.now().isoformat()} , {e}\n")
+            file.write(f"ERROR, N/A, {datetime.now().isoformat()} , {e}\n")
         raise e    
-    return MaterializeResult(metadata={
-        "row_count": row_count, "null_count": nulls_count, "schema": df.schema})
+    return MaterializeResult(metadata=v_metadata)
 ##
+
+@asset(
+    key_prefix=["BI_FARINTER"],
+    deps=[DL_Finanzas_Presupuesto_Temp],
+)
+def BI_SAP_Hecho_PresupuestoHist(context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource):
+    with dwh_farinter_bi.get_connection(engine="sqlalchemy") as conn:
+        conn.execute(dwh_farinter_bi.text(f"EXEC BI_FARINTER.dbo.BI_paCargarSAP_Hecho_PresupuestoHist")) 
 
 if not __name__ == '__main__':
     all_assets = load_assets_from_current_module(group_name="smb_etl_dwh")

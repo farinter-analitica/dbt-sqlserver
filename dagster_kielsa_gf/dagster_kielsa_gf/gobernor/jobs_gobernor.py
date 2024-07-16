@@ -1,7 +1,6 @@
 #working with assets and jobs.py context as an overseer, do not import on definitions main.
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_ops import wait_if_job_running_to_execute_next_op
-import dagster_kielsa_gf.definitions as base_defs
 import dagster_kielsa_gf
 from ..jobs import *
 from dagster import (Definitions, load_assets_from_current_module, OpExecutionContext, job, op, ScheduleDefinition, JobDefinition, Field, DefaultScheduleStatus )

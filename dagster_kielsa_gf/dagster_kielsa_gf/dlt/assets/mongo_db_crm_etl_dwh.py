@@ -34,7 +34,7 @@ class DltSourceConfig:
     cursor_path: str
     primary_key: str | tuple
     pipeline_name: str
-    initial_value: pendulum.DateTime = Field(default_factory=lambda: pendulum.now().subtract(years=5))
+    initial_value: pendulum.DateTime = Field(default_factory=lambda: get_for_current_env( {"dev": pendulum.now().subtract(years=2), "prd": pendulum.now().subtract(years=5) } ))
 
     @classmethod
     def all_configs(cls):
@@ -116,7 +116,7 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
             dlt_assets_list.append(
                 create_dlt_asset(dlt_source=source, dlt_pipeline=dlt_pipeline
                     ,name=config.pipeline_name
-                    ,group_name="mongo_db_crm_hn_etl_dwh"
+                    ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
                     ,dlt_dagster_translator=DagsterDltTranslatorPipelinePrefix()
                     )
             )
@@ -127,7 +127,7 @@ def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]
 all_mongo_db_hn_assets = dlt_asset_factory(all_mongo_db_source_configs)
 
 all_mongo_db_hn_source_assets = list(
-    SourceAsset(key, group_name="mongo_db_crm_hn_etl_dwh") for key in set(chain.from_iterable(dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets))
+    SourceAsset(key, group_name="dlt_mongo_db_crm_hn_etl_dwh") for key in set(chain.from_iterable(dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets))
     )
 #print(mongodbdb_source_assets)
 
