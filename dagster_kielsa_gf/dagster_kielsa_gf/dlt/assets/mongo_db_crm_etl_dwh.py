@@ -27,6 +27,7 @@ class DltSourceConfig:
     pipeline_name: str
     cursor_path: str | None = None
     initial_value: pendulum.DateTime = Field(default_factory=lambda: get_for_current_env( {"dev": pendulum.now().subtract(years=2), "prd": pendulum.now().subtract(years=5) } ))
+    dep: str | None = None
 
     def all_configs(self):
         dataclass_var_value_dict = asdict(self)
@@ -52,20 +53,20 @@ read_source_config_updated_at: DltSourceConfigResourceList = {
 }
 
 read_source_config_multi_column: DltSourceConfigResourceList = {
-    DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_updated_at", initial_value=pendulum.now().subtract(months=2)): [
+    DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_updated_at", initial_value=pendulum.now().subtract(months=1)): [
         "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="created_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_created_at"): [
+    DltSourceConfig(cursor_path="created_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_created_at", dep="mongo_crm_hn_multi_updated_at"): [
         "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="EndDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_enddate"): [
+    DltSourceConfig(cursor_path="EndDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_enddate", initial_value=pendulum.now().subtract(months=1)): [
         "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="createdDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_createddate"): [
+    DltSourceConfig(cursor_path="createdDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_createddate", dep="mongo_crm_hn_multi_enddate"): [
         "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
 
@@ -136,7 +137,7 @@ table_columns_select: Dict[str, List[str]] = {
 }
 
 table_limits: Dict[str, int] = {
-    "crm_person": 10000
+    #"crm_person": 10000
 }
 
 all_mongo_db_source_configs: List[DltSourceConfigResourceList] = [read_source_config_updated_at, read_source_config_multi_column, read_source_config_not_incremental]
@@ -155,7 +156,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         return AssetKey([f"dlt_{self.config.pipeline_name}", f"{resource.name}"])          
     def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
         """
-        Para evitar duplicados en pipelines multi columnas de updated_at y created_at
+        Origen
 
         """
         return [AssetKey([f"mongo_db_crm_hn", f"{resource.name}"]) ]
@@ -164,18 +165,25 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
     
     def get_config(self) -> DltSourceConfig:
         return self.config
-    
+
 def create_dlt_asset(dlt_source, 
                      group_name,
                     dlt_t: DagsterDltTranslatorMongodbCRMHN,
                     tags: Mapping[str, str],
-                    dataset_name) -> dlt_assets:
+                    dataset_name: str,
+                    dep_pipeline: str | None = None) -> dlt_assets:
+
+    if dep_pipeline is not None:
+        dep_pipeline = [AssetKey([f"dlt_{dep_pipeline}", f"{dlt_source.name}"])]
+    else:
+        dep_pipeline = []
+
     @asset(
         key=dlt_t.get_asset_key(dlt_source),
         group_name=group_name,
-        description=None,
+        description=f"cursor {dlt_t.get_config().cursor_path} resource {dlt_t.get_asset_key(dlt_source)}",
         metadata=dlt_t.get_metadata(dlt_source),
-        deps=dlt_t.get_deps_asset_keys(dlt_source),
+        deps=list(dlt_t.get_deps_asset_keys(dlt_source)) + dep_pipeline,
         compute_kind="dlt",
         tags=tags,)
     def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline):
@@ -210,12 +218,13 @@ def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceCon
 
                 if collection in table_columns_select:
                     resource.apply_hints(columns=table_columns_select[collection])
-
+                
                 new_assets = create_dlt_asset(dlt_source=resource
                         ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
                         ,dlt_t=DagsterDltTranslatorMongodbCRMHN(config=config)
                         ,dataset_name="mongo_db_crm_hn"
                         ,tags={"dagster/storage_kind": "sqlserver"}
+                        ,dep_pipeline=config.dep
                         )
                 dlt_assets_list.append(new_assets)
 
@@ -225,8 +234,18 @@ def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceCon
 all_mongo_db_hn_assets = dlt_mongo_db_crm_hn_asset_factory(all_mongo_db_source_configs)
 
 all_mongo_db_hn_source_assets = list(
-    SourceAsset(key, group_name="dlt_mongo_db_crm_hn_etl_dwh", tags={"dagster/storage_kind": "mongodb"}) for key in set(chain.from_iterable(dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets))
+    SourceAsset(
+        key,
+        group_name="dlt_mongo_db_crm_hn_etl_dwh",
+        tags={"dagster/storage_kind": "mongodb"},
     )
+    for key in set(
+        chain.from_iterable(
+            dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets
+        )
+    )
+    if key not in set(asset.key for asset in all_mongo_db_hn_assets)
+)
 # print(mongodbdb_source_assets)
 
 if __name__ == "__main__":
