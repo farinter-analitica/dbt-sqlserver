@@ -20,6 +20,7 @@ env_str = shared_vars.env_str
 
 connection_str_source:str = EnvVar("DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL").get_value()
 
+
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
 class DltSourceConfig:
     primary_key: str | tuple
@@ -181,10 +182,10 @@ def create_dlt_asset(dlt_source,
         context.log.info(f"Running dlt pipeline: {dlt_t.get_config().pipeline_name} resource {dlt_t.get_asset_key(dlt_source)} loading to dataset: {dataset_name}")
         new_pipeline = dlt_pipeline_dest_mssql.get_pipeline(pipeline_name=dlt_t.get_config().pipeline_name,
                                                             dataset_name=dataset_name)
-        load_info = dlt_pipeline_dest_mssql.run_pipeline(dlt_source, new_pipeline)
+        extracted_resource_metadata = dlt_pipeline_dest_mssql.run_pipeline(dlt_source, new_pipeline)
         return MaterializeResult(
             asset_key=dlt_t.get_asset_key(dlt_source),
-            metadata={key: str(value) for key, value in load_info.asdict().items()},
+            metadata=extracted_resource_metadata,
         )
 
     return created_dlt_assets
