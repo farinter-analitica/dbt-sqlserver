@@ -1,20 +1,14 @@
 import dlt
 from dlt.common import pendulum
-from dlt.common.data_writers import TDataItemFormat
 from dlt.common.pipeline import LoadInfo
-from dlt.common.typing import TDataItems
 from dlt.extract.resource import DltResource
 import dlt.extract
 from dlt.pipeline.pipeline import Pipeline
 from dagster_shared_gf.dlt_shared.mongodb import mongodb, mongodb_collection
-from dlt.sources.credentials import ConnectionStringCredentials
-
-from dagster_shared_gf.dlt_shared.sql_database import sql_database, sql_table, Table
-from sqlalchemy.engine import URL, create_engine
 from dagster_shared_gf.shared_functions import get_for_current_env
-from dagster_shared_gf.resources import sql_server_resources
+from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster import EnvVar, SourceAsset, asset, AssetExecutionContext, AssetsDefinition, AssetKey
+from dagster import EnvVar, SourceAsset, asset, AssetExecutionContext, AssetsDefinition, AssetKey, MaterializeResult, MetadataValue
 from dagster_embedded_elt.dlt import dlt_assets, DagsterDltResource, DagsterDltTranslator
 from typing import Dict, List, Union, Iterable, Any, Mapping
 from pydantic import dataclasses, Field
@@ -25,10 +19,6 @@ env_str = shared_vars.env_str
 # Set environment variables
 
 connection_str_source:str = EnvVar("DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL").get_value()
-connection_url_dest:str = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url()
-mssql_destination = dlt.destinations.mssql(credentials=connection_url_dest.render_as_string(hide_password=False))
-
-
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
 class DltSourceConfig:
@@ -40,8 +30,8 @@ class DltSourceConfig:
     def all_configs(self):
         dataclass_var_value_dict = asdict(self)
         return dataclass_var_value_dict
-    
-    
+
+
 DltSourceConfigResourceList = Dict[DltSourceConfig, List[str]]
 
 read_source_config_updated_at: DltSourceConfigResourceList = {
@@ -62,19 +52,22 @@ read_source_config_updated_at: DltSourceConfigResourceList = {
 
 read_source_config_multi_column: DltSourceConfigResourceList = {
     DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_updated_at", initial_value=pendulum.now().subtract(months=2)): [
-       # "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+        "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
     DltSourceConfig(cursor_path="created_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_created_at"): [
-       # "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+        "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
-        "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
     DltSourceConfig(cursor_path="EndDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_enddate"): [
         "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
-    ]
+    ],
+    DltSourceConfig(cursor_path="createdDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_createddate"): [
+        "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+    ],
+
 }
 
 read_source_config_not_incremental: DltSourceConfigResourceList = {
@@ -83,25 +76,73 @@ read_source_config_not_incremental: DltSourceConfigResourceList = {
     ],
 }
 
+table_renames: Dict[str, str] = {
+    "constantcontactcampaigns": "constant_contact_campaigns",
+}
+
+table_columns_select: Dict[str, List[str]] = {
+    "crm_person": {
+        "id": {"data_type": "bigint"},
+        "treatment": {"data_type": "text"},
+        "first_name": {"data_type": "text"},
+        "middle_name": {"data_type": "text"},
+        "last_name": {"data_type": "text"},
+        "second_last_name": {"data_type": "text"},
+        "email": {"data_type": "text"},
+        "dni": {"data_type": "text"},
+        "phone_number": {"data_type": "text"},
+        "landline": {"data_type": "text"},
+        "address": {"data_type": "text"},
+        "gender": {"data_type": "text"},
+        "code": {"data_type": "text"},
+        "sap_company_name": {"data_type": "text"},
+        "country_code": {"data_type": "text"},
+        "country_name": {"data_type": "text"},
+        "department_code": {"data_type": "text"},
+        "department_name": {"data_type": "text"},
+        "municipality_code": {"data_type": "text"},
+        "town_code": {"data_type": "text"},
+        "neighborhood_code": {"data_type": "text"},
+        "class_name": {"data_type": "text"},
+        "business_name": {"data_type": "text"},
+        "category_client": {"data_type": "text"},
+        "company_id": {"data_type": "bigint"},
+        "notes": {"data_type": "text"},
+        "sap_company_code": {"data_type": "text"},
+        "sap_zone_code": {"data_type": "text"},
+        "sap_zone_name": {"data_type": "text"},
+        "_id": {"data_type": "text"},
+        "birth_date": {"data_type": "date"},
+        "created_at": {"data_type": "timestamp"},
+        "updated_at": {"data_type": "timestamp"},
+        "sap_username": {"data_type": "text"},
+        "user_id": {"data_type": "bigint"},
+        "sapusercode": {"data_type": "text"},
+        "number": {"data_type": "text"},
+        "sellers": {"data_type": "complex"},
+        "seller_id": {"data_type": "text"},
+        "custom_fields": {"data_type": "complex"},
+        "debt_collectors" : {"data_type": "complex"},
+        "facebook_username": {"data_type": "text"},
+        "facebook_id": {"data_type": "text"},
+        "twitter_username": {"data_type": "text"},
+        "twitter_id": {"data_type": "text"},
+        "linkedin_username": {"data_type": "text"},
+        "instagram_username": {"data_type": "text"},
+        "fecha_ingreso": {"data_type": "timestamp"},
+    }
+    
+}
+
+table_limits: Dict[str, int] = {
+    "crm_person": 10000
+}
 
 all_mongo_db_source_configs: List[DltSourceConfigResourceList] = [read_source_config_updated_at, read_source_config_multi_column, read_source_config_not_incremental]
 
 
 def get_config_filtered(dlt_source_config_resource_list: DltSourceConfigResourceList, dlt_source_config: DltSourceConfig) -> List[str]:
     return list(chain(dlt_source_config_resource_list[dlt_source_config]))
-
-def create_dlt_asset(dlt_source, dlt_pipeline, name, group_name, dlt_dagster_translator) -> dlt_assets:
-    @dlt_assets(
-                dlt_source=dlt_source,
-                dlt_pipeline=dlt_pipeline,
-                name=name,
-                group_name=group_name,
-                dlt_dagster_translator=dlt_dagster_translator,
-            )
-    def created_dlt_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
-        yield from dlt.run(context=context, write_disposition="merge")
-
-    return created_dlt_assets
 
 @dataclasses.dataclass
 class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
@@ -118,138 +159,168 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         """
         return [AssetKey([f"mongo_db_crm_hn", f"{resource.name}"]) ]
     def get_metadata(self, resource: DltResource) -> Mapping[str, Any]:
-        return self.config.all_configs()
+        return self.config.all_configs() | resource.explicit_args | {"columns_schema": resource.columns}
+    
+    def get_config(self) -> DltSourceConfig:
+        return self.config
+    
+def create_dlt_asset(dlt_source, 
+                     group_name,
+                    dlt_t: DagsterDltTranslatorMongodbCRMHN,
+                    tags: Mapping[str, str],
+                    dataset_name) -> dlt_assets:
+    @asset(
+        key=dlt_t.get_asset_key(dlt_source),
+        group_name=group_name,
+        description=None,
+        metadata=dlt_t.get_metadata(dlt_source),
+        deps=dlt_t.get_deps_asset_keys(dlt_source),
+        compute_kind="dlt",
+        tags=tags,)
+    def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline):
+        context.log.info(f"Running dlt pipeline: {dlt_t.get_config().pipeline_name} resource {dlt_t.get_asset_key(dlt_source)} loading to dataset: {dataset_name}")
+        new_pipeline = dlt_pipeline_dest_mssql.get_pipeline(pipeline_name=dlt_t.get_config().pipeline_name,
+                                                            dataset_name=dataset_name)
+        load_info = dlt_pipeline_dest_mssql.run_pipeline(dlt_source, new_pipeline)
+        return MaterializeResult(
+            asset_key=dlt_t.get_asset_key(dlt_source),
+            metadata={key: str(value) for key, value in load_info.asdict().items()},
+        )
 
-def dlt_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]) -> List[AssetsDefinition]:
+    return created_dlt_assets
+
+def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceConfigResourceList]) -> List[AssetsDefinition]:
     dlt_assets_list: List[AssetsDefinition] = []
     for dlt_source_config in mongo_db_source_configs:
         for config, collections in dlt_source_config.items():
-            source = mongodb(
-                connection_url=connection_str_source,
-                database="pro01",
-                incremental=dlt.sources.incremental(config.cursor_path
-                                                    ,primary_key=config.primary_key
-                                                    , initial_value=config.initial_value),
-                ).with_resources(*collections)
-            dlt_pipeline = dlt.pipeline(
-                pipeline_name=config.pipeline_name,
-                destination=mssql_destination,
-                dataset_name="mongo_db_crm_hn",
-            )
+            for collection in collections:
+                resource: dlt.Resource = mongodb_collection(
+                    connection_url=connection_str_source,
+                    database="pro01",
+                    collection=collection,
+                    limit=table_limits.get(collection),
+                    incremental=dlt.sources.incremental(config.cursor_path
+                                                        ,primary_key=config.primary_key
+                                                        , initial_value=config.initial_value),
+                )
 
-            new_assets = create_dlt_asset(dlt_source=source, dlt_pipeline=dlt_pipeline
-                    ,name=config.pipeline_name
-                    ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
-                    ,dlt_dagster_translator=DagsterDltTranslatorMongodbCRMHN(config=config)
-                    )
-            dlt_assets_list.append(new_assets
-            )
+                if collection in table_renames:
+                    resource.apply_hints(table_name=table_renames[collection])
+
+                if collection in table_columns_select:
+                    resource.apply_hints(columns=table_columns_select[collection])
+
+                new_assets = create_dlt_asset(dlt_source=resource
+                        ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
+                        ,dlt_t=DagsterDltTranslatorMongodbCRMHN(config=config)
+                        ,dataset_name="mongo_db_crm_hn"
+                        ,tags={"dagster/storage_kind": "sqlserver"}
+                        )
+                dlt_assets_list.append(new_assets)
 
     return list(chain(dlt_assets_list))
 
 
-
-
-all_mongo_db_hn_assets = dlt_asset_factory(all_mongo_db_source_configs)
+all_mongo_db_hn_assets = dlt_mongo_db_crm_hn_asset_factory(all_mongo_db_source_configs)
 
 all_mongo_db_hn_source_assets = list(
     SourceAsset(key, group_name="dlt_mongo_db_crm_hn_etl_dwh", tags={"dagster/storage_kind": "mongodb"}) for key in set(chain.from_iterable(dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets))
     )
-#print(mongodbdb_source_assets)
+# print(mongodbdb_source_assets)
 
 if __name__ == "__main__":
+    pass
+    # def load_select_collection_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
+    #     """Use the mongodb source to reflect an entire database schema and load select tables from it.
 
-    def load_select_collection_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
-        """Use the mongodb source to reflect an entire database schema and load select tables from it.
+    #     This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
+    #     """
+    #     dlt_source_config = DltSourceConfig(cursor_path="updated_at", primary_key="_id")
+    #     if pipeline is None:
+    #         # Create a pipeline
+    #         pipeline = dlt.pipeline(
+    #             pipeline_name="mongo_crm_hn_updated_at",
+    #             destination=mssql_destination,
+    #             dataset_name="mongo_crm_hn",
+    #         )
+    #     collections: List[str] = get_config_filtered(read_source_config_updated_at
+    #                                                 ,dlt_source_config)
+    #     # Configure the source to load a few select collections incrementally
+    #     sources = mongodb(connection_url=connection_str_source
+    #         ,database="pro01"
+    #         ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
+    #                                             ,primary_key=dlt_source_config.primary_key
+    #                                             , initial_value=pendulum.now().subtract(years=2))
+    #         ).with_resources(
+    #         *collections
+    #     )
 
-        This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
-        """
-        dlt_source_config = DltSourceConfig(cursor_path="updated_at", primary_key="_id")
-        if pipeline is None:
-            # Create a pipeline
-            pipeline = dlt.pipeline(
-                pipeline_name="mongo_crm_hn_updated_at",
-                destination=mssql_destination,
-                dataset_name="mongo_crm_hn",
-            )
-        collections: List[str] = get_config_filtered(read_source_config_updated_at
-                                                    ,dlt_source_config)
-        # Configure the source to load a few select collections incrementally
-        sources = mongodb(connection_url=connection_str_source
-            ,database="pro01"
-            ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
-                                                ,primary_key=dlt_source_config.primary_key
-                                                , initial_value=pendulum.now().subtract(years=2))
-            ).with_resources(
-            *collections
-        )
+    #     info = pipeline.run(sources, write_disposition="merge")
 
-        info = pipeline.run(sources, write_disposition="merge")
-
-        return info
+    #     return info
 
 
-    def load_select_collections_multi_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
-        """Use the mongodb source to reflect an entire database schema and load select tables from it.
+    # def load_select_collections_multi_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
+    #     """Use the mongodb source to reflect an entire database schema and load select tables from it.
 
-        This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
-        """
-        dlt_source_config = DltSourceConfig(cursor_path="updated_at", primary_key="_id")
-        if pipeline is None:
-            # Create a pipeline
-            pipeline = dlt.pipeline(
-                pipeline_name="mongo_crm_hn_multi_updated_at",
-                destination=mssql_destination,
-                dataset_name="mongo_crm_hn",
-            )
-        collections: List[str] = get_config_filtered(read_source_config_multi_column
-                                                    ,dlt_source_config)
+    #     This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
+    #     """
+    #     dlt_source_config = DltSourceConfig(cursor_path="updated_at", primary_key="_id")
+    #     if pipeline is None:
+    #         # Create a pipeline
+    #         pipeline = dlt.pipeline(
+    #             pipeline_name="mongo_crm_hn_multi_updated_at",
+    #             destination=mssql_destination,
+    #             dataset_name="mongo_crm_hn",
+    #         )
+    #     collections: List[str] = get_config_filtered(read_source_config_multi_column
+    #                                                 ,dlt_source_config)
 
-        # Configure the source to load a few select collections incrementally
-        sources = mongodb(connection_url=connection_str_source
-            ,database="pro01"
-            ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
-                                                ,primary_key=dlt_source_config.primary_key
-                                                , initial_value=pendulum.now().subtract(months=2))
-            ).with_resources(
-            *collections
-        )
+    #     # Configure the source to load a few select collections incrementally
+    #     sources = mongodb(connection_url=connection_str_source
+    #         ,database="pro01"
+    #         ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
+    #                                             ,primary_key=dlt_source_config.primary_key
+    #                                             , initial_value=pendulum.now().subtract(months=2))
+    #         ).with_resources(
+    #         *collections
+    #     )
 
-        info = pipeline.run(sources, write_disposition="merge")
+    #     info = pipeline.run(sources, write_disposition="merge")
 
-        return info
+    #     return info
 
-    def load_select_collections_multi_created_at(pipeline: Pipeline|None = None) -> LoadInfo:
-        """Use the mongodb source to reflect an entire database schema and load select tables from it.
+    # def load_select_collections_multi_created_at(pipeline: Pipeline|None = None) -> LoadInfo:
+    #     """Use the mongodb source to reflect an entire database schema and load select tables from it.
 
-        This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
-        """
-        dlt_source_config = DltSourceConfig(cursor_path="created_at", primary_key="_id")
-        if pipeline is None:
-            # Create a pipeline
-            pipeline = dlt.pipeline(
-                pipeline_name="mongo_crm_hn_multi_created_at",
-                destination=mssql_destination,
-                dataset_name="mongo_crm_hn",
-                progress=dlt.progress.log(log_period=1,)
-            )
-        collections: List[str] = get_config_filtered(read_source_config_multi_column
-                                                    ,dlt_source_config)
+    #     This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
+    #     """
+    #     dlt_source_config = DltSourceConfig(cursor_path="created_at", primary_key="_id")
+    #     if pipeline is None:
+    #         # Create a pipeline
+    #         pipeline = dlt.pipeline(
+    #             pipeline_name="mongo_crm_hn_multi_created_at",
+    #             destination=mssql_destination,
+    #             dataset_name="mongo_crm_hn",
+    #             progress=dlt.progress.log(log_period=1,)
+    #         )
+    #     collections: List[str] = get_config_filtered(read_source_config_multi_column
+    #                                                 ,dlt_source_config)
 
-        # Configure the source to load a few select collections incrementally
-        sources = mongodb(connection_url=connection_str_source
-            ,database="pro01"
-            ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
-                                                ,primary_key=dlt_source_config.primary_key
-                                                , initial_value=pendulum.now().subtract(months=2)
+    #     # Configure the source to load a few select collections incrementally
+    #     sources = mongodb(connection_url=connection_str_source
+    #         ,database="pro01"
+    #         ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
+    #                                             ,primary_key=dlt_source_config.primary_key
+    #                                             , initial_value=pendulum.now().subtract(months=2)
                                                 
-                                                )
-            ).with_resources(
-            *collections
-        )
+    #                                             )
+    #         ).with_resources(
+    #         *collections
+    #     )
 
-        info = pipeline.run(sources, write_disposition="merge")
+    #     info = pipeline.run(sources, write_disposition="merge")
 
-        return info
+    #     return info
 
-    print(load_select_collections_multi_created_at())
+    # print(load_select_collections_multi_created_at())
