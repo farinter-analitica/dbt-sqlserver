@@ -143,7 +143,8 @@ def create_store_procedure_asset(stored_procedure_name: str, group_name: str, pa
         return store_procedure_execution_asset
 
     else:
-        @multi_asset(specs=[AssetSpec(key=AssetKey([params["key_prefix"][0], params["key_prefix"][1], name]), 
+        @multi_asset(name=stored_procedure_name,
+                    specs=[AssetSpec(key=AssetKey([params["key_prefix"][0], params["key_prefix"][1], name]), 
                                       tags=params.get("tags", None),
                                       deps=params.get("deps", None),
                                       description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]") 
