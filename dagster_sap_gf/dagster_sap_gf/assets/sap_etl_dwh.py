@@ -60,7 +60,7 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
                 }
         , compute_kind="sqlserver"
         , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
-                        , "p_actualizar_todo":  Field(bool, is_required=False, default_value=0)
+                        , "p_actualizar_todo":  Field(bool, is_required=False, default_value=False)
                         }
         )
 def DL_SAP_BSEG(context: AssetExecutionContext
