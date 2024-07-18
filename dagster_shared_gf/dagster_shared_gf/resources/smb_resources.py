@@ -22,7 +22,7 @@ all_credentials: Dict[str, SMBClientConfigCredentials] = \
                 {"dev": os.environ.get("DAGSTER_ANALITICA_FARINTERNET_USERNAME")}
             ),
             password=get_for_current_env(
-                {"dev": os.environ.get("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD")}
+                {"dev": EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD")}
             ),
         )
     }
