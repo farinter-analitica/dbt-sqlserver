@@ -47,7 +47,6 @@ read_source_config_updated_at: DltSourceConfigResourceList = {
         "constantcontactcampaigns",
     ],
     DltSourceConfig(cursor_path="UpdatedAt", primary_key="_id", pipeline_name="mongo_crm_hn_updatedat"): [
-        "crmCall",
         "crm_list",
     ],
 }
@@ -69,7 +68,12 @@ read_source_config_multi_column: DltSourceConfigResourceList = {
     DltSourceConfig(cursor_path="createdDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_createddate", dep="mongo_crm_hn_multi_enddate"): [
         "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-
+    DltSourceConfig(cursor_path="UpdatedAt", primary_key="_id", pipeline_name="mongo_crm_hn_multi_updatedat", initial_value=pendulum.now().subtract(months=1)): [
+        "crmCall", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+    ],
+    DltSourceConfig(cursor_path="createdAt", primary_key="_id", pipeline_name="mongo_crm_hn_multi_createdat", dep="mongo_crm_hn_multi_updatedat"): [
+        "crmCall", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+    ],
 }
 
 read_source_config_not_incremental: DltSourceConfigResourceList = {
@@ -80,6 +84,7 @@ read_source_config_not_incremental: DltSourceConfigResourceList = {
 
 table_renames: Dict[str, str] = {
     "constantcontactcampaigns": "constant_contact_campaigns",
+    "crmCall": "crm_call",
 }
 
 table_columns_select: Dict[str, List[str]] = {

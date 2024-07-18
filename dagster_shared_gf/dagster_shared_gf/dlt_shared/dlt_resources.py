@@ -11,7 +11,7 @@ from dlt.extract import DltResource
 
 connection_url_dest:str = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url()
 
-mssql_destination = dlt.destinations.mssql(credentials=connection_url_dest.render_as_string(hide_password=False))
+mssql_destination = dlt.destinations.mssql(credentials=connection_url_dest.render_as_string(hide_password=False), create_indexes=True)
 fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
 extracted_resource_metadata = Dict[str , Any]
 class BaseDltPipeline(ConfigurableResource):
