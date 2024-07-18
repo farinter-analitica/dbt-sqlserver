@@ -59,7 +59,7 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
         , tags=tags_repo.Replicas.tag | {"dagster/max_runtime": str(50*60) # max 50 minutes in seconds, then mark it as failed.
                 }
         , compute_kind="sqlserver"
-        , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value=None)
+        , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
                         , "p_actualizar_todo":  Field(bool, is_required=False, default_value=0)
                         }
         )
@@ -77,7 +77,7 @@ def DL_SAP_BSEG(context: AssetExecutionContext
     with open(sql_file_path, encoding="utf8") as procedure:
         final_query = str(procedure.read())
     with dwh_farinter_dl.get_connection(database) as conn:
-        if context.op_config.get("p_fecha_desde") and context.op_config.get("p_fecha_desde") :
+        if context.op_config.get("p_fecha_desde") != "" and context.op_config.get("p_fecha_desde") :
             last_date_updated = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
         else:
             last_aniomes_id_query: str = f"""SELECT MAX(AnioMes_Id) FROM [{database}].[{schema}].[{table}] WITH (NOLOCK);"""
