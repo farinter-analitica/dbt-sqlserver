@@ -162,7 +162,8 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["AN_FARINTER", "dbo"],
         "name": "AN_Param_Pesos_Kielsa",
         "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Ventas4MesesHist_Kielsa"]),
+                 AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasResumenHist_Kielsa"])],
     },
     "BI_paCargarCal_PesosProy_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
