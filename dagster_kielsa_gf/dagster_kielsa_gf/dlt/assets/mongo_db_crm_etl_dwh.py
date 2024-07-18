@@ -208,7 +208,7 @@ def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceCon
     for dlt_source_config in mongo_db_source_configs:
         for config, collections in dlt_source_config.items():
             for collection in collections:
-                resource: dlt.Resource = mongodb_collection(
+                resource: DltResource = mongodb_collection(
                     connection_url=connection_str_source,
                     database="pro01",
                     collection=collection,
@@ -225,6 +225,9 @@ def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceCon
 
                 if collection in table_columns_select:
                     resource.apply_hints(columns=table_columns_select[collection])
+
+                if isinstance(config.primary_key,str):
+                    resource.apply_hints(columns={config.primary_key : {"data_type": "text", "precision": 50}})
                 
                 new_assets = create_dlt_asset(dlt_source=resource
                         ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
