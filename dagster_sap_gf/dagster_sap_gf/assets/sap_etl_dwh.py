@@ -5,6 +5,7 @@ from dagster import (asset
                      , build_last_update_freshness_checks
                      , load_assets_from_current_module
                      , load_asset_checks_from_current_module
+                     , Field
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF
@@ -58,6 +59,9 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
         , tags=tags_repo.Replicas.tag | {"dagster/max_runtime": str(50*60) # max 50 minutes in seconds, then mark it as failed.
                 }
         , compute_kind="sqlserver"
+        , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value=None)
+                        , "p_actualizar_todo":  Field(bool, is_required=False, default_value=0)
+                        }
         )
 def DL_SAP_BSEG(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
@@ -73,20 +77,23 @@ def DL_SAP_BSEG(context: AssetExecutionContext
     with open(sql_file_path, encoding="utf8") as procedure:
         final_query = str(procedure.read())
     with dwh_farinter_dl.get_connection(database) as conn:
-        last_aniomes_id_query: str = f"""SELECT MAX(AnioMes_Id) FROM [{database}].[{schema}].[{table}] WITH (NOLOCK);"""
-        last_aniomes_id_result: List[Any] = dwh_farinter_dl.query(query=last_aniomes_id_query, connection = conn)        
-        last_date_updated_query: str = f"""
-            SELECT MAX(AEDAT) FROM [{database}].[{schema}].[{table}] 
-            WHERE AnioMes_Id >= {last_aniomes_id_result[0][0] if last_aniomes_id_result else (datetime.now().year*100-5)+1};
-            """
-        last_date_updated_result: List[Any] = dwh_farinter_dl.query(query=last_date_updated_query, connection = conn)
-        last_date_updated: date = (datetime.now()-timedelta(days=5*365)).date()
+        if context.op_config.get("p_fecha_desde") and context.op_config.get("p_fecha_desde") :
+            last_date_updated = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
+        else:
+            last_aniomes_id_query: str = f"""SELECT MAX(AnioMes_Id) FROM [{database}].[{schema}].[{table}] WITH (NOLOCK);"""
+            last_aniomes_id_result: List[Any] = dwh_farinter_dl.query(query=last_aniomes_id_query, connection = conn)        
+            last_date_updated_query: str = f"""
+                SELECT MAX(AEDAT) FROM [{database}].[{schema}].[{table}] 
+                WHERE AnioMes_Id >= {last_aniomes_id_result[0][0] if last_aniomes_id_result else (datetime.now().year*100-5)+1};
+                """
+            last_date_updated_result: List[Any] = dwh_farinter_dl.query(query=last_date_updated_query, connection = conn)
+            last_date_updated: date = (datetime.now()-timedelta(days=5*365)).date()
         if last_date_updated_result:
             try:
                 last_date_updated: date = datetime.strptime(last_date_updated_result[0][0], "%Y%m%d").date()
             except:
                 context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
-        final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat(),p_IndicadorActualizarTodo = 0)
+        final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat(),p_IndicadorActualizarTodo = int(context.op_config.get("p_actualizar_todo")))
         #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
         
