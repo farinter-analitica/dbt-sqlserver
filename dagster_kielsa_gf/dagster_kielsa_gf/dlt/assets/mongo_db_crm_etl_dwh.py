@@ -208,9 +208,11 @@ def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceCon
                     database="pro01",
                     collection=collection,
                     limit=table_limits.get(collection),
-                    incremental=dlt.sources.incremental(config.cursor_path
+                    incremental=dlt.sources.incremental(cursor_path=config.cursor_path
                                                         ,primary_key=config.primary_key
                                                         , initial_value=config.initial_value),
+                    parallel=True,
+                    data_item_format="arrow",
                 )
 
                 if collection in table_renames:
