@@ -88,11 +88,11 @@ def DL_SAP_BSEG(context: AssetExecutionContext
                 """
             last_date_updated_result: List[Any] = dwh_farinter_dl.query(query=last_date_updated_query, connection = conn)
             last_date_updated: date = (datetime.now()-timedelta(days=5*365)).date()
-        if last_date_updated_result:
-            try:
-                last_date_updated: date = datetime.strptime(last_date_updated_result[0][0], "%Y%m%d").date()
-            except:
-                context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
+            if last_date_updated_result:
+                try:
+                    last_date_updated: date = datetime.strptime(last_date_updated_result[0][0], "%Y%m%d").date()
+                except:
+                    context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
         final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat(),p_IndicadorActualizarTodo = int(context.op_config.get("p_actualizar_todo")))
         #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
