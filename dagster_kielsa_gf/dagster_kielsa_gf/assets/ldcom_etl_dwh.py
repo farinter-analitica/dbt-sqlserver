@@ -44,10 +44,34 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_FacturasPosiciones",
         "tags": tags_repo.Daily.tag,
     },
-    "DL_paCargarKielsa_FacturaEncabezado": {
+    "DL_paCargarKielsa_FacturaPosicionDescuento": {
         "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_FacturaEncabezado",
+        "name": "DL_Kielsa_FacturaPosicionDescuento",
+        "tags": tags_repo.Daily.tag,    
+    },
+    "DL_paCargarKielsa_Bitacora_Cambio_Precio": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Bitacora_Cambio_Precio",
         "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_Descuento_Venta_Articulo": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Descuento_Venta_Articulo",
+        "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_Descuento_Venta": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Descuento_Venta",
+        "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_Precios": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Precios",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaPosicionDescuento"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta_Articulo"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Bitacora_Cambio_Precio"])],
     },
     "DL_paCargarKielsa_Articulo_Proveedor": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -64,7 +88,8 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "BI_Hecho_VentasHist_Kielsa_V2",
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]), 
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaPosicionDescuento"])],
     },
     "DL_paCargarKielsa_BoletaLocal": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -121,11 +146,36 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     },
         "BI_paCargarHecho_VentasHist_Kielsa": {
             "key_prefix": ["BI_FARINTER", "dbo"],
-            "name": "BI_Hecho_VentasHist_Kielsa",
+            "name": ["BI_Hecho_VentasHist_Kielsa","BI_Hecho_Ventas4MesesHist_Kielsa","BI_Hecho_VentasResumenHist_Kielsa"],
             "tags": tags_repo.Daily.tag,
             "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]), 
-                     AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
+                     AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
+                     AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaPosicionDescuento"])],
     },
+    "DL_paCargarAcum_VentasHist_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Acum_VentasHist_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
+    },
+    "AN_pacargarParam_Pesos_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": "AN_Param_Pesos_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
+    },
+    "BI_paCargarCal_PesosProy_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_PesosSemana_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_Pesos_Kielsa"]), AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
+    },
+    "DL_paCargarKielsa_ClientesVisitasHist": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_ClientesVisitasHist",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"])],
+    }
 }   
 
 
