@@ -24,6 +24,11 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Sucursal",
         "tags": tags_repo.Daily.tag,
     },
+    "BI_paCargarHecho_ExistenciasHist_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_ExistenciasHist_Kielsa",
+        "tags": tags_repo.Daily.tag,
+    },
     "DL_paCargarKielsa_Bodega": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Bodega",
@@ -48,6 +53,11 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_FacturaPosicionDescuento",
         "tags": tags_repo.Daily.tag,    
+    },
+    "DL_paCargarKielsa_FacturaEncabezado": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_FacturaEncabezado",
+        "tags": tags_repo.Daily.tag,
     },
     "DL_paCargarKielsa_Bitacora_Cambio_Precio": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -176,7 +186,14 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_ClientesVisitasHist",
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"])],
-    }
+    },
+    "BI_paCargarHecho_Inventarios_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_Inventarios_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"]),
+                 AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Bodega_Kielsa"]),],
+    },
 }   
 
 
