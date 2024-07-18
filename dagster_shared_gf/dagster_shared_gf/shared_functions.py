@@ -1,7 +1,7 @@
 
 import inspect, os, requests, re, itertools
 from typing import Dict, Any, Mapping, Literal, TypeVar, get_args, get_origin, List, Type, Callable, Iterable, Sequence
-
+import hashlib
 from types import ModuleType
 from pydantic import Field
 from datetime import timedelta
@@ -322,3 +322,11 @@ def import_variable_from_module(variable_name: str, module: ModuleType = None) -
         return None
         #raise AttributeError(f"Module '{module_to_use.__name__}' has no attribute '{variable_name}'")
     return getattr(module_to_use, variable_name)
+
+def get_unique_hash_sha2_256(strings: List[str] | str, length: int = 18) -> str:
+    charset:str ="utf-8"
+    if isinstance(strings, str):
+        strings = [strings]
+    full_string:str = "-".join(strings)
+    hash_str:str  = hashlib.sha256(full_string.encode(charset), usedforsecurity=False).hexdigest()
+    return hash_str[:length]

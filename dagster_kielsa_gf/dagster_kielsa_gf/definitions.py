@@ -38,11 +38,11 @@ all_resources = all_shared_resources
 import dagster_kielsa_gf.dlt.definitions as dlt_defs
 import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
 defs = Definitions.merge(
-    dlt_defs.defs, #antes todos los subrepos
+    #dlt_defs.defs, #antes todos los subrepos
     Definitions(
-        assets=all_assets + dbt_sources_assets,
+        assets=all_assets + dbt_sources_assets + dlt_defs.all_assets,
         asset_checks=all_asset_checks,
-        resources=all_resources,
+        resources=all_resources | dlt_defs.all_resources,
         jobs=all_jobs,
         schedules=all_schedules,
         sensors=all_sensors,

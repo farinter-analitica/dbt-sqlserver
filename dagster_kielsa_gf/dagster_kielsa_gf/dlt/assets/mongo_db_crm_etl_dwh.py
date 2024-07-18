@@ -5,8 +5,9 @@ from dlt.extract.resource import DltResource
 import dlt.extract
 from dlt.pipeline.pipeline import Pipeline
 from dagster_shared_gf.dlt_shared.mongodb import mongodb, mongodb_collection
-from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
+from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
+from dagster_shared_gf.shared_functions import get_for_current_env, get_unique_hash_sha2_256
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster import EnvVar, SourceAsset, asset, AssetExecutionContext, AssetsDefinition, AssetKey, MaterializeResult, MetadataValue
 from dagster_embedded_elt.dlt import dlt_assets, DagsterDltResource, DagsterDltTranslator
@@ -87,7 +88,7 @@ table_renames: Dict[str, str] = {
     "crmCall": "crm_call",
 }
 
-table_columns_select: Dict[str, List[str]] = {
+table_columns_hints: Dict[str, List[str]] = {
     "crm_person": {
         "id": {"data_type": "bigint"},
         "treatment": {"data_type": "text"},
@@ -137,8 +138,64 @@ table_columns_select: Dict[str, List[str]] = {
         "linkedin_username": {"data_type": "text"},
         "instagram_username": {"data_type": "text"},
         "fecha_ingreso": {"data_type": "timestamp"},
-    }
-    
+    },
+# $._id.$oid	_id_oid	String
+# $.campaignId	campaignId	Integer
+# $.campaign	campaign	String
+# $.campaignType	campaignType	String
+# $.callerId	caller_id	Integer
+# $.caller	caller	String
+# $.clientId	client_idcrm	Long
+# $.clientCode	client_code	String
+# $.clientName	clientName	String
+# $.clientNumber	clientNumber	String
+# $.clientBusinessName	client_business_name	String
+# $.calledAt.$date	called_at_date	String
+# $.createdAt.$date	created_at_date	String
+# $.updatedAt.$date	updated_at_date	String
+# $.answeredAt.$date	answered_at_date	String
+# $.hangedUpAt.$date	hangedup_at_date	String
+# $.notes	notes	String
+# $.action	action	String
+# $.cantidad	cantidad	Integer
+# $.codigoPedido	codigoPedido	String
+# $.clientId	callee_id	Long
+# $.type	type	String
+
+
+    "crmCall": {
+        "clientNumber": {"data_type": "text"},
+        "callerId": {"data_type": "bigint"},
+        "clientId": {"data_type": "bigint", "name": "callee_id"},
+
+    }, 
+
+# $._id.$oid	_id_oid	String
+# $.id	id	Integer
+# $.class_name	class_name	String
+# $.created_by_id	created_by_id	Integer
+# $.updated_by_id	updated_by_id	Integer
+# $.caller_id	caller_id	Integer
+# $.caller_cid	caller_cid	String
+# $.callee_id	client_idcrm	Long
+# $.callee_cid	callee_cid	String
+# $.incident	incident	Integer
+# $.response	response	String
+# $.way	way	String
+# $.incident_action_type	incident_action_type	String
+# $.created_at.$date	created_at_date	String
+# $.updated_at.$date	updated_at_date	String
+# $.answered_at.$date	answered_at_date	String
+# $.hanged_up_at.$date	hangedup_at_date	String
+# $.notes	notes	String
+# $.action	action	String
+# $.callee_id	callee_id	Long
+# $.type	type	String
+
+    "crm_call": {
+        "caller_id" : {"data_type": "bigint"},
+        "callee_id" : {"data_type": "bigint"},     
+    }            
 }
 
 table_limits: Dict[str, int] = {
@@ -171,7 +228,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
     def get_config(self) -> DltSourceConfig:
         return self.config
 
-def create_dlt_asset(dlt_source, 
+def create_dlt_asset(dlt_resource: DltResource, 
                      group_name,
                     dlt_t: DagsterDltTranslatorMongodbCRMHN,
                     tags: Mapping[str, str],
@@ -179,25 +236,41 @@ def create_dlt_asset(dlt_source,
                     dep_pipeline: str | None = None) -> dlt_assets:
 
     if dep_pipeline is not None:
-        dep_pipeline = [AssetKey([f"dlt_{dep_pipeline}", f"{dlt_source.name}"])]
+        dep_pipeline = [AssetKey([f"dlt_{dep_pipeline}", f"{dlt_resource.name}"])]
     else:
         dep_pipeline = []
 
     @asset(
-        key=dlt_t.get_asset_key(dlt_source),
+        key=dlt_t.get_asset_key(dlt_resource),
         group_name=group_name,
-        description=f"cursor {dlt_t.get_config().cursor_path} resource {dlt_t.get_asset_key(dlt_source)}",
-        metadata=dlt_t.get_metadata(dlt_source),
-        deps=list(dlt_t.get_deps_asset_keys(dlt_source)) + dep_pipeline,
+        description=f"cursor {dlt_t.get_config().cursor_path} resource {dlt_t.get_asset_key(dlt_resource)}",
+        metadata=dlt_t.get_metadata(dlt_resource),
+        deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_pipeline,
         compute_kind="dlt",
         tags=tags,)
-    def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline):
-        context.log.info(f"Running dlt pipeline: {dlt_t.get_config().pipeline_name} resource {dlt_t.get_asset_key(dlt_source)} loading to dataset: {dataset_name}")
+    def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline, dwh_farinter_dl: SQLServerResource):
+        context.log.info(f"Running dlt pipeline: {dlt_t.get_config().pipeline_name} resource {dlt_t.get_asset_key(dlt_resource)} loading to dataset: {dataset_name}")
         new_pipeline = dlt_pipeline_dest_mssql.get_pipeline(pipeline_name=dlt_t.get_config().pipeline_name,
                                                             dataset_name=dataset_name)
-        extracted_resource_metadata = dlt_pipeline_dest_mssql.run_pipeline(dlt_source, new_pipeline)
+        #is_first_run = new_pipeline.first_run
+        extracted_resource_metadata = dlt_pipeline_dest_mssql.run_pipeline(dlt_resource, new_pipeline)
+        loaded_schema = new_pipeline.schemas.get("mongodb").get_table(dlt_resource.name).get("columns")
+        context.log.info(f"schema: {loaded_schema}")        
+        #agregar llave indice de llave primaria y de _dlt_id
+        primary_key_columns_list = [column for column, config in loaded_schema.items() if config.get("primary_key")==True]
+        primary_key_columns = ', '.join(primary_key_columns_list)
+        primary_key_columns_hash_name = get_unique_hash_sha2_256(primary_key_columns_list)
+        context.log.info(f"primary_keys: {primary_key_columns} -> hash_name: {primary_key_columns_hash_name}")
+        with dwh_farinter_dl.get_pyodbc_conn() as conn:
+            result = dwh_farinter_dl.query(f"SELECT name FROM sys.indexes WHERE name = 'PK_{dlt_resource.name}_{primary_key_columns_hash_name}' AND object_id = OBJECT_ID('{dataset_name}')", conn)
+            if not result:
+                dwh_farinter_dl.execute_and_commit(f"CREATE INDEX [PK_{dlt_resource.name}_{primary_key_columns_hash_name}] ON {dataset_name}.{dlt_resource.name} ({primary_key_columns})", conn)
+            result = dwh_farinter_dl.query(f"SELECT name FROM sys.indexes WHERE name = 'IX_{dlt_resource.name}_dlt_id' AND object_id = OBJECT_ID('{dataset_name}')", conn)
+            if not result:
+                dwh_farinter_dl.execute_and_commit(f"CREATE INDEX IX_{dlt_resource.name}_dlt_id ON {dataset_name}.{dlt_resource.name} ([_dlt_id])", conn)
+
         return MaterializeResult(
-            asset_key=dlt_t.get_asset_key(dlt_source),
+            asset_key=dlt_t.get_asset_key(dlt_resource),
             metadata=extracted_resource_metadata,
         )
 
@@ -217,19 +290,19 @@ def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceCon
                                                         ,primary_key=config.primary_key
                                                         , initial_value=config.initial_value),
                     parallel=True,
-                    data_item_format="arrow",
+                    #data_item_format="arrow", #aparentemente no con esta combinacion de source / destino
                 )
 
                 if collection in table_renames:
                     resource.apply_hints(table_name=table_renames[collection])
 
-                if collection in table_columns_select:
-                    resource.apply_hints(columns=table_columns_select[collection])
+                if collection in table_columns_hints:
+                    resource.apply_hints(columns=table_columns_hints[collection])
 
                 if isinstance(config.primary_key,str):
                     resource.apply_hints(columns={config.primary_key : {"data_type": "text", "precision": 50}})
                 
-                new_assets = create_dlt_asset(dlt_source=resource
+                new_assets = create_dlt_asset(dlt_resource=resource
                         ,group_name="dlt_mongo_db_crm_hn_etl_dwh"
                         ,dlt_t=DagsterDltTranslatorMongodbCRMHN(config=config)
                         ,dataset_name="mongo_db_crm_hn"

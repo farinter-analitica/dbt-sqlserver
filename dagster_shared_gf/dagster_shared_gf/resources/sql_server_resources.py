@@ -52,7 +52,7 @@ class SQLServerBaseResource:
         print(f"{type}: {message}")
 
     @contextlib.contextmanager
-    def get_connection(self,  database: str = ""
+    def get_connection(self,  database: str | None = None
                        , autocommit: bool=False
                        , engine: Literal["pyodbc", "sqlalchemy"] = "pyodbc"
                        ) -> Generator[pyodbc.Connection | sqlalchemy.Connection, None, None]:
@@ -73,7 +73,8 @@ class SQLServerBaseResource:
             None
 
         """
-        if database == "":
+
+        if database is None or database == "":
             database = self.default_database
         if not self.allow_any_database and  database not in self.databases:
             raise ValueError(f"Database {database} is not in the allowed list.")
@@ -247,6 +248,13 @@ class SQLServerBaseResource:
                             , database=self.default_database                         
                             , query={"driver": self.driver
                                 , "TrustServerCertificate": self.trust_server_certificate})
+    def get_sqlalchemy_conn(self, database: str | None = None
+                       , autocommit: bool=False) -> sqlalchemy.Connection:
+        return self.get_connection(database=database, autocommit=autocommit, engine="sqlalchemy")
+
+    def get_pyodbc_conn(self, database: str | None = None
+                       , autocommit: bool=False) -> pyodbc.Connection:
+        return self.get_connection(database=database, autocommit=autocommit, engine="pyodbc")
         
 class SQLServerNonRuntimeResource(SQLServerBaseResource):
     def __init__(self, server: str, databases: List[str], user: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):

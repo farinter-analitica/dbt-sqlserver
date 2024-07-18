@@ -17,7 +17,7 @@ extracted_resource_metadata = Dict[str , Any]
 class BaseDltPipeline(ConfigurableResource):
     write_disposition: str = Field(default="merge")
 
-    def get_pipeline(self, pipeline_name: str, dataset_name: str) -> dlt.pipeline:
+    def get_pipeline(self, pipeline_name: str, dataset_name: str) -> dlt.Pipeline:
 
         # configure the pipeline with your destination details
         pipeline = dlt.pipeline(
@@ -46,7 +46,8 @@ class BaseDltPipeline(ConfigurableResource):
         """
         if write_disposition is None:
             write_disposition = self.write_disposition
-        load_info = pipeline.run(resource_data, write_disposition=write_disposition)
+        load_info: LoadInfo = pipeline.run(resource_data, write_disposition=write_disposition)
+        load_info.raise_on_failed_jobs()
         extracted_resource_metadata = self.extract_resource_metadata( resource_data, load_info)
 
         return extracted_resource_metadata
