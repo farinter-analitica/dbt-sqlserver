@@ -249,25 +249,43 @@ def create_dlt_asset(dlt_resource: DltResource,
         compute_kind="dlt",
         tags=tags,)
     def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline, dwh_farinter_dl: SQLServerResource):
-        context.log.info(f"Running dlt pipeline: {dlt_t.get_config().pipeline_name} resource {dlt_t.get_asset_key(dlt_resource)} loading to dataset: {dataset_name}")
+        context.log.info({
+                            "Running dlt pipeline" : dlt_t.get_config().pipeline_name,
+                            "resource":  dlt_t.get_asset_key(dlt_resource) ,
+                            "dataset": dataset_name,
+                            "write_disposition": dlt_pipeline_dest_mssql.write_disposition
+                            }
+                         )
         new_pipeline = dlt_pipeline_dest_mssql.get_pipeline(pipeline_name=dlt_t.get_config().pipeline_name,
                                                             dataset_name=dataset_name)
         #is_first_run = new_pipeline.first_run
-        extracted_resource_metadata = dlt_pipeline_dest_mssql.run_pipeline(dlt_resource, new_pipeline)
-        loaded_schema = new_pipeline.schemas.get("mongodb").get_table(dlt_resource.name).get("columns")
-        context.log.info(f"schema: {loaded_schema}")        
+        load_info: LoadInfo = dlt_pipeline_dest_mssql.run_pipeline(dlt_resource, new_pipeline)
+        load_info.raise_on_failed_jobs()
+    
+        extracted_resource_metadata = dlt_pipeline_dest_mssql.extract_resource_metadata(dlt_resource, load_info)
+        # loaded_schema = load_info.pipeline.schemas.get("mongodb").get_table(dlt_resource.name).get("columns") #no se optiene la tabla normalizada
+        # context.log.info(f"schema: {loaded_schema}")        
         #agregar llave indice de llave primaria y de _dlt_id
-        primary_key_columns_list = [column for column, config in loaded_schema.items() if config.get("primary_key")==True]
-        primary_key_columns = ', '.join(primary_key_columns_list)
-        primary_key_columns_hash_name = get_unique_hash_sha2_256(primary_key_columns_list)
-        context.log.info(f"primary_keys: {primary_key_columns} -> hash_name: {primary_key_columns_hash_name}")
-        with dwh_farinter_dl.get_pyodbc_conn() as conn:
-            result = dwh_farinter_dl.query(f"SELECT name FROM sys.indexes WHERE name = 'PK_{dlt_resource.name}_{primary_key_columns_hash_name}' AND object_id = OBJECT_ID('{dataset_name}')", conn)
-            if not result:
-                dwh_farinter_dl.execute_and_commit(f"CREATE INDEX [PK_{dlt_resource.name}_{primary_key_columns_hash_name}] ON {dataset_name}.{dlt_resource.name} ({primary_key_columns})", conn)
-            result = dwh_farinter_dl.query(f"SELECT name FROM sys.indexes WHERE name = 'IX_{dlt_resource.name}_dlt_id' AND object_id = OBJECT_ID('{dataset_name}')", conn)
-            if not result:
-                dwh_farinter_dl.execute_and_commit(f"CREATE INDEX IX_{dlt_resource.name}_dlt_id ON {dataset_name}.{dlt_resource.name} ([_dlt_id])", conn)
+        # primary_key_columns_list = [column for column, config in loaded_schema.items() if config.get("primary_key")==True]
+        # primary_key_columns = ', '.join(primary_key_columns_list)
+        # primary_key_columns_hash_name = get_unique_hash_sha2_256(primary_key_columns_list)
+        # context.log.info(f"primary_keys: {primary_key_columns} -> hash_name: {primary_key_columns_hash_name}")
+        # with dwh_farinter_dl.get_pyodbc_conn() as conn:
+        #     query_obj = f"SELECT name FROM sys.objects WHERE name = '{dlt_resource.name}' AND schema_id = SCHEMA_ID('{dataset_name}')"
+        #     obj_result = dwh_farinter_dl.query(query_obj, conn)
+        #     if obj_result and obj_result[0][0]:
+        #         query_pk = f"""SELECT name 
+        #         FROM sys.indexes 
+        #         WHERE name = 'PK_{dlt_resource.name}_{primary_key_columns_hash_name}' AND object_id = OBJECT_ID('{dataset_name}.{dlt_resource.name}')"""
+        #         pk_result = dwh_farinter_dl.query(query_pk, conn)
+        #         if not pk_result or not pk_result[0][0]:
+        #             dwh_farinter_dl.execute_and_commit(f"CREATE INDEX [PK_{dlt_resource.name}_{primary_key_columns_hash_name}] ON {dataset_name}.{dlt_resource.name} ({primary_key_columns})", conn)
+                # query_ix = f"""SELECT name 
+                # FROM sys.indexes 
+                # WHERE name = 'IX_{dlt_resource.name}_dlt_id' AND object_id = OBJECT_ID('{dataset_name}.{dlt_resource.name}')"""
+                # ix_result = dwh_farinter_dl.query(query_ix, conn)
+                # if not ix_result or not ix_result[0][0]:
+                #     dwh_farinter_dl.execute_and_commit(f"CREATE INDEX IX_{dlt_resource.name}_dlt_id ON {dataset_name}.{dlt_resource.name} ([_dlt_id])", conn)
 
         return MaterializeResult(
             asset_key=dlt_t.get_asset_key(dlt_resource),
