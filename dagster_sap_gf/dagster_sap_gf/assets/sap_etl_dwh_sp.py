@@ -1,6 +1,6 @@
 from dagster import (asset, AssetKey , load_assets_from_current_module, 
                      load_asset_checks_from_current_module, build_last_update_freshness_checks, 
-                     AssetChecksDefinition, AssetsDefinition, multi_asset, AssetSpec, Output)
+                     AssetChecksDefinition, AssetsDefinition, multi_asset, AssetSpec, Output, AssetOut)
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
 from dagster_shared_gf.shared_variables import TagsRepositoryGF, env_str
@@ -118,18 +118,20 @@ def create_store_procedure_asset(stored_procedure_name: str, params: Dict) -> As
 
     else:
         @multi_asset(name=stored_procedure_name,
-                    specs=[AssetSpec(key=AssetKey([params["key_prefix"][0], params["key_prefix"][1], name]), 
-                                      tags=params.get("tags", None),
-                                      deps=params.get("deps", None),
-                                      description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]") 
-                                      for name in params["name"]],
-                      group_name=group_name, 
-                      compute_kind="sqlserver",)
+                        outs={name : AssetOut(key_prefix= params["key_prefix"],
+                                              tags=params.get("tags", None),
+                                              )
+                              for name in params["name"]},
+                        description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
+                        deps=params.get("deps", None),
+                        group_name=group_name, 
+                        compute_kind="sqlserver",
+                      )
         def store_procedure_execution_asset(dwh_farinter_dl: SQLServerResource): 
             dwh_farinter_dl.execute_and_commit(f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]")
 
             for name in params["name"]:
-                yield Output(None)
+                yield Output(value=None, output_name=name) 
 
         return store_procedure_execution_asset
     
