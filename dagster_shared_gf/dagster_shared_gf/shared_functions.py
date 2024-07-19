@@ -161,7 +161,7 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
         if isinstance(asset_def, AssetsDefinition):
             asset_tags = {}
             for key in asset_def.keys:
-                tags.update({key: asset_def.tags_by_key[key]})
+                tags.update({asset_def.tags_by_key[key]})
 
             if filter_type == "all_tags_match" and match_all(asset_tags, tags):
                 filtered_assets.append(asset_def)
