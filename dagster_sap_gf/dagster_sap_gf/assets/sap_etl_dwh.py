@@ -1,4 +1,4 @@
-from dagster import (asset
+from dagster import (asset, multi_asset, AssetSpec, AssetOut
                      , AssetChecksDefinition 
                      , AssetExecutionContext 
                      , AssetsDefinition
@@ -6,6 +6,7 @@ from dagster import (asset
                      , load_assets_from_current_module
                      , load_asset_checks_from_current_module
                      , Field
+                     , AssetKey
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF
@@ -15,7 +16,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Mapping, Sequence, Union
 from datetime import datetime, date, timedelta
 
-#vars
+# vars
 file_path = Path(__file__).parent.resolve()
 tags_repo = TagsRepositoryGF 
 
@@ -54,7 +55,7 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
         
     #return last_date_updated
 
-#DL_paCargarSAP_Replica_BSEG
+# DL_paCargarSAP_Replica_BSEG
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
         , tags=tags_repo.Replicas.tag | {"dagster/max_runtime": str(50*60) # max 50 minutes in seconds, then mark it as failed.
                 }
@@ -96,7 +97,6 @@ def DL_SAP_BSEG(context: AssetExecutionContext
         final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat(),p_IndicadorActualizarTodo = int(context.op_config.get("p_actualizar_todo")))
         #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
-        
 
 
 def create_store_procedure_asset(procedure_name: str, tags: Mapping[str, str]) -> AssetsDefinition:
@@ -178,7 +178,7 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
     SELECT @job_result as job_result;
     """
     results = dwh_farinter_dl.query(final_query, fetch_val=True)
-    #check if sp returned 1 for errors
+    # check if sp returned 1 for errors
     if results is None:
         context.log.error(f"Job {job_name} not executed, fail.")
     elif results == 1: 
@@ -188,17 +188,76 @@ def sp_start_job_sap_diario(context: AssetExecutionContext, dwh_farinter_dl: SQL
     else:
         context.log.error(f"Job {job_name} not executed, fail.")
 
+    # "DL_paSecuenciaSAP_HechosDimensiones": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": ["SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente","DL_SAP_Atributos_Cliente","DL_SAP_Atributos_Cliente_CategoriasDistribucion"],
+    #     "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
+    #     "deps": [AssetKey(["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"])],
+    # },
+    # "DL_paSecuenciaSAP_Atributos_Cliente": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": ["SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente","DL_SAP_Atributos_Cliente","DL_SAP_Atributos_Cliente_CategoriasDistribucion"],
+    #     "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
+    #     "deps": [AssetKey(["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente"])],
 
 
-#sp_start_job_sap_diario.with_attributes(group_names_by_key={list(sp_start_job_sap_diario.keys())[-1]: "sap_etl_dwh"})
-#all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") # no se puede usar ya que importamos otros assets desde assets.py
-#all_assets_without_group = get_all_instances_of_class([AssetsDefinition]) + store_procedure_assets
-#add group_name="sap_etl_dwh" to all_assets
-#all_assets = [*map(lambda asset: asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}), all_assets)]
-#list comprehension equivalent
-#print(all_assets_without_group)
-#como agregar atributos de grupo por ejemplo:
-#all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
+@asset(
+    key_prefix=["DL_FARINTER", "dbo"],
+    name="SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones",
+    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    compute_kind="sqlserver",
+    deps=[AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Mixto_Facturas"]),
+          ],
+)
+def DL_paSecuenciaSAP_HechosDimensiones(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    procedure = "DL_paSecuenciaSAP_HechosDimensiones"
+    database = "DL_FARINTER"
+    schema = "dbo"
+    p_ejecutar_todo = 0
+    if context.job_def.tags.get(tags_repo.Hourly.key, None) is not None:
+        p_ejecutar_todo = 0
+    else:
+        p_ejecutar_todo = 1
+
+    final_query = (
+        f"EXEC [{database}].[{schema}].[{procedure}] @EjecutarTodo = {p_ejecutar_todo};"
+    )
+    dwh_farinter_dl.execute_and_commit(final_query)
+
+
+@multi_asset(
+    outs={
+        "SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.DailyUnique.tag),
+        "DL_SAP_Atributos_Cliente": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.DailyUnique.tag),
+        "DL_SAP_Atributos_Cliente_CategoriasDistribucion": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.DailyUnique.tag),
+    },
+    name="DL_paSecuenciaSAP_Atributos_Cliente",
+    compute_kind="sqlserver",
+    deps=[
+        AssetKey(
+            ["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"]
+        )
+    ],
+)
+def DL_paSecuenciaSAP_Atributos_Cliente(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
+    procedure = "DL_paSecuenciaSAP_Atributos_Cliente"
+    database = "DL_FARINTER"
+    schema = "dbo"
+    final_query = f"EXEC [{database}].[{schema}].[{procedure}];"
+    dwh_farinter_dl.execute_and_commit(final_query)
+
+
+# sp_start_job_sap_diario.with_attributes(group_names_by_key={list(sp_start_job_sap_diario.keys())[-1]: "sap_etl_dwh"})
+# all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") # no se puede usar ya que importamos otros assets desde assets.py
+# all_assets_without_group = get_all_instances_of_class([AssetsDefinition]) + store_procedure_assets
+# add group_name="sap_etl_dwh" to all_assets
+# all_assets = [*map(lambda asset: asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}), all_assets)]
+# list comprehension equivalent
+# print(all_assets_without_group)
+# como agregar atributos de grupo por ejemplo:
+# all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
 if not __name__ == '__main__':
     all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") #+ store_procedure_assets
 

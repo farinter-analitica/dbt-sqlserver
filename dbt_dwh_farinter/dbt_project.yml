@@ -40,12 +40,13 @@ models:
     dagster_example:
       +group: "dbt_second_group_test"
     dwh_sap:
-      +tags: ["dagster_sap_gf"]
+      +tags: ["dagster_sap_gf/dbt"]
       mart_datos_maestros:
         +group: "dbt_dwh_sap_mart_datos_maestros"
       mart_finanzas:
         +group: "dbt_dwh_sap_mart_finanzas"
-      
+      mart_ventas:
+        +group: "dbt_dwh_sap_mart_ventas"
       mart_mm:
         +group: "dbt_dwh_sap_mart_mm"
       sap_etl_datos_maestros:
@@ -56,7 +57,7 @@ models:
         +database: "DL_FARINTER"
 
     dwh_kielsa:
-      +tags: ["dagster_kielsa_gf"]
+      +tags: ["dagster_kielsa_gf/dbt"]
 #      mart_finanzas:
 #        +group: "dbt_dwh_kielsa_mart_finanzas"
       mart_datos_maestros:
@@ -75,7 +76,6 @@ models:
             dagster:
                 group: 'dbt_dwh_kielsa_mart_kpp' 
 
-
 snapshots:
   dbt_dwh_farinter:
     example:
@@ -84,14 +84,18 @@ snapshots:
 sources:
   dbt_dwh_farinter:
     dwh_kielsa:
-      +tags: ["dagster_kielsa_gf"]
+      +tags: ["dagster_kielsa_gf/dbt"]
       mart_datos_maestros:
         +group: 'ldcom_etl_dwh'
       mart_kpp:
         +group: 'dbt_dwh_kielsa_mart_kpp'
     dwh_sap:
-      +tags: ["dagster_sap_gf"]
+      +tags: ["dagster_sap_gf/dbt"]
       mart_finanzas:
+        +group: 'sap_etl_dwh'
+      mart_mm:
+        +group: 'sap_etl_dwh'
+      mart_ventas:
         +group: 'sap_etl_dwh'
       sap_etl_datos_maestros:
         +group: 'sap_prd'

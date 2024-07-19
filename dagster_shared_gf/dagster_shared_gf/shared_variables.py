@@ -58,48 +58,24 @@ class TagsRepositoryGF:
             cls.value = value
             cls.tag = {cls.key: cls.value}
 
-    class Hourly(_base_tag_class, key="periodo", value="por_hora"):
-        """{"periodo": "por_hora"}"""
+    class Hourly(_base_tag_class, key="periodo/por_hora", value=""):
+        """{"periodo/por_hora": ""}"""
 
-    class Replicas(_base_tag_class, key="replicas_sap", value="true"):
-        """{"replicas_sap": "true"}"""
+    class Replicas(_base_tag_class, key="replicas_sap", value=""):
+        """{"replicas_sap": ""}"""
 
-    class HourlyUnique(_base_tag_class, key="periodo_unico", value="por_hora"):
-        """{"periodo_unico": "por_hora"}"""
+    class HourlyUnique(_base_tag_class, key="periodo_unico/por_hora", value=""):
+        """{"periodo_unico/por_hora": ""}"""
 
-    class Daily(_base_tag_class, key="periodo", value="diario"):
-        """{"periodo": "diario"}"""
+    class Daily(_base_tag_class, key="periodo/diario", value=""):
+        """{"periodo/diario": ""}"""
 
-    class DailyUnique(_base_tag_class, key="periodo_unico", value="diario"):
-        """{"periodo_unico": "diario"}"""
+    class DailyUnique(_base_tag_class, key="periodo_unico/diario", value=""):
+        """{"periodo_unico/diario": ""}"""
 
-    class SmbDataRepository(_base_tag_class, key="smb_data_repository", value="data_repo"):
-        """{"smb_data_repository": "data_repo"}"""
+    class SmbDataRepository(_base_tag_class, key="smb_data_repository/data_repo", value=""):
+        """{"smb_data_repository/data_repo": ""}"""
 
 
 if __name__ == "__main__":
-    # Example usage:
-    my_tag: Mapping[str, str] = TagsRepositoryGF.Hourly()
-    print(my_tag)  # Output: {"color": "blue"}
-    print(TagsRepositoryGF.Hourly.key)
-    my_second_tag: Mapping[str, str] = TagsRepositoryGF.Daily()
-    my_another_tag: Mapping[str, str] = TagsRepositoryGF.HourlyUnique()
-    print(my_tag)  # Output: "color"
-    #print(my_tag.value)  # Output: "blue"
-    all_tags = my_tag | my_another_tag | my_second_tag
-    print(all_tags)  # Output: {"color": "blue", "weight": "100", "size": "big"}
-    # Example usage and assertions
-    assert TagsRepositoryGF.Hourly() == {"periodo": "por_hora"}
-    assert TagsRepositoryGF.Replicas() == {"replicas_sap": "true"}
-    assert TagsRepositoryGF.HourlyUnique() == {"periodo_unico": "por_hora"}
-    assert TagsRepositoryGF.Daily() == {"periodo": "diario"}
-    assert TagsRepositoryGF.DailyUnique() == {"periodo_unico": "diario"}
-    assert TagsRepositoryGF.Hourly.key == "periodo"
-    assert TagsRepositoryGF.Hourly.tag == {"periodo": "por_hora"}
-    assert TagsRepositoryGF.Hourly.value ==  "por_hora"
-    # Combining tags
-    combined_tags = {**TagsRepositoryGF.Hourly(), **TagsRepositoryGF.Daily(), **TagsRepositoryGF.HourlyUnique()}
-    assert combined_tags == {"periodo": "diario", "periodo_unico": "por_hora"}
-
-
-
+    print(TagsRepositoryGF.Hourly())

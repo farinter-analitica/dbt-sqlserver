@@ -1,37 +1,85 @@
 from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_database_admin, SQLServerNonRuntimeResource, Row
-from typing import Literal, Dict, List
+from typing import Literal, Dict, List, Any
 import networkx as nx
 import matplotlib.pyplot as plt
-import json, re
+import json, re, time, pickle, os
 from tqdm import tqdm
 
 
 DirOperator = Literal['>', '<']
 DependencyDict = Dict[DirOperator, List[str]]
 GraphDict = Dict[str, DependencyDict] # GraphDict = Dict[str, Dict[Literal['>', '<'], List[str]]]
-debug = False
-printing_events = {}
+DEBUG = False
+PRINTING_EVENTS = {}
+# Cache storage and settings
+CACHE_TTL = 600  # Cache time-to-live in seconds (10 minutes)
+# Get the current script's directory and filename
+script_dir = os.path.dirname(os.path.abspath(__file__))
+script_name = os.path.splitext(os.path.basename(__file__))[0]
+CACHE_FILE = os.path.join(script_dir, f'{script_name}.cache')
+
+def get_current_time() -> float:
+    return time.time()
+
+def load_cache() -> dict:
+    if os.path.exists(CACHE_FILE):
+        with open(CACHE_FILE, 'rb') as f:
+            return pickle.load(f)
+    return {}
+
+def save_cache(cache: dict):
+    with open(CACHE_FILE, 'wb') as f:
+        pickle.dump(cache, f)
+
+cache = load_cache()
+def is_cache_valid(cache_entry: dict) -> bool:
+    return get_current_time() - cache_entry['timestamp'] < CACHE_TTL
+
+def get_cached_data(cache_key: str):
+    cache_entry = cache.get(cache_key)
+    if cache_entry and is_cache_valid(cache_entry):
+        return cache_entry['data']
+    return None
+
+def set_cache_data(cache_key: str, data: Any):
+    cache[cache_key] = {
+        'data': data,
+        'timestamp': get_current_time()
+    }
+    save_cache(cache)
 
 def if_debug_print(*values, printing_events_name:str = "generic", extra_conditions: bool = True, **kwargs) -> None:
-    if debug and extra_conditions:
-        global printing_events  
-        if printing_events_name not in printing_events: 
-            printing_events[printing_events_name] = 1
-        if printing_events[printing_events_name] > 0:
-            printing_events[printing_events_name] -= 1
+    if DEBUG and extra_conditions:
+        global PRINTING_EVENTS  
+        if printing_events_name not in PRINTING_EVENTS: 
+            PRINTING_EVENTS[printing_events_name] = 1
+        if PRINTING_EVENTS[printing_events_name] > 0:
+            PRINTING_EVENTS[printing_events_name] -= 1
             print("from:", printing_events_name)
             print(*values, **kwargs)
 
 def get_user_databases_tuples(sql_server: SQLServerNonRuntimeResource) -> list[Row | tuple]:
+    cache_key = f"user_databases_{get_server_name_str(sql_server)}"
+    cached_data = get_cached_data(cache_key)
+    if cached_data:
+        return cached_data
+
     with sql_server.get_connection(database='master') as conn:
         query = """
         SELECT database_id, name 
         FROM sys.databases  WITH (NOLOCK)
         WHERE [state] <> 6 AND database_id > 4 AND (name LIKE '%FARINTER%' OR name LIKE 'BI_%')
         """
-        return sql_server.query(query, connection=conn)
-
+        result = sql_server.query(query, connection=conn)
+        set_cache_data(cache_key, result)
+        return result
+    
 def get_server_name_str(sql_server: SQLServerNonRuntimeResource) -> str:
+    cache_key = "server_name"
+    cached_data = get_cached_data(cache_key)
+    if cached_data:
+        return cached_data
+    
     with sql_server.get_connection(database='master') as conn:
         query = """
         SELECT CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255))
@@ -41,10 +89,16 @@ def get_server_name_str(sql_server: SQLServerNonRuntimeResource) -> str:
             sn = results[0][0]
         else:
             sn = "_no_server_name_"
+        set_cache_data(cache_key, sn)
         return sn
 
 def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: int, db_name: str) -> list[Row | tuple]:
-    global printing_events
+    cache_key = f"dependencies_{get_server_name_str(sql_server)}_{db_id}_{db_name}"
+    cached_data = get_cached_data(cache_key)
+    if cached_data:
+        return cached_data
+    
+    global PRINTING_EVENTS
     with sql_server.get_connection(database=db_name) as conn:
         query = f"""
         SELECT 
@@ -70,7 +124,10 @@ def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: 
         """
         if_debug_print(query, printing_events_name=get_all_dependencies_tuples.__name__)
 
-        return sql_server.query(query, connection=conn)
+        result = sql_server.query(query, connection=conn)
+        set_cache_data(cache_key, result)
+        return result
+
 #test
 #print(get_all_dependencies_tuples(dwh_farinter_database_admin, 6, "BI_FARINTER")[0])
 
@@ -218,7 +275,7 @@ def merge_dict_graphs(graph_dict1: GraphDict, graph_dict2: GraphDict) -> GraphDi
     return merged_graph
 
 def collect_dependencies_dict(starting_relation_path: str, all_dependencies: list[Row | tuple], max_ind_depth: int = -1, max_ind_breadth: int = -1) -> GraphDict:
-    global printing_events
+    global PRINTING_EVENTS
     """get all the direct dependencies from the starting point recursively, with unlimited depth and breadth"""
     def get_dependencies_for_path(path: str, all_dependencies: list[Row | tuple]
                                   , parent_index:int = 0, child_index:int = 1
@@ -386,8 +443,8 @@ def generate_dag(graph_dict: GraphDict):
 
 
 if __name__ == "__main__":
-    debug = False
-    printing_events = {
+    DEBUG = False
+    PRINTING_EVENTS = {
         "main": 99,
         get_all_dependencies_tuples.__name__: 0,
         collect_dependencies.__name__: 1,
@@ -396,15 +453,15 @@ if __name__ == "__main__":
         search_object_definitions_for_pattern.__name__: 10,
     }
     if_debug_print(
-        "Printing events: " + str(printing_events),
+        "Printing events: " + str(PRINTING_EVENTS),
         printing_events_name="printing_events",
     )
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_db_name = "BI_FARINTER"
+    starting_node_db_name = "DL_FARINTER"
     starting_node_schema_name = "dbo"
-    starting_node_object_name = "BI_paCargarHecho_Inventarios_Kielsa"
+    starting_node_object_name = "DL_paSecuenciaSAP_Atributos_Cliente"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
     if_debug_print(
         "Starting point: " + full_starting_relation_path,
@@ -428,6 +485,6 @@ if __name__ == "__main__":
 
     # print(len(dependencies_for_starting))
 
-    if not debug:
+    if not DEBUG:
         print_dag_as_json(collected_dependencies)
         #generate_dag(collected_dependencies)

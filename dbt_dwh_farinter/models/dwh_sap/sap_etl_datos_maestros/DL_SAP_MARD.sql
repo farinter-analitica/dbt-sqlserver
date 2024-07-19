@@ -2,6 +2,7 @@
 {{ 
     config(
 		as_columnstore=False,
+    tags=["periodo/por_hora"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
