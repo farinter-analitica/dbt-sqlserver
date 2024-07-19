@@ -1,9 +1,10 @@
-from dagster import define_asset_job, AssetSelection, asset, job, AssetKey, JobDefinition
+from dagster import define_asset_job, AssetSelection, asset, job, AssetKey, JobDefinition, ConfigMapping, ConfigSchema
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import env_str, UnresolvedAssetJobDefinition
 from typing import List, Any, Mapping
 
-ExecutorConfig = Mapping[str, object]
+ExecutorConfig = ConfigSchema
+workflows_run_config_secuential: ExecutorConfig= {"execution": {"config": {"multiprocess": {"max_concurrent": 1}}}}
 # Define the job and add to definitions on main __init__.py
 ldcom_etl_dwh_job = define_asset_job(name="ldcom_etl_dwh_job"
                                                              , selection=AssetSelection.groups("ldcom_etl_dwh"))
@@ -28,6 +29,7 @@ kielsa_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_j
 dlt_dwh_kielsa_assets: AssetSelection = AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh")
 dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(name="dlt_dwh_kielsa_job"
                                                             , selection=dlt_dwh_kielsa_assets
+                                                            ,  config=workflows_run_config_secuential
                                                                 )
 
 dlt_dwh_kielsa_all_downstream_assets: AssetSelection = AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh").downstream()
@@ -39,17 +41,16 @@ dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = dbt_dwh_kielsa_m
 dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(name="dbt_dwh_kielsa_marts_orphan_assets_job"
                                                             , selection=dbt_dwh_kielsa_marts_assets_not_in_downstream)
 
-knime_workflows_run_config: ExecutorConfig= {"execution": {"config": {"multiprocess": {"max_concurrent": 1}}}}
 knime_workflows_start_of_month_assets: AssetSelection = AssetSelection.assets(AssetKey(["knime_wf",env_str,"DWHFP_SalidaExportarAExcel"])).downstream() ##Schedule differently
 knime_workflows_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(name="knime_workflows_start_of_month_job"
                                                             , selection=knime_workflows_start_of_month_assets
-                                                            , config=knime_workflows_run_config
+                                                            , config=workflows_run_config_secuential
                                                                 )
 
 knime_workflows_all_downstream_assets: AssetSelection = AssetSelection.groups("knime_workflows").downstream() - knime_workflows_start_of_month_assets
 knime_workflows_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="knime_workflows_all_downstream_job"
                                                             , selection=knime_workflows_all_downstream_assets
-                                                            , config=knime_workflows_run_config
+                                                            , config=workflows_run_config_secuential
                                                                 )
 
 
