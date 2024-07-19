@@ -38,7 +38,7 @@ defs = Definitions.merge(
     #dlt_defs.defs, #antes todos los subrepos
     Definitions(
         assets=all_assets + dbt_sources_assets + dlt_defs.all_assets,
-        asset_checks=all_asset_checks,
+        asset_checks=all_asset_checks + dlt_defs.all_asset_checks,
         resources=all_resources | dlt_defs.all_resources,
         jobs=all_jobs,
         schedules=all_schedules,
