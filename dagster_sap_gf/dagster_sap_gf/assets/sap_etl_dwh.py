@@ -239,12 +239,14 @@ def DL_paSecuenciaSAP_HechosDimensiones(
         AssetKey( ["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"] )
     ],
 )
-def DL_paSecuenciaSAP_Atributos_Cliente(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
+def DL_paSecuenciaSAP_Atributos_Cliente(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> tuple[None, None, None]:
     procedure = "DL_paSecuenciaSAP_Atributos_Cliente"
     database = "DL_FARINTER"
     schema = "dbo"
     final_query = f"EXEC [{database}].[{schema}].[{procedure}];"
     dwh_farinter_dl.execute_and_commit(final_query)
+
+    return None, None, None
 
 
 # sp_start_job_sap_diario.with_attributes(group_names_by_key={list(sp_start_job_sap_diario.keys())[-1]: "sap_etl_dwh"})

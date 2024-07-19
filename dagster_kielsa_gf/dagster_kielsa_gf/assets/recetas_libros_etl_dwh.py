@@ -16,6 +16,8 @@ dl_farinter_assets_prefix = "DL_FARINTER"
 def DL_paCargarKielsa_Recetas(dwh_farinter_dl: SQLServerResource) -> tuple[None, None, None]: 
     dwh_farinter_dl.execute_and_commit("EXEC [DL_FARINTER].[dbo].[DL_paCargarKielsa_Recetas]")
 
+    return None, None, None
+
 @multi_asset(specs= [AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_Libros_Cliente"]))
                      ,AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_Libros_Historico"]))
                      ,AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_Libros_Tipo"]))
@@ -23,6 +25,8 @@ def DL_paCargarKielsa_Recetas(dwh_farinter_dl: SQLServerResource) -> tuple[None,
        )
 def DL_paCargarKielsa_Libros(dwh_farinter_dl: SQLServerResource) -> tuple[None, None, None]: 
     dwh_farinter_dl.execute_and_commit("EXEC [DL_FARINTER].[dbo].[DL_paCargarKielsa_Libros]")
+    
+    return None, None, None
 
 all_assets = load_assets_from_current_module(group_name="recetas_libros_etl_dwh")
 

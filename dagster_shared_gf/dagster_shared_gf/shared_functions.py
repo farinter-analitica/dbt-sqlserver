@@ -158,16 +158,17 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
     filtered_assets = []
     asset_def: AssetsDefinition | Any
     for asset_def in assets_definitions:
-        asset_tags = asset_def.tags_by_key[list(asset_def.keys)[-1]]
+        if isinstance(asset_def, AssetsDefinition):
+            asset_tags = asset_def.tags_by_key[list(asset_def.keys)[-1]]
 
-        if filter_type == "all_tags_match" and match_all(asset_tags, tags):
-            filtered_assets.append(asset_def)
-        elif filter_type == "any_tag_matches" and match_any(asset_tags, tags):
-            filtered_assets.append(asset_def)
-        elif filter_type == "exclude_if_all_tags" and not match_all(asset_tags, tags):
-            filtered_assets.append(asset_def)
-        elif filter_type == "exclude_if_any_tag" and not match_any(asset_tags, tags):
-            filtered_assets.append(asset_def)
+            if filter_type == "all_tags_match" and match_all(asset_tags, tags):
+                filtered_assets.append(asset_def)
+            elif filter_type == "any_tag_matches" and match_any(asset_tags, tags):
+                filtered_assets.append(asset_def)
+            elif filter_type == "exclude_if_all_tags" and not match_all(asset_tags, tags):
+                filtered_assets.append(asset_def)
+            elif filter_type == "exclude_if_any_tag" and not match_any(asset_tags, tags):
+                filtered_assets.append(asset_def)
     
     return filtered_assets
 
