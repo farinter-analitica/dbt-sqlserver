@@ -31,13 +31,13 @@ def DL_paCargarKielsa_Libros(dwh_farinter_dl: SQLServerResource) -> tuple[None, 
 all_assets = load_assets_from_current_module(group_name="recetas_libros_etl_dwh")
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
     lower_bound_delta=timedelta(hours=26),
     deadline_cron="0 9 * * 1-6",
 )
 #print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
 all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
     lower_bound_delta=timedelta(hours=13),
     deadline_cron="0 10-16 * * 1-6",
 )

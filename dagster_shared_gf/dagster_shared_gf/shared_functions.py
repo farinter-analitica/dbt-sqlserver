@@ -135,11 +135,11 @@ def search_for_word_in_text(text: str, word: str) -> re.Match:
 from typing import List, Mapping, Any, Literal, Union
 
 def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]],
-                          tags: Mapping[str, str],
+                          tags_to_match: Mapping[str, str],
                           filter_type: Literal["all_tags_match", "any_tag_matches", "exclude_if_all_tags", "exclude_if_any_tag"] = "all_tags_match"
                           ) -> List[AssetsDefinition]:
     """
-    Filters a list of assets based on the specified tags and filter type.
+    Filters a list of assets based on the specified tags and filter type, only returns AssetsDefinition (not sources).
 
     Args:
         assets_definitions (List[Union[Any, AssetsDefinition]]): The list of assets to filter.
@@ -159,17 +159,17 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
     asset_def: AssetsDefinition | Any
     for asset_def in assets_definitions:
         if isinstance(asset_def, AssetsDefinition):
-            asset_tags = {}
+            current_asset_tags = {}
             for key in asset_def.keys:
-                asset_tags.update(asset_def.tags_by_key[key])
+                current_asset_tags.update(asset_def.tags_by_key[key])
 
-            if filter_type == "all_tags_match" and match_all(asset_tags, tags):
+            if filter_type == "all_tags_match" and match_all(current_asset_tags, tags_to_match):
                 filtered_assets.append(asset_def)
-            elif filter_type == "any_tag_matches" and match_any(asset_tags, tags):
+            elif filter_type == "any_tag_matches" and match_any(current_asset_tags, tags_to_match):
                 filtered_assets.append(asset_def)
-            elif filter_type == "exclude_if_all_tags" and not match_all(asset_tags, tags):
+            elif filter_type == "exclude_if_all_tags" and not match_all(current_asset_tags, tags_to_match):
                 filtered_assets.append(asset_def)
-            elif filter_type == "exclude_if_any_tag" and not match_any(asset_tags, tags):
+            elif filter_type == "exclude_if_any_tag" and not match_any(current_asset_tags, tags_to_match):
                 filtered_assets.append(asset_def)
     
     return filtered_assets
