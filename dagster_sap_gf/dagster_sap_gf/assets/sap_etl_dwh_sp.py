@@ -1,4 +1,6 @@
-from dagster import asset, AssetKey , load_assets_from_current_module, load_asset_checks_from_current_module, build_last_update_freshness_checks, AssetChecksDefinition, AssetsDefinition, multi_asset, AssetSpec
+from dagster import (asset, AssetKey , load_assets_from_current_module, 
+                     load_asset_checks_from_current_module, build_last_update_freshness_checks, 
+                     AssetChecksDefinition, AssetsDefinition, multi_asset, AssetSpec, Output)
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
 from dagster_shared_gf.shared_variables import TagsRepositoryGF, env_str
@@ -127,7 +129,7 @@ def create_store_procedure_asset(stored_procedure_name: str, params: Dict) -> As
             dwh_farinter_dl.execute_and_commit(f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]")
 
             for name in params["name"]:
-                yield None
+                yield Output(None)
 
         return store_procedure_execution_asset
     

@@ -7,6 +7,7 @@ from dagster import (asset, multi_asset, AssetSpec, AssetOut
                      , load_asset_checks_from_current_module
                      , Field
                      , AssetKey
+                     , Output
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF
