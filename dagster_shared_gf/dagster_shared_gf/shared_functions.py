@@ -137,7 +137,7 @@ from typing import List, Mapping, Any, Literal, Union
 def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]],
                           tags: Mapping[str, str],
                           filter_type: Literal["all_tags_match", "any_tag_matches", "exclude_if_all_tags", "exclude_if_any_tag"] = "all_tags_match"
-                          ) -> List[Union[Any, AssetsDefinition]]:
+                          ) -> List[AssetsDefinition]:
     """
     Filters a list of assets based on the specified tags and filter type.
 
@@ -159,7 +159,9 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
     asset_def: AssetsDefinition | Any
     for asset_def in assets_definitions:
         if isinstance(asset_def, AssetsDefinition):
-            asset_tags = asset_def.tags_by_key[list(asset_def.keys)[-1]]
+            asset_tags = {}
+            for key in asset_def.keys:
+                tags.update({key: asset_def.tags_by_key[key]})
 
             if filter_type == "all_tags_match" and match_all(asset_tags, tags):
                 filtered_assets.append(asset_def)
