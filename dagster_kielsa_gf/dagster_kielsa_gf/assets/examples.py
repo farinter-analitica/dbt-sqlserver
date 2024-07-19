@@ -1,4 +1,4 @@
-from dagster import asset, MaterializeResult, MetadataValue, AssetMaterialization, Output, op, Out, In, AssetIn
+from dagster import asset, MaterializeResult, MetadataValue, AssetMaterialization, Output, op, Out, In, AssetIn, load_assets_from_current_module
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 import pandas as pd  
 @asset
@@ -49,3 +49,5 @@ def select_top_facturaposicion(dwh_farinter_dl: SQLServerResource):
     return result
 
 
+
+all_assets = load_assets_from_current_module(group_name="examples")

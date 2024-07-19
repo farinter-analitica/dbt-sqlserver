@@ -7,17 +7,35 @@ from dlt.pipeline.pipeline import Pipeline
 from dagster_shared_gf.dlt_shared.mongodb import mongodb, mongodb_collection
 from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-from dagster_shared_gf.shared_functions import get_for_current_env, get_unique_hash_sha2_256
-from dagster_shared_gf import shared_variables as shared_vars
-from dagster import EnvVar, SourceAsset, asset, AssetExecutionContext, AssetsDefinition, AssetKey, MaterializeResult, MetadataValue
-from dagster_embedded_elt.dlt import dlt_assets, DagsterDltResource, DagsterDltTranslator
-from typing import Dict, List, Union, Iterable, Any, Mapping
+from dagster_shared_gf.shared_functions import (
+    get_for_current_env,
+    get_unique_hash_sha2_256,
+    filter_assets_by_tags,
+)
+from datetime import timedelta
+from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags_repo
+from dagster import (
+    EnvVar,
+    SourceAsset,
+    asset,
+    AssetExecutionContext,
+    AssetsDefinition,
+    AssetKey,
+    MaterializeResult,
+    MetadataValue,
+    build_last_update_freshness_checks,
+    load_asset_checks_from_current_module,
+    AssetChecksDefinition,
+)
+from dagster_embedded_elt.dlt import (
+    dlt_assets,
+    DagsterDltResource,
+    DagsterDltTranslator,
+)
+from typing import Dict, List, Union, Iterable, Any, Mapping, Sequence
 from pydantic import dataclasses, Field
 from dataclasses import asdict
 from itertools import chain
-
-env_str = shared_vars.env_str
-# Set environment variables
 
 connection_str_source:str = EnvVar("DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL").get_value()
 
@@ -347,7 +365,24 @@ all_mongo_db_hn_source_assets = list(
     )
     if key not in set(asset.key for asset in all_mongo_db_hn_assets)
 )
-# print(mongodbdb_source_assets)
+
+all_assets = all_mongo_db_hn_assets
+
+all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+    lower_bound_delta=timedelta(hours=26),
+    deadline_cron="0 9 * * 1-6",
+)
+# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+    lower_bound_delta=timedelta(hours=13),
+    deadline_cron="0 10-16 * * 1-6",
+)
+
+all_assets = all_assets + all_mongo_db_hn_source_assets
+all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
 
 if __name__ == "__main__":
     pass

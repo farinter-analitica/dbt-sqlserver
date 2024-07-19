@@ -11,7 +11,7 @@ from dagster_shared_gf.dlt_shared import dlt_resources
 #     },
 # )
 
-all_assets = mongo_db_crm_etl_dwh.all_mongo_db_hn_assets + mongo_db_crm_etl_dwh.all_mongo_db_hn_source_assets
+all_assets = mongo_db_crm_etl_dwh.all_assets
 all_resources={
         "dlt": DagsterDltResource(),
         "dlt_pipeline_dest_mssql": dlt_resources.dlt_pipeline_dest_mssql

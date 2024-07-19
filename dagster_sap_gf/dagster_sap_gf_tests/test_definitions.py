@@ -2,7 +2,7 @@
 from dagster_shared_gf.shared_functions import get_all_instances_of_class, import_variable_from_module
 from dagster_sap_gf import defs
 from dagster import (AssetsDefinition, SourceAsset, AssetKey)
-from typing import List, TypeVar, Iterator, Iterable
+from typing import List, TypeVar, Iterator, Iterable, Any
 from types import FunctionType
 from sys import path
 from itertools import chain
@@ -35,37 +35,42 @@ def apply_function_to_submodules(function_to_apply:FunctionType,module_name: str
 
     return all_instances
 
-def deep_chain(*iterables):
-    if isinstance(iterables, AssetKey):
-        yield iterables
-    for iterable in iterables:
-        if isinstance(iterable, dict):
-            for value in iterable.values():
-                yield from deep_chain(value)
-        elif isinstance(iterable, set):
-            for item in iterable:
-                yield from deep_chain(item)
-        elif isinstance(iterable, Iterable) and not isinstance(iterable, (str, bytes)):
-            for item in iterable:
-                yield from deep_chain(item)
-        else:
-            yield iterable
+def flatten_elements(data: Any) -> List[AssetKey]:
+    """Recursively flatten elements, retaining only AssetKey instances."""
+    if isinstance(data, AssetKey):
+        return [data]
+    elif isinstance(data, (list, tuple, set)):
+        flattened = []
+        for item in data:
+            flattened.extend(flatten_elements(item))
+        return flattened
+    return []
 
-
+def count_assetkeys(data: Any) -> int:
+    """Recursively count AssetKey instances."""
+    if isinstance(data, AssetKey):
+        return 1
+    elif isinstance(data, (list, tuple, set)):
+        count = 0
+        for item in data:
+            count += count_assetkeys(item)
+        return count
+    return 0
 
 def test_all_assets_loaded():
 
     all_assets: List[AssetsDefinition | SourceAsset] = apply_function_to_submodules(import_variable_from_module, module_name= "dagster_sap_gf.assets", variable_name="all_assets")
     all_sources_assets_keys = [{asset.key} for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)]
     #print("sources:" + str(all_sources_assets_keys))
-    all_assets_keys = list(deep_chain([deep_chain(asset.keys) for asset in filter(lambda asset: not isinstance(asset, SourceAsset), all_assets)]))
-    all_defs_assets_keys = list(deep_chain([deep_chain(asset.keys) for asset in filter(lambda asset: not isinstance(asset, SourceAsset), defs.assets)])) + [asset.key for asset in filter(lambda asset: isinstance(asset, SourceAsset), defs.assets)]
+    all_assets_keys = set(flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), all_assets)]))
+    all_defs_assets_keys = set(flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), defs.assets)] 
+                                            + [asset.key for asset in filter(lambda asset: isinstance(asset, SourceAsset), defs.assets)]))
     #print("assets:" + str(all_assets_keys))
-    all_assets_deduplicated = all_assets_keys + list(filter(lambda x: x not in all_assets_keys, all_sources_assets_keys))
+    all_assets_deduplicated = set(flatten_elements(list(all_assets_keys) + list(filter(lambda x: x not in all_assets_keys, all_sources_assets_keys))))
     #print("assets_deduplicated:" + str(all_assets_deduplicated))
-    all_not_in_definitions = list(filter(lambda x: x  in all_defs_assets_keys, all_assets_deduplicated))
-    assert all_defs_assets_keys.__len__()==all_assets_deduplicated.__len__() , f"""Loaded assets expected = all_assets variables accumulated on assets module: 
-    loaded={all_defs_assets_keys.__len__()} vs instances={all_assets_deduplicated.__len__()}
+    all_not_in_definitions = set(filter(lambda x: x not in all_defs_assets_keys, all_assets_deduplicated))
+    assert count_assetkeys(all_defs_assets_keys)==count_assetkeys(all_assets_deduplicated) , f"""Loaded assets expected = all_assets variables accumulated on assets module: 
+    loaded={count_assetkeys(all_defs_assets_keys)} vs instances={count_assetkeys(all_assets_deduplicated)}
     pending={all_not_in_definitions}"""
 
 if __name__ == "__main__":
