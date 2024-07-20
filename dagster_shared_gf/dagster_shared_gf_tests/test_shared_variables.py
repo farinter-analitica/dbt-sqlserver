@@ -11,4 +11,4 @@ def test_tags_repository_gf():
     assert TagsRepositoryGF.Hourly.value == ""
     # Combining tags
     combined_tags = {**TagsRepositoryGF.Hourly(), **TagsRepositoryGF.Daily(), **TagsRepositoryGF.HourlyUnique()}
-    assert combined_tags == {"periodo/diario": "", "periodo_unico/por_hora": ""}
+    assert combined_tags == {"periodo/por_hora": "", "periodo/diario": "", "periodo_unico/por_hora": ""} , f"{str(combined_tags)} != {str({'periodo/diario': '', 'periodo_unico/por_hora': ''})}"

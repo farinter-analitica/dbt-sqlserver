@@ -65,6 +65,7 @@ def open_file(file_path: Path, smb_resource: SMBResource
     tags=tags_repo.SmbDataRepository.tag,
     compute_kind="smb,sqlserver",
     # required_resource_keys={"smb_resource_analitica_nasgftgu02"},
+    
 )
 def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
     table = "DL_Finanzas_Presupuesto_Temp"

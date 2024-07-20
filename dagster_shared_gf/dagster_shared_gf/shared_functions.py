@@ -171,6 +171,8 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
                 filtered_assets.append(asset_def)
             elif filter_type == "exclude_if_any_tag" and not match_any(current_asset_tags, tags_to_match):
                 filtered_assets.append(asset_def)
+        else:
+            print(f"{asset_def} is not an AssetsDefinition, skipping...")
     
     return filtered_assets
 

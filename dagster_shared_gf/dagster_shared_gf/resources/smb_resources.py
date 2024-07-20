@@ -10,10 +10,10 @@ from dagster_shared_gf.load_env_run import load_env_vars
 if not EnvVar("DAGSTER_ANALITICA_FARINTERNET_USERNAME").get_value():
     load_env_vars()
 
-@dataclasses.dataclass
+@dataclasses.dataclass(config={"arbitrary_types_allowed": True})
 class SMBClientConfigCredentials:
     username: str 
-    password: str
+    password: EnvVar
 
 all_credentials: Dict[str, SMBClientConfigCredentials] = \
     {
@@ -33,7 +33,7 @@ class SMBResource(ConfigurableResource):
     credentials: str
     server: str
     username: str 
-    password: str 
+    password: str
     server_ip: str 
     _is_initialized: bool = None
     _context: InitResourceContext = None
@@ -51,6 +51,7 @@ class SMBResource(ConfigurableResource):
         """
         A function that creates and returns an smbclient using the already set username, password and server attributes.
         """
+
         if self.password is None or self.username is None:
             raise ValueError("Username and password must be set")
         new_smbclient = smbclient
