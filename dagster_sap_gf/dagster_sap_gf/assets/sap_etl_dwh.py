@@ -225,6 +225,7 @@ def DL_paSecuenciaSAP_HechosDimensiones(
     final_query = (
         f"EXEC [{database}].[{schema}].[{procedure}] @EjecutarTodo = {p_ejecutar_todo};"
     )
+    context.log.info(f"Executing: {final_query}")
     dwh_farinter_dl.execute_and_commit(final_query)
 
 
