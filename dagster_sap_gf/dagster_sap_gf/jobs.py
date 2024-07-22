@@ -44,7 +44,7 @@ sap_etl_dwh_hourly_all_downstream_assets: AssetSelection =  AssetSelection.asset
     | (AssetSelection.groups("sap_etl_dwh").downstream() & AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)) 
 sap_etl_dwh_hourly_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="sap_etl_dwh_hourly_all_downstream_job"
                                                             , selection=sap_etl_dwh_hourly_all_downstream_assets
-                                                            , tags= {"dagster/max_runtime": (50*60)} # max 50 minutes in seconds, then mark it as failed.
+                                                            , tags= {"dagster/max_runtime": (100*60)} # max 100 minutes in seconds, then mark it as failed.
                                                                 | tags_repo.Hourly.tag
                                                             )
 
