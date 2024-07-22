@@ -35,6 +35,7 @@ dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(name="dlt_dw
 dlt_dwh_kielsa_all_downstream_assets: AssetSelection = AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh").downstream()
 dlt_dwh_kielsa_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="dlt_dwh_kielsa_all_downstream_job"
                                                             , selection=dlt_dwh_kielsa_all_downstream_assets
+                                                            ,  config=workflows_run_config_secuential
                                                                 )
 
 dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = dbt_dwh_kielsa_marts_assets - kielsa_etl_dwh_all_downstream_assets - dlt_dwh_kielsa_all_downstream_assets
