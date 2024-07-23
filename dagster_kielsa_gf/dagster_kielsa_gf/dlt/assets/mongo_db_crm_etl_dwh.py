@@ -65,7 +65,7 @@ read_source_config_updated_at: DltSourceConfigResourceList = {
         "crm_call", 
         "constantcontactcampaigns",
     ],
-    DltSourceConfig(cursor_path="UpdatedAt", primary_key="_id", pipeline_name="mongo_crm_hn_updatedat"): [
+    DltSourceConfig(cursor_path="updatedAt", primary_key="_id", pipeline_name="mongo_crm_hn_updatedat"): [
         "crm_list",
     ],
 }
