@@ -266,7 +266,7 @@ def create_dlt_asset(dlt_resource: DltResource,
         deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_pipeline,
         compute_kind="dlt",
         tags=tags,)
-    def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline, dwh_farinter_dl: SQLServerResource):
+    def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline):
         context.log.info({
                             "Running dlt pipeline" : dlt_t.get_config().pipeline_name,
                             "resource":  dlt_t.get_asset_key(dlt_resource) ,
