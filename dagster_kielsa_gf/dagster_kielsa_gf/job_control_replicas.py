@@ -121,20 +121,20 @@ Los siguientes servidores de SQL Server tienen un delta de control de replicaciÃ
 def enviar_alertas_si_aplica(context: OpExecutionContext, servidores_en_alerta: Dict[str, List[Dict[str, str]]], enviador_correo_e_analitica_farinter: EmailSenderResource):
     #context.log.info(f"Servidores en alerta: {json.dumps(servidores_en_alerta)}")
     if len(servidores_en_alerta) > 0: 
-        email_subject = "Delta de valor superado por la replica"
+        email_subject = "[analiticastetl][Advertencia] Delta de valor superado por la replica"
         email_body = EMAIL_BODY.format(json_data=json.dumps(servidores_en_alerta, indent=3))
         email_to = ["brian.padilla@farinter.com"]  # Replace with actual recipients
         enviador_correo_e_analitica_farinter.send_email(email_to, email_subject, email_body)
         context.log.info(f"Enviado alerta por correo electronico a {email_to} con el siguiente body: {email_body}")
 
 @graph
-def replica_check_graph():
+def comprobar_sinc_replicas_graph():
     servidores_en_alerta = obtener_servidores_de_replica_en_alerta()
     enviar_alertas_si_aplica(servidores_en_alerta)
 
 
-replica_check_job = replica_check_graph.to_job(executor_def=in_process_executor)
+comprobar_sinc_replicas_job = comprobar_sinc_replicas_graph.to_job(executor_def=in_process_executor)
 
-all_jobs = [replica_check_job]
+all_jobs = [comprobar_sinc_replicas_job]
 
-
+__all__ = list(map(lambda x: x.name, all_jobs) )

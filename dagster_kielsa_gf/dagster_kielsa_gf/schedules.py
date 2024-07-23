@@ -2,6 +2,7 @@
 
 from dagster import ScheduleDefinition, DefaultScheduleStatus, ScheduleEvaluationContext, build_schedule_context
 from dagster_kielsa_gf.jobs import *
+from dagster_kielsa_gf.job_control_replicas import *
 from dagster_shared_gf.shared_functions import (get_all_instances_of_class, get_for_current_env)
 from dagster_shared_gf import shared_variables as shared_vars
 from datetime import datetime, timedelta
@@ -33,6 +34,9 @@ running_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"l
 stopped_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"local":DefaultScheduleStatus.STOPPED
                                                                               ,"dev":DefaultScheduleStatus.STOPPED
                                                                               ,"prd":DefaultScheduleStatus.STOPPED})
+only_prd_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"local":DefaultScheduleStatus.STOPPED
+                                                                              ,"dev":DefaultScheduleStatus.STOPPED
+                                                                              ,"prd":DefaultScheduleStatus.RUNNING})
 
 # Define the schedule, name defaults to the name of the job + _schedule
 dbt_dwh_kielsa_marts_job_schedule = ScheduleDefinition(
@@ -76,9 +80,7 @@ knime_workflows_all_downstream_job_schedule = ScheduleDefinition(
     cron_schedule = get_for_current_env({"dev":"20 4 * * 1-6","prd":"15 2 * * 1-6"}),  
     execution_timezone=default_timezone,
     job=knime_workflows_all_downstream_job,
-    default_status=get_for_current_env({"local":DefaultScheduleStatus.STOPPED
-                                        ,"dev":DefaultScheduleStatus.RUNNING
-                                        ,"prd":DefaultScheduleStatus.RUNNING}),
+    default_status=running_default_schedule_status,
 
 )
 
@@ -86,10 +88,16 @@ knime_workflows_start_of_month_job_schedule = ScheduleDefinition(
     cron_schedule = get_for_current_env({"dev":"0 5 1 * *","prd":"30 5 1 * *"}),  
     execution_timezone=default_timezone,
     job=knime_workflows_start_of_month_job,
-    default_status=get_for_current_env({"local":DefaultScheduleStatus.STOPPED
-                                        ,"dev":DefaultScheduleStatus.STOPPED
-                                        ,"prd":DefaultScheduleStatus.RUNNING}), #Solo en PRD es necesario, destino unico por el momento.
+    default_status=only_prd_default_schedule_status, #Solo en PRD es necesario, destino unico por el momento.
 )
+
+comprobar_sinc_replicas_job_schedule = ScheduleDefinition(
+    cron_schedule = get_for_current_env({"dev":"30 * * * *","prd":"35 * * * *"}),  
+    execution_timezone=default_timezone,
+    job=comprobar_sinc_replicas_job,
+    default_status=only_prd_default_schedule_status, 
+)
+
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
 
