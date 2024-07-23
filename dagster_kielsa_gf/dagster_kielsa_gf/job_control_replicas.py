@@ -65,13 +65,59 @@ def es_delta_max_datetime_superado(val_referencia: datetime, val_comprobado: dat
 def obtener_servidores_de_replica_en_alerta(
     context: OpExecutionContext,
     dwh_farinter_dl: SQLServerResource,
-    dwh_farinter_dl_prd: SQLServerResource
+    dwh_farinter_dl_prd: SQLServerResource,
+    dwh_farinter_prd_replicas_ldcom: SQLServerResource,
+    ldcom_hn_prd_sqlserver: SQLServerResource,
+    ldcom_ni_prd_sqlserver: SQLServerResource,
+    ldcom_cr_prd_sqlserver: SQLServerResource,
+    ldcom_gt_prd_sqlserver: SQLServerResource,
+    ldcom_sv_prd_sqlserver: SQLServerResource,
 ) -> Dict[str, List[Dict[str, str]]]:
     lista_par_servidores: list[ParServidoresReplicaSQLServer] = [
     ParServidoresReplicaSQLServer(sql_server_origen=dwh_farinter_dl, 
                                 sql_server_replica=dwh_farinter_dl_prd, 
                                 relation_origen="DL_FARINTER.dbo.DL_Kielsa_FacturaEncabezado", 
                                 relation_replica="DL_FARINTER.dbo.DL_Kielsa_FacturaEncabezado",
+                                column_origen="Factura_Fecha",
+                                column_replica="Factura_Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_hn_prd_sqlserver,
+                                sql_server_replica=dwh_farinter_prd_replicas_ldcom,
+                                relation_origen="dbo.Factura_Encabezado",
+                                relation_replica="REP_LDCOM_HN.dbo.Factura_Encabezado",
+                                column_origen="Factura_Fecha",
+                                column_replica="Factura_Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_ni_prd_sqlserver,
+                                sql_server_replica=dwh_farinter_prd_replicas_ldcom,
+                                relation_origen="dbo.Factura_Encabezado",
+                                relation_replica="REP_LDCOM_NI.dbo.Factura_Encabezado",
+                                column_origen="Factura_Fecha",
+                                column_replica="Factura_Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_cr_prd_sqlserver,
+                                sql_server_replica=dwh_farinter_prd_replicas_ldcom,
+                                relation_origen="dbo.Factura_Encabezado",
+                                relation_replica="REP_LDCOM_CR.dbo.Factura_Encabezado",
+                                column_origen="Factura_Fecha",
+                                column_replica="Factura_Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_gt_prd_sqlserver,
+                                sql_server_replica=dwh_farinter_prd_replicas_ldcom,
+                                relation_origen="dbo.Factura_Encabezado",
+                                relation_replica="REP_LDCOM_GT.dbo.Factura_Encabezado",
+                                column_origen="Factura_Fecha",
+                                column_replica="Factura_Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_sv_prd_sqlserver,
+                                sql_server_replica=dwh_farinter_prd_replicas_ldcom,
+                                relation_origen="dbo.Factura_Encabezado",
+                                relation_replica="REP_LDCOM_SV.dbo.Factura_Encabezado",
                                 column_origen="Factura_Fecha",
                                 column_replica="Factura_Fecha",
                                 delta_max=timedelta(hours=1)
@@ -123,9 +169,11 @@ def enviar_alertas_si_aplica(context: OpExecutionContext, servidores_en_alerta: 
     if len(servidores_en_alerta) > 0: 
         email_subject = "[analiticastetl][Advertencia] Delta de valor superado por la replica"
         email_body = EMAIL_BODY.format(json_data=json.dumps(servidores_en_alerta, indent=3))
-        email_to = ["brian.padilla@farinter.com"]  # Replace with actual recipients
+        email_to = ["brian.padilla@farinter.com", "edwin.martinez@farinter.com", "Wilson.zavala@farinter.com"]  # Replace with actual recipients
         enviador_correo_e_analitica_farinter.send_email(email_to, email_subject, email_body)
         context.log.info(f"Enviado alerta por correo electronico a {email_to} con el siguiente body: {email_body}")
+    else:
+        context.log.info("No hay servidores en alerta")
 
 @graph
 def comprobar_sinc_replicas_graph():

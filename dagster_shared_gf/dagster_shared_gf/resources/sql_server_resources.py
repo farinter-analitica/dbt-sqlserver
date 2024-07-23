@@ -5,6 +5,7 @@ from typing import List, Literal, Generator, Any
 import os, base64, contextlib, pyodbc, sqlalchemy
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.load_env_run import load_env_vars
 
 
 Row = pyodbc.Row
@@ -255,12 +256,12 @@ class SQLServerBaseResource:
     def get_pyodbc_conn(self, database: str | None = None
                        , autocommit: bool=False) -> pyodbc.Connection:
         return self.get_connection(database=database, autocommit=autocommit, engine="pyodbc")
-        
+
 class SQLServerNonRuntimeResource(SQLServerBaseResource):
-    def __init__(self, server: str, databases: List[str], user: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
+    def __init__(self, server: str, databases: List[str], username: str, password: str, default_database: str, trust_server_certificate: str = 'no', allow_any_database: bool = False):
         self.server = server
         self.databases = databases
-        self.username = user
+        self.username = username
         self.password = password
         self.default_database = default_database
         self.trust_server_certificate = trust_server_certificate
@@ -282,7 +283,6 @@ class SQLServerResource(SQLServerBaseResource, ConfigurableResource):
             self._context.log.warning(message)
         elif type == "error":
             self._context.log.error(message)
-
 
 
 dwh_farinter = SQLServerResource(
@@ -322,11 +322,11 @@ dwh_farinter_bi = SQLServerResource(
     default_database="BI_FARINTER"
     )
 
-        
+
 dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server= p_server,
     databases= ["no_database_specified"],
-    user=p_user,
+    username=p_user,
     password=p_password.get_value(),
     trust_server_certificate='yes',
     default_database="no_database_specified",
@@ -342,13 +342,85 @@ dwh_farinter_dl_prd = SQLServerResource(
     default_database=dwh_farinter_dl.default_database
 )
 
+dwh_farinter_prd_replicas_ldcom = SQLServerResource(
+    server= os.getenv('DAGSTER_PRD_DWH_FARINTER_SQL_SERVER'),
+    databases= ["REP_LDCOM_HN", "REP_LDCOM_NI", "REP_LDCOM_CR", "REP_LDCOM_GT", "REP_LDCOM_SV"],
+    username=os.getenv('DAGSTER_PRD_DWH_FARINTER_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="REP_LDCOM_HN"
+)
+
+LDCOM_SQLSERVER_HOSTS = {
+    "HN": "172.16.2.25",
+    "NI": "172.16.2.42",
+    "CR": "172.16.2.52",
+    "GT": "172.16.2.62",
+    "SV": "172.16.2.72",
+}
+LDCOM_SQLERVER_DATABASES = {
+    "HN": ["LDCOM_KIELSA", "LDFAS_KIELSA"],
+    "NI": ["LDCOM_KIELSA_NIC", "LDFAS_KIELSA_NIC"],
+    "CR": ["LDCOM_KIELSA_CR", "LDFAS_KIELSA_CR"],
+    "GT": ["LDCOM_KIELSA_GT", "LDFAS_KIELSA_GT"],
+    "SV": ["LDCOM_KIELSA_SALVADOR", "LDFAS_KIELSA_SALVADOR"],
+}
+
+if os.getenv("DAGSTER_LDCOM_PRD_USERNAME", None) is None:
+    load_env_vars()
+
+ldcom_hn_prd_sqlserver = SQLServerResource(
+    server= LDCOM_SQLSERVER_HOSTS["HN"],
+    databases= LDCOM_SQLERVER_DATABASES["HN"],
+    username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="LDCOM_KIELSA",
+)
+
+ldcom_ni_prd_sqlserver = SQLServerResource(
+    server= LDCOM_SQLSERVER_HOSTS["NI"],
+    databases= LDCOM_SQLERVER_DATABASES["NI"],
+    username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="LDCOM_KIELSA_NIC",
+)
+
+ldcom_cr_prd_sqlserver = SQLServerResource(
+    server= LDCOM_SQLSERVER_HOSTS["CR"],
+    databases= LDCOM_SQLERVER_DATABASES["CR"],
+    username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="LDCOM_KIELSA_CR",
+)
+
+
+ldcom_gt_prd_sqlserver = SQLServerResource(
+    server= LDCOM_SQLSERVER_HOSTS["GT"],
+    databases= LDCOM_SQLERVER_DATABASES["GT"],
+    username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="LDCOM_KIELSA_GT",
+)
+
+ldcom_sv_prd_sqlserver = SQLServerResource(
+    server= LDCOM_SQLSERVER_HOSTS["SV"],
+    databases= LDCOM_SQLERVER_DATABASES["SV"],
+    username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="LDCOM_KIELSA_SALVADOR",
+)
 
 
 if __name__ == "__main__":
     x=SQLServerNonRuntimeResource(
             server="server",
             databases=[],
-            user="user",
+            username="user",
             password="password",
             default_database="default_database",
             trust_server_certificate="yes",
