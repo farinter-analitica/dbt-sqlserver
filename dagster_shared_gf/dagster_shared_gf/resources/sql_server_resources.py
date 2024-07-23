@@ -333,6 +333,17 @@ dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     allow_any_database=True
 )
 
+dwh_farinter_dl_prd = SQLServerResource(
+    server= os.getenv('DAGSTER_PRD_DWH_FARINTER_SQL_SERVER'),
+    databases= dwh_farinter_dl.databases,
+    username=os.getenv('DAGSTER_PRD_DWH_FARINTER_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD'),
+    trust_server_certificate=dwh_farinter_dl.trust_server_certificate,
+    default_database=dwh_farinter_dl.default_database
+)
+
+
+
 if __name__ == "__main__":
     x=SQLServerNonRuntimeResource(
             server="server",

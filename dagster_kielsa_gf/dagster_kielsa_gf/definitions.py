@@ -25,7 +25,8 @@ dbt_sources_assets:list = [source_asset for source_asset in dbt_sources.source_a
 
 from dagster_kielsa_gf.assets import dbt_dwh_kielsa
 from dagster_shared_gf import all_shared_resources
-from dagster_kielsa_gf.jobs import all_jobs
+from dagster_kielsa_gf import jobs
+from dagster_kielsa_gf import job_control_replicas
 from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
 
@@ -40,7 +41,7 @@ defs = Definitions.merge(
         assets=all_assets + dbt_sources_assets + dlt_defs.all_assets,
         asset_checks=all_asset_checks + dlt_defs.all_asset_checks,
         resources=all_resources | dlt_defs.all_resources,
-        jobs=all_jobs,
+        jobs=jobs.all_jobs + job_control_replicas.all_jobs,
         schedules=all_schedules,
         sensors=all_sensors,
     ),
