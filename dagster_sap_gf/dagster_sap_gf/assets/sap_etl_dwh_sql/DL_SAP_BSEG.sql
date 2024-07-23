@@ -1077,7 +1077,7 @@ END try
 BEGIN catch
     IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION
     SET @Duracion_Minutos = ROUND(DATEDIFF(SECOND, @TiempoInicio, GETDATE()) * 1.0 / 60, 4)
-    SET @sql = CONCAT('DL_paCargarSAP_Replica_BSEG' , ERROR_MESSAGE(), ' IndicadorActualizarTodo = ', @p_IndicadorActualizarTodo)
+    SET @sql = CONCAT('DL_paCargarSAP_Replica_BSEG', ' ERROR: ' , ERROR_MESSAGE(), ' IndicadorActualizarTodo = ', @p_IndicadorActualizarTodo)
     EXEC DL_FARINTER.[dbo].DL_paEscBitacora
         @Mensaje = @sql, @Tipo = 'Error', @Tabla = 'DL_SAP_BSEG', @DuracionMinutos = @Duracion_Minutos
         ;

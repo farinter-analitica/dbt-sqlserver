@@ -78,7 +78,7 @@ def DL_SAP_BSEG(context: AssetExecutionContext
         return
     with open(sql_file_path, encoding="utf8") as procedure:
         final_query = str(procedure.read())
-    with dwh_farinter_dl.get_connection(database) as conn:
+    with dwh_farinter_dl.get_connection(database, autocommit = True) as conn:
         if context.op_config.get("p_fecha_desde") != "" and context.op_config.get("p_fecha_desde") :
             last_date_updated = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
         else:
