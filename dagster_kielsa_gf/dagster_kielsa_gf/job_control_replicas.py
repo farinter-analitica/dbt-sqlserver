@@ -133,7 +133,7 @@ def comprobar_sinc_replicas_graph():
     enviar_alertas_si_aplica(servidores_en_alerta)
 
 
-comprobar_sinc_replicas_job = comprobar_sinc_replicas_graph.to_job(executor_def=in_process_executor)
+comprobar_sinc_replicas_job = comprobar_sinc_replicas_graph.to_job(name="comprobar_sinc_replicas_job", executor_def=in_process_executor)
 
 all_jobs = [comprobar_sinc_replicas_job]
 
