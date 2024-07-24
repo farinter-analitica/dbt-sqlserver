@@ -17,11 +17,11 @@ from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
 import dagster_sap_gf.assets.dbt_dwh_sap as dbt_dwh_sap
 from smbclient import SMBDirEntry
-from pathlib import Path
+from pathlib import PurePath
 from pydantic import Field
 from typing import List, Dict, Any, Mapping, Sequence, Union, Iterator, Literal
 from datetime import datetime, date, timedelta
-import polars as pl
+import polars as pl, re
 from io import BytesIO
 ##
 class ExcelSchemaConfig(Config):
@@ -30,12 +30,12 @@ class ExcelSchemaConfig(Config):
     blanks_allowed: bool = Field(description="Allow blanks", default=True)
     blanks_on_type_error: bool = Field(description="Convert type error to blanks", default=False)
 
-def directory_files(directory: Path, smb_resource: SMBResource) -> Iterator[SMBDirEntry]:
-    directory_path = Path(f"//{smb_resource.server_ip}").joinpath(directory).resolve()
+def directory_files(directory: PurePath, smb_resource: SMBResource) -> Iterator[SMBDirEntry]:
+    directory_path = PurePath(f"//{smb_resource.server_ip}").joinpath(directory)
     smbsession:smbclient = smb_resource.get_smbclient()
     return smbsession.scandir(directory_path)
 
-def open_file(file_path: Path, smb_resource: SMBResource
+def open_file(file_path: PurePath, smb_resource: SMBResource
               , mode: str="rb"):
     """
     A function to open a file using the provided file path, SMB resource, and mode.
@@ -56,17 +56,42 @@ def open_file(file_path: Path, smb_resource: SMBResource
         The opened file using the specified mode.
     """
     
-    file_path = Path(f"//{smb_resource.server_ip}").joinpath(file_path).resolve()
+    file_path = PurePath(f"//{smb_resource.server_ip}").joinpath(file_path)
     smbsession:smbclient = smb_resource.get_smbclient()
     return smbsession.open_file(file_path, mode=mode)
 
-def move_file(file_path: Path, smb_resource: SMBResource, new_path: Path):
-    file_path = Path(f"//{smb_resource.server_ip}").joinpath(file_path).resolve()
+def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SMBResource, new_path: PurePath):
+    file_path = PurePath(f"//{smb_resource.server_ip}").joinpath(file_path)
     smbsession:smbclient = smb_resource.get_smbclient()
-    new_path = Path(f"//{smb_resource.server_ip}").joinpath(new_path).resolve()
-    print(f"Moving {file_path.as_posix()} to {new_path.as_posix()}")
-    smbsession.makedirs(new_path.parent, exist_ok=True)
-    smbsession.rename(file_path.as_posix(), new_path.as_posix())
+    new_path = PurePath(f"//{smb_resource.server_ip}").joinpath(new_path)
+    #print(f"Moving {file_path.as_posix()} to {new_path.as_posix()}")
+    context.log.info(f"Moving {str(file_path.as_posix())} to {str(new_path.as_posix())}")
+    #smbsession.makedirs(new_path.parent, exist_ok=True)
+    smbsession.renames(file_path.as_posix(),new_path.as_posix())
+
+def clean_filename(filename: str) -> str:
+    """
+    Cleans a filename by removing or replacing unsafe characters and reducing multiple underscores to one,
+    without altering the file extension.
+    """
+    # Split the filename and its extension
+    name, ext = PurePath(filename).stem, PurePath(filename).suffix
+
+    # Define a regex pattern for allowed characters (alphanumeric and some special chars)
+    safe_characters = re.compile(r'[^a-zA-Z0-9]+')
+    
+    # Replace unsafe characters with an underscore in the name part
+    clean_name = safe_characters.sub('_', name)
+    
+    # Replace multiple underscores with a single underscore
+    clean_name = re.sub(r'_+', '_', clean_name)
+    
+    # Ensure no trailing underscore before the extension
+    if clean_name.endswith('_'):
+        clean_name = clean_name[:-1]
+    
+    # Reattach the file extension
+    return clean_name + ext
 
 @asset(
     key_prefix=["DL_FARINTER", "excel"],
@@ -82,7 +107,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
     schema = "excel"
     class NullsException(Exception):
         pass
-    directory_path = Path("data_repo/grupo_farinter/presupuesto_ventas_finanzas")
+    directory_path = PurePath("data_repo/grupo_farinter/presupuesto_ventas_finanzas")
     smbres: SMBResource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
     schema_config = ExcelSchemaConfig(
         expected_columns={
@@ -115,13 +140,13 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
         # recopilar division de la base de datos
         dfdc: pl.DataFrame
         with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
-            #conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP") 
+            # conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP")
             dfdc = pl.read_database("SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP", connection=conn)
         dfdc = dfdc.select(["Division_Nombre","Division_Id"])
         division_id_map_reversed: Dict = dict(dfdc.rows())        
         context.log.info(dfdc)
         for file_descriptor in list(directory_files(directory=directory_path, smb_resource=smbres)):
-            #ignore non excel files xlsx
+            # ignore non excel files xlsx
             if not file_descriptor.name.endswith(".xlsx"):
                 continue
             try:
@@ -134,7 +159,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                                 )           
                 df=df.select(**schema_config.expected_columns)
                 df=df.cast(schema_config.polars_schema)
-                # Reemplazar farma y cualquier otro nombre en division_id por su id y limpieza de datos: 
+                # Reemplazar farma y cualquier otro nombre en division_id por su id y limpieza de datos:
                 df=df.with_columns(Division_Id = pl.col("Division_Id").replace(division_id_map_reversed, default="00"),
                                     Zona_Id = pl.col("Zona_Id").str.zfill(6),
                                     Cliente_Id = pl.col("Cliente_Id").str.zfill(10),
@@ -142,7 +167,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                                     Articulo_Id = pl.col("Articulo_Id").str.zfill(18),
                                     Fecha_Id = pl.col("Fecha_Id").str.slice(0, 10).str.to_date('%F').cast(pl.Date),
                                     AnioMes_Id = pl.col("Fecha_Id").str.slice(0, 10).str.to_date().dt.to_string("%Y%m").cast(pl.Int32),
-                                    Nombre_Archivo = pl.lit(file_descriptor.name),
+                                    Nombre_Archivo = pl.lit(clean_filename(file_descriptor.name)),
                                     Fecha_Carga = pl.lit(datetime.now()),
                                     Fecha_Actualizado = pl.lit(datetime.now()),
                                     )
@@ -152,14 +177,14 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                     raise NullsException(f"File {file_descriptor.path} tiene {nulls_count} valores en Blanco.")
                 else:
                     df.fill_null(0)
-                #cargar en la db
+                # cargar en la db
                 with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
                     if drop_table_count == 0:
                         conn.execute( dwh_farinter_dl.text(f"IF OBJECT_ID('{schema}.{table}', 'U') IS NOT NULL BEGIN DROP TABLE {schema}.{table} END; "))
                         drop_table_count += 1
                     conn.commit()
                     rows_inserted = df.write_database(table_name=f"{schema}.{table}", connection=conn, if_table_exists="append")
-                    #conn.execute(dwh_farinter_dl.text(f"ALTER TABLE {schema}.{table} ADD PRIMARY KEY (Sociedad_Id, Zona_Id, Division_Id, Articulo_Id, Cliente_Id, Casa_Id, Vendedor_Id, AnioMes_Id)"))
+                    # conn.execute(dwh_farinter_dl.text(f"ALTER TABLE {schema}.{table} ADD PRIMARY KEY (Sociedad_Id, Zona_Id, Division_Id, Articulo_Id, Cliente_Id, Casa_Id, Vendedor_Id, AnioMes_Id)"))
                 # with pl.Config(tbl_cols=-1):
                 #     context.log.info('schema: ',df.schema)
                 #     context.log.info('count: ',row_count)
@@ -167,11 +192,18 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} cargado con {row_count} filas.\n")
 
-                if env_str in ['prd','local']:
-                    move_file(file_path=file_descriptor.path, smb_resource=smbres, new_path=directory_path.joinpath("cargados").joinpath(file_descriptor.name.replace(" ","_")))
-                
+                if env_str in ["prd"]:
+                    move_file(
+                        context=context.get_op_execution_context(),
+                        file_path=file_descriptor.path,
+                        smb_resource=smbres,
+                        new_path=directory_path.joinpath("cargados").joinpath(
+                            clean_filename(file_descriptor.name)
+                        ),
+                    )
+
                 v_metadata.update({file_descriptor.name: {"Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
-            
+
             except NullsException as e:
                 context.log.error(e)
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
@@ -215,4 +247,3 @@ if not __name__ == '__main__':
 
     all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
     all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
-
