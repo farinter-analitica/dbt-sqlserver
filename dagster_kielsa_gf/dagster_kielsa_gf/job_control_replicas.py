@@ -151,8 +151,8 @@ def obtener_servidores_de_replica_en_alerta(
                                 ),
     ParServidoresReplicaSQLServer(sql_server_origen=ldcom_cr_prd_sqlserver,
                                 sql_server_replica=dwh_farinter_prd_replicas_ldcom,
-                                relation_origen="dbo.Ticket_Encabezado",
-                                relation_replica="REP_LDCOM_CR.dbo.Ticket_Encabezado",
+                                relation_origen="dbo.Factura_Encabezado",
+                                relation_replica="REP_LDCOM_CR.dbo.Factura_Encabezado",
                                 column_origen="Factura_Fecha",
                                 column_replica="Factura_Fecha",
                                 delta_max=timedelta(hours=1)
@@ -191,8 +191,8 @@ def obtener_servidores_de_replica_en_alerta(
                                 ),
     ParServidoresReplicaSQLServer(sql_server_origen=ldcom_cr_prd_sqlserver,
                                 sql_server_replica=siteplus_sqlldsubs_sqlserver,
-                                relation_origen="LDCOM_KIELSA_CR.dbo.Ticket_Encabezado",
-                                relation_replica="LDCOMREPCR.dbo.Ticket_Encabezado",
+                                relation_origen="LDCOM_KIELSA_CR.dbo.Factura_Encabezado",
+                                relation_replica="LDCOMREPCR.dbo.Factura_Encabezado",
                                 column_origen="Factura_Fecha",
                                 column_replica="Factura_Fecha",
                                 delta_max=timedelta(hours=1)
