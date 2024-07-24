@@ -166,7 +166,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} cargado con {row_count} filas.\n")
 
                 if env_str == 'prd':
-                    move_file(file_path=file_descriptor.path, smb_resource=smbres, new_path=directory_path.joinpath("cargados"))
+                    move_file(file_path=file_descriptor.path, smb_resource=smbres, new_path=directory_path.joinpath("cargados").joinpath(file_descriptor.name))
                 
                 v_metadata.update({file_descriptor.name: {"Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
             
