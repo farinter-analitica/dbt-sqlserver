@@ -54,7 +54,6 @@ def obtener_max_datetime_val_replicas_sql_server(
         logs["ocurrio_error"] = True
         logs["max_val_origen"] = f"Error en consulta, devolviendo null e incluido en alertas: {str(e)}"
         
-
     try:
         with sql_server_replica.get_connection() as conn_b:
             results_replica = sql_server_replica.query(
@@ -236,9 +235,9 @@ def obtener_servidores_de_replica_en_alerta(
                 #"servidor_replica": par_servidores.sql_server_replica.server,
                 "relation_origen": par_servidores.relation_origen,
                 "relation_replica": par_servidores.relation_replica,
-                "max_val_origen": max_val_origen.strftime("%Y-%m-%d %H:%M:%S") if max_val_origen is not None else max_val_origen,
-                "max_val_replica": max_val_replica.strftime("%Y-%m-%d %H:%M:%S") if max_val_replica is not None else max_val_replica,
-                "delta_max": par_servidores.delta_max,
+                "max_val_origen": str(max_val_origen.strftime("%Y-%m-%d %H:%M:%S") if max_val_origen is not None else max_val_origen),
+                "max_val_replica": str(max_val_replica.strftime("%Y-%m-%d %H:%M:%S") if max_val_replica is not None else max_val_replica),
+                "delta_max": str(par_servidores.delta_max),
             }
             if logs.get("ocurrio_error", None) is not None:
                 meta_data["logs_consulta"] = str(logs),         
