@@ -68,8 +68,9 @@ def move_file(file_path: Path, smb_resource: SMBResource, new_path: Path):
 
 @asset(
     key_prefix=["DL_FARINTER", "excel"],
-    tags=tags_repo.SmbDataRepository.tag,
-    compute_kind="smb,sqlserver",
+    tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "smb_xslx_files"},
+    compute_kind="polars",
+
     # required_resource_keys={"smb_resource_analitica_nasgftgu02"},
     
 )
@@ -188,10 +189,13 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
 @asset(
     key_prefix=["BI_FARINTER", "dbo"],
     deps=[DL_Finanzas_Presupuesto_Temp],
+    compute_kind="sqlserver",
+    tags={"dagster/storage_kind": "sqlserver"},
 )
 def BI_SAP_Hecho_PresupuestoHist(context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource):
     with dwh_farinter_bi.get_connection(engine="sqlalchemy") as conn:
         conn.execute(dwh_farinter_bi.text(f"EXEC BI_FARINTER.dbo.BI_paCargarSAP_Hecho_PresupuestoHist")) 
+
 
 if not __name__ == '__main__':
     all_assets = load_assets_from_current_module(group_name="smb_etl_dwh")

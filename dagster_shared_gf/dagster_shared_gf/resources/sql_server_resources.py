@@ -110,10 +110,20 @@ class SQLServerBaseResource:
                                                 ).connect()
             yield conn
         finally:
+            try:
+                if engine == "pyodbc":
+                    conn.commit()
+                
+                if engine == "sqlalchemy" and conn.in_transaction():
+                    conn.commit()
+
+            except Exception as e:
+                self.log_event('warning', f"Error committing transaction: {e}")
+
             if conn:
                 self.close_connection(conn)
 
-    def close_connection(self, connection: pyodbc.Connection):
+    def close_connection(self, connection: pyodbc.Connection | sqlalchemy.Connection):
         try:
             connection.close()
         except Exception as e:
