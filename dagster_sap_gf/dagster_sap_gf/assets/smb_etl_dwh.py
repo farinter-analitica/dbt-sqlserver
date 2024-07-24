@@ -64,6 +64,7 @@ def move_file(file_path: Path, smb_resource: SMBResource, new_path: Path):
     file_path = Path(f"//{smb_resource.server_ip}").joinpath(file_path).resolve()
     smbsession:smbclient = smb_resource.get_smbclient()
     new_path = Path(f"//{smb_resource.server_ip}").joinpath(new_path).resolve()
+    smbsession.makedirs(new_path.parent, exist_ok=True)
     smbsession.rename(file_path, new_path)
 
 @asset(
