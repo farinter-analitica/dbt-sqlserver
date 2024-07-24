@@ -352,18 +352,22 @@ dwh_farinter_prd_replicas_ldcom = SQLServerResource(
 )
 
 LDCOM_SQLSERVER_HOSTS = {
-    "HN": "172.16.2.25",
-    "NI": "172.16.2.42",
-    "CR": "172.16.2.52",
-    "GT": "172.16.2.62",
-    "SV": "172.16.2.72",
+    "HN": r"172.16.2.25",
+    "NI": r"172.16.2.42",
+    "CR": r"172.16.2.52",
+    "GT": r"172.16.2.62",
+    "SV": r"172.16.2.72",
+    "SQLLDSUBS": r"172.16.2.125\SQLLDSUBS",
 }
-LDCOM_SQLERVER_DATABASES = {
+LDCOM_SQLSERVER_DATABASES = {
     "HN": ["LDCOM_KIELSA", "LDFAS_KIELSA"],
     "NI": ["LDCOM_KIELSA_NIC", "LDFAS_KIELSA_NIC"],
     "CR": ["LDCOM_KIELSA_CR", "LDFAS_KIELSA_CR"],
     "GT": ["LDCOM_KIELSA_GT", "LDFAS_KIELSA_GT"],
     "SV": ["LDCOM_KIELSA_SALVADOR", "LDFAS_KIELSA_SALVADOR"],
+    "SQLLDSUBS": ["LDCOMREPHN", "LDCOMREPNIC","LDCOMREPSLV","LDCOMREPGT","LDCOMREPCR",
+                  "LDFASREPHN","LDFASREPNIC","LDFASREPSLV","LDFASREPGT","LDFASREPCR",
+                  "SITEPLUS","RECETAS","KPP_DB"],
 }
 
 if os.getenv("DAGSTER_LDCOM_PRD_USERNAME", None) is None:
@@ -371,7 +375,7 @@ if os.getenv("DAGSTER_LDCOM_PRD_USERNAME", None) is None:
 
 ldcom_hn_prd_sqlserver = SQLServerResource(
     server= LDCOM_SQLSERVER_HOSTS["HN"],
-    databases= LDCOM_SQLERVER_DATABASES["HN"],
+    databases= LDCOM_SQLSERVER_DATABASES["HN"],
     username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
     password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
     trust_server_certificate='yes',
@@ -380,7 +384,7 @@ ldcom_hn_prd_sqlserver = SQLServerResource(
 
 ldcom_ni_prd_sqlserver = SQLServerResource(
     server= LDCOM_SQLSERVER_HOSTS["NI"],
-    databases= LDCOM_SQLERVER_DATABASES["NI"],
+    databases= LDCOM_SQLSERVER_DATABASES["NI"],
     username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
     password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
     trust_server_certificate='yes',
@@ -389,7 +393,7 @@ ldcom_ni_prd_sqlserver = SQLServerResource(
 
 ldcom_cr_prd_sqlserver = SQLServerResource(
     server= LDCOM_SQLSERVER_HOSTS["CR"],
-    databases= LDCOM_SQLERVER_DATABASES["CR"],
+    databases= LDCOM_SQLSERVER_DATABASES["CR"],
     username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
     password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
     trust_server_certificate='yes',
@@ -399,7 +403,7 @@ ldcom_cr_prd_sqlserver = SQLServerResource(
 
 ldcom_gt_prd_sqlserver = SQLServerResource(
     server= LDCOM_SQLSERVER_HOSTS["GT"],
-    databases= LDCOM_SQLERVER_DATABASES["GT"],
+    databases= LDCOM_SQLSERVER_DATABASES["GT"],
     username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
     password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
     trust_server_certificate='yes',
@@ -408,12 +412,22 @@ ldcom_gt_prd_sqlserver = SQLServerResource(
 
 ldcom_sv_prd_sqlserver = SQLServerResource(
     server= LDCOM_SQLSERVER_HOSTS["SV"],
-    databases= LDCOM_SQLERVER_DATABASES["SV"],
+    databases= LDCOM_SQLSERVER_DATABASES["SV"],
     username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
     password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
     trust_server_certificate='yes',
     default_database="LDCOM_KIELSA_SALVADOR",
 )
+
+siteplus_sqlldsubs_sqlserver = SQLServerResource(
+    server= LDCOM_SQLSERVER_HOSTS["SQLLDSUBS"],
+    databases= LDCOM_SQLSERVER_DATABASES["SQLLDSUBS"],
+    username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="SITEPLUS",
+)
+
 
 
 if __name__ == "__main__":

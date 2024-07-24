@@ -22,6 +22,7 @@ all_shared_resources = {
     "ldcom_cr_prd_sqlserver": sql_server_resources.ldcom_cr_prd_sqlserver,
     "ldcom_gt_prd_sqlserver": sql_server_resources.ldcom_gt_prd_sqlserver,
     "ldcom_sv_prd_sqlserver": sql_server_resources.ldcom_sv_prd_sqlserver,
+    "siteplus_sqlldsubs_sqlserver": sql_server_resources.siteplus_sqlldsubs_sqlserver,
 
 
     "dbt_resource": dbt_resources.dbt_resource,
