@@ -92,7 +92,7 @@ knime_workflows_start_of_month_job_schedule = ScheduleDefinition(
 )
 
 comprobar_sinc_replicas_job_schedule = ScheduleDefinition(
-    cron_schedule = get_for_current_env({"dev":"30 7-19 * * *","prd":"35 7-19 * * *"}),  
+    cron_schedule = get_for_current_env({"dev":"30 7-18 * * *","prd":"35 7-18 * * *"}),  
     execution_timezone=default_timezone,
     job=comprobar_sinc_replicas_job,
     default_status=only_prd_default_schedule_status, 
