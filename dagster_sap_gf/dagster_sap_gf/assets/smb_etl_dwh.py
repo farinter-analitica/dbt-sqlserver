@@ -61,9 +61,10 @@ def open_file(file_path: Path, smb_resource: SMBResource
     return smbsession.open_file(file_path, mode=mode)
 
 def move_file(file_path: Path, smb_resource: SMBResource, new_path: Path):
-    file_path = Path(f"//{smb_resource.server_ip}").joinpath(file_path).resolve()
+    file_path = Path(f"//{smb_resource.server_ip}").joinpath(file_path).resolve().as_posix()
     smbsession:smbclient = smb_resource.get_smbclient()
-    new_path = Path(f"//{smb_resource.server_ip}").joinpath(new_path).resolve()
+    new_path = Path(f"//{smb_resource.server_ip}").joinpath(new_path).resolve().as_posix()
+    print(f"Moving {file_path} to {new_path}")
     smbsession.makedirs(new_path.parent, exist_ok=True)
     smbsession.rename(file_path, new_path)
 
@@ -166,7 +167,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} cargado con {row_count} filas.\n")
 
-                if env_str == 'prd':
+                if env_str in ['prd','local']:
                     move_file(file_path=file_descriptor.path, smb_resource=smbres, new_path=directory_path.joinpath("cargados").joinpath(file_descriptor.name))
                 
                 v_metadata.update({file_descriptor.name: {"Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
