@@ -206,16 +206,22 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
 
             except NullsException as e:
                 context.log.error(e)
+                log_message = (f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
+                            f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
-                    file.write(f"ERROR, NO CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
+                    file.write(log_message)
             except Exception as e:
+                log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
+                            f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
-                    file.write(f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'}, {datetime.now().isoformat()} , {e}\n")
+                    file.write(log_message)
                 raise e
     except Exception as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
+        log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, " +
+                    f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
         with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
-            file.write(f"ERROR, N/A, {datetime.now().isoformat()} , {e}\n")
+            file.write(log_message)
         raise e    
     return MaterializeResult(metadata=v_metadata)
 ##
