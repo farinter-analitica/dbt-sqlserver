@@ -130,6 +130,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                                     Zona_Id = pl.col("Zona_Id").str.zfill(6),
                                     Cliente_Id = pl.col("Cliente_Id").str.zfill(10),
                                     Vendedor_Id = pl.col("Vendedor_Id").str.zfill(3),
+                                    Articulo_Id = pl.col("Articulo_Id").str.zfill(18),
                                     Fecha_Id = pl.col("Fecha_Id").str.slice(0, 10).str.to_date('%F').cast(pl.Date),
                                     AnioMes_Id = pl.col("Fecha_Id").str.slice(0, 10).str.to_date().dt.to_string("%Y%m").cast(pl.Int32),
                                     Nombre_Archivo = pl.lit(file_descriptor.name),
@@ -157,7 +158,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} cargado con {row_count} filas.\n")
                 
-                v_metadata.update({"Archivo": {"Nombre": file_descriptor.name, "Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
+                v_metadata.update({file_descriptor.name: {"Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
             
             except NullsException as e:
                 context.log.error(e)
