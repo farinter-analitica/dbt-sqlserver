@@ -4,6 +4,7 @@ from dateutil import parser
 from typing import Any, Dict, List, Tuple, Optional
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.resources.correo_e import EmailSenderResource
+from dagster_shared_gf.shared_variables import env_str
 import json
 
 class ParServidoresReplicaSQLServer:
@@ -34,7 +35,7 @@ def obtener_max_datetime_val_replicas_sql_server(
     relation_replica: str,
     column_origen: str,
     column_replica: str,
-) -> Tuple[Any, Any]:
+) -> Tuple[Any, Any, Dict[str, Any]]:
     max_val_origen = None
     max_val_replica = None
     logs = {"max_val_origen" : "Consulta exitosa", "max_val_replica" : "Consulta exitosa"}
@@ -67,7 +68,15 @@ def obtener_max_datetime_val_replicas_sql_server(
 
     except Exception as e:
         logs["ocurrio_error"] = True
-        logs["max_val_replica"] = f"Error en consulta, devolviendo null e incluido en alertas: {str(e)}"
+        logs["max_val_replica"] = f"Error en consulta, no se ha encontrado valor maximo: {str(e)}"
+
+    if max_val_origen is None and logs.get("max_val_origen") == "Consulta exitosa":
+        logs["ocurrio_error"] = True
+        logs["max_val_origen"] = f"Error en consulta, no se ha encontrado valor maximo."
+
+    if max_val_replica is None and logs.get("max_val_replica") == "Consulta exitosa":
+        logs["ocurrio_error"] = True
+        logs["max_val_replica"] = f"Error en consulta, no se ha encontrado valor maximo."
 
     return max_val_origen, max_val_replica, logs
 
@@ -77,6 +86,8 @@ def es_delta_max_datetime_superado(val_referencia: datetime | None, val_comproba
         return True
     if val_comprobado is None:
         return True
+    if val_referencia is None:
+        return False
     return (val_referencia - val_comprobado) > delta_max
 
 @op(out=Out(io_manager_key="in_memory_io_manager"))
@@ -91,7 +102,7 @@ def obtener_servidores_de_replica_en_alerta(
     ldcom_gt_prd_sqlserver: SQLServerResource,
     ldcom_sv_prd_sqlserver: SQLServerResource,
     siteplus_sqlldsubs_sqlserver: SQLServerResource,
-    ) -> Dict[str, List[Dict[str, str]]]:
+    ) -> Dict[str, List[Dict[str, Any]]]:
         
     #definidos en dagster_shared_gf.resources.sql_server_resources, aqui solo de referencia
     LDCOM_SQLSERVER_HOSTS = {
@@ -204,7 +215,7 @@ def obtener_servidores_de_replica_en_alerta(
                                 ),
     ]
     
-    servidores_en_alerta: Dict[str, List[Dict[str, str]]] = {}
+    servidores_en_alerta: Dict[str, List[Dict[str, Any]]] = {}
     max_val_origen: datetime = None
     max_val_replica: datetime = None
     logs: Dict[str, str] = {}
@@ -225,11 +236,12 @@ def obtener_servidores_de_replica_en_alerta(
                 #"servidor_replica": par_servidores.sql_server_replica.server,
                 "relation_origen": par_servidores.relation_origen,
                 "relation_replica": par_servidores.relation_replica,
-                "max_val_origen": str(max_val_origen.strftime("%Y-%m-%d %H:%M:%S") if max_val_origen is not None else max_val_origen),
-                "max_val_replica": str(max_val_replica.strftime("%Y-%m-%d %H:%M:%S") if max_val_replica is not None else max_val_replica),
-                "delta_max": str(par_servidores.delta_max),
-                "logs_consulta": str(logs),
-            }            
+                "max_val_origen": max_val_origen.strftime("%Y-%m-%d %H:%M:%S") if max_val_origen is not None else max_val_origen,
+                "max_val_replica": max_val_replica.strftime("%Y-%m-%d %H:%M:%S") if max_val_replica is not None else max_val_replica,
+                "delta_max": par_servidores.delta_max,
+            }
+            if logs.get("ocurrio_error", None) is not None:
+                meta_data["logs_consulta"] = str(logs),         
             if par_servidores.sql_server_replica.server not in servidores_en_alerta:
                 servidores_en_alerta[par_servidores.sql_server_replica.server] = []
             servidores_en_alerta[par_servidores.sql_server_replica.server].append(meta_data)
@@ -244,12 +256,12 @@ Los siguientes servidores de SQL Server tienen un delta de control de replicaciÃ
 """
 
 @op
-def enviar_alertas_si_aplica(context: OpExecutionContext, servidores_en_alerta: Dict[str, List[Dict[str, str]]], enviador_correo_e_analitica_farinter: EmailSenderResource):
+def enviar_alertas_si_aplica(context: OpExecutionContext, servidores_en_alerta: Dict[str, List[Dict[str, Any]]], enviador_correo_e_analitica_farinter: EmailSenderResource):
     #context.log.info(f"Servidores en alerta: {json.dumps(servidores_en_alerta)}")
     if len(servidores_en_alerta) > 0: 
         email_subject = "[analiticastetl][Advertencia] Delta de valor superado por la replica"
         email_body = EMAIL_BODY.format(json_data=json.dumps(servidores_en_alerta, indent=3))
-        email_to = ["brian.padilla@farinter.com", "edwin.martinez@farinter.com", "Wilson.zavala@farinter.com"] 
+        email_to = ["brian.padilla@farinter.com", "edwin.martinez@farinter.com", "Wilson.zavala@farinter.com"] if env_str == "prd" else ["brian.padilla@farinter.com"]
         enviador_correo_e_analitica_farinter.send_email(email_to, email_subject, email_body)
         context.log.info(f"Enviado alerta por correo electronico a {email_to} con el siguiente body: {email_body}")
     else:
