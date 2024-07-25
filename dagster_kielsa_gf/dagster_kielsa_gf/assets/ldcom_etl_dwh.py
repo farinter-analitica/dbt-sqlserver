@@ -317,7 +317,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
 
 
 def create_store_procedure_asset(stored_procedure_name: str, group_name: str, params: Dict) -> AssetsDefinition:
-    if not isinstance(params.get("name", None), List) and params.get("keys_out", None) is None:
+    if not isinstance(params.get("name", []), List) and params.get("keys_out", None) is None:
         @asset(key_prefix= params["key_prefix"], name=params["name"],
                 tags=params.get("tags", None), 
                 deps=params.get("deps", None),
@@ -349,7 +349,7 @@ def create_store_procedure_asset(stored_procedure_name: str, group_name: str, pa
         def store_procedure_execution_asset(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource): 
             dwh_farinter_dl.execute_and_commit(f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]")
 
-            for name in params["name"]:
+            for name in final_outs:
                 yield Output(value=None, output_name=name) 
 
         return store_procedure_execution_asset
