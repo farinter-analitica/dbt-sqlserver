@@ -1,11 +1,27 @@
-from dagster import (asset, AssetKey , load_assets_from_current_module, load_asset_checks_from_current_module, build_last_update_freshness_checks, AssetChecksDefinition, AssetsDefinition, multi_asset, AssetSpec, Output, AssetOut)
+from dagster import (
+    asset,
+    AssetKey,
+    load_assets_from_current_module,
+    load_asset_checks_from_current_module,
+    build_last_update_freshness_checks,
+    AssetChecksDefinition,
+    AssetExecutionContext,
+    AssetsDefinition,
+    multi_asset,
+    AssetSpec,
+    Output,
+    AssetOut,
+)
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
-from dagster_shared_gf.shared_variables import TagsRepositoryGF, env_str
+from dagster_shared_gf.shared_functions import (
+    filter_assets_by_tags,
+    get_all_instances_of_class,
+)
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
 from datetime import timedelta
 from typing import Sequence, List, Mapping, Dict, Any
 
-tags_repo = TagsRepositoryGF()
+
 dl_farinter_db = "DL_FARINTER"
 dl_farinter_assets_prefix = [dl_farinter_db]
 # @asset(key_prefix= dl_farinter_assets_prefix)
@@ -127,13 +143,14 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"])],
     },
-    "AN_paCargarCal_ClientesEstadisticas_Kielsa": {
-        "key_prefix": ["AN_FARINTER", "dbo"],
-        "name": "AN_Cal_ClientesEstadisticas_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]), 
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
-    },
+    # Este SP se carga en DEV?
+    # "AN_paCargarCal_ClientesEstadisticas_Kielsa": {
+    #     "key_prefix": ["AN_FARINTER", "dbo"],
+    #     "name": "AN_Cal_ClientesEstadisticas_Kielsa",
+    #     "tags": tags_repo.Daily.tag,
+    #     "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]), 
+    #              AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
+    # },
     "DL_paCargarKielsa_Empleado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Empleado",
@@ -194,34 +211,142 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"]),
                  AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Bodega_Kielsa"]),],
     },
+    "DL_paCargarKielsa_ClientesXArticulo": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Acum_ClientesXArticulo_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"])],
+    },
+    "BI_paCargarDim_Tiempo": {	
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Dim_Tiempo",
+        "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_MecanicaCanje": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_MecanicaCanje",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"])],
+    },
+    "BI_paCargarDim_MecanicaCanje_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "keys_out": [AssetKey(["BI_FARINTER", "dbo","BI_Dim_MecanicaCanje_Kielsa"]),
+                 AssetKey(["DL_FARINTER", "dbo","DL_TC_ArticuloXMecanica_Kielsa"])],
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),],
+    },
+    "BI_paCargarHecho_IngresosHist_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_IngresosHist_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Calc"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Detalle"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Encabezado"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
+                 AssetKey(["AN_FARINTER", "dbo", "AN_Cal_ArticulosEstado_Kielsa"]),],
+    },
+    "BI_paCargarHecho_ComprasHist_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_ComprasHist_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_IngresosHist_Kielsa"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
+                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]),
+                 AssetKey(["replicasld_siteplus", "dbo", "TSP_ABCCadena"]),],
+    },
+    "DL_paCargarTC_CasaXProveedor_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_TC_CasaXProveedor_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
+                 AssetKey(["DL_FARINTER", "dbo", "VDWH_TC_CasaXProveedor_Kielsa"]),
+                 AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ComprasHist_Kielsa"]),],
+    },
+    "AN_paCargarCal_CasaXProveedor_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": "AN_Cal_CasaXProveedor_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["AN_FARINTER", "dbo", "VDWH_CasaXProveedor_Kielsa"]),
+                 AssetKey(["AN_FARINTER", "dbo", "VDWH_TC_CasaXProveedor1_Kielsa"]),
+                 AssetKey(["AN_FARINTER", "dbo", "VDWH_TC_CasaXProveedor2_Kielsa"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_CasaXProveedor_Kielsa"])],
+    },
+    "BI_paCargarHecho_RegaliasHist_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_RegaliasHist_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
+                 AssetKey(["AN_FARINTER", "dbo", "AN_Cal_CasaXProveedor_Kielsa"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Info"]),
+                 AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "FE_Identificacion_Tributaria"]),
+                 AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "Regalia_Detalle"]),
+                 AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "Regalia_Encabezado"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
+                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+    },
+    "BI_paCargarHecho_ProyeccionVentas_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_ProyeccionVentas_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_Pesos_Kielsa"])],
+    },
+    "BI_paCargarHecho_ProyeccionDescuentoCupon_Kielsa" : {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_ProyeccionDescuentoCupon_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesosDesc_Kielsa"]),],
+    },
+    "AN_pacargarParam_PesosDesc_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": "AN_Param_PesosDesc_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_DescuentoCuponHist_Kielsa"]),
+                 AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
+                 AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"])],
+    },
+
 }   
 
 
 def create_store_procedure_asset(stored_procedure_name: str, group_name: str, params: Dict) -> AssetsDefinition:
-    if not isinstance(params["name"], List):
+    if not isinstance(params.get("name", None), List) and params.get("keys_out", None) is None:
         @asset(key_prefix= params["key_prefix"], name=params["name"],
                 tags=params.get("tags", None), 
                 deps=params.get("deps", None),
                 group_name=group_name,
                 compute_kind="sqlserver",
                 description=f"EXEC [{params["key_prefix"][0]}].[{params["key_prefix"][1]}].[{stored_procedure_name}]")
-        def store_procedure_execution_asset(dwh_farinter_dl: SQLServerResource) -> None: 
+        def store_procedure_execution_asset(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
             dwh_farinter_dl.execute_and_commit(f"EXEC [{params["key_prefix"][0]}].[{params["key_prefix"][1]}].[{stored_procedure_name}]")
 
         return store_procedure_execution_asset
 
-    else:
+    elif isinstance(params.get("name", None), List) or params.get("keys_out", None) is not None:
+        if isinstance(params.get("name", None), List):
+            final_outs = {name : AssetOut(key_prefix= params["key_prefix"],
+                                    tags=params.get("tags", None),
+                                    ) for name in params["name"]}
+        elif params.get("keys_out", None) is not None:
+            final_outs = {current_key.path[-1] : AssetOut(key= current_key,
+                                    tags=params.get("tags", None),
+                                    ) for current_key in params["keys_out"]}
+
         @multi_asset(name=stored_procedure_name,
-                        outs={name : AssetOut(key_prefix= params["key_prefix"],
-                                              tags=params.get("tags", None),
-                                              )
-                              for name in params["name"]},
+                        outs=final_outs,
                         description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
                         deps=params.get("deps", None),
                         group_name=group_name, 
                         compute_kind="sqlserver",
                       )
-        def store_procedure_execution_asset(dwh_farinter_dl: SQLServerResource): 
+        def store_procedure_execution_asset(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource): 
             dwh_farinter_dl.execute_and_commit(f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]")
 
             for name in params["name"]:
