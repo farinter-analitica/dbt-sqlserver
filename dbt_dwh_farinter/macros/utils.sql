@@ -49,9 +49,9 @@
 {%- macro dwh_farinter_create_dummy_data(unique_key, is_incremental=is_incremental(), show_info=False) %}
     {%- set predicates = [] %}
     {%- set all_columns_list_base_type = adapter.get_columns_in_relation(this) %}
-    {%- set merge_update_columns = config.get('merge_update_columns') -%}
+    {#%- set merge_update_columns = config.get('merge_update_columns') -%#}
     {%- set merge_exclude_columns = config.get('merge_exclude_columns') -%}
-    {%- set merge_check_diff_exclude_columns = config.get('merge_check_diff_exclude_columns') -%}
+    {#%- set merge_check_diff_exclude_columns = config.get('merge_check_diff_exclude_columns') -%#}
     {# set update_columns = get_merge_update_columns(merge_update_columns, merge_exclude_columns, dest_columns=all_columns_list_base_type) #}
     {%- if merge_exclude_columns -%}
         {%- set update_columns = [] -%}

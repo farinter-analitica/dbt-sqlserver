@@ -25,6 +25,6 @@ setup(
         "pymongo",
         "pymongoarrow",
     ],
-    extras_require={"dev": [ "pytest"]},
+    extras_require={"dev": [ "pytest","pytest-mock"]},
 )
-#Install module with python
+#Install module with python ,"pytest-mock",
