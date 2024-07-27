@@ -167,8 +167,8 @@ UNION ALL
             USE [{{ relation.database }}];
             SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
     {%- endset %}	
-    {% do log("Running query: "  ~ query_check, info=True)         %}
     {%- if execute  %}
+        {% do log("Running query: "  ~ query_check, info=True)         %}
         {%- set results = run_query(query_check) %}
         {% if results|length > 0 %}
         {# Execute only on runtime Return the first column #}
@@ -193,8 +193,8 @@ UNION ALL
         USE [{{ relation.database }}];
         {{query}};
     {%- endset %}
-    {% do log("Running query: " ~ query_to_run, info=True)         %}
     {%- if execute  %}
+        {% do log("Running query: " ~ query_to_run, info=True)         %}
         {%- set results = run_query(query_to_run) %}
         {%- if results|length > 0 %}
         {# Execute only on runtime Return the first column #}
