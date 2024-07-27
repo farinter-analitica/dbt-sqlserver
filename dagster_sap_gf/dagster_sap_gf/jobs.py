@@ -33,15 +33,9 @@ sap_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
                                                                 | tags_repo.Daily.tag 
                                                             )
 
-
-#Definir assets por hora que se extraen de dbt, agregar todos los downstream que tenga la etiqueta por_hora y agregar replicas_sap con la misma etiqueta
-sap_dbt_etl_dwh_hourly_asset_keys = [AssetKey(["DL_FARINTER","dbo",Asset]) 
-                                     for Asset in ["DL_SAP_MARC","DL_SAP_MARD","DL_SAP_MARA","DL_SAP_MCHB","DL_SAP_MCH1","DL_SAP_MBEW","DL_SAP_MCHA"]
-                                     ]
-sap_etl_dwh_hourly_all_downstream_assets: AssetSelection =  AssetSelection.assets(*sap_dbt_etl_dwh_hourly_asset_keys) \
-    | (AssetSelection.assets(*sap_dbt_etl_dwh_hourly_asset_keys).downstream() & AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)) \
-    | (AssetSelection.tag(key="replicas_sap", value="true") & AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)) \
-    | (AssetSelection.groups("sap_etl_dwh").downstream() & AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)) 
+#Definir assets que tenga la etiqueta por_hora
+sap_etl_dwh_hourly_all_downstream_assets: AssetSelection =  \
+     AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
 sap_etl_dwh_hourly_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="sap_etl_dwh_hourly_all_downstream_job"
                                                             , selection=sap_etl_dwh_hourly_all_downstream_assets
                                                             , tags= {"dagster/max_runtime": (100*60)} # max 100 minutes in seconds, then mark it as failed.
