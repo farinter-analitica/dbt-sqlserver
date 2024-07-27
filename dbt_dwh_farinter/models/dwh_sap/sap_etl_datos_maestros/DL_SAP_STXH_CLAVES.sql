@@ -6,7 +6,6 @@
         tags=["periodo/diario"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
-
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
@@ -21,7 +20,7 @@
         "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
         "{{ dwh_farinter_create_index(is_incremental=is_incremental(), create_clustered=false, columns=['AnioMes_Id','TABNAME']) }}",
         "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
-        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['clave_0002','clave_0003'], included_columns = ['TDOBJECT','TDNAME','AnioMes_Id']) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['clave_0002','clave_0003'], included_columns = ['TDOBJECT','TDNAME','AnioMes_Id','HashStr_0002_0003']) }}",
         "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}",
         ]
 	) 
@@ -140,6 +139,7 @@ SELECT
 	, IC.TDOBJECT
     , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
     , ISNULL(TRY_CONVERT(DATETIME, TDLDATE, 112),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL({{ dwh_farinter_hash_column( columns = ["clave_0002","clave_0003"], table_alias="PVT") }},'') AS [HashStr_0002_0003]   
 FROM	info_claves IC
 INNER JOIN pivot_table PVT
 	ON IC.TDOBJECT = PVT.TDOBJECT AND IC.TABNAME = PVT.TABNAME AND IC.TDNAME = PVT.TDNAME
