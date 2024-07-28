@@ -18,6 +18,10 @@ stopped_default_sensor_status: DefaultSensorStatus = get_for_current_env({"local
                                                                               ,"dev":DefaultSensorStatus.STOPPED
                                                                               ,"prd":DefaultSensorStatus.STOPPED})
 
+
+
+
+
 all_asset_freshness_checks = sap_etl_dwh.all_asset_freshness_checks + dbt_dwh_sap.all_asset_freshness_checks
 freshness_checks_sensor = build_sensor_for_freshness_checks(
     freshness_checks=all_asset_freshness_checks,

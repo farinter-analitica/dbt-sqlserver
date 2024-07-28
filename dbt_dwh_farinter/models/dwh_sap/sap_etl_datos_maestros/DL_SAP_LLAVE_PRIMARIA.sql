@@ -81,7 +81,7 @@ FROM SAPQA.QAS.qas.DD03M A"
 
 */
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -3, max(Fecha_Actualizado)), 112), '00000000')  from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
+	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -3, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
 {% else %}
 	{% set last_date = '00000000'|string %}
 {% endif %}
