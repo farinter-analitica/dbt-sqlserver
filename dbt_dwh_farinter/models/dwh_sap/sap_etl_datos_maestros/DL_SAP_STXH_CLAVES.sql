@@ -3,7 +3,7 @@
 {{ 
     config(
 		as_columnstore=False,
-        tags=["periodo/diario"],
+        tags=["periodo/diario","sap_modulo/basis"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
@@ -142,7 +142,7 @@ SELECT
     , ISNULL({{ dwh_farinter_hash_column( columns = ["clave_0002","clave_0003"], table_alias="PVT") }},'') AS [HashStr_0002_0003]   
 FROM	info_claves IC
 INNER JOIN pivot_table PVT
-	ON IC.TDOBJECT = PVT.TDOBJECT AND IC.TABNAME = PVT.TABNAME AND IC.TDNAME = PVT.TDNAME
+	ON IC.TDOBJECT = PVT.TDOBJECT AND IC.TABNAME = PVT.TABNAME AND IC.TDNAME = PVT.TDNAME AND IC.AnioMes_Id = PVT.AnioMes_Id
 /*
 
 SELECT TABNAME, FIELDNAME 

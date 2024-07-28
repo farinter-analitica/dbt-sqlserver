@@ -15,7 +15,7 @@ SELECT --TOP 100
 	, T.TDID AS Texto_Tipo_Id
 	, IDT.TDTEXT AS Texto_Tipo_Nombre
 	, CASE WHEN C.TABNAME = 'VBAP' THEN 1 ELSE 0 END AS Es_Posicion
-	, C.HashStr_0002_0003	
+	, C.HashStr_0002_0003 as HashStr_PedPos	
 FROM {{ source('DL_FARINTER', 'DL_SAP_STXH') }} AS T
 INNER JOIN {{ ref('DL_SAP_STXH_CLAVES') }} AS C
 	ON T.[AnioMes_Id] = C.[AnioMes_Id]

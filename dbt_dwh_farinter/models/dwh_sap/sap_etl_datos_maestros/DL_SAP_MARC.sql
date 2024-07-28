@@ -2,7 +2,7 @@
 {{ 
     config(
 		as_columnstore=False,
-    tags=["periodo/por_hora"],
+    tags=["periodo/por_hora","sap_modulo/mm"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,

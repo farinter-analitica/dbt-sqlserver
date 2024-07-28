@@ -2,6 +2,7 @@
 {{ 
     config(
 		as_columnstore=False,
+		tags=["periodo/diario"],
 		materialized="table",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
