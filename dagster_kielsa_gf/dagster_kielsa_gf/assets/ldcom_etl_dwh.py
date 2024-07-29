@@ -126,13 +126,15 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Articulo_ProveedorEstadistico_Hist",
         "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"])],
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
     },
     "DL_paCargarKielsa_Articulo_Segmentado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Articulo_Segmentado",
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"])],
     },
     "DL_paCargarKielsa_ArticuloSucursal_Segmentado": {
@@ -140,6 +142,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_ArticuloSucursal_Segmentado",
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"])],
     },
@@ -202,7 +205,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ClientesVisitasHist",
         "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"])],
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),],
     },
     "BI_paCargarHecho_Inventarios_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
@@ -215,7 +218,8 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Acum_ClientesXArticulo_Kielsa",
         "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"])],
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
     },
     "BI_paCargarDim_Tiempo": {	
         "key_prefix": ["BI_FARINTER", "dbo"],
