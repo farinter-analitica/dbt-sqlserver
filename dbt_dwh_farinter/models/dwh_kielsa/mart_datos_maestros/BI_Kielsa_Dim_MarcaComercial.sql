@@ -26,8 +26,8 @@
 SELECT ISNULL([Marca_Comercial_Id],0) AS [Marca_Comercial_Id]
 	,ISNULL([Emp_Id],0) AS [Emp_Id]
 	,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_MarcaEmp]
-	,ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-	,ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+	,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+	,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM (VALUES 
                 (1, 1, 'KIELSA'),
                 (1, 2, 'HERDEZ'),

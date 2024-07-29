@@ -32,8 +32,8 @@ SELECT ISNULL(CAST(A.[SPRAS] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [SP
     , ISNULL(CAST(A.[MSEH6] COLLATE DATABASE_DEFAULT AS VARCHAR(6)),'')  AS [MSEH6]  --  -Unidad de medida externa repr.técnica (6 posiciones)-Check: -Datatype:CHAR-Len:(6,0)
     , ISNULL(CAST(A.[MSEHT] COLLATE DATABASE_DEFAULT AS VARCHAR(10)),'')  AS [MSEHT]  --  -Texto para la unidad de medida (máx. 10 posiciones)-Check: -Datatype:CHAR-Len:(10,0)
     , ISNULL(CAST(A.[MSEHL] COLLATE DATABASE_DEFAULT AS VARCHAR(30)),'')  AS [MSEHL]  --  -Texto para la unidad de medida (máx.30 posiciones)-Check: -Datatype:CHAR-Len:(30,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T006A')}} A
 WHERE A.MANDT = '300'
 

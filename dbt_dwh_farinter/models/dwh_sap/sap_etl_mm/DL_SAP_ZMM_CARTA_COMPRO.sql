@@ -43,8 +43,8 @@ SELECT
     , ISNULL(CAST(A.[AENAM] COLLATE DATABASE_DEFAULT AS VARCHAR(12)),'')  AS [AENAM]  --  -Nombre del responsable que ha modificado el objeto-Check: -Datatype:CHAR-Len:(12,0)
     , ISNULL(CAST(A.[AEDAT] COLLATE DATABASE_DEFAULT AS VARCHAR(8)),'')  AS [AEDAT]  --  -Fecha última modificación-Check: -Datatype:DATS-Len:(8,0)
     , ISNULL(CAST(A.[UTIME] COLLATE DATABASE_DEFAULT AS VARCHAR(6)),'')  AS [UTIME]  --  -Hora de modificación-Check: -Datatype:TIMS-Len:(6,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'ZMM_CARTA_COMPRO')}} A
 WHERE A.MANDT = '300'
 {% if is_incremental() %}

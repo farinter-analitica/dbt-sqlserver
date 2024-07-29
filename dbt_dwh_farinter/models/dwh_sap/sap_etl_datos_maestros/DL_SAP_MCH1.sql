@@ -65,8 +65,8 @@ SELECT ISNULL(CAST(A.[MATNR] COLLATE DATABASE_DEFAULT AS VARCHAR(18)),'')  AS [M
     , ISNULL(CAST(A.[CUOBJ_BM] COLLATE DATABASE_DEFAULT AS VARCHAR(18)),'')  AS [CUOBJ_BM]  --  -Número interno objeto: Clasificación lotes-Check: -Datatype:NUMC-Len:(18,0)
     , ISNULL(CAST(A.[DEACT_BM] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [DEACT_BM]  --  -El lote ya no está activo-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[BATCH_TYPE] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [BATCH_TYPE]  --  -Type of Batch-Check: -Datatype:CHAR-Len:(1,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'MCH1')}} A
 WHERE A.MANDT = '300'
 {% if is_incremental() %}

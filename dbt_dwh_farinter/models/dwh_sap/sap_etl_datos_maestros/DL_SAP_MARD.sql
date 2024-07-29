@@ -81,8 +81,8 @@ SELECT ISNULL(CAST(A.[MATNR] COLLATE DATABASE_DEFAULT AS VARCHAR(18)),'')  AS [M
     , ISNULL(CAST(A.[BSKRF] AS DECIMAL(16,16)),0)  AS [BSKRF]  --  -Factor de corrección de stock-Check: -Datatype:FLTP-Len:(16,16)
     , ISNULL(CAST(A.[MDRUE] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [MDRUE]  --  -El reg.MARDH p.per.ante-anterior del per.MARD ya existe-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[MDJIN] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [MDJIN]  --  -Ejercicio del indicador de inventario actual-Check: -Datatype:NUMC-Len:(4,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'MARD')}} A
 INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001W')}} W WITH (NOLOCK)
   ON W.MANDT = A.MANDT

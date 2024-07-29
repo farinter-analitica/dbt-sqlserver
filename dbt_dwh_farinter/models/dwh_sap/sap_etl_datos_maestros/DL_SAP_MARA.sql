@@ -91,8 +91,8 @@ SELECT
     , ISNULL(CAST(A.[RDMHD] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [RDMHD]  --  -Regla de redondeo p.calcular FPC-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[MTPOS_MARA] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [MTPOS_MARA]  --  -Grupo de tipos de posición general-Check:TPTM-Datatype:CHAR-Len:(4,0)
     , ISNULL(CAST(A.[SLED_BBD] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [SLED_BBD]  --  -Fecha de caducidad/Fecha de expiración-Check: -Datatype:CHAR-Len:(1,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'MARA')}} A
 WHERE A.MANDT = '300'
 {% if is_incremental() %}

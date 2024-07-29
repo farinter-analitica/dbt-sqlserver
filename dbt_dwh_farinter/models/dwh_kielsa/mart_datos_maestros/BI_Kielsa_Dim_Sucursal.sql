@@ -65,12 +65,12 @@ SELECT ISNULL([Sucursal_Id],0) AS [Sucursal_Id]
         ,ISNULL({{ dwh_farinter_hash_column(["Supervisor"]) }},'') AS [HashStr_Supervisor]
         ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_SucEmp]
         ,ISNULL({{ dwh_farinter_hash_column(unique_key_list+["Version_Id"]) }},'') AS [HashStr_SucEmpVersion]
-        ,ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-        ,ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+        ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+        ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }} S
 {% if is_incremental() %}
-  --WHERE S.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '1900-01-01')
+  --WHERE S.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '19000101')
 {% else %}
-  --WHERE S.Fecha_Actualizado >= '1900-01-01'
+  --WHERE S.Fecha_Actualizado >= '19000101'
 {% endif %}
 

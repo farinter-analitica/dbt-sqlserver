@@ -36,13 +36,13 @@ SELECT
 	, PERIV COLLATE DATABASE_DEFAULT AS [VarianteEjercicio_Id]
 	, OPVAR COLLATE DATABASE_DEFAULT AS [VariantePeriodoContable_Id]
 	, KKBER COLLATE DATABASE_DEFAULT AS [AreaCredito_Id]
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_SAP_T001')}} S
 WHERE OPVAR LIKE 'Z%'
 {% if is_incremental() %}
-  and S.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '1900-01-01')
+  and S.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '19000101')
 {% else %}
-  and S.Fecha_Actualizado >= '1900-01-01'
+  and S.Fecha_Actualizado >= '19000101'
 {% endif %}
 

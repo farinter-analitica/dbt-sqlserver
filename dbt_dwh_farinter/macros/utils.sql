@@ -29,10 +29,10 @@
         ISNULL(CAST(0 AS {{column.data_type}}),'')
     {%- elif column.data_type|lower in ["timestamp", "timestamp_ntz", "timestamp_ltz", "date", "datetime", "datetime2", "datetimeoffset"] and 
             "fecha_carga" not in column.name|lower and "fecha_actualizado" not in column.name|lower %}
-        ISNULL(CAST('1900-01-01' AS {{column.data_type}}),'1900-01-01')
+        ISNULL(CAST('19000101' AS {{column.data_type}}),'19000101')
     {%- elif column.data_type|lower in ["timestamp", "timestamp_ntz", "timestamp_ltz", "date", "datetime", "datetime2", "datetimeoffset"] and 
             ("fecha_carga" in column.name|lower or "fecha_actualizado" in column.name|lower) %}
-        ISNULL(CAST(current_timestamp AS {{column.data_type}}),'1900-01-01')
+        ISNULL(CAST(current_timestamp AS {{column.data_type}}),'19000101')
     {%- elif column.data_type|lower == "boolean"  or column.data_type|lower == "bit"  %}
         ISNULL(CAST(0 AS {{column.data_type}}),'')
     {%- else %}

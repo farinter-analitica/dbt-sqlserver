@@ -37,7 +37,7 @@ ISNULL(CAST(A.[KTOPL] AS VARCHAR(4)),'X') COLLATE DATABASE_DEFAULT AS [PlanCuent
 	, ISNULL(CAST(B.[XBILK] AS VARCHAR(1)),'') COLLATE DATABASE_DEFAULT AS [Indicador_CuentaBalance] --  -Indicador: ¿Es la cuenta una cuenta de balance?-Check: -Datatype:CHAR-Len:(1,0)
 	, ISNULL(CAST(B.[SAKAN] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Cuenta_Id_Significativo] --  -Nº de cuenta de mayor en longitud significativa-Check: -Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(B.[BILKT] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Cuenta_Id_Grupo] --  -Número de cuenta de grupo-Check:SKA1-Datatype:CHAR-Len:(10,0)
-	, ISNULL(CAST(B.[ERDAT] AS DATE),'1900-01-01') AS [Fecha_Creacion] --  -Fecha de creación del registro-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(CAST(B.[ERDAT] AS DATE),'19000101') AS [Fecha_Creacion] --  -Fecha de creación del registro-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(B.[ERNAM] AS VARCHAR(12)),'') COLLATE DATABASE_DEFAULT AS [Responsable_Creacion] --  -Nombre del responsable que ha añadido el objeto-Check: -Datatype:CHAR-Len:(12,0)
 	, ISNULL(CAST(B.[GVTYP] AS VARCHAR(2)),'') COLLATE DATABASE_DEFAULT AS [Tipo_Cuenta_Beneficio] --  -Tp.cta.beneficios-Check: -Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(B.[KTOKS] AS VARCHAR(4)),'') COLLATE DATABASE_DEFAULT AS [Grupo_Cuentas_Id] --  -Grupo de cuentas: cuentas de mayor-Check:T077S-Datatype:CHAR-Len:(4,0)
@@ -49,8 +49,8 @@ ISNULL(CAST(A.[KTOPL] AS VARCHAR(4)),'X') COLLATE DATABASE_DEFAULT AS [PlanCuent
 	, ISNULL(CAST(B.[XSPEP] AS VARCHAR(1)),'') COLLATE DATABASE_DEFAULT AS [Indicador_Planificacion_Bloqueada] --  -Indicador: ¿cuenta bloqueada para planificación?-Check: -Datatype:CHAR-Len:(1,0)
 	, ISNULL(CAST(B.[FUNC_AREA] AS VARCHAR(16)),'') COLLATE DATABASE_DEFAULT AS [CustodioActivo_Id] --  -Custodio del Activo-Check:TFKB-Datatype:CHAR-Len:(16,0)
 
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 	
 FROM {{ source('DL_FARINTER', 'DL_SAP_SKAT') }} A
 INNER JOIN {{ source('DL_FARINTER', 'DL_SAP_SKA1') }} B
@@ -61,7 +61,7 @@ WHERE EXISTS
 	(SELECT TOP 1 1 FROM {{ ref('BI_SAP_Dim_Sociedad') }}  B 
 	WHERE A.KTOPL = B.PlanCuentas_Id)
 {% if is_incremental() %}
-  --and A.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '1900-01-01')
+  --and A.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '19000101')
 {% endif %}
 )
 select *

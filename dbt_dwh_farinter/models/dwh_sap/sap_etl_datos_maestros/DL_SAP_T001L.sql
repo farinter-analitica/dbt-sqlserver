@@ -45,8 +45,8 @@ SELECT ISNULL(CAST(A.[WERKS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [WE
     , ISNULL(CAST(A.[OIH_LICNO] COLLATE DATABASE_DEFAULT AS VARCHAR(15)),'')  AS [OIH_LICNO]  --  -Número de permiso para stock exento de impuestos-Check: -Datatype:CHAR-Len:(15,0)
     , ISNULL(CAST(A.[OIG_ITRFL] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [OIG_ITRFL]  --  -TD: Indicador en tránsito-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[OIB_TNKASSIGN] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [OIB_TNKASSIGN]  --  -Gestión de silos: indicador de asignación de tanques-Check: -Datatype:CHAR-Len:(1,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001L')}} A
 INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001W')}} W WITH (NOLOCK)
   ON W.MANDT = A.MANDT

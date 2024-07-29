@@ -68,8 +68,8 @@ SELECT ISNULL(CAST(A.[MATNR] COLLATE DATABASE_DEFAULT AS VARCHAR(18)),'')  AS [M
     , ISNULL(CAST(A.[CHDLL] COLLATE DATABASE_DEFAULT AS VARCHAR(8)),'')  AS [CHDLL]  --  -Fecha último recuento inventario stock libre utilización-Check: -Datatype:DATS-Len:(8,0)
     , ISNULL(CAST(A.[CHJIN] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [CHJIN]  --  -Ejercicio del indicador de inventario actual-Check: -Datatype:NUMC-Len:(4,0)
     , ISNULL(CAST(A.[CHRUE] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [CHRUE]  --  -El reg.MCHBH p.per.ante-anterior del per.MCHB ya existe-Check: -Datatype:CHAR-Len:(1,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'MCHB')}} A
 INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001W')}} W WITH (NOLOCK)
   ON W.MANDT = A.MANDT

@@ -39,10 +39,10 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[GJAHR] AS INT),0)  AS [Ejercicio_Id] -- X-Ejercicio-Check:T001-Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[BUZEI] AS VARCHAR(3)),'') COLLATE DATABASE_DEFAULT AS [Posicion_Id] -- X-Posición-Check:T004-Datatype:CHAR-Len:(3,0)
 	, ISNULL(CAST(A.[AnioMes_Id] as INT ),0)  AS [Tipo_CuentaBeneficio] --  -Tp.cta.beneficios-Check: -Datatype:CHAR-Len:(2,0)
-	, ISNULL(CAST(A.[CPUDT] AS DATE),'1900-01-01') AS [Fecha_Creado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
-	, ISNULL(TRY_CAST(A.[AEDAT] AS DATE),'1900-01-01') AS [Fecha_Modificado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
-	, ISNULL(TRY_CAST(A.[AUGDT] AS DATE),'1900-01-01') AS [Fecha_Compensado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
-	, ISNULL(TRY_CAST(A.[AUGCP] AS DATE),'1900-01-01') AS [FechaRegistro_Compensado]  --  -Día de registro de la compensación-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(CAST(A.[CPUDT] AS DATE),'19000101') AS [Fecha_Creado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(TRY_CAST(A.[AEDAT] AS DATE),'19000101') AS [Fecha_Modificado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(TRY_CAST(A.[AUGDT] AS DATE),'19000101') AS [Fecha_Compensado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(TRY_CAST(A.[AUGCP] AS DATE),'19000101') AS [FechaRegistro_Compensado]  --  -Día de registro de la compensación-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(A.[AUGBL] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Documento_Compensacion_Id] --  -Número del documento de compensación-Check: -Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(A.[BSCHL] AS VARCHAR(2)) ,'') COLLATE DATABASE_DEFAULT AS [Clave_Contabilizacion] --  -Clave de contabilización-Check:TBSL-Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[KOART] AS VARCHAR(1)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Cuenta] --  -Clase de cuenta-Check: -Datatype:CHAR-Len:(1,0)
@@ -69,7 +69,7 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[VORGN] AS VARCHAR(4)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Operacion_GL] --  -Clase de operación para General Ledger-Check: -Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[FDLEV] AS VARCHAR(2)) ,'') COLLATE DATABASE_DEFAULT AS [Nivel_Gestion_Tesoreria] --  -Nivel gest.tesorería-Check:T036-Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[FDGRP] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Grupo_Tesoreria_Id] --  -Grupo de tesorería-Check:T035-Datatype:CHAR-Len:(10,0)
-	, ISNULL(TRY_CAST(A.[FDTAG] AS DATE),'1900-01-01') AS [Fecha_Tesoreria] --  -Fecha de tesorería-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(TRY_CAST(A.[FDTAG] AS DATE),'19000101') AS [Fecha_Tesoreria] --  -Fecha de tesorería-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(A.[KOSTL] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Centro_Costo_Id] --  -Centro de coste-Check:*-Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(A.[AUFNR] AS VARCHAR(12)),'')  COLLATE DATABASE_DEFAULT AS [Numero_Orden_Id] --  -Número de orden-Check:AUFK-Datatype:CHAR-Len:(12,0)
 	, ISNULL(CAST(A.[VBELN] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Factura_Id] --  -Factura-Check:VBUK-Datatype:CHAR-Len:(10,0)
@@ -86,7 +86,7 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[XBILK] AS VARCHAR(1)) ,'') COLLATE DATABASE_DEFAULT AS [Indicador_Cuenta_Balance] --  -Indicador: ¿Es la cuenta una cuenta de balance?-Check: -Datatype:CHAR-Len:(1,0)
 	, ISNULL(CAST(A.[GVTYP] AS VARCHAR(2)) ,'') COLLATE DATABASE_DEFAULT AS [Tipo_Cuenta_Beneficios] --  -Tp.cta.beneficios-Check: -Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[HZUON] AS VARCHAR(18)),'')  COLLATE DATABASE_DEFAULT AS [Numero_Asignacion_Cuentas_Especiales] --  -Número de asignación para cuentas de mayor especiales-Check: -Datatype:CHAR-Len:(18,0)
-	, ISNULL(TRY_CAST(A.[ZFBDT] AS DATE),'1900-01-01') AS [Fecha_Base_Calculo_Vencimiento] --  -Fecha base para cálculo del vencimiento-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(TRY_CAST(A.[ZFBDT] AS DATE),'19000101') AS [Fecha_Base_Calculo_Vencimiento] --  -Fecha base para cálculo del vencimiento-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(A.[ZTERM] AS VARCHAR(4)),'')  COLLATE DATABASE_DEFAULT AS [Condiciones_Pago_Id] --  -Clave de condiciones de pago-Check: -Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[SKNTO] AS DECIMAL(13,2)),0) AS [Importe_Descuento_Moneda_Local] --  -Importe del descuento en moneda local-Check: -Datatype:CURR-Len:(13,2)
 	, ISNULL(CAST(A.[NEBTR] AS DECIMAL(13,2)),0) AS [Importe_Neto_Pago] --  -Importe neto del pago-Check: -Datatype:CURR-Len:(13,2)
@@ -100,8 +100,8 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[AGZEI] AS VARCHAR(5)),'') AS [Posicion_Compensacion] --  -Posición de compensación-Check: -Datatype:DEC-Len:(5,0)
 	, ISNULL(CAST(A.[AUGGJ] AS INT),0) AS [Ejercicio_Doc_Compensacion] --  -Ejercicio de doc.compensación-Check: -Datatype:NUMC-Len:(4,0)
 	, ISNULL(CAST(A.[KSTAR] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Clase_Costo_Id] --  -Clase de coste-Check:*-Datatype:CHAR-Len:(10,0)
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 	
 FROM {{ source('DL_FARINTER', 'DL_SAP_BSEG') }} A --Documentos contables por posición
 WHERE

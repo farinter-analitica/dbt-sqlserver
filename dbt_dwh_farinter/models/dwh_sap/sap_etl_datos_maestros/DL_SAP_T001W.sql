@@ -88,8 +88,8 @@ SELECT ISNULL(CAST(A.[WERKS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [WE
     , ISNULL(CAST(A.[STORETYPE] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [STORETYPE]  --  -Tp.tienda p.diferenc.tienda, gran almacén, tienda convenien.-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[DEP_STORE] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [DEP_STORE]  --  -Grandes almacenes sup.-Check:*-Datatype:CHAR-Len:(4,0)
     , ISNULL(CAST(S.[BUKRS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [BUKRS]  --  -Código de empresa-Check: -Datatype:CHAR-Len:(4,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001W')}} A
 INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001K')}} K WITH (NOLOCK)
   ON K.MANDT = A.MANDT

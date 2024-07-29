@@ -36,8 +36,8 @@ SELECT --TOP 10
 	 ISNULL(CAST(A.[BUKRS] AS VARCHAR(4)),'') COLLATE DATABASE_DEFAULT AS [Sociedad_Id] -- X-Sociedad-Check:T001-Datatype:CHAR-Len:(4,0)
     , ISNULL(CAST(A.[SAKNR] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Cuenta_Id] -- X-Número de la cuenta de mayor-Check:SKA1-Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(A.[BEGRU] AS VARCHAR(8)),'') COLLATE DATABASE_DEFAULT AS [Grupo_Autorizacion] --  -Grupo autorizaciones-Check:*-Datatype:CHAR-Len:(4,0)
-	--, ISNULL(TRY_CAST(A.[DATLZ] AS DATE),'1900-01-01')  AS [Fecha_Ultimo_Calculo_Interes] --  -Fecha CPU del último cálculo de intereses-Check: -Datatype:DATS-Len:(8,0)
-	, ISNULL(CAST(A.[ERDAT] AS DATE),'1900-01-01') AS [Fecha_Creacion] --  -Fecha de creación del registro-Check: -Datatype:DATS-Len:(8,0)
+	--, ISNULL(TRY_CAST(A.[DATLZ] AS DATE),'19000101')  AS [Fecha_Ultimo_Calculo_Interes] --  -Fecha CPU del último cálculo de intereses-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(CAST(A.[ERDAT] AS DATE),'19000101') AS [Fecha_Creacion] --  -Fecha de creación del registro-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(A.[ERNAM] AS VARCHAR(12)),'') COLLATE DATABASE_DEFAULT AS [Responsable_Creacion] --  -Nombre del responsable que haánadido el objeto-Check: -Datatype:CHAR-Len:(12,0)
 	, ISNULL(CAST(A.[FDLEV] AS VARCHAR(2)),'') COLLATE DATABASE_DEFAULT AS [Nivel_Tesoreria_Id] --  -Nivel gest.tesorería-Check:T036-Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[FIPLS] AS VARCHAR(3)),'') COLLATE DATABASE_DEFAULT AS [Posicion_PlanTesoreria_Id] --  -Posición del plan de tesorería-Check: -Datatype:NUMC-Len:(3,0)
@@ -59,8 +59,8 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[ALTKT] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Cuenta_Alternativa_Id] --  -Nº de cuenta alternativo en la sociedad-Check:*-Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(A.[INFKY] AS VARCHAR(8)),'') COLLATE DATABASE_DEFAULT AS [Clave_Inflacion_Id] --  -Clave de inflación-Check:J_1AINFSKS-Datatype:CHAR-Len:(8,0)
 
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-	, ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 	
 FROM {{ source('DL_FARINTER', 'DL_SAP_SKB1') }} A --Configuración: Cuentas contables por Sociedad
 

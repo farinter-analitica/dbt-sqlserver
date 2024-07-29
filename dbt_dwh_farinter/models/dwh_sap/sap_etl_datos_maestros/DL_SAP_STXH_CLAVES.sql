@@ -137,8 +137,8 @@ SELECT
 	, PVT.[clave_0005]
 	, IC.campos_clave
 	, IC.TDOBJECT
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(TRY_CONVERT(DATETIME, TDLDATE, 112),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(TRY_CONVERT(DATETIME, TDLDATE, 112),'19000101') AS [Fecha_Actualizado]
     , ISNULL({{ dwh_farinter_hash_column( columns = ["clave_0002","clave_0003"], table_alias="PVT") }},'') AS [HashStr_0002_0003]   
 FROM	info_claves IC
 INNER JOIN pivot_table PVT

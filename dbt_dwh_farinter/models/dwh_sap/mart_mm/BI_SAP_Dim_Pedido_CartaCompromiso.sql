@@ -40,13 +40,13 @@ SELECT
     , [ZCARTA] AS [Indicador_CartaCompromiso]
     , [ZAPRO_INT] AS [Indicador_Aprobacion_Interna]
     , [USNAM] AS [Usuario_Id]
-    , ISNULL(TRY_CONVERT(DATE,[ERDAT], 112), '1900-01-01') AS [Fecha_Creacion]
+    , ISNULL(TRY_CONVERT(DATE,[ERDAT], 112), '19000101') AS [Fecha_Creacion]
     , [ERZET] AS [Hora_Creacion]
     , [AENAM] AS [Usuario_Modificacion]
-    , ISNULL(TRY_CONVERT(DATE,[AEDAT], 112), '1900-01-01') AS [Fecha_Modificacion]
+    , ISNULL(TRY_CONVERT(DATE,[AEDAT], 112), '19000101') AS [Fecha_Modificacion]
     , [UTIME] AS [Hora_Modificacion]   
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ ref('DL_SAP_ZMM_CARTA_COMPRO') }} A
 {% if is_incremental() %}
 WHERE (A.Fecha_Actualizado >= '{{last_date}}')

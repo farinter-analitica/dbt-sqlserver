@@ -46,8 +46,8 @@ SELECT ISNULL(CAST(A.[BWKEY] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [BW
     , ISNULL(CAST(A.[MLCCS] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [MLCCS]  --  -Indicador estratificación de costes real activa-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[XEFRE] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [XEFRE]  --  -Cost.indirect.adquis.tmb.en dif.precios en cuenta compr.act.-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[EFREJ] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [EFREJ]  --  -Inicio validez p.costes indirect.d.adquisic.sobre dif.d.prec-Check: -Datatype:NUMC-Len:(4,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001K')}} A
 INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001')}} S WITH (NOLOCK)
   ON S.MANDT = A.MANDT

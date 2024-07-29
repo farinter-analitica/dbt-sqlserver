@@ -42,6 +42,6 @@ SELECT --TOP (1000)
         WHEN Bit_Recomendacion = 1 THEN 'Recomendacion'
         ELSE 'Otros' END AS [Grupo_Meta]
     , ISNULL({{ dwh_farinter_hash_column( columns = unique_key_list, table_alias="A") }},'') AS [HashStr_AleEmp]   
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM [DL_FARINTER].[dbo].[DL_Kielsa_PV_Alerta] A

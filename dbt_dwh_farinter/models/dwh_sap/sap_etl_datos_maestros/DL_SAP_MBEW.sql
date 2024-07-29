@@ -113,8 +113,8 @@ SELECT ISNULL(CAST(A.[MATNR] COLLATE DATABASE_DEFAULT AS VARCHAR(18)),'')  AS [M
     , ISNULL(CAST(A.[MBRUE] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [MBRUE]  --  -El reg.MBEWH p.per.ante-anterior del período MBEW ya existe-Check: -Datatype:CHAR-Len:(1,0)
     , ISNULL(CAST(A.[OKLAS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [OKLAS]  --  -Categoría valoración para stock especial en proveedor-Check:T025-Datatype:CHAR-Len:(4,0)
     , ISNULL(CAST(A.[OIPPINV] COLLATE DATABASE_DEFAULT AS VARCHAR(1)),'')  AS [OIPPINV]  --  -Ind.inventario pagado anticip.p.segmento.cl.valoración mat.-Check: -Datatype:CHAR-Len:(1,0)
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'MBEW')}} A
 INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001K')}} K WITH (NOLOCK)
   ON K.MANDT = A.MANDT

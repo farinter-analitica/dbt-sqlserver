@@ -116,8 +116,8 @@ SELECT
 		,CASE WHEN ARTCALC.Bit_Cronico = 1 THEN 'CRONICO' ELSE NULL END
 		, CASE WHEN ARTCALC.Bit_Recomendacion = 1 THEN 'RECOMENDADO' ELSE NULL END)
 	 AS Etiquetas
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'1900-01-01') AS [Fecha_Actualizado]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }} AS A
 LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Categoria_Articulo')}} AS Cat
 	ON A.Emp_Id = Cat.Emp_Id AND A.Categoria_Id = Cat.Categoria_Id
