@@ -3,6 +3,7 @@ from dlt.common import pendulum
 from dlt.common.pipeline import LoadInfo
 from dlt.extract.resource import DltResource
 import dlt.extract
+from dlt.common.normalizers.naming.snake_case import NamingConvention
 from dlt.pipeline.pipeline import Pipeline
 from dagster_shared_gf.dlt_shared.mongodb import mongodb, mongodb_collection
 from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
@@ -38,12 +39,13 @@ from dataclasses import asdict
 from itertools import chain
 
 connection_str_source:str = EnvVar("DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL").get_value()
+snake_case_normalizer = NamingConvention()
 
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
 class DltSourceConfig:
     primary_key: str | tuple
-    pipeline_name: str
+    pipeline_name_prefix: str
     cursor_path: str | None = None
     initial_value: pendulum.DateTime = Field(default_factory=lambda: get_for_current_env( {"dev": pendulum.now().subtract(years=2), "prd": pendulum.now().subtract(years=5) } ))
     dep: str | None = None
@@ -56,7 +58,7 @@ class DltSourceConfig:
 DltSourceConfigResourceList = Dict[DltSourceConfig, List[str]]
 
 read_source_config_updated_at: DltSourceConfigResourceList = {
-    DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name="mongo_crm_hn_updated_at"): [
+    DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_updated_at"): [
         "crm_email",
         #"crm_portfolio", # no tiene nada
         "crm_sms",
@@ -65,38 +67,38 @@ read_source_config_updated_at: DltSourceConfigResourceList = {
         "crm_call", 
         "constantcontactcampaigns",
     ],
-    DltSourceConfig(cursor_path="updatedAt", primary_key="_id", pipeline_name="mongo_crm_hn_updatedat"): [
+    DltSourceConfig(cursor_path="updatedAt", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_updatedat"): [
         "crm_list",
     ],
 }
 
 read_source_config_multi_column: DltSourceConfigResourceList = {
-    DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_updated_at", initial_value=pendulum.now().subtract(months=1)): [
+    DltSourceConfig(cursor_path="updated_at", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_updated_at", initial_value=pendulum.now().subtract(months=1)): [
         "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="created_at", primary_key="_id", pipeline_name="mongo_crm_hn_multi_created_at", dep="mongo_crm_hn_multi_updated_at"): [
+    DltSourceConfig(cursor_path="created_at", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_created_at", dep="mongo_crm_hn_multi_updated_at"): [
         "crm_person",  ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_message", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
         "crm_campaign", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="EndDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_enddate", initial_value=pendulum.now().subtract(months=1)): [
+    DltSourceConfig(cursor_path="EndDate", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_enddate", initial_value=pendulum.now().subtract(months=1)): [
         "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="createdDate", primary_key="_id", pipeline_name="mongo_crm_hn_multi_createddate", dep="mongo_crm_hn_multi_enddate"): [
+    DltSourceConfig(cursor_path="createdDate", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_createddate", dep="mongo_crm_hn_multi_enddate"): [
         "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="UpdatedAt", primary_key="_id", pipeline_name="mongo_crm_hn_multi_updatedat", initial_value=pendulum.now().subtract(months=1)): [
+    DltSourceConfig(cursor_path="UpdatedAt", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_updatedat", initial_value=pendulum.now().subtract(months=1)): [
         "crmCall", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
-    DltSourceConfig(cursor_path="createdAt", primary_key="_id", pipeline_name="mongo_crm_hn_multi_createdat", dep="mongo_crm_hn_multi_updatedat"): [
+    DltSourceConfig(cursor_path="createdAt", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_createdat", dep="mongo_crm_hn_multi_updatedat"): [
         "crmCall", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
 }
 
 read_source_config_not_incremental: DltSourceConfigResourceList = {
-    DltSourceConfig(primary_key="_id", pipeline_name="mongo_crm_hn_not_incremental"): [
+    DltSourceConfig(primary_key="_id", pipeline_name_prefix="mongo_crm_hn_not_incremental"): [
         "campaignActivity",
     ],
 }
@@ -233,7 +235,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         """
         Para evitar duplicados en pipelines multi columnas de updated_at y created_at
         """
-        return AssetKey([f"dlt_{self.config.pipeline_name}", f"{resource.name}"])          
+        return AssetKey([f"dlt_{self.config.pipeline_name_prefix}", f"{resource.name}"])          
     def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
         """
         Origen
@@ -245,36 +247,48 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
     
     def get_config(self) -> DltSourceConfig:
         return self.config
+    
+    def get_normalized_table_identifier(self,resource: DltResource) -> str:
+        return snake_case_normalizer.normalize_table_identifier(resource.name)
+    
+    def get_normalized_column_identifier(self, column_identifier: str) -> str:
+        return snake_case_normalizer.normalize_identifier(column_identifier)
+    
+    def get_pipeline_name(self, resource: DltResource) -> str:
+        return f"dlt_{self.config.pipeline_name_prefix}_{self.get_normalized_table_identifier(resource)}"
 
 def create_dlt_asset(dlt_resource: DltResource, 
                      group_name,
                     dlt_t: DagsterDltTranslatorMongodbCRMHN,
                     tags: Mapping[str, str],
                     dataset_name: str,
-                    dep_pipeline: str | None = None) -> dlt_assets:
+                    dep_asset_pipeline: str | None = None) -> dlt_assets:
 
-    if dep_pipeline is not None:
-        dep_pipeline = [AssetKey([f"dlt_{dep_pipeline}", f"{dlt_resource.name}"])]
+    if dep_asset_pipeline is not None:
+        dep_asset_pipeline = [AssetKey([f"dlt_{dep_asset_pipeline}", f"{dlt_resource.name}"])]
     else:
-        dep_pipeline = []
+        dep_asset_pipeline = []
+
+    target_table_identifier = dlt_t.get_normalized_table_identifier(dlt_resource)
+    target_pipeline_name = dlt_t.get_pipeline_name(dlt_resource)
 
     @asset(
         key=dlt_t.get_asset_key(dlt_resource),
         group_name=group_name,
         description=f"cursor {dlt_t.get_config().cursor_path} resource {dlt_t.get_asset_key(dlt_resource)}",
         metadata=dlt_t.get_metadata(dlt_resource),
-        deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_pipeline,
+        deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_asset_pipeline,
         compute_kind="dlt",
         tags=tags,)
     def created_dlt_assets(context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline):
         context.log.info({
-                            "Running dlt pipeline" : dlt_t.get_config().pipeline_name,
+                            "Running dlt pipeline" : target_pipeline_name,
                             "resource":  dlt_t.get_asset_key(dlt_resource) ,
                             "dataset": dataset_name,
                             "write_disposition": dlt_pipeline_dest_mssql.write_disposition
                             }
                          )
-        new_pipeline = dlt_pipeline_dest_mssql.get_pipeline(pipeline_name=dlt_t.get_config().pipeline_name,
+        new_pipeline = dlt_pipeline_dest_mssql.get_pipeline(pipeline_name=target_pipeline_name,
                                                             dataset_name=dataset_name)
         #is_first_run = new_pipeline.first_run
         load_info: LoadInfo = dlt_pipeline_dest_mssql.run_pipeline(dlt_resource, new_pipeline)
@@ -343,7 +357,7 @@ def dlt_mongo_db_crm_hn_asset_factory(mongo_db_source_configs: List[DltSourceCon
                         ,dlt_t=DagsterDltTranslatorMongodbCRMHN(config=config)
                         ,dataset_name="mongo_db_crm_hn"
                         ,tags={"dagster/storage_kind": "sqlserver"}
-                        ,dep_pipeline=config.dep
+                        ,dep_asset_pipeline=config.dep
                         )
                 dlt_assets_list.append(new_assets)
 
