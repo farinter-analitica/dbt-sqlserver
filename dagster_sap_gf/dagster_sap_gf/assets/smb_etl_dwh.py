@@ -232,7 +232,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                             f"Archivo {file_descriptor.path} error {e}.\n")
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
-                raise FileException("Error en el archivo: " + file_descriptor.name).add_note(str(e))
+                raise FileException(f"Error {str(e)} en el archivo: " + file_descriptor.name)
     except FileException as fe:
         context.log.error(fe)
         raise fe
