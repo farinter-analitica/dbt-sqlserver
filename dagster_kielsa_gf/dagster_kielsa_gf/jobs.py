@@ -29,13 +29,13 @@ kielsa_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_j
 dlt_dwh_kielsa_assets: AssetSelection = AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh")
 dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(name="dlt_dwh_kielsa_job"
                                                             , selection=dlt_dwh_kielsa_assets
-                                                            ,  config=workflows_run_config_secuential
+                                                            ,  config={"execution": {"config": {"multiprocess": {"max_concurrent": 2}}}}
                                                                 )
 
 dlt_dwh_kielsa_all_downstream_assets: AssetSelection = AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh").downstream()
 dlt_dwh_kielsa_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="dlt_dwh_kielsa_all_downstream_job"
                                                             , selection=dlt_dwh_kielsa_all_downstream_assets
-                                                            #,  config=workflows_run_config_secuential
+                                                            ,  config={"execution": {"config": {"multiprocess": {"max_concurrent": 2}}}}
                                                                 )
 
 dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = dbt_dwh_kielsa_marts_assets - kielsa_etl_dwh_all_downstream_assets - dlt_dwh_kielsa_all_downstream_assets
