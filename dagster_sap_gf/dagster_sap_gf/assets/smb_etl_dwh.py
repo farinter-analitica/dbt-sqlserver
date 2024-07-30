@@ -105,9 +105,9 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
     table = "DL_Finanzas_Presupuesto_Temp"
     database = "DL_FARINTER"
     schema = "excel"
-    class NullsException(Exception):
+    class NullsException(BaseException):
         pass
-    class FileException(Exception):
+    class FileException(BaseException):
         pass
     directory_path = PurePath("data_repo/grupo_farinter/presupuesto_ventas_finanzas")
     smbres: SMBResource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
