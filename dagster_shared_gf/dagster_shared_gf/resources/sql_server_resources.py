@@ -111,11 +111,12 @@ class SQLServerBaseResource:
             yield conn
         finally:
             try:
-                if not conn.autocommit:
-                    if engine == "pyodbc":
+                if engine == "pyodbc":
+                    if not conn.autocommit:
                         conn.commit()
                     
-                    if engine == "sqlalchemy" and conn.in_transaction():
+                if engine == "sqlalchemy" 
+                    if conn.in_transaction():
                         conn.commit()
 
             except Exception as e:

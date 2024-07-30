@@ -107,6 +107,8 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
     schema = "excel"
     class NullsException(Exception):
         pass
+    class FileException(Exception):
+        pass
     directory_path = PurePath("data_repo/grupo_farinter/presupuesto_ventas_finanzas")
     smbres: SMBResource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
     schema_config = ExcelSchemaConfig(
@@ -152,20 +154,25 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 continue
             try:
                 df: pl.DataFrame
+                dfd: Dict[str, pl.DataFrame]
                 with open_file(file_path=file_descriptor.path, smb_resource=smbres) as file:
                     file_content = BytesIO(file.read())
-                    try:
-                        df: pl.DataFrame =pl.read_excel(file_content
-                                        , sheet_name='carga'
-                                        , infer_schema_length=0
-                                        , columns=list(schema_config.expected_columns.values())
-                                    )
-                    except ValueError as e: 
-                        df: pl.DataFrame =pl.read_excel(file_content
-                                        , sheet_name='cargar'
-                                        , infer_schema_length=0
-                                        , columns=list(schema_config.expected_columns.values())
-                                    )
+                    dfd = pl.read_excel(file_content
+                                    , sheet_id=0
+                                    #, sheet_name='carga'
+                                    , infer_schema_length=0
+                                    , columns=list(schema_config.expected_columns.values())
+                                )
+                sheet_name_pattern = re.compile(r'\bcarga\b', re.IGNORECASE)
+                
+                # Filtering sheets whose names match the pattern
+                dfd_filtered = {k: v for k, v in dfd.items() if sheet_name_pattern.search(k)}
+
+                # Extracting the first matching sheet
+                if dfd_filtered:
+                    df = dfd_filtered.popitem()[1]
+                else:
+                    raise ValueError("No se encontro una hoja con el nombre 'carga'.")
 
                 df=df.select(**schema_config.expected_columns)
                 df=df.cast(schema_config.polars_schema)
@@ -222,10 +229,13 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                     file.write(log_message)
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
+                            f"Archivo {file_descriptor.path} error {e}.\n")
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
-                raise e
+            raise FileException("Error en el archivo: " + file_descriptor.name).add_note(str(e))
+    except FileException as fe:
+        context.log.error(fe)
+        raise fe
     except Exception as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
         log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e)}\n")
