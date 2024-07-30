@@ -115,7 +115,7 @@ class SQLServerBaseResource:
                     if not conn.autocommit:
                         conn.commit()
                     
-                if engine == "sqlalchemy" 
+                if engine == "sqlalchemy":
                     if conn.in_transaction():
                         conn.commit()
 
