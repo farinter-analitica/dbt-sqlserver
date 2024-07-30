@@ -137,6 +137,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
     v_metadata = {}
     try:
         rows_inserted = 0
+        nulls_count = 0
         # recopilar division de la base de datos
         dfdc: pl.DataFrame
         with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
@@ -218,8 +219,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 raise e
     except Exception as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
-        log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, " +
-                    f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
+        log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e)}\n")
         with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
             file.write(log_message)
         raise e    
