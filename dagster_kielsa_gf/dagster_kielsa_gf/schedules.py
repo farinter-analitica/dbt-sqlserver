@@ -62,7 +62,7 @@ ldcom_etl_dwh_job_schedule = ScheduleDefinition(
 )
 
 dlt_etl_dwh_job_schedule = ScheduleDefinition(
-    cron_schedule = get_for_current_env({"dev":"0 3 * * *","prd":"0 2 * * *"}),  
+    cron_schedule = get_for_current_env({"dev":"0 4 * * *","prd":"30 1 * * *"}),  
     execution_timezone=default_timezone,
     job=dlt_dwh_kielsa_all_downstream_job,
     default_status=running_default_schedule_status, 
