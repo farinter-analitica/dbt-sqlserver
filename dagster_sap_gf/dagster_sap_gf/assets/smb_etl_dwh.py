@@ -164,7 +164,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                                     , columns=list(schema_config.expected_columns.values())
                                 )
                 sheet_name_pattern = re.compile(r'\bcarga\b', re.IGNORECASE)
-                
+
                 # Filtering sheets whose names match the pattern
                 dfd_filtered = {k: v for k, v in dfd.items() if sheet_name_pattern.search(k)}
 
@@ -221,8 +221,8 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
 
                 v_metadata.update({file_descriptor.name: {"Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
 
-            except NullsException as e:
-                context.log.error(e)
+            except NullsException as ne:
+                context.log.error(ne)
                 log_message = (f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
@@ -232,7 +232,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                             f"Archivo {file_descriptor.path} error {e}.\n")
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
-            raise FileException("Error en el archivo: " + file_descriptor.name).add_note(str(e))
+                raise FileException("Error en el archivo: " + file_descriptor.name).add_note(str(e))
     except FileException as fe:
         context.log.error(fe)
         raise fe
