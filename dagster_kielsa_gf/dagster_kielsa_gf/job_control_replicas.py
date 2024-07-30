@@ -42,7 +42,7 @@ def obtener_max_datetime_val_replicas_sql_server(
     try:
         with sql_server_origen.get_connection() as conn_a:
             results_origen = sql_server_origen.query(
-                query=f"SELECT MAX({column_origen}) FROM {relation_origen} WITH (NOLOCK)",
+                query=f"SELECT MAX({column_origen}) FROM {relation_origen} --WITH (NOLOCK)",
                 connection=conn_a,
             )
             if results_origen and results_origen[0][0]:
@@ -57,7 +57,7 @@ def obtener_max_datetime_val_replicas_sql_server(
     try:
         with sql_server_replica.get_connection() as conn_b:
             results_replica = sql_server_replica.query(
-                query=f"SELECT MAX({column_replica}) FROM {relation_replica} WITH (NOLOCK)",
+                query=f"SELECT MAX({column_replica}) FROM {relation_replica} --WITH (NOLOCK)",
                 connection=conn_b,
             )
             if results_replica and results_replica[0][0]:
