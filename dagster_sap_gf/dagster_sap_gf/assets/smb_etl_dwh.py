@@ -154,10 +154,19 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 df: pl.DataFrame
                 with open_file(file_path=file_descriptor.path, smb_resource=smbres) as file:
                     file_content = BytesIO(file.read())
-                    df: pl.DataFrame =pl.read_excel(file_content,sheet_name='carga'
-                                    , infer_schema_length=0
-                                    , columns=list(schema_config.expected_columns.values())
-                                )           
+                    try:
+                        df: pl.DataFrame =pl.read_excel(file_content
+                                        , sheet_name='carga'
+                                        , infer_schema_length=0
+                                        , columns=list(schema_config.expected_columns.values())
+                                    )
+                    except ValueError as e: 
+                        df: pl.DataFrame =pl.read_excel(file_content
+                                        , sheet_name='cargar'
+                                        , infer_schema_length=0
+                                        , columns=list(schema_config.expected_columns.values())
+                                    )
+
                 df=df.select(**schema_config.expected_columns)
                 df=df.cast(schema_config.polars_schema)
                 # Reemplazar farma y cualquier otro nombre en division_id por su id y limpieza de datos:
