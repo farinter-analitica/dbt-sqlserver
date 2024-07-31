@@ -114,7 +114,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
             "Zona_Id": "Cod Territorio",
             "Division_Id": "Division",
             "Articulo_Id": "Cod Material",
-            "Cliente_Id": "Codigo Cliente",
+            "Cliente_Id": "Cod Cliente",
             "Casa_Id": "Cod Grupo Articulos",
             "Vendedor_Id": "Cod Vendedor",
             "Fecha_Id": "Mes",
