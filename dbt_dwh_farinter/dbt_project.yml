@@ -75,8 +75,8 @@ models:
         +meta:
             dagster:
                 group: 'dbt_dwh_kielsa_mart_kpp' 
-      kielsa_etl_datos_maestros:
-        +group: 'kielsa_etl_dwh'
+      ldcom_etl_datos_maestros:
+        +group: 'ldcom_etl_dwh'
         +database: 'DL_FARINTER'
 
 snapshots:
