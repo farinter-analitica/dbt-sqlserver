@@ -163,14 +163,14 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                                     , infer_schema_length=0
                                     , columns=list(schema_config.expected_columns.values())
                                 )
-                sheet_name_pattern = re.compile(r'\bcarga', re.IGNORECASE)
+                sheet_name_pattern = re.compile(r'\bcarga.*', re.IGNORECASE)
 
                 # Filtering sheets whose names match the pattern
-                dfd_filtered = {k: v for k, v in dfd.items() if sheet_name_pattern.search(k)}
-
+                dfd_filtered = (v for k, v in dfd.items() if sheet_name_pattern.search(k))
+               
                 # Extracting the first matching sheet
                 if dfd_filtered:
-                    df = dfd_filtered.popitem()[1]
+                    df = dfd_filtered.popitem()[0]
                 else:
                     raise ValueError("No se encontro una hoja con el nombre 'carga'.")
 
