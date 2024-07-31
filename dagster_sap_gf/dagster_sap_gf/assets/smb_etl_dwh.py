@@ -161,19 +161,19 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                                     , sheet_id=0
                                     #, sheet_name='carga'
                                     , infer_schema_length=0
-                                    , columns=list(schema_config.expected_columns.values())
+                                    #, columns=list(schema_config.expected_columns.values())
+                                    , engine="calamine"
                                 )
-                sheet_name_pattern = re.compile(r'\bcarga.*', re.IGNORECASE)
+                    sheet_name_pattern = re.compile(r'\bcarga.*', re.IGNORECASE)
 
-                # Filtering sheets whose names match the pattern
-                dfd_filtered = (v for k, v in dfd.items() if sheet_name_pattern.search(k))
-               
-                # Extracting the first matching sheet
-                if dfd_filtered:
-                    df = dfd_filtered.popitem()[0]
-                else:
-                    raise ValueError("No se encontro una hoja con el nombre 'carga'.")
-
+                    # Filtering sheets whose names match the pattern
+                    for sheet_name in dfd.keys():
+                        if sheet_name_pattern.match(sheet_name):
+                            df = dfd[sheet_name]
+                            break
+                    else:
+                        raise FileException(f"No se encontro una hoja con el patron {sheet_name_pattern.pattern}")
+                
                 df=df.select(**schema_config.expected_columns)
                 df=df.cast(schema_config.polars_schema)
                 # Reemplazar farma y cualquier otro nombre en division_id por su id y limpieza de datos:
