@@ -36,3 +36,6 @@ groups:
   - name: dbt_dwh_sap_mart_ventas
     owner:
       email: brian.padilla@farinter.com
+  - name: kielsa_etl_dwh
+    owner:
+      email: brian.padilla@farinter.com
