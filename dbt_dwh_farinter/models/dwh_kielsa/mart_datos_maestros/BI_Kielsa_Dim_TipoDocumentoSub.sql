@@ -27,7 +27,7 @@ SELECT
 	, ISNULL(SD1.SubDocumento_Id,0) SubDocumento_Id
 	, ISNULL(SD1.SubDocumento_Nombre,'Otros') SubDocumento_Nombre
 	, ISNULL(SD1.Hash_DocumentoSubDocumentoEmp, D.Hash_DocumentoEmp) AS Hash_SubDocEmp
-	, ISNULL(SD1.HashStr_SubDDocEmp, D.HashStr_DocEmp) AS [HashStr_SubDocEmp]
+	, ISNULL(SD1.HashStr_SubDDocEmp, D.HashStr_DocEmp) AS [HashStr_SubDDocEmp]
 FROM {{ ref('DL_Kielsa_Documento') }}	D
 LEFT JOIN {{ ref('DL_Kielsa_SubDocumento') }} SD1
 	ON D.Documento_Id = SD1.Documento_Id
