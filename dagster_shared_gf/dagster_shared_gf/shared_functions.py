@@ -10,6 +10,9 @@ from dagster import config_from_files, AssetsDefinition
 from dagster_graphql import DagsterGraphQLClient
 from dotenv import load_dotenv
 from trycast import isassignable, eval_type
+from dlt.common.normalizers.naming.snake_case import NamingConvention
+
+normalize_str_to_snake_case = NamingConvention().normalize_identifier
 
 def get_job_status(job_name: str) -> str:
     # Define the GraphQL query to get the status of a specific job

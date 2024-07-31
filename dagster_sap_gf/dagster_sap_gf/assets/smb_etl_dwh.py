@@ -14,7 +14,7 @@ from dagster import (asset
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource 
 from dagster_shared_gf.resources.smb_resources import SMBResource, smbclient
 from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags_repo
-from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
+from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class, normalize_str_to_snake_case
 import dagster_sap_gf.assets.dbt_dwh_sap as dbt_dwh_sap
 from smbclient import SMBDirEntry
 from pathlib import PurePath
@@ -77,11 +77,8 @@ def clean_filename(filename: str) -> str:
     # Split the filename and its extension
     name, ext = PurePath(filename).stem, PurePath(filename).suffix
 
-    # Define a regex pattern for allowed characters (alphanumeric and some special chars)
-    safe_characters = re.compile(r'[^a-zA-Z0-9]+')
-    
-    # Replace unsafe characters with an underscore in the name part
-    clean_name = safe_characters.sub('_', name)
+    # Clean using a normalizer
+    clean_name = normalize_str_to_snake_case(name)    
     
     # Replace multiple underscores with a single underscore
     clean_name = re.sub(r'_+', '_', clean_name)
@@ -91,7 +88,7 @@ def clean_filename(filename: str) -> str:
         clean_name = clean_name[:-1]
     
     # Reattach the file extension
-    return clean_name + ext
+    return clean_name + ext.lower()
 
 @asset(
     key_prefix=["DL_FARINTER", "excel"],

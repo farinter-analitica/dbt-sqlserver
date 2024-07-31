@@ -5,6 +5,10 @@ from pydantic import Field
 from typing import Any, Mapping, Annotated, Union, Dict, Optional
 from dataclasses import dataclass, field
 import types
+from dlt.common.normalizers.naming.snake_case import NamingConvention
+
+dlt_snake_case_normalizer = NamingConvention()
+
 env_str:str = dagster_instance_current_env.env
 shared_class_holder = [UnresolvedAssetJobDefinition, AssetExecutionType]
 @dataclass
