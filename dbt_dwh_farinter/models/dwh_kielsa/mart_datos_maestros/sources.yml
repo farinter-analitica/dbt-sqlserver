@@ -95,6 +95,8 @@ sources:
           - name: Emp_Id
             description: "Empresa de Kielsa"
             type: int
+      - name: DL_Kielsa_Monedero
+      
   - name: BI_FARINTER
     description: "Base de tablas cargadas (Data Lake)"
     database: BI_FARINTER
