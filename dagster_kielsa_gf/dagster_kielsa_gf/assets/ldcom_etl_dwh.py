@@ -65,6 +65,11 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_FacturasPosiciones",
         "tags": tags_repo.Daily.tag,
     },
+    "DL_paCargarKielsa_Cliente": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Cliente",
+        "tags": tags_repo.Daily.tag,  
+    },
     "DL_paCargarKielsa_FacturaPosicionDescuento": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_FacturaPosicionDescuento",

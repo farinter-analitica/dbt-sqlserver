@@ -1,10 +1,5 @@
 
-{# Add dwh_farinter_remove_incremental_temp_table to all incremental models #}
-{# unique_key is accessible with config.get('unique_key') but it returns a string #}
-{# remember that macro here executes before the model is created, so we can't use it here #}
 {% set unique_key_list = ["Alerta_Id","Emp_Id"] %}
-{# Post_hook can't access this context variables so we create the string here if needed only if the macros dont depende on query execution (just returns the query text) #}
-{#{% set post_hook_dwh_farinter_create_primary_key =  dwh_farinter_create_primary_key(this,columns=unique_key_list, create_clustered=False, is_incremental=0, show_info=True, if_another_exists_drop_it=True)  %}#}
 {{ 
     config(
 		as_columnstore=false,

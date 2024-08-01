@@ -96,6 +96,7 @@ sources:
             description: "Empresa de Kielsa"
             type: int
       - name: DL_Kielsa_Monedero
+      - name: DL_Kielsa_Cliente
       
   - name: BI_FARINTER
     description: "Base de tablas cargadas (Data Lake)"
