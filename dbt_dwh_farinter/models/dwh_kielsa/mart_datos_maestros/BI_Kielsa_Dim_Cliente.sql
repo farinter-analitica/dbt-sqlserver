@@ -31,7 +31,7 @@ SELECT [Emp_Id]
         ,[Indicador_Filtro_Unico]
         ,[Indicador_Borrado]
         ,[Estado]
-        ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_MarcaEmp]
+        ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_CliEmp]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
         ,[Fecha_Actualizado]
   FROM {{ source('DL_FARINTER', 'DL_Kielsa_Cliente') }} 
