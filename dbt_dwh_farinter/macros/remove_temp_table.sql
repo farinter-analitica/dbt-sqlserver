@@ -24,4 +24,27 @@
         AND TABLE_NAME = '{{ relation_name }}'
     )
     DROP VIEW {{ full_relation }};
+
+    {%- set relation_name = relation.identifier ~ '_temp_view' -%}
+    {%- set full_relation = '"' ~ relation.schema ~ '"."' ~ relation_name ~ '"' -%}
+    -- Drop the temporary view if it exists
+    IF EXISTS (
+        SELECT 1
+        FROM INFORMATION_SCHEMA.VIEWS WITH (NOLOCK)
+        WHERE TABLE_SCHEMA = '{{ relation.schema }}'
+        AND TABLE_NAME = '{{ relation_name }}'
+    )
+    DROP VIEW {{ full_relation }};
+
+    {%- set relation_name = relation.identifier ~ '__dbt_temp_temp_view' -%}
+    {%- set full_relation = '"' ~ relation.schema ~ '"."' ~ relation_name ~ '"' -%}
+    -- Drop the temporary view if it exists
+    IF EXISTS (
+        SELECT 1
+        FROM INFORMATION_SCHEMA.VIEWS WITH (NOLOCK)
+        WHERE TABLE_SCHEMA = '{{ relation.schema }}'
+        AND TABLE_NAME = '{{ relation_name }}'
+    )
+    DROP VIEW {{ full_relation }};
+
 {% endmacro %}
