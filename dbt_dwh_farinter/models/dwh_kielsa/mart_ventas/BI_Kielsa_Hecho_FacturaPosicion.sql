@@ -81,10 +81,10 @@ SELECT
 FROM {{ref ('BI_Kielsa_Hecho_FacturaEncabezado')}} FE
 INNER JOIN (
 		SELECT  [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id], [AnioMes_Id], [Articulo_Id]
-			, MAX([Detalle_Fecha] ) AS [Detalle_Fecha]
-			, MAX(FP.[Detalle_Id]) AS [Detalle_Id]
-		,SUM(FP.[Detalle_Cantidad]) AS [Detalle_Cantidad]
-		,SUM(FP.[Cantidad_Padre]) AS [Cantidad_Padre]
+		, MAX([Detalle_Fecha] ) AS [Detalle_Fecha]
+		, MAX(FP.[Detalle_Id]) AS [Detalle_Id]
+		, SUM(FP.[Detalle_Cantidad]) AS [Detalle_Cantidad]
+		, SUM(FP.[Cantidad_Padre]) AS [Cantidad_Padre]
 		, SUM(FP.[Valor_Bruto]) 	AS [Valor_Bruto]
 		, SUM(FP.[Valor_Neto]) 	AS [Valor_Neto]
 		, SUM(FP.[Valor_Utilidad]) AS [Valor_Utilidad]
