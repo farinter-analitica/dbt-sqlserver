@@ -104,6 +104,6 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
                         return "custom_group_prefix" + dbt_resource_props.get("config", {}).get("group")
         """
         group = super().get_group_name(dbt_resource_props)
-        if group is not None:
+        if group is not None and group != "default":
             return group
         return "dbt_default_group"
