@@ -15,6 +15,9 @@ groups:
   - name: dbt_dwh_kielsa_mart_finanzas
     owner:
       email: brian.padilla@farinter.com
+  - name: dbt_dwh_kielsa_mart_ventas
+    owner:
+      email: brian.padilla@farinter.com
   - name: dbt_dwh_kielsa_mart_datos_maestros
     owner:
       email: brian.padilla@farinter.com

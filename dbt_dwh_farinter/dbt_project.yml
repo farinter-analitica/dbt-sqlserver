@@ -67,14 +67,10 @@ models:
                 group: "dbt_dwh_kielsa_mart_datos_maestros"
       mart_existencias:
         +group: "dbt_dwh_kielsa_mart_existencias"
-        +meta:
-            dagster: 
-                group: "dbt_dwh_kielsa_mart_existencias"
       mart_kpp:
         +group: 'dbt_dwh_kielsa_mart_kpp'
-        +meta:
-            dagster:
-                group: 'dbt_dwh_kielsa_mart_kpp' 
+      mart_ventas:
+        +group: 'dbt_dwh_kielsa_mart_ventas'
       ldcom_etl_datos_maestros:
         +group: 'ldcom_etl_dwh'
         +database: 'DL_FARINTER'

@@ -52,7 +52,7 @@
         {% endif %}
 
         INSERT INTO [{{relation.database}}].[{{relation.schema}}].[{{relation.identifier}}]
-        SELECT * FROM [{{tmp_relation.database}}].[{{tmp_relation.schema}}].[{{tmp_relation.identifier}}];;
+        ({{listColumns}}) {{tmp_sql}};
     {% endif %}
 
     {{fabric__get_drop_sql(tmp_relation)}}
