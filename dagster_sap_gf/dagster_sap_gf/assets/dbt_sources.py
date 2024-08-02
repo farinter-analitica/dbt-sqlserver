@@ -12,6 +12,7 @@ def build_dbt_sources(
     Filter conditions: Not already imported into Dagster.
     Returns a list of SourceAsset objects.
     """
+    required_tags = ["dagster_sap_gf/dbt", "dagster_global_gf/dbt"]
 
     return [
         SourceAsset(
@@ -25,8 +26,7 @@ def build_dbt_sources(
             ),
         )
         for dbt_resource_props in manifest["sources"].values()
-        if "dagster_sap_gf/dbt"
-        in dagster_dbt_translator.get_tags(dbt_resource_props).keys()
+        if any(tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys() for tag in required_tags)
     ]
 
 
@@ -36,4 +36,4 @@ all_assets = source_assets
 if __name__ == "__main__":
     # print(source_assets)
     # print([asset.tags.keys() for asset in source_assets])
-    print([asset.tags for asset in source_assets])
+    print([asset.key for asset in source_assets])

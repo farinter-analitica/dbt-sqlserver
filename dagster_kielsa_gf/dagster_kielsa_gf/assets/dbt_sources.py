@@ -10,7 +10,8 @@ def build_dbt_sources(manifest: Mapping[str, Any], dagster_dbt_translator: Dagst
     Filter conditions: Not already imported into Dagster.
     Returns a list of SourceAsset objects.
     """
-
+    # List of tags to check
+    required_tags = ["dagster_kielsa_gf/dbt", "dagster_global_gf/dbt"]
     return [
         SourceAsset(
             key=dagster_dbt_translator.get_asset_key(dbt_resource_props),
@@ -21,7 +22,7 @@ def build_dbt_sources(manifest: Mapping[str, Any], dagster_dbt_translator: Dagst
             freshness_policy=dagster_dbt_translator.get_freshness_policy(dbt_resource_props),  
         )
         for dbt_resource_props in manifest["sources"].values()
-        if "dagster_kielsa_gf/dbt" in dagster_dbt_translator.get_tags(dbt_resource_props).keys()
+        if any(tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys() for tag in required_tags)
     ]
     
 
@@ -31,4 +32,4 @@ all_assets: Sequence[SourceAsset]  = source_assets
 if __name__ == "__main__":
     #print(source_assets)
     #print([asset.tags.keys() for asset in source_assets])
-    print([asset.tags for asset in source_assets])
+    print([asset.key for asset in source_assets])

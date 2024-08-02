@@ -9,11 +9,6 @@ sources:
     loaded_at_field: Fecha_Actualizado
 
     tables:
-      - name: BI_Dim_Calendario
-        loaded_at_field: Fecha_Procesado
-        meta:
-            dagster:
-                group: "dbt_dwh_kielsa_mart_datos_maestros"
       - name: BI_Kielsa_Dim_Empresa
         meta:
             dagster:

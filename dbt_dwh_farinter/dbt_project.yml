@@ -55,7 +55,13 @@ models:
       sap_etl_mm:
         +group: "sap_etl_dwh"
         +database: "DL_FARINTER"
-
+      bi_farinter:
+        +group: 'dbt_dwh_sap_marts'
+        +database: 'BI_FARINTER'
+      dl_farinter:
+        +group: 'sap_etl_dwh'
+        +database: 'DL_FARINTER'
+        
     dwh_kielsa:
       +tags: ["dagster_kielsa_gf/dbt"]
 #      mart_finanzas:
@@ -74,6 +80,21 @@ models:
       ldcom_etl_datos_maestros:
         +group: 'ldcom_etl_dwh'
         +database: 'DL_FARINTER'
+      bi_farinter:
+        +group: 'dbt_dwh_kielsa_marts'
+        +database: 'BI_FARINTER'
+      dl_farinter:
+        +group: 'ldcom_etl_dwh'
+        +database: 'DL_FARINTER'
+
+    dwh_global:
+      +tags: ["dagster_global_gf/dbt"]
+      bi_farinter:
+        +group: 'dbt_dwh_marts'
+        +database: 'BI_FARINTER'
+      dl_farinter:
+        +group: 'etl_dwh'
+        +database: 'DL_FARINTER'
 
 snapshots:
   dbt_dwh_farinter:
@@ -84,22 +105,44 @@ sources:
   dbt_dwh_farinter:
     dwh_kielsa:
       +tags: ["dagster_kielsa_gf/dbt"]
-      mart_datos_maestros:
-        +group: 'ldcom_etl_dwh'
       mart_kpp:
         +group: 'dbt_dwh_kielsa_mart_kpp'
+      bi_farinter:
+        +database: 'BI_FARINTER'
+      dl_farinter:
+        +group: 'ldcom_etl_dwh'
+        +database: 'DL_FARINTER'
+
     dwh_sap:
       +tags: ["dagster_sap_gf/dbt"]
       mart_finanzas:
         +group: 'sap_etl_dwh'
+        +database: 'DL_FARINTER'
       mart_mm:
         +group: 'sap_etl_dwh'
+        +database: 'DL_FARINTER'
       mart_ventas:
         +group: 'sap_etl_dwh'
+        +database: 'DL_FARINTER'
       sap_etl_datos_maestros:
         +group: 'sap_prd'
       sap_etl_mm:
         +group: 'sap_prd'
+      bi_farinter:
+        +group: 'dbt_dwh_sap_marts'
+        +database: 'BI_FARINTER'
+      dl_farinter:
+        +group: 'sap_etl_dwh'
+        +database: 'DL_FARINTER'
+
+    dwh_global:
+      +tags: ["dagster_global_gf/dbt"]
+      bi_farinter:
+        +group: 'dbt_dwh_marts'
+        +database: 'BI_FARINTER'
+      dl_farinter:
+        +group: 'etl_dwh'
+        +database: 'DL_FARINTER'
 #    marts:
 #      +group: "marts_group"
 #      mart1:

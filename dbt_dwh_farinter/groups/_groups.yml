@@ -6,6 +6,15 @@ groups:
   - name: dbt_second_group_test
     owner:
       email: example@farinter.com
+  - name: etl_dwh
+    owner:
+      email: brian.padilla@farinter.com
+  - name: dbt_dwh_marts
+    owner:
+      email: brian.padilla@farinter.com
+  - name: dbt_dwh_sap_marts
+    owner:
+      email: brian.padilla@farinter.com
   - name: dbt_dwh_kielsa_marts
     owner:
       email: brian.padilla@farinter.com
