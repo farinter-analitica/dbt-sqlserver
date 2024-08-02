@@ -12,6 +12,8 @@
     {%- set full_relation = '"' ~ relation.schema ~ '"."' ~ relation.identifier ~ '"' -%}
     {%- set relation_name = relation.schema ~ '.' ~ relation.identifier -%}
 
+    {% set on_clause = config.get('on_clause_filegroup') %}
+
     USE [{{ relation.database }}];
 
     -- Declare variables to store intermediate results
@@ -51,7 +53,9 @@
         END;
         -- Add the new CLUSTERED COLUMNSTORE INDEX
         
-        CREATE CLUSTERED COLUMNSTORE INDEX {{ index_name }} ON {{ full_relation }};
+        CREATE CLUSTERED COLUMNSTORE INDEX {{ index_name }} ON {{ full_relation }}
+        {% if on_clause  %} ON {{ on_clause }}{% endif %}
+        ;
     END
     
 {% endmacro %}
@@ -66,7 +70,9 @@
     , show_info=false
     , use_dynamic_name=false
     , dynamic_part=run_started_at.strftime("%Y%m%dT%H%M%S%f")
-    , included_columns=[]) 
+    , included_columns=[]
+    , just_drop_index=False
+    ) 
     %}
     {%- if columns is none or columns | length == 0 %}
         -- No columns specified for index, skipping index creation.
@@ -89,35 +95,35 @@
     {%- endif %}
     {%- set full_relation = '"' ~ relation.schema ~ '"."' ~ relation.identifier ~ '"' %}
     {%- set relation_name = relation.schema ~ '.' ~ relation.identifier %}
+    {% set on_clause = config.get('on_clause_filegroup') %}
 
     USE [{{ relation.database }}];
 
-    {%- do log("Creating new index.", info=show_info) %}
-
+    -- Drop specific index constraint if it exists
+    IF EXISTS (
+        SELECT * 
+        FROM sys.indexes 
+        WHERE object_id = OBJECT_ID('{{ relation_name }}')
+        AND name = '{{ final_index_name }}'
+    )
     BEGIN
-        -- Drop specific index constraint if it exists
-        IF EXISTS (
-            SELECT * 
-            FROM sys.indexes 
-            WHERE object_id = OBJECT_ID('{{ relation_name }}')
-            AND name = '{{ final_index_name }}'
-        )
-        BEGIN
-            DROP INDEX {{ final_index_name }} ON {{ full_relation }};
-        END;
-        -- Add the new index constraint
+        DROP INDEX {{ final_index_name }} ON {{ full_relation }};
+    END;
 
+    {% if not just_drop_index %} 
+        -- Add the new index constraint {{ just_drop_index | string}}
+        {%- do log("Creating new index.", info=show_info) %}
         CREATE
         {%- if create_unique %} UNIQUE {% else %} {% endif -%}
         {%- if create_clustered %} CLUSTERED {% else %} NONCLUSTERED {% endif -%} 
         INDEX {{ final_index_name }} 
         ON {{ full_relation }} 
         ({{ columns | join(', ') }})
-        {% if included_columns|length>0 -%} INCLUDE({{ included_columns | join(', ') }}) {%- endif %} 
-        ;
-        
-    END
-
-
+        {% if included_columns|length>0 -%} INCLUDE({{ included_columns | join(', ') }}) {%- endif %}
+        {%- if on_clause %} ON {{ on_clause }} {%- endif %} 
+    {% endif %}
+    ;
 
 {%- endmacro %}
+
+

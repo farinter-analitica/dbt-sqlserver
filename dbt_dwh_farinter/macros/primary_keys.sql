@@ -5,7 +5,8 @@
     , if_another_exists_drop_it=true
     , show_info=false
     , use_random_name=true
-    , dynamic_part=run_started_at.strftime("%Y%m%dT%H%M%S%f")) 
+    , dynamic_part=run_started_at.strftime("%Y%m%dT%H%M%S%f")
+    , on_clause="") 
     %}
     {%- if columns is none or columns | length == 0 %}
         -- No columns specified for primary key, skipping primary key creation.
@@ -36,6 +37,7 @@
     {%- endif %}
     {%- set full_relation = '"' ~ relation.schema ~ '"."' ~ relation.identifier ~ '"' %}
     {%- set relation_name = relation.schema ~ '.' ~ relation.identifier %}
+    {% set on_clause = config.get('on_clause_filegroup') %}
 
     USE [{{ relation.database }}];
 
@@ -105,7 +107,9 @@
 
         ALTER TABLE {{ full_relation }} 
         ADD CONSTRAINT {{ final_primary_key_name }} 
-        PRIMARY KEY {%- if create_clustered %} CLUSTERED {%- else %} NONCLUSTERED {%- endif %} ({{ columns | join(', ') }});
+        PRIMARY KEY {%- if create_clustered %} CLUSTERED {%- else %} NONCLUSTERED {%- endif %} ({{ columns | join(', ') }})
+        {%- if on_clause  %} ON {{ on_clause }}{%- endif %}
+        ;
         
     END
 
