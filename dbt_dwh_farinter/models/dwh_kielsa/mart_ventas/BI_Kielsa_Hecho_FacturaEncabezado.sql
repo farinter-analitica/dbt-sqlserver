@@ -88,31 +88,31 @@ WITH Facturas AS
 		, CLI.HashStr_CliEmp
 		, MON.HashStr_MonEmp
 		, ISNULL(SAM.Tipo_Id, 0) AS Same_Id
-	FROM	[DL_FARINTER].[dbo].[DL_Kielsa_FacturaEncabezado] FE
-	INNER JOIN BI_Dim_Calendario CAL 
+	FROM  {{source('DL_FARINTER', 'DL_Kielsa_FacturaEncabezado')}} FE
+	INNER JOIN {{source('BI_FARINTER', 'BI_Dim_Calendario')}} CAL 
 		ON CAL.Fecha_Id = CAST(FE.Factura_Fecha AS DATE) AND CAL.AnioMes_Id = FE.AnioMes_Id
-	LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Monedero MON
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Monedero')}} MON
 		ON MON.Monedero_Id = FE.MonederoTarj_Id_Limpio
 		AND MON.Emp_Id = FE.Emp_Id
-	LEFT JOIN BI_Kielsa_Dim_Empresa E
+	LEFT JOIN {{source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa')}} E
 		ON E.Empresa_Id = FE.Emp_Id
-	LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Sucursal SUC
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Sucursal')}} SUC
 		ON SUC.Sucursal_Id = FE.Suc_Id
 		AND SUC.Emp_Id = FE.Emp_Id
-	LEFT JOIN BI_FARINTER.dbo.BI_Hecho_SameSucursales_Kielsa SAM
+	LEFT JOIN {{source ('BI_FARINTER', 'BI_Hecho_SameSucursales_Kielsa')}} SAM
 		ON SAM.Sucursal_Id_Solo = FE.Suc_Id
 		AND SAM.Pais_Id = FE.Emp_Id
 		AND SAM.Anio_Id = CAL.Anio_Calendario
 		AND SAM.Mes_Id = CAL.Mes_Calendario
-	LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_TipoDocumentoSub DOC
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_TipoDocumentoSub')}} DOC
 		ON DOC.Documento_Id = FE.TipoDoc_Id
 		AND DOC.SubDocumento_Id = FE.SubDoc_Id
 		AND DOC.Emp_Id = FE.Emp_Id
-	LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Cliente CLI
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Cliente')}} CLI
 		ON CLI.Cliente_Id = FE.Cliente_Id
 		AND CLI.Emp_Id = FE.Emp_Id
 	{% if is_incremental() and last_date != '19000101' %} 
-	WHERE FE.Fecha_Actualizado >= '{{ last_date }}' AND FE.AnioMes_Id >= {{ last_date[0:6] }}
+	WHERE FE.Fecha_Actualizado >= '{{ last_date }}' AND FE.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE())
 	{% else %}
 	WHERE FE.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FE.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
 	{% endif %}
