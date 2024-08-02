@@ -1,6 +1,6 @@
 sources:
   - name: BI_FARINTER
-    description: "Base de tablas cargadas (Data Lake)"
+    description: "Base de tablas transformadas (Data Warehouse)"
     database: BI_FARINTER
     schema: dbo
     freshness: # default freshness
@@ -10,6 +10,39 @@ sources:
     tables:
       - name: BI_Dim_Calendario
         loaded_at_field: Fecha_Procesado
+        meta:
+            dagster:
+                group: "dbt_dwh_kielsa_mart_datos_maestros"
       - name: BI_Kielsa_Dim_Empresa
+        meta:
+            dagster:
+                group: "dbt_dwh_kielsa_mart_datos_maestros"
       - name: BI_Hecho_SameSucursales_Kielsa
+        meta:
+            dagster:
+                group: "dbt_dwh_kielsa_mart_datos_maestros"
+      - name: BI_Kielsa_Dim_ArticuloSubCategorias
+        description: >
+            "Contiene la informacion clave de las subcategorias de articulos de Kielsa"
+        meta:
+            dagster:
+                group: "dbt_dwh_kielsa_mart_datos_maestros"
+        columns:
+          - name: SubCategoria1Art_Id
+            description: "Subcategorias 1 de articulos de Kielsa"
+            type: int
+          - name: SubCategoria2Art_Id
+            description: "Subcategorias 2 de articulos de Kielsa"
+            type: int
+          - name: SubCategoria3Art_Id
+            description: "Subcategorias 3 de articulos de Kielsa"
+            type: int
+          - name: SubCategoria4Art_Id
+            description: "Subcategorias 4 de articulos de Kielsa"
+            type: int
+          - name: Emp_Id
+            description: "Empresa de Kielsa"
+            type: int
+
+
 
