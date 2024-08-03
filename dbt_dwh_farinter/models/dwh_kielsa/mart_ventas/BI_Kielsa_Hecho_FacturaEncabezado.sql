@@ -87,6 +87,8 @@ WITH Facturas AS
 		, DOC.HashStr_SubDDocEmp
 		, CLI.HashStr_CliEmp
 		, MON.HashStr_MonEmp
+		, EMPL.HashStr_EmplEmp
+		, BOD.HashStr_SucBodEmp
 		, ISNULL(SAM.Tipo_Id, 0) AS Same_Id
 	FROM  {{source('DL_FARINTER', 'DL_Kielsa_FacturaEncabezado')}} FE
 	INNER JOIN {{source('BI_FARINTER', 'BI_Dim_Calendario')}} CAL 
@@ -111,6 +113,13 @@ WITH Facturas AS
 	LEFT JOIN {{ref ('BI_Kielsa_Dim_Cliente')}} CLI
 		ON CLI.Cliente_Id = FE.Cliente_Id
 		AND CLI.Emp_Id = FE.Emp_Id
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Empleado')}} EMPL
+		ON EMPL.Empleado_Id = FE.Vendedor_Id
+		AND EMPL.Emp_Id = FE.Emp_Id
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Bodega')}} BOD
+		ON BOD.Bodega_Id = FE.Bodega_Id
+		AND BOD.Sucursal_Id = FE.Suc_Id
+		AND BOD.Emp_Id = FE.Emp_Id
 	{% if is_incremental() and last_date != '19000101' %} 
 	WHERE FE.Fecha_Actualizado >= '{{ last_date }}' AND FE.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE())
 	{% else %}
