@@ -67,7 +67,7 @@ def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SM
     #print(f"Moving {file_path.as_posix()} to {new_path.as_posix()}")
     context.log.info(f"Moving {str(file_path.as_posix())} to {str(new_path.as_posix())}")
     #smbsession.makedirs(new_path.parent, exist_ok=True)
-    smbsession.renames(file_path.as_posix(),new_path.as_posix())
+    smbsession.renames(file_path.as_posix(),new_path.as_posix(), replace_if_exists=True)
 
 def clean_filename(filename: str) -> str:
     """
