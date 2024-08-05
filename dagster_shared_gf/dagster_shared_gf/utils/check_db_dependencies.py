@@ -459,17 +459,17 @@ if __name__ == "__main__":
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_db_name = "IA_FARINTER"
+    starting_node_db_name = "BI_FARINTER"
     starting_node_schema_name = "dbo"
-    starting_node_object_name = "IA_CRM_Recomendacion_SAP"
+    starting_node_object_name = "BI_paCargarHecho_DescuentoCuponHist_Kielsa"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
     if_debug_print(
         "Starting point: " + full_starting_relation_path,
         printing_events_name="full_starting_relation_path",
     )
 
-    max_direct_indirects_depth = 1  # Max depth for indirect dependencies of the starting point direct dependencies
-    max_direct_indirects_breadth = 3  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
+    max_direct_indirects_depth = 0  # Max depth for indirect dependencies of the starting point direct dependencies
+    max_direct_indirects_breadth = 0  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
 
     all_dependencies = collect_dependencies(sql_server=dwh_farinter_database_admin, starting_relation_path=full_starting_relation_path)
     collected_dependencies = collect_dependencies_dict(

@@ -242,7 +242,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "keys_out": [AssetKey(["BI_FARINTER", "dbo","BI_Dim_MecanicaCanje_Kielsa"]),
                  AssetKey(["DL_FARINTER", "dbo","DL_TC_ArticuloXMecanica_Kielsa"])],
         "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]),
+        "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]), ### TODO : Cambiar origen externo por interno del DWH
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),],
     },
@@ -262,12 +262,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_ComprasHist_Kielsa",
         "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_IngresosHist_Kielsa"]),
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_IngresosHist_Kielsa"]), 
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
-                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]),
+                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]), ### TODO : Cambiar origen externo por interno del DWH
                  AssetKey(["replicasld_siteplus", "dbo", "TSP_ABCCadena"]),],
     },
     "DL_paCargarTC_CasaXProveedor_Kielsa": {
@@ -299,7 +299,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "Regalia_Detalle"]),
                  AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "Regalia_Encabezado"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
-                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],  ### TODO : Cambiar origen externo por interno del DWH
     },
     "BI_paCargarHecho_ProyeccionVentas_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
@@ -312,6 +312,24 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "BI_Hecho_ProyeccionDescuentoCupon_Kielsa",
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesosDesc_Kielsa"]),],
+    },
+    "BI_paCargarHecho_DescuentoCuponHist_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_DescuentoCuponHist_Kielsa",
+        "tags": tags_repo.Daily.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Tarjetas_Replica"]), 
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Cliente"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+                 AssetKey(["AN_FARINTER", "dbo", "AN_Cal_CasaXProveedor_Kielsa"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
+                 AssetKey(["LDCOM_KIELSA", "dbo", "Exp_Orden_Encabezado"]),
+                 AssetKey(["LDCOM_KIELSA", "dbo", "Factura_Detalle_Cupon"]),
+                 AssetKey(["LDCOM_KIELSA", "dbo", "Factura_Forma_Pago"]),
+                 AssetKey(["LDCOM_KIELSA", "dbo", "Exp_Factura_Express"]),
+                 AssetKey(["LDCOM_KIELSA", "dbo", "Ticket_Forma_Pago"]),
+                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])], ### TODO : Cambiar origen externo por interno del DWH
     },
     "AN_pacargarParam_PesosDesc_Kielsa": {
         "key_prefix": ["AN_FARINTER", "dbo"],
