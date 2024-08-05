@@ -23,6 +23,8 @@ from typing import List, Dict, Any, Mapping, Sequence, Union, Iterator, Literal
 from datetime import datetime, date, timedelta
 import polars as pl, re
 from io import BytesIO
+
+import smbclient.path
 ##
 class ExcelSchemaConfig(Config):
     expected_columns: Dict[str, str] = Field(description="Columns", default_factory=Dict)
@@ -67,7 +69,7 @@ def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SM
         new_dst_path = dst_path
         
         # Check if file already exists
-        while smbclient.exists(new_dst_path):
+        while smbclient.path.exists(new_dst_path):
             new_dst_path = f"{base}_{counter}{extension}"
             counter += 1
             
