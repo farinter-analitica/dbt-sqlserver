@@ -61,13 +61,25 @@ def open_file(file_path: PurePath, smb_resource: SMBResource
     return smbsession.open_file(file_path, mode=mode)
 
 def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SMBResource, new_path: PurePath):
+    def get_unique_dst_path(dst_path: PurePath):
+        base, extension = PurePath(dst_path).stem, PurePath(dst_path).suffix
+        counter = 1
+        new_dst_path = dst_path
+        
+        # Check if file already exists
+        while smbclient.exists(new_dst_path):
+            new_dst_path = f"{base}_{counter}{extension}"
+            counter += 1
+            
+        return new_dst_path
     file_path = PurePath(f"//{smb_resource.server_ip}").joinpath(file_path)
     smbsession:smbclient = smb_resource.get_smbclient()
     new_path = PurePath(f"//{smb_resource.server_ip}").joinpath(new_path)
-    #print(f"Moving {file_path.as_posix()} to {new_path.as_posix()}")
+    #if exists add a number
+    new_path = get_unique_dst_path(new_path)
     context.log.info(f"Moving {str(file_path.as_posix())} to {str(new_path.as_posix())}")
     #smbsession.makedirs(new_path.parent, exist_ok=True)
-    smbsession.renames(file_path.as_posix(),new_path.as_posix(), replace_if_exists=True)
+    smbsession.renames(file_path.as_posix(),new_path.as_posix())
 
 def clean_filename(filename: str) -> str:
     """
