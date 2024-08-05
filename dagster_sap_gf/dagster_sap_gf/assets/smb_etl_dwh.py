@@ -98,6 +98,10 @@ def clean_filename(filename: str) -> str:
     # Ensure no trailing underscore before the extension
     if clean_name.endswith('_'):
         clean_name = clean_name[:-1]
+
+    # Ensure not empty
+    if len(clean_name) == 0:
+        clean_name = 'file'
     
     # Reattach the file extension
     return clean_name + ext.lower()
