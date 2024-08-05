@@ -89,6 +89,7 @@ SELECT
 	, Dept.Hash_DeptoArtEmp
 	, SubCat.Hash_SubCatsEmp
 	, Casa.Hash_CasaEmp
+	, Casa.HashStr_CasaEmp
 	, Marca.Hash_MarcaEmp
 	-- Handling null replacements
 	, ISNULL(A.Mecanica, 'No definido') AS Mecanica
@@ -125,7 +126,7 @@ LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Departamento_Articulo')}} AS Dept
 	ON A.Emp_Id = Dept.Emp_Id AND A.Depto_Id = Dept.DeptoArt_Id
 LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Marca')}} AS Marca
 	ON A.Emp_Id = Marca.Emp_Id AND A.Marca_Id = Marca.Marca_Id
-LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Casa') }} AS Casa
+LEFT JOIN {{ ref('BI_Kielsa_Dim_Casa') }} AS Casa
 	ON A.Emp_Id = Casa.Emp_Id AND A.Casa_Id = Casa.Casa_Id
 LEFT JOIN {{ source('DL_FARINTER', 'DL_Temp_ArticuloAliados_Kielsa')}} Aliados
 	ON A.Articulo_Id = Aliados.Articulo_Id_Solo    
