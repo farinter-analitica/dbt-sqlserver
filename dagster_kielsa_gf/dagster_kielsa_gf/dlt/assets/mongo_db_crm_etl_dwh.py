@@ -255,7 +255,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         return snake_case_normalizer.normalize_identifier(column_identifier)
     
     def get_pipeline_name(self, resource: DltResource) -> str:
-        return f"dlt_{self.config.pipeline_name_prefix}_{self.get_normalized_table_identifier(resource)}"
+        return f"{env_str}_{self.config.pipeline_name_prefix}_{self.get_normalized_table_identifier(resource)}"
 
 def create_dlt_asset(dlt_resource: DltResource, 
                      group_name,
