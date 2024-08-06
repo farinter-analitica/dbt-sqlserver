@@ -64,13 +64,12 @@ def open_file(file_path: PurePath, smb_resource: SMBResource
 
 def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SMBResource, new_path: PurePath):
     def get_unique_dst_path(dst_path: PurePath):
-        base, extension = PurePath(dst_path).stem, PurePath(dst_path).suffix
         counter = 1
         new_dst_path = dst_path
         
         # Check if file already exists
         while smbclient.path.exists(new_dst_path):
-            new_dst_path = f"{base}_{counter}{extension}"
+            new_dst_path = dst_path.with_name(f"{dst_path.stem}_{counter}{dst_path.suffix}")
             counter += 1
             
         return new_dst_path
