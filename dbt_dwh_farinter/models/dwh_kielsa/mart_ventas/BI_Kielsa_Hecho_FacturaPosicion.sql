@@ -64,9 +64,14 @@ SELECT
     , ART.Hash_ArticuloEmp --borrar cuando sea posible
 	, ART.HashStr_ArtEmp
     , C.Hash_CasaEmp --borrar cuando sea posible
+	, FE.HashStr_CliEmp
+	, FE.HashStr_MonEmp
+	, FE.HashStr_SubDDocEmp
+	, FE.HashStr_SucEmp
+	, FE.HashStr_SucBodEmp
+	, FE.HashStr_EmplEmp
 	, C.HashStr_CasaEmp 
     , SUC.Hash_SucursalEmp --borrar cuando sea posible
-	, SUC.HashStr_SucEmp --borrar cuando sea posible
 	, DOC.Hash_SubDocEmp --borrar cuando sea posible
 	, CAST(CAST(CLI.HashStr_CliEmp AS varbinary) AS BIGINT)  Hash_ClienteEmp --borrar cuando sea posible
 	, MON.Hash_MonederoEmp --borrar cuando sea posible
