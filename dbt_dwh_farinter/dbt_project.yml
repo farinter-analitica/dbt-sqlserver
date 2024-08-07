@@ -155,6 +155,7 @@ sources:
 vars:
   P_SAPPRD_LS: SAPPRD #Linked server de SAP PRD
   P_SQLLDSUBS_LS: REPLICASLD #Linked server de Replicas de KIelsa, SITEPLUS y otros
+  P_DWHPRD_LS: DWHPRD #Linked server de DWH PRD
 
 
 
