@@ -48,7 +48,7 @@ AS
 		,OE.[Repartidor_Id]
 		,OE.[Estatus_Id] COLLATE DATABASE_DEFAULT AS [Estatus_Id]
 		,OE.[Vendedor_Id]
-		,ISNULL(OE.Orden_Id,'19000101') AS [Orden_Inicio_Registro]
+		,ISNULL(OE.Orden_Inicio_Registro,'19000101') AS [Orden_Inicio_Registro]
 		,OE.[Orden_Fec_Terminada] 
 		,OE.[Orden_Usuario_Registro] COLLATE DATABASE_DEFAULT AS [Orden_Usuario_Registro]
 		--, FEX.TipoDoc_Id

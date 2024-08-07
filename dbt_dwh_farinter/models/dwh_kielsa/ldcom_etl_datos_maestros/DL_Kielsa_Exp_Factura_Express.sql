@@ -48,8 +48,8 @@ AS
 			,ISNULL(FEX.CC_Id,0) AS [CC_Id]
 			,ISNULL(OE.Orden_Id,0) AS [Orden_Id]
 			,FEX.[Cierre_Id]
-			,ISNULL(OE.Orden_Id,'19000101') AS [Orden_Inicio_Registro]
-			,ISNULL(OE.Orden_Id,'19000101') AS [Orden_Fec_Terminada]
+			,ISNULL(OE.Orden_Inicio_Registro,'19000101') AS [Orden_Inicio_Registro]
+			,ISNULL(OE.Orden_Fec_Terminada,'19000101') AS [Orden_Fec_Terminada]
 	FROM {{ item.origen }}.dbo.Exp_Orden_Encabezado OE
 	INNER JOIN  {{ item.origen }}.dbo.Exp_Factura_Express FEX
 		ON OE.Emp_Id = FEX.Emp_Id AND OE.CC_Id = FEX.CC_Id AND OE.Orden_Id = FEX.Orden_Id
