@@ -64,6 +64,22 @@ SELECT
     , ART.Hash_ArticuloEmp --borrar cuando sea posible
 	, ART.HashStr_ArtEmp
     , C.Hash_CasaEmp --borrar cuando sea posible
+	, CASE
+			WHEN FEXP.Factura_Id IS NOT NULL
+				THEN 5 --eCommerce
+			ELSE CASE FE.Factura_Origen
+						WHEN 'FA'
+							THEN 1	--Venta de sucursal
+						WHEN 'EX'
+							THEN 2	--Domicilio
+						WHEN 'PU'
+							THEN 3	--Recoger en sucursal
+						WHEN 'PR'
+							THEN 4	--Preventa
+						ELSE 0
+					END --Origen desconocido
+		END 
+		AS CanalVenta_Id
 	, FE.HashStr_CliEmp
 	, FE.HashStr_MonEmp
 	, FE.HashStr_SubDDocEmp
@@ -167,6 +183,14 @@ LEFT JOIN {{ref('BI_Kielsa_Dim_TipoDocumentoSub')}} DOC
 LEFT JOIN {{ref('BI_Kielsa_Dim_Cliente')}} CLI
 	ON CLI.Cliente_Id = FE.Cliente_Id
 	AND CLI.Emp_Id = FE.Emp_Id
+LEFT JOIN (SELECT DISTINCT A.Emp_Id, A.TipoDoc_Id, A.Suc_Id, A.Caja_Id, A.Factura_Id 
+		FROM DL_FARINTER.dbo.DL_Kielsa_Exp_Factura_Express A
+		)	FEXP
+	ON FE.Emp_Id = FEXP.Emp_Id
+	AND FE.TipoDoc_Id = FEXP.TipoDoc_Id
+	AND FE.Suc_Id = FEXP.Suc_Id
+	AND FE.Caja_Id = FEXP.Caja_Id
+	AND FE.Factura_Id = FEXP.Factura_Id 
 --OPTION (FORCE ORDER);
 	    
 --SELECT TOP 1000 * FROM BI_Kielsa_Hecho_FacturaPosicion
