@@ -46,10 +46,11 @@ AS
 		,OE.[Cliente_Id]
 		,OE.[Zona_Id]
 		,OE.[Repartidor_Id]
-		,OE.[Estatus_Id]
+		,OE.[Estatus_Id] COLLATE DATABASE_DEFAULT AS [Estatus_Id]
 		,OE.[Vendedor_Id]
 		,ISNULL(OE.Orden_Id,'19000101') AS [Orden_Inicio_Registro]
-		,OE.[Orden_Fec_Terminada]
+		,OE.[Orden_Fec_Terminada] 
+		,OE.[Orden_Usuario_Registro] COLLATE DATABASE_DEFAULT AS [Orden_Usuario_Registro]
 		--, FEX.TipoDoc_Id
 		--, FEX.Suc_Id
 		--, FEX.Caja_Id
