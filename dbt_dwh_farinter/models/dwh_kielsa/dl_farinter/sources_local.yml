@@ -102,4 +102,5 @@ sources:
       - name: DL_Kielsa_Cliente
       - name: DL_Kielsa_Bodega
       - name: DL_Kielsa_Empleado
+      - name: DL_Kielsa_CanalVenta
             

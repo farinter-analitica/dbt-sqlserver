@@ -16,4 +16,11 @@ models:
         data_tests:
           - unique
           - not_null
+  - name: BI_Kielsa_Dim_CanalVenta
+    description: "Canales de venta de Kielsa"
+    columns:
+      - name: CanalVenta_Id
+        tests:
+          - unique
+          - not_null
 
