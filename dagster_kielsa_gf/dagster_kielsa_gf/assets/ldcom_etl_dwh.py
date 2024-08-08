@@ -11,6 +11,7 @@ from dagster import (
     AssetSpec,
     Output,
     AssetOut,
+    Field
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
@@ -18,377 +19,72 @@ from dagster_shared_gf.shared_functions import (
     get_all_instances_of_class,
 )
 from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
-from datetime import timedelta
+from datetime import timedelta, datetime, date
 from typing import Sequence, List, Mapping, Dict, Any
 
 
-dl_farinter_db = "DL_FARINTER"
-dl_farinter_assets_prefix = [dl_farinter_db]
-# @asset(key_prefix= dl_farinter_assets_prefix)
-# def DL_Kielsa_Sucursal(dwh_farinter_dl: SQLServerResource) -> None:
-#     dwh_farinter_dl.execute_and_commit("EXEC [DL_FARINTER].[dbo].[DL_paCargarKielsa_Sucursal]")
-#     #time.sleep(240)
-#     #return result
-
-# @asset(key_prefix= dl_farinter_assets_prefix)
-# def DL_Kielsa_Bodega(dwh_farinter_dl: SQLServerResource) -> None:
-#     dwh_farinter_dl.execute_and_commit("EXEC [DL_FARINTER].[dbo].[DL_paCargarKielsa_Bodega]")
-
-store_procedures: Dict[str, Dict[str, Any]] = {
-    "DL_paCargarKielsa_Sucursal": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Sucursal",
-        "tags": tags_repo.Daily.tag,
-    },
-    "BI_paCargarHecho_ExistenciasHist_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_ExistenciasHist_Kielsa",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Bodega": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Bodega",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Articulo_x_Bodega": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Articulo_x_Bodega",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Articulo_x_Compra": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Articulo_x_Compra",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_FacturasPosiciones": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_FacturasPosiciones",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Cliente": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Cliente",
-        "tags": tags_repo.Daily.tag,  
-    },
-    "DL_paCargarKielsa_FacturaPosicionDescuento": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_FacturaPosicionDescuento",
-        "tags": tags_repo.Daily.tag,    
-    },
-    "DL_paCargarKielsa_FacturaEncabezado": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_FacturaEncabezado",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Bitacora_Cambio_Precio": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Bitacora_Cambio_Precio",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Descuento_Venta_Articulo": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Descuento_Venta_Articulo",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Descuento_Venta": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Descuento_Venta",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Precios": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Precios",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaPosicionDescuento"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta_Articulo"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Bitacora_Cambio_Precio"])],
-    },
-    "DL_paCargarKielsa_Articulo_Proveedor": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Articulo_Proveedor",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Precios": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Precios",
-        "tags": tags_repo.Daily.tag,
-    },
-    "BI_paCargarHecho_VentasHist_Kielsa_V2": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_VentasHist_Kielsa_V2",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]), 
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaPosicionDescuento"])],
-    },
-    "DL_paCargarKielsa_BoletaLocal": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": ["DL_Kielsa_BoletaLocal_Encabezado","DL_Kielsa_BoletaLocal_Detalle"],
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_Articulo_ProveedorEstadistico_Hist": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Articulo_ProveedorEstadistico_Hist",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
-    },
-    "DL_paCargarKielsa_Articulo_Segmentado": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Articulo_Segmentado",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"])],
-    },
-    "DL_paCargarKielsa_ArticuloSucursal_Segmentado": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_ArticuloSucursal_Segmentado",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"])],
-    },
-    # Este SP se carga en DEV?
-    # "AN_paCargarCal_ClientesEstadisticas_Kielsa": {
-    #     "key_prefix": ["AN_FARINTER", "dbo"],
-    #     "name": "AN_Cal_ClientesEstadisticas_Kielsa",
-    #     "tags": tags_repo.Daily.tag,
-    #     "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]), 
-    #              AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
-    # },
-    "DL_paCargarKielsa_Empleado": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Empleado",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
-    },
-    "BI_paCargarDim_Empleado_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Dim_Empleado_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Empleado"])],
-    },
-    "DL_paCargarKielsa_VendedorSucursal": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_VendedorSucursal",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
-                AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Empleado"]),
-                AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empresa"])],  
-    },
-        "BI_paCargarHecho_VentasHist_Kielsa": {
-            "key_prefix": ["BI_FARINTER", "dbo"],
-            "name": ["BI_Hecho_VentasHist_Kielsa","BI_Hecho_Ventas4MesesHist_Kielsa","BI_Hecho_VentasResumenHist_Kielsa"],
-            "tags": tags_repo.Daily.tag,
-            "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]), 
-                     AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
-                     AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaPosicionDescuento"])],
-    },
-    "DL_paCargarAcum_VentasHist_Kielsa": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Acum_VentasHist_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
-    },
-    "AN_pacargarParam_Pesos_Kielsa": {
-        "key_prefix": ["AN_FARINTER", "dbo"],
-        "name": "AN_Param_Pesos_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Ventas4MesesHist_Kielsa"]),
-                 AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasResumenHist_Kielsa"])],
-    },
-    "BI_paCargarCal_PesosProy_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_PesosSemana_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_Pesos_Kielsa"]), AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
-    },
-    "DL_paCargarKielsa_ClientesVisitasHist": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_ClientesVisitasHist",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),],
-    },
-    "BI_paCargarHecho_Inventarios_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_Inventarios_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"]),
-                 AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Bodega_Kielsa"]),],
-    },
-    "DL_paCargarKielsa_ClientesXArticulo": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Acum_ClientesXArticulo_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
-    },
-    "BI_paCargarDim_Tiempo": {	
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Dim_Tiempo",
-        "tags": tags_repo.Daily.tag,
-    },
-    "DL_paCargarKielsa_MecanicaCanje": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_MecanicaCanje",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"])],
-    },
-    "BI_paCargarDim_MecanicaCanje_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "keys_out": [AssetKey(["BI_FARINTER", "dbo","BI_Dim_MecanicaCanje_Kielsa"]),
-                 AssetKey(["DL_FARINTER", "dbo","DL_TC_ArticuloXMecanica_Kielsa"])],
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]), ### TODO : Cambiar origen externo por interno del DWH
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),],
-    },
-    "BI_paCargarHecho_IngresosHist_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_IngresosHist_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Calc"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Detalle"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Encabezado"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
-                 AssetKey(["AN_FARINTER", "dbo", "AN_Cal_ArticulosEstado_Kielsa"]),],
-    },
-    "BI_paCargarHecho_ComprasHist_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_ComprasHist_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_IngresosHist_Kielsa"]), 
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
-                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]), ### TODO : Cambiar origen externo por interno del DWH
-                 AssetKey(["replicasld_siteplus", "dbo", "TSP_ABCCadena"]),],
-    },
-    "DL_paCargarTC_CasaXProveedor_Kielsa": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_TC_CasaXProveedor_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
-                 AssetKey(["DL_FARINTER", "dbo", "VDWH_TC_CasaXProveedor_Kielsa"]),
-                 AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ComprasHist_Kielsa"]),],
-    },
-    "AN_paCargarCal_CasaXProveedor_Kielsa": {
-        "key_prefix": ["AN_FARINTER", "dbo"],
-        "name": "AN_Cal_CasaXProveedor_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["AN_FARINTER", "dbo", "VDWH_CasaXProveedor_Kielsa"]),
-                 AssetKey(["AN_FARINTER", "dbo", "VDWH_TC_CasaXProveedor1_Kielsa"]),
-                 AssetKey(["AN_FARINTER", "dbo", "VDWH_TC_CasaXProveedor2_Kielsa"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_CasaXProveedor_Kielsa"])],
-    },
-    "BI_paCargarHecho_RegaliasHist_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_RegaliasHist_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
-                 AssetKey(["AN_FARINTER", "dbo", "AN_Cal_CasaXProveedor_Kielsa"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Info"]),
-                 AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "FE_Identificacion_Tributaria"]),
-                 AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "Regalia_Detalle"]),
-                 AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "Regalia_Encabezado"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
-                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],  ### TODO : Cambiar origen externo por interno del DWH
-    },
-    "BI_paCargarHecho_ProyeccionVentas_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_ProyeccionVentas_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_Pesos_Kielsa"])],
-    },
-    "BI_paCargarHecho_ProyeccionDescuentoCupon_Kielsa" : {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_ProyeccionDescuentoCupon_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesosDesc_Kielsa"]),],
-    },
-    "BI_paCargarHecho_DescuentoCuponHist_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_DescuentoCuponHist_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Tarjetas_Replica"]), 
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Cliente"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
-                 AssetKey(["AN_FARINTER", "dbo", "AN_Cal_CasaXProveedor_Kielsa"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
-                 AssetKey(["LDCOM_KIELSA", "dbo", "Exp_Orden_Encabezado"]),
-                 AssetKey(["LDCOM_KIELSA", "dbo", "Factura_Detalle_Cupon"]),
-                 AssetKey(["LDCOM_KIELSA", "dbo", "Factura_Forma_Pago"]),
-                 AssetKey(["LDCOM_KIELSA", "dbo", "Exp_Factura_Express"]),
-                 AssetKey(["LDCOM_KIELSA", "dbo", "Ticket_Forma_Pago"]),
-                 AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])], ### TODO : Cambiar origen externo por interno del DWH
-    },
-    "AN_pacargarParam_PesosDesc_Kielsa": {
-        "key_prefix": ["AN_FARINTER", "dbo"],
-        "name": "AN_Param_PesosDesc_Kielsa",
-        "tags": tags_repo.Daily.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_DescuentoCuponHist_Kielsa"]),
-                 AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
-                 AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"])],
-    },
-
-}   
-
-
-def create_store_procedure_asset(stored_procedure_name: str, group_name: str, params: Dict) -> AssetsDefinition:
-    if not isinstance(params.get("name", []), List) and params.get("keys_out", None) is None:
-        @asset(key_prefix= params["key_prefix"], name=params["name"],
-                tags=params.get("tags", None), 
-                deps=params.get("deps", None),
-                group_name=group_name,
-                compute_kind="sqlserver",
-                description=f"EXEC [{params["key_prefix"][0]}].[{params["key_prefix"][1]}].[{stored_procedure_name}]")
-        def store_procedure_execution_asset(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
-            dwh_farinter_dl.execute_and_commit(f"EXEC [{params["key_prefix"][0]}].[{params["key_prefix"][1]}].[{stored_procedure_name}]")
-
-        return store_procedure_execution_asset
-
-    elif isinstance(params.get("name", None), List) or params.get("keys_out", None) is not None:
-        if isinstance(params.get("name", None), List):
-            final_outs = {name : AssetOut(key_prefix= params["key_prefix"],
-                                    tags=params.get("tags", None),
-                                    ) for name in params["name"]}
-        elif params.get("keys_out", None) is not None:
-            final_outs = {current_key.path[-1] : AssetOut(key= current_key,
-                                    tags=params.get("tags", None),
-                                    ) for current_key in params["keys_out"]}
-
-        @multi_asset(name=stored_procedure_name,
-                        outs=final_outs,
-                        description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
-                        deps=params.get("deps", None),
-                        group_name=group_name, 
-                        compute_kind="sqlserver",
-                      )
-        def store_procedure_execution_asset(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource): 
-            dwh_farinter_dl.execute_and_commit(f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]")
-
-            for name in final_outs:
-                yield Output(value=None, output_name=name) 
-
-        return store_procedure_execution_asset
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
+        , tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag
+        , compute_kind="sqlserver"
+        , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
+                        }
+        , description="EXEC dbo.DL_paCargarKielsa_FacturaEncabezado condicional, por hora sin parametros, por dia los ultimos 7 dias, por mes, todo el mes anterior."
+        )
+def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
+                , dwh_farinter_dl: SQLServerResource
+                ) -> None: 
+    final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaEncabezado"
+    from_date: date = None
+    if context.op_config.get("p_fecha_desde") != "" and context.op_config.get("p_fecha_desde") :
+        from_date = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
+    elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
+        from_date = datetime.now().date() - timedelta(days=7)
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+        from_date = datetime.now().date() - timedelta(days=1)
+    elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+        from_date = (datetime.now().date() - timedelta(months=1)).replace(day=1)
     
+    if from_date:
+        final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
 
-def store_procedure_asset_factory(store_procedures: Dict) -> List[AssetsDefinition]:
-    return [create_store_procedure_asset(stored_procedure_name=sp
-                                         , group_name="ldcom_etl_dwh"
-                                         , params=params) for sp, params in store_procedures.items()]
+    context.log.info(final_query)
+
+    with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit = True) as conn:
+        #print(final_query)
+        dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
 
 
-all_assets = store_procedure_asset_factory(store_procedures=store_procedures)
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
+        , tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag
+        , compute_kind="sqlserver"
+        , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
+                        }
+        , description="EXEC dbo.DL_paCargarKielsa_FacturasPosiciones condicional, por hora sin parametros, por dia los ultimos 7 dias, por mes, todo el mes anterior."
+        )
+def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
+                , dwh_farinter_dl: SQLServerResource
+                ) -> None: 
+    final_query = r"EXEC dbo.DL_paCargarKielsa_FacturasPosiciones"
+    from_date: date = None
+    if context.op_config.get("p_fecha_desde") != "" and context.op_config.get("p_fecha_desde") :
+        from_date = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
+    elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
+        from_date = datetime.now().date() - timedelta(days=7)
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+        from_date = datetime.now().date() - timedelta(days=1)
+    elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+        from_date = (datetime.now().date() - timedelta(months=1)).replace(day=1)
+    
+    if from_date:
+        final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
+    
+    context.log.info(final_query)
+
+    with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit = True) as conn:
+        #print(final_query)
+        dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
+
+all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),

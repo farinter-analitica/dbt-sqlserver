@@ -80,6 +80,9 @@ class TagsRepositoryGF:
     class SmbDataRepository(_base_tag_class, key="smb_data_repository/data_repo", value=""):
         """{"smb_data_repository/data_repo": ""}"""
 
+    class Monthly(_base_tag_class, key="periodo/mensual", value=""):
+        """{"periodo/mensual": ""}"""
+
 
 if __name__ == "__main__":
     print(TagsRepositoryGF.Hourly())

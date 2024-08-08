@@ -8,7 +8,7 @@
 {{ 
     config(
 		as_columnstore=false,
-		tags=["periodo/diario"],
+		tags=["periodo/diario","periodo/por_hora"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		on_schema_change="sync_all_columns",

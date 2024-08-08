@@ -1,14 +1,17 @@
-
-
-from dagster import ScheduleDefinition, DefaultScheduleStatus, ScheduleEvaluationContext, build_schedule_context
+from dagster import (ScheduleDefinition, 
+                     DefaultScheduleStatus, 
+                     ScheduleEvaluationContext, 
+                     build_schedule_context,
+                     RunsFilter,
+                     DagsterRunStatus)
 from dagster_kielsa_gf.jobs import *
 from dagster_kielsa_gf.job_control_replicas import *
 from dagster_shared_gf.shared_functions import (get_all_instances_of_class, get_for_current_env)
 from dagster_shared_gf import shared_variables as shared_vars
 from datetime import datetime, timedelta
 import pytz
-#cron: minute hour day month day_of_week, example daily at midnight: 0 0 * * *
-#cron example daily at midnight mon-fri with numbers: 0 0 * * 1-5
+# cron: minute hour day month day_of_week, example daily at midnight: 0 0 * * *
+# cron example daily at midnight mon-fri with numbers: 0 0 * * 1-5
 env_str:str=shared_vars.env_str
 
 # Helper function to determine if the run should be skipped
@@ -27,16 +30,35 @@ def should_skip_run(context: ScheduleEvaluationContext, timezone_str):
     return (current_time - scheduled_time) > threshold or env_str != "dev"
 
 default_timezone: str = "America/Tegucigalpa"
-#running_default_schedule_status: DefaultScheduleStatus = (lambda x= {"local":DefaultScheduleStatus.STOPPED,"dev":DefaultScheduleStatus.RUNNING,"prd":DefaultScheduleStatus.RUNNING}: x.get(env_str,x.get("dev")))
-running_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"local":DefaultScheduleStatus.STOPPED
-                                                                              ,"dev":DefaultScheduleStatus.RUNNING
-                                                                              ,"prd":DefaultScheduleStatus.RUNNING})
-stopped_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"local":DefaultScheduleStatus.STOPPED
-                                                                              ,"dev":DefaultScheduleStatus.STOPPED
-                                                                              ,"prd":DefaultScheduleStatus.STOPPED})
-only_prd_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"local":DefaultScheduleStatus.STOPPED
-                                                                              ,"dev":DefaultScheduleStatus.STOPPED
-                                                                              ,"prd":DefaultScheduleStatus.RUNNING})
+# running_default_schedule_status: DefaultScheduleStatus = (lambda x= {"local":DefaultScheduleStatus.STOPPED,"dev":DefaultScheduleStatus.RUNNING,"prd":DefaultScheduleStatus.RUNNING}: x.get(env_str,x.get("dev")))
+running_default_schedule_status: DefaultScheduleStatus = get_for_current_env(
+    {
+        "local": DefaultScheduleStatus.STOPPED,
+        "dev": DefaultScheduleStatus.RUNNING,
+        "prd": DefaultScheduleStatus.RUNNING,
+    }
+)
+stopped_default_schedule_status: DefaultScheduleStatus = get_for_current_env(
+    {
+        "local": DefaultScheduleStatus.STOPPED,
+        "dev": DefaultScheduleStatus.STOPPED,
+        "prd": DefaultScheduleStatus.STOPPED,
+    }
+)
+only_prd_default_schedule_status: DefaultScheduleStatus = get_for_current_env(
+    {
+        "local": DefaultScheduleStatus.STOPPED,
+        "dev": DefaultScheduleStatus.STOPPED,
+        "prd": DefaultScheduleStatus.RUNNING,
+    }
+)
+only_dev_default_schedule_status: DefaultScheduleStatus = get_for_current_env(
+    {
+        "local": DefaultScheduleStatus.STOPPED,
+        "dev": DefaultScheduleStatus.RUNNING,
+        "prd": DefaultScheduleStatus.STOPPED,
+    }
+)
 
 # Define the schedule, name defaults to the name of the job + _schedule
 dbt_dwh_kielsa_marts_job_schedule = ScheduleDefinition(
@@ -96,6 +118,46 @@ comprobar_sinc_replicas_job_schedule = ScheduleDefinition(
     execution_timezone=default_timezone,
     job=comprobar_sinc_replicas_job,
     default_status=only_prd_default_schedule_status, 
+)
+
+
+def should_exec_kielsa_hourly_job_run(
+    context: ScheduleEvaluationContext,
+    job_name: str = kielsa_hourly_job.name,
+) -> bool:
+    filters = RunsFilter(
+        job_name=job_name,
+        statuses=[DagsterRunStatus.STARTED],
+    )
+    if context.instance.get_runs(filters=filters):
+        return False
+    return True
+
+
+kielsa_hourly_job_schedule = ScheduleDefinition(
+    cron_schedule=get_for_current_env(
+        dict={
+            "dev": ["05 6-19 * * *", "05 23 * * *"],
+            "prd": ["05 6-19 * * *", "05 23 * * *"],
+        }
+    ),  # cron template: hour minute day month day_of_week
+    execution_timezone=default_timezone,
+    job=kielsa_hourly_job,
+    default_status=stopped_default_schedule_status,
+    should_execute=should_exec_kielsa_hourly_job_run,
+)
+
+kielsa_olap_kielsa_general_temp_dev_job_schedule = ScheduleDefinition(
+    cron_schedule=get_for_current_env(
+        dict={
+            "dev": ["05 6-19 * * *", "05 23 * * *"],
+            "prd": ["05 6-19 * * *", "05 23 * * *"],
+        }
+    ),  # cron template: hour minute day month day_of_week
+    execution_timezone=default_timezone,
+    job=kielsa_olap_kielsa_general_temp_dev_job,
+    default_status=only_dev_default_schedule_status,
+    should_execute=should_exec_kielsa_hourly_job_run,
 )
 
 

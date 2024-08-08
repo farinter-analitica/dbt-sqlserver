@@ -13,7 +13,7 @@ import dagster_kielsa_gf.jobs as jobs, json
 from dagster_kielsa_gf.assets import (
     dbt_dwh_kielsa,
     knime_asset_factory,
-    ldcom_etl_dwh,
+    ldcom_etl_dwh_sp,
     recetas_libros_etl_dwh,
 )
 from dagster_shared_gf.shared_functions import (
@@ -194,7 +194,7 @@ my_custom_auto_materialize_sensor = AutoMaterializeSensorDefinition(
     minimum_interval_seconds=60 * 15,
 )
 
-all_asset_freshness_checks = dbt_dwh_kielsa.all_asset_freshness_checks + ldcom_etl_dwh.all_asset_freshness_checks + recetas_libros_etl_dwh.all_asset_freshness_checks + knime_asset_factory.all_asset_freshness_checks
+all_asset_freshness_checks = dbt_dwh_kielsa.all_asset_freshness_checks + ldcom_etl_dwh_sp.all_asset_freshness_checks + recetas_libros_etl_dwh.all_asset_freshness_checks + knime_asset_factory.all_asset_freshness_checks
 freshness_checks_sensor = build_sensor_for_freshness_checks(
     freshness_checks=all_asset_freshness_checks,
     default_status=running_default_sensor_status,
