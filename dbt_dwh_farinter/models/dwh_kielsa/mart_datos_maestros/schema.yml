@@ -1,5 +1,5 @@
 
-version: 3
+version: 4
 
 models:
   - name: BI_Kielsa_Dim_Sucursal
