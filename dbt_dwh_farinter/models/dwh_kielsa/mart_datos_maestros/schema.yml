@@ -1,6 +1,5 @@
 
-version: 4
-
+#version: 4
 models:
   - name: BI_Kielsa_Dim_Sucursal
     description: "Sucursales de Kielsa"
