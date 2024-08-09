@@ -21,3 +21,6 @@ systemctl status dagster_dev
 sudo systemctl restart dagster_<prd/dev>
 sudo systemctl restart dagster_prd
 sudo systemctl restart dagster_dev
+sudo systemctl stop dagster_<prd/dev>
+sudo systemctl stop dagster_prd
+sudo systemctl stop dagster_dev
