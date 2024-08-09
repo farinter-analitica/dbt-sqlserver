@@ -144,3 +144,8 @@ LEFT JOIN {{ source('BI_FARINTER', 'BI_Kielsa_Dim_ArticuloSubCategorias') }} AS 
     AND A.SubCategoria2_Id = SubCat.SubCategoria2Art_Id
     AND A.SubCategoria3_Id = SubCat.SubCategoria3Art_Id
     AND A.SubCategoria4_Id = SubCat.SubCategoria4Art_Id
+{% if is_incremental() and run_started_at.strftime('%H') | int >= 8 and run_started_at.strftime('%H') | int < 18 %}
+  WHERE A.Version_Fecha >= (SELECT CAST(MAX(Fecha_Actualizado) AS DATE) FROM {{this}})
+{% else %}
+  --
+{% endif %}
