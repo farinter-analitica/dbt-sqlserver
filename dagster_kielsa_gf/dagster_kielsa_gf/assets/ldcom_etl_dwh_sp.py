@@ -304,6 +304,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
         "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_Pesos_Kielsa"])],
     },
+    "DL_paCargarKielsa_Articulo_Alerta": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Articulo_Alerta",
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"])],
+    },
     "BI_paCargarHecho_ProyeccionDescuentoCupon_Kielsa" : {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_ProyeccionDescuentoCupon_Kielsa",

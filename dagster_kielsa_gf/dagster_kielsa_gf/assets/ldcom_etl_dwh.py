@@ -84,6 +84,63 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
         #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
 
+
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
+        , tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag
+        , compute_kind="sqlserver"
+        , config_schema={"p_actualizar_todo":  Field(bool, is_required=False, default_value=False)
+                        }
+        , description="EXEC dbo.DL_paCargarKielsa_Monedero_Tarjetas_Replica condicional, por hora sin parametros, por dia actualizar todo."
+        )
+def DL_Kielsa_Monedero_Tarjetas_Replica(context: AssetExecutionContext
+                , dwh_farinter_dl: SQLServerResource
+                ) -> None: 
+    final_query = r"EXEC dbo.DL_paCargarKielsa_Monedero_Tarjetas_Replica"
+    actualizar_todo: int = None
+    if context.op_config.get("p_actualizar_todo"):
+        actualizar_todo = 1
+    elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+        actualizar_todo = 1
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+        actualizar_todo = 0
+    
+    if actualizar_todo:
+        final_query = final_query + (f" @p_IndicadorActualizarTodo='{str(actualizar_todo)}'")
+    
+    context.log.info(final_query)
+
+    with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit = True) as conn:
+        #print(final_query)
+        dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
+
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
+        , tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag
+        , compute_kind="sqlserver"
+        , config_schema={"p_actualizar_todo":  Field(bool, is_required=False, default_value=False)
+                        }
+        , description="EXEC dbo.DL_paCargarKielsa_Articulo condicional, por hora sin parametros, por dia actualizar todo."
+        )
+def DL_Kielsa_Articulo(context: AssetExecutionContext
+                , dwh_farinter_dl: SQLServerResource
+                ) -> None: 
+    final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo"
+    actualizar_todo: int = None
+    if context.op_config.get("p_actualizar_todo"):
+        actualizar_todo = 1
+    elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+        actualizar_todo = 1
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+        actualizar_todo = 0
+    
+    if actualizar_todo:
+        final_query = final_query + (f" @IndicadorActualizarTodo='{str(actualizar_todo)}'")
+    
+    context.log.info(final_query)
+
+    with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit = True) as conn:
+        #print(final_query)
+        dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
+
 all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
