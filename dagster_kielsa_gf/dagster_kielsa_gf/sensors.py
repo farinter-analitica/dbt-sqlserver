@@ -4,7 +4,6 @@ from dagster import (
     DagsterRunStatus,
     DefaultSensorStatus,
     SensorDefinition,
-    AutoMaterializeSensorDefinition,
     build_sensor_for_freshness_checks,
     SensorEvaluationContext,
     SkipReason
@@ -184,15 +183,6 @@ def alerta_correo_replicas_ldcom_sensor(context: SensorEvaluationContext,
         return SkipReason(skip_message="Correo enviado.")
     
     return SkipReason(skip_message="Correo no enviado.")
-
-
-from dagster import AssetSelection, AutoMaterializeSensorDefinition, Definitions,  AutoMaterializePolicy, AutoMaterializeRule
-
-my_custom_auto_materialize_sensor = AutoMaterializeSensorDefinition(
-    "my_custom_auto_materialize_sensor",
-    asset_selection=AssetSelection.all(include_sources=True),
-    minimum_interval_seconds=60 * 15,
-)
 
 all_asset_freshness_checks = dbt_dwh_kielsa.all_asset_freshness_checks + ldcom_etl_dwh_sp.all_asset_freshness_checks + recetas_libros_etl_dwh.all_asset_freshness_checks + knime_asset_factory.all_asset_freshness_checks
 freshness_checks_sensor = build_sensor_for_freshness_checks(

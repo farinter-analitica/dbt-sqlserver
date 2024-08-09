@@ -19,7 +19,7 @@ models:
     description: "Canales de venta de Kielsa"
     columns:
       - name: CanalVenta_Id
-        tests:
+        data_tests:
           - unique
           - not_null
 

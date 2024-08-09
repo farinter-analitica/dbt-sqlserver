@@ -225,7 +225,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
 
                 if env_str in ["prd"]:
                     move_file(
-                        context=context.get_op_execution_context(),
+                        context=context.op_execution_context(),
                         file_path=file_descriptor.path,
                         smb_resource=smbres,
                         new_path=directory_path.joinpath("cargados").joinpath(

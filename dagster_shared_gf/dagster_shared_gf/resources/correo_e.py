@@ -143,7 +143,7 @@ def _example_for_tests(context: SensorEvaluationContext, enviador_correo_e_anali
 
 
 def custom_job_failure_email_body(context: SensorEvaluationContext):
-    dagster_run = context.dagster_run
+    dagster_run = context.run
     failure_event = context.failure_event
 
     # Retrieve the stats snapshot for the current run_id

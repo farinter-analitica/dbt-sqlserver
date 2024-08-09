@@ -5,7 +5,7 @@ from typing import List, Sequence
 import os
 
 def custom_email_body(context: SensorEvaluationContext):
-    dagster_run = context.dagster_run
+    dagster_run = context.run
     failure_event = context.failure_event
 
     # Retrieve the stats snapshot for the current run_id

@@ -62,9 +62,9 @@ def olap_ventas_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl
 )
 def olap_tabular_kielsa_general_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
     if env_str == "dev" or env_str == "local": 
-        if context.job_def.tags.get(tags_repo.Hourly.key) is not None or context.op_config.get("hourly"):
+        if context.job_def.tags.get(tags_repo.Hourly.key) is not None or context.op_execution_context.op_config.get("hourly"):
             dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General_CadaHora';")
-        elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.op_config.get("daily"):
+        elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.op_execution_context.op_config.get("daily"):
             dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General';")
         else:
             context.log.error("No se ejecuta el job de OLAP Tabular sin especificar el tipo de ejecución.")

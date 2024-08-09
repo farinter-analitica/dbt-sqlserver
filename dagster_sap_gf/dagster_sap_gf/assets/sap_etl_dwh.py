@@ -79,8 +79,8 @@ def DL_SAP_BSEG(context: AssetExecutionContext
     with open(sql_file_path, encoding="utf8") as procedure:
         final_query = str(procedure.read())
     with dwh_farinter_dl.get_connection(database, autocommit = True) as conn:
-        if context.op_config.get("p_fecha_desde") != "" and context.op_config.get("p_fecha_desde") :
-            last_date_updated = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
+        if context.op_execution_context.op_config.get("p_fecha_desde") != "" and context.op_execution_context.op_config.get("p_fecha_desde") :
+            last_date_updated = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
         else:
             last_aniomes_id_query: str = f"""SELECT MAX(AnioMes_Id) FROM [{database}].[{schema}].[{table}] WITH (NOLOCK);"""
             last_aniomes_id_result: List[Any] = dwh_farinter_dl.query(query=last_aniomes_id_query, connection = conn)        
@@ -95,7 +95,7 @@ def DL_SAP_BSEG(context: AssetExecutionContext
                     last_date_updated: date = datetime.strptime(last_date_updated_result[0][0], "%Y%m%d").date()
                 except:
                     context.log.error(f"Error al convertir la fecha del último registro desde la base de datos, devolviendo por defecto desde fecha {last_date_updated}.")
-        final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat(),p_IndicadorActualizarTodo = int(context.op_config.get("p_actualizar_todo")))
+        final_query = final_query.format(p_FechaDesde=last_date_updated.isoformat(),p_IndicadorActualizarTodo = int(context.op_execution_context.op_config.get("p_actualizar_todo")))
         #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
 

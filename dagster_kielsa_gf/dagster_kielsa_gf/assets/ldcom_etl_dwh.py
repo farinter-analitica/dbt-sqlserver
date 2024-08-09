@@ -35,8 +35,8 @@ def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaEncabezado"
     from_date: date = None
-    if context.op_config.get("p_fecha_desde") != "" and context.op_config.get("p_fecha_desde") :
-        from_date = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
+    if context.op_execution_context.op_config.get("p_fecha_desde") != "" and context.op_execution_context.op_config.get("p_fecha_desde") :
+        from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
@@ -66,8 +66,8 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturasPosiciones"
     from_date: date = None
-    if context.op_config.get("p_fecha_desde") != "" and context.op_config.get("p_fecha_desde") :
-        from_date = datetime.fromisoformat(context.op_config.get("p_fecha_desde")).date()
+    if context.op_execution_context.op_config.get("p_fecha_desde") != "" and context.op_execution_context.op_config.get("p_fecha_desde") :
+        from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
@@ -97,7 +97,7 @@ def DL_Kielsa_Monedero_Tarjetas_Replica(context: AssetExecutionContext
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_Monedero_Tarjetas_Replica"
     actualizar_todo: int = None
-    if context.op_config.get("p_actualizar_todo"):
+    if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
         actualizar_todo = 1
@@ -125,7 +125,7 @@ def DL_Kielsa_Articulo(context: AssetExecutionContext
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo"
     actualizar_todo: int = None
-    if context.op_config.get("p_actualizar_todo"):
+    if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
         actualizar_todo = 1
