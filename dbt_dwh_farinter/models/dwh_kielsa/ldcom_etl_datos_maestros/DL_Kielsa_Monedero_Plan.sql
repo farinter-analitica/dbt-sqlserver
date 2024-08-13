@@ -18,21 +18,23 @@
 		
 ) }}
 
-{%- set origenes = [
-	{"emp_id" : 1, "origen" : var('P_DWHPRD_LS') ~ ".REP_LDCOM_HN",},
-	{"emp_id" : 2, "origen" : var('P_DWHPRD_LS') ~ ".REP_LDCOM_GT",},
-	{"emp_id" : 3, "origen" : var('P_DWHPRD_LS') ~ ".REP_LDCOM_NI",},
-	{"emp_id" : 4, "origen" : var('P_DWHPRD_LS') ~ ".REP_LDCOM_CR",},
-	{"emp_id" : 5, "origen" : var('P_DWHPRD_LS') ~ ".REP_LDCOM_SV",},
-] -%}
+{%- set query_empresas -%}
+SELECT Empresa_Id, Empresa_Id_Original, Pais_Id
+	, LS_LDCOM_RepLocal AS Servidor_Vinculado, D_LDCOM_RepLocal as Base_Datos
+	--,LS_LDCOM, D_LDCOM
+	--,LS_LDCOM_Replica AS Servidor_Vinculado, D_LDCOM_Replica as Base_Datos
+FROM BI_FARINTER.dbo.BI_Kielsa_Dim_Empresa WITH (NOLOCK)
+WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
+{%- endset -%}
+{%- set empresas = run_query_and_return(query_empresas) -%} {# Returns: [{Empresa_Id,Emp_Id_Original,Pais_Id,LS_LDCOM_Replica,D_LDCOM_Replica}] #}
 
 WITH DatosBase
 AS
 (
-	{%- for item in origenes -%}
+	{%- for item in empresas -%}
 		{%- if not loop.first %}
 		UNION ALL{%- endif %}
-	SELECT ISNULL([Emp_Id],0) AS [Emp_Id]
+	SELECT ISNULL(CAST({{item['Empresa_Id']}} AS SMALLINT),0) AS [Emp_Id]
 		,ISNULL([Monedero_Id],0) AS [Monedero_Id] 
 		,[Monedero_Nombre] COLLATE DATABASE_DEFAULT AS [Monedero_Nombre]
 		,[Monedero_Desde]
@@ -64,7 +66,8 @@ AS
 		,[Monedero_Dia5]
 		,[Monedero_Dia6]
 		,[Monedero_Dia7]
-		FROM {{ item.origen }}.dbo.Monedero_Plan
+		FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Monedero_Plan
+		WHERE Emp_Id = {{item['Empresa_Id_Original']}}
 	{%- endfor -%}   
 )
 SELECT *

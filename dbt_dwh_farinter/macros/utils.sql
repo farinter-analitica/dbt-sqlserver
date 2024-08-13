@@ -155,6 +155,28 @@ UNION ALL
 {%- endif %}
 {%- endmacro %}
 
+{% macro run_query_and_return(query='',show_info=False) %}
+    {% do log("Entering run_query_and_return macro", info=show_info) %}
+    {%- if query == '' -%}
+        {% do log("Query not specified.", info=show_info) %}
+    {%- endif %}
+
+    {%- set query_to_run %}
+        {{query}};
+    {%- endset %}
+
+    {% set results = [{}] %}
+    {%- if execute  %}
+        {% do log("Running query: " ~ query_to_run, info=show_info)         %}
+        {%- set query_results = run_query(query_to_run) %}
+        {%- if query_results|length > 0 %} 
+            {%- set results = query_results %}
+        {%- endif %}
+    {%- endif %}
+
+    {% do return(results) %}
+
+{% endmacro %}
 
 
 {% macro run_single_value_query_on_relation_and_return(relation=this,query='',relation_not_found_value='NULL') %}

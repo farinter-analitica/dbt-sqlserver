@@ -18,45 +18,38 @@
 		
 ) }}
 
+{%- set query_empresas -%}
+SELECT Empresa_Id, Empresa_Id_Original, Pais_Id
+	--, LS_LDCOM_RepLocal, D_LDCOM_RepLocal 
+	--,LS_LDCOM, D_LDCOM
+	,LS_LDCOM_Replica AS Servidor_Vinculado, D_LDCOM_Replica as Base_Datos
+FROM BI_FARINTER.dbo.BI_Kielsa_Dim_Empresa WITH (NOLOCK)
+WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
+{%- endset -%}
+{%- set empresas = run_query_and_return(query_empresas) -%} {# Returns: [{Empresa_Id,Emp_Id_Original,Pais_Id,LS_LDCOM_Replica,D_LDCOM_Replica}] #}
+
 
 WITH DatosBase
 AS
 (
-	--LDCOMHN.LDCOM_KIELSA
-	SELECT ISNULL(Emp_Id,0) AS [Emp_Id]
+{%- for item in empresas -%}
+{%- if not loop.first %}
+	UNION ALL{%- endif %}
+{%- if is_incremental() -%}
+	{%- set last_date = run_single_value_query_on_relation_and_return(
+		query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this ~ " where Emp_Id = " ~ item['Empresa_Id'], relation_not_found_value='19000101'|string
+		)|string -%}
+{%- else -%}
+	{%- set last_date = '19000101' -%}
+{%- endif %}		
+	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(Tipo_Id,0) AS [Documento_Id]
 		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [Documento_Nombre]
-		, ABS(CAST(HASHBYTES('SHA1', CONCAT(Tipo_Id, 0, Emp_Id)) AS bigint)) AS Hash_DocumentoEmp 
-	FROM [LDCOMHN].LDCOM_KIELSA.dbo.Tipo_Documento WHERE Emp_Id = 1 
-	UNION ALL 
-	--[LDCOMGT].LDCOM_KIELSA_GT
-	SELECT ISNULL(Emp_Id,0) AS [Emp_Id]
-		, ISNULL(Tipo_Id,0) AS [Documento_Id]
-		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [Documento_Nombre]
-		, ABS(CAST(HASHBYTES('SHA1', CONCAT(Tipo_Id, 0, Emp_Id)) AS bigint)) AS Hash_DocumentoEmp 
-	FROM [LDCOMGT].LDCOM_KIELSA_GT.dbo.Tipo_Documento WHERE Emp_Id = 2
-	UNION ALL
-	--[LDCOMNI].LDCOM_KIELSA_NIC
-	SELECT ISNULL(Emp_Id,0) AS [Emp_Id]
-		, ISNULL(Tipo_Id,0) AS [Documento_Id]
-		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [Documento_Nombre]
-		, ABS(CAST(HASHBYTES('SHA1', CONCAT(Tipo_Id, 0, Emp_Id)) AS bigint)) AS Hash_DocumentoEmp 
-	FROM [LDCOMNI].LDCOM_KIELSA_NIC.dbo.Tipo_Documento WHERE Emp_Id = 3
-	UNION ALL
-	--[LDCOMCR].LDCOM_KIELSA_CR
-	SELECT ISNULL(Emp_Id,0) AS [Emp_Id]
-		, ISNULL(Tipo_Id,0) AS [Documento_Id]
-		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [Documento_Nombre]
-		, ABS(CAST(HASHBYTES('SHA1', CONCAT(Tipo_Id, 0, Emp_Id)) AS bigint)) AS Hash_DocumentoEmp
-	FROM [LDCOMCR].LDCOM_KIELSA_CR.dbo.Tipo_Documento WHERE Emp_Id = 4
-	UNION ALL
-	--[REPLICASLD].[LDCOMREPSLV]
-	SELECT ISNULL(Emp_Id,0) AS [Emp_Id]
-		, ISNULL(Tipo_Id,0) AS [Documento_Id]
-		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [Documento_Nombre]
-		, ABS(CAST(HASHBYTES('SHA1', CONCAT(Tipo_Id, 0, Emp_Id)) AS bigint)) AS Hash_DocumentoEmp
-	FROM [REPLICASLD].[LDCOMREPSLV].dbo.Tipo_Documento
-	WHERE Emp_Id = 5
+		, ABS(CAST(HASHBYTES('SHA2_256', CONCAT(Tipo_Id, 0, {{item['Empresa_Id']}})) AS int)) AS Hash_DocumentoEmp 
+	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Tipo_Documento 
+	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
+
+{% endfor -%}
 )
 SELECT *
 	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_DocEmp]

@@ -152,10 +152,52 @@ sources:
 #  +post_hook:    "{{dwh_farinter_create_primary_key(this,columns=['Sociedad_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}"
 
 
+
 vars:
   P_SAPPRD_LS: SAPPRD #Linked server de SAP PRD
   P_SQLLDSUBS_LS: REPLICASLD #Linked server de Replicas de KIelsa, SITEPLUS y otros
   P_DWHPRD_LS: DWHPRD #Linked server de DWH PRD
+
+  P_LDCOM_FULL_LINKED_SERVERS:
+    HN:
+      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para HN
+      DATABASE: LDCOMREPHN # Base de datos de LDCOM con todas las tablas a utilizar para HN
+    GT:
+      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para GT
+      DATABASE: LDCOMREPGT # Base de datos de LDCOM con todas las tablas a utilizar para GT
+    NI:
+      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para NI
+      DATABASE: LDCOMREPNIC # Base de datos de LDCOM con todas las tablas a utilizar para NI
+    CR_ARB:
+      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para ARB
+      DATABASE: LDCOMREPARBCR # Base de datos de LDCOM con todas las tablas a utilizar para ARB
+    CR_OLD:
+      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para CR
+      DATABASE: LDCOMREPCR # Base de datos de LDCOM con todas las tablas a utilizar para CR
+    SV:
+      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para SV
+      DATABASE: LDCOMREPSLV # Base de datos de LDCOM con todas las tablas a utilizar para SV
+
+  P_LDFAS_FULL_LINKED_SERVERS:
+    HN:
+      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para HN
+      DATABASE: LDFASREPHN # Base de datos de LDFAS con todas las tablas a utilizar para HN
+    GT:
+      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para GT
+      DATABASE: LDFASREPGT # Base de datos de LDFAS con todas las tablas a utilizar para GT
+    NI:
+      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para NI
+      DATABASE: LDFASREPNIC # Base de datos de LDFAS con todas las tablas a utilizar para NI
+    CR_ARB:
+      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para ARB
+      DATABASE: LDFASREPARBCR # Base de datos de LDFAS con todas las tablas a utilizar para ARB
+    CR_OLD:
+      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para CR
+      DATABASE: LDFASREPCR # Base de datos de LDFAS con todas las tablas a utilizar para CR
+    SV:
+      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para SV
+      DATABASE: LDFASREPSLV # Base de datos de LDFAS con todas las tablas a utilizar para SV
+
 
 
 
