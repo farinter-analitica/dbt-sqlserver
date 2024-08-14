@@ -122,7 +122,7 @@ SELECT
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }} AS A
 LEFT JOIN {{ ref('DL_Kielsa_Categoria_Articulo')}} AS Cat
 	ON A.Emp_Id = Cat.Emp_Id AND A.Categoria_Id = Cat.Categoria_Id
-LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Departamento_Articulo')}} AS Dept
+LEFT JOIN {{ ref('DL_Kielsa_Departamento_Articulo')}} AS Dept
 	ON A.Emp_Id = Dept.Emp_Id AND A.Depto_Id = Dept.DeptoArt_Id
 LEFT JOIN {{ ref('DL_Kielsa_Marca')}} AS Marca
 	ON A.Emp_Id = Marca.Emp_Id AND A.Marca_Id = Marca.Marca_Id

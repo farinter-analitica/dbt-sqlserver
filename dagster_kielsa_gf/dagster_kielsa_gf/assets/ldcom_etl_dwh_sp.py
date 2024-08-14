@@ -71,6 +71,25 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Cliente",
         "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,  
     },
+    "DL_paCargarKielsa_Proveedor": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Proveedor",
+        "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_Alerta": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Alerta",
+        "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_Articulo_Calc": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Articulo_Calc",
+        "tags": tags_repo.Daily.tag ,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),],
+    },
     "DL_paCargarKielsa_FacturaPosicionDescuento": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_FacturaPosicionDescuento",
