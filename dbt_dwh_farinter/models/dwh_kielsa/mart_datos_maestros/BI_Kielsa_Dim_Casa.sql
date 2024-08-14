@@ -4,7 +4,7 @@
     config(
 		as_columnstore=false,
 		tags=["periodo/diario","periodo/por_hora"],
-		materialized="incremental",
+		materialized="table",
         incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
@@ -25,4 +25,4 @@ SELECT --TOP (1000)
       ,[Hash_CasaEmp]
       ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_CasaEmp]
       ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
-  FROM {{ source('DL_FARINTER', 'DL_Kielsa_Casa') }} 
+  FROM {{ ref('DL_Kielsa_Casa') }} 

@@ -120,11 +120,11 @@ SELECT
     , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }} AS A
-LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Categoria_Articulo')}} AS Cat
+LEFT JOIN {{ ref('DL_Kielsa_Categoria_Articulo')}} AS Cat
 	ON A.Emp_Id = Cat.Emp_Id AND A.Categoria_Id = Cat.Categoria_Id
 LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Departamento_Articulo')}} AS Dept
 	ON A.Emp_Id = Dept.Emp_Id AND A.Depto_Id = Dept.DeptoArt_Id
-LEFT JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Marca')}} AS Marca
+LEFT JOIN {{ ref('DL_Kielsa_Marca')}} AS Marca
 	ON A.Emp_Id = Marca.Emp_Id AND A.Marca_Id = Marca.Marca_Id
 LEFT JOIN {{ ref('BI_Kielsa_Dim_Casa') }} AS Casa
 	ON A.Emp_Id = Casa.Emp_Id AND A.Casa_Id = Casa.Casa_Id
@@ -147,5 +147,5 @@ LEFT JOIN {{ source('BI_FARINTER', 'BI_Kielsa_Dim_ArticuloSubCategorias') }} AS 
 {% if is_incremental() and run_started_at.strftime('%H') | int >= 8 and run_started_at.strftime('%H') | int < 18 %}
   WHERE A.Version_Fecha >= (SELECT CAST(MAX(Fecha_Actualizado) AS DATE) FROM {{this}})
 {% else %}
-  --
+  --FULL
 {% endif %}
