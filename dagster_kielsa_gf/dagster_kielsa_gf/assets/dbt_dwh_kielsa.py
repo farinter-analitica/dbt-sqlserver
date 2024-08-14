@@ -1,7 +1,8 @@
-from dagster import AssetExecutionContext, load_assets_from_current_module, load_asset_checks_from_current_module, build_last_update_freshness_checks, AssetChecksDefinition, Field, Config
+from dagster import AssetExecutionContext, load_assets_from_current_module, load_asset_checks_from_current_module, build_last_update_freshness_checks, AssetChecksDefinition, Config
 from dagster_dbt import DbtCliResource, dbt_assets, DagsterDbtTranslator
 from typing import Sequence, List, Mapping, Dict, Any
 from datetime import timedelta
+from pydantic import Field
 from dagster_shared_gf.shared_variables import TagsRepositoryGF
 from dagster_shared_gf.shared_functions import filter_assets_by_tags
 from dagster_shared_gf.resources.dbt_resources import dbt_manifest, MyDbtSourceTranslator
@@ -10,7 +11,7 @@ tags_repo = TagsRepositoryGF
 
 
 class MyDbtConfig(Config):
-    full_refresh: bool = Field(default_value=False, description="Refresh full dbt models")
+    full_refresh: bool = Field(default=False, description="Refresh full dbt models")
 
 @dbt_assets(manifest=dbt_manifest, select="tag:dagster_kielsa_gf/dbt", dagster_dbt_translator=MyDbtSourceTranslator())
 def dbt_dwh_kielsa_mart_datos_maestros_assets(context: AssetExecutionContext, dbt_resource: DbtCliResource, config: MyDbtConfig):
