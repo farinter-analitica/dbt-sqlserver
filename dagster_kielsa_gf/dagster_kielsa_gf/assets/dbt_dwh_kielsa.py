@@ -10,7 +10,7 @@ tags_repo = TagsRepositoryGF
 
 
 class MyDbtConfig(Config):
-    full_refresh: bool = Field(default=False, description="Refresh full dbt models")
+    full_refresh: bool = Field(default_value=False, description="Refresh full dbt models")
 
 @dbt_assets(manifest=dbt_manifest, select="tag:dagster_kielsa_gf/dbt", dagster_dbt_translator=MyDbtSourceTranslator())
 def dbt_dwh_kielsa_mart_datos_maestros_assets(context: AssetExecutionContext, dbt_resource: DbtCliResource, config: MyDbtConfig):
