@@ -10,6 +10,7 @@
 --20230927: Axell Padilla > Vista de las posiciones de facturas para crear el hecho.
 SELECT
 	FE.[Factura_Fecha] Factura_Fecha
+	, DATEPART(HOUR,FE.[Factura_FechaHora]) Hora_Id
 	, FP.[Detalle_Fecha]
 	, FE.[Emp_Id]
 	, FE.[Suc_Id]
