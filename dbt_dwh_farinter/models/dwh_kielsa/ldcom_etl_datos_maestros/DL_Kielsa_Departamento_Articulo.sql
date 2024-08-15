@@ -38,12 +38,12 @@ AS
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(CAST(Depto_Id AS INT),0) AS DeptoArt_Id
 		, UPPER(Depto_Nombre) COLLATE DATABASE_DEFAULT AS [DeptoArt_Nombre]
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Depto_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_DeptoArtEmp 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Departamento 
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(DeptoArt_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_DeptoArtEmp 
 	,CASE 
 			WHEN DeptoArt_Nombre LIKE '%MP&A%' THEN 'MP&A' 
 			WHEN DeptoArt_Nombre LIKE '%FARMA%' THEN 'FARMA' 

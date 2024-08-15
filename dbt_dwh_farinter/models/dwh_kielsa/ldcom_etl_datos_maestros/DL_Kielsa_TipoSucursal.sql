@@ -38,12 +38,12 @@ AS
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(CAST(TipoSucursal_Id AS INT),0) AS TipoSucursal_Id
 		, TipoSucursal_Nombre COLLATE DATABASE_DEFAULT AS [TipoSucursal_Nombre]
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(TipoSucursal_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_TipoSucursalEmp 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Tipo_Sucursal 
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(TipoSucursal_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_TipoSucursalEmp 
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

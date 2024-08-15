@@ -38,13 +38,13 @@ AS
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(Marca_Id,0) AS Marca_Id
 		, Marca_Nombre COLLATE DATABASE_DEFAULT AS [Marca_Nombre]
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Marca_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_MarcaEmp 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Marca 
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Marca_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_MarcaEmp 
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

@@ -40,12 +40,12 @@ AS
 		, ISNULL(CAST(SubCategoria2_Id AS INT),0) AS SubCategoria2Art_Id
 		, ISNULL(CAST(SubCategoria_Id AS INT),0) AS SubCategoria1Art_Id
 		, ISNULL(CAST(Categoria_Id AS INT),0) AS CategoriaArt_Id
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(SubCategoria3_Id, '-', SubCategoria2_Id, '-', SubCategoria_Id, '-', Categoria_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_CatSubCat1_2_3Emp 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.SubCategoria3_Articulo
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(SubCategoria3Art_Id, '-', SubCategoria2Art_Id, '-', SubCategoria1Art_Id, '-', CategoriaArt_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_CatSubCat1_2_3Emp 
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

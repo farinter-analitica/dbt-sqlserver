@@ -38,13 +38,13 @@ AS
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(CAST(Casa_Id AS INT),0) AS Casa_Id
 		, Casa_Nombre COLLATE DATABASE_DEFAULT AS [Casa_Nombre]
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Casa_Id, '-', Emp_Id)) AS INT) AS bigint))   AS Hash_CasaEmp
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Casa 
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Casa_Id, '-', Emp_Id)) AS INT) AS bigint))   AS Hash_CasaEmp
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

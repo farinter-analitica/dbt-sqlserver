@@ -37,13 +37,13 @@ AS
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(CAST(PV_Alerta_Id AS INT),0) AS CuadroBasico_Id
 		, PV_Alerta_Nombre COLLATE DATABASE_DEFAULT AS [CuadroBasico_Nombre]
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(PV_Alerta_Id, '-', Emp_Id)) AS INT) AS bigint))  AS [Hash_CuadroBasicoEmp] 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.PV_Alerta
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 	AND PV_Alerta_Nombre like 'Cuadro basico %'
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(CuadroBasico_Id, '-', Emp_Id)) AS INT) AS bigint))  AS [Hash_CuadroBasicoEmp] 
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

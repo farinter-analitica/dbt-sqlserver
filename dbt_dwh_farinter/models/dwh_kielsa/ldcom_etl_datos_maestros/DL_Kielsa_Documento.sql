@@ -45,13 +45,13 @@ AS
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(Tipo_Id,0) AS [Documento_Id]
 		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [Documento_Nombre]
-		, ABS(CAST(HASHBYTES('SHA2_256', CONCAT(Tipo_Id, 0, {{item['Empresa_Id']}})) AS int)) AS Hash_DocumentoEmp 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Tipo_Documento 
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(HASHBYTES('SHA2_256', CONCAT(Documento_Id, '-', Emp_Id)) AS int)) AS Hash_DocumentoEmp 
 	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_DocEmp]
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]

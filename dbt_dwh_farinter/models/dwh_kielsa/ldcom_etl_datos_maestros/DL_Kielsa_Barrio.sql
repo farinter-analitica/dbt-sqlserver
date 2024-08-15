@@ -40,12 +40,12 @@ AS
 		, ISNULL(CAST(Nivel3_Id AS INT),0) AS Ciudad_Id
 		, ISNULL(CAST(Nivel2_Id AS INT),0) AS Municipio_Id
 		, ISNULL(CAST(Nivel1_Id AS INT),0) AS Departamento_Id
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Nivel4_Id, '-', Nivel3_Id, '-', Nivel2_Id, '-', Nivel1_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_DeptoMunCiuBarrioEmp 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Nivel4 
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Barrio_Id, '-', Ciudad_Id, '-', Municipio_Id, '-', Departamento_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_DeptoMunCiuBarrioEmp 
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

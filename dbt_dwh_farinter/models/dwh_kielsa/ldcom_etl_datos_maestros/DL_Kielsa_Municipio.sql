@@ -38,12 +38,12 @@ AS
 		, ISNULL(CAST(Nivel2_Id AS INT),0) AS Municipio_Id
 		, Nivel2_Nombre COLLATE DATABASE_DEFAULT AS [Municipio_Nombre]
 		, ISNULL(CAST(Nivel1_Id AS INT),0) AS Departamento_Id
-		, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Nivel2_Id, '-', Nivel1_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_DeptoMunicipioEmp 
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Nivel2
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 {% endfor -%}
 )
 SELECT *
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Municipio_Id, '-', Departamento_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_DeptoMunicipioEmp 
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase
