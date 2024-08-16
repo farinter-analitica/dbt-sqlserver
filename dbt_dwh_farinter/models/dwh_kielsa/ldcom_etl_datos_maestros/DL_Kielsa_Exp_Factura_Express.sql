@@ -50,6 +50,8 @@ AS
 			,ISNULL(FEX.CC_Id,0) AS [CC_Id]
 			,ISNULL(OE.Orden_Id,0) AS [Orden_Id]
 			,FEX.[Cierre_Id]
+			,OE.Orden_Usuario_Registro COLLATE DATABASE_DEFAULT AS [Orden_Usuario_Registro]
+			,OE.Estatus_Id COLLATE DATABASE_DEFAULT AS [Estatus_Id]
 			,ISNULL(OE.Orden_Inicio_Registro,'19000101') AS [Orden_Inicio_Registro]
 			,ISNULL(OE.Orden_Fec_Terminada,'19000101') AS [Orden_Fec_Terminada]
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Exp_Orden_Encabezado OE

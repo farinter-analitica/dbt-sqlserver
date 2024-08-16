@@ -186,6 +186,8 @@ LEFT JOIN {{ref('BI_Kielsa_Dim_Cliente')}} CLI
 	AND CLI.Emp_Id = FE.Emp_Id
 LEFT JOIN (SELECT DISTINCT A.Emp_Id, A.TipoDoc_Id, A.Suc_Id, A.Caja_Id, A.Factura_Id 
 		FROM {{ref('DL_Kielsa_Exp_Factura_Express')}} A
+		WHERE A.Orden_Usuario_Registro = 'WEB'
+				AND A.Estatus_Id = 'T'
 		)	FEXP
 	ON FE.Emp_Id = FEXP.Emp_Id
 	AND FE.TipoDoc_Id = FEXP.TipoDoc_Id

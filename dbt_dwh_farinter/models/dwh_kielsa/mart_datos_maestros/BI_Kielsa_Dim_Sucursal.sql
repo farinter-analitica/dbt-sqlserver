@@ -65,6 +65,7 @@ SELECT ISNULL([Sucursal_Id],0) AS [Sucursal_Id]
         ,ISNULL({{ dwh_farinter_hash_column(["Supervisor"]) }},'') AS [HashStr_Supervisor]
         ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_SucEmp]
         ,ISNULL({{ dwh_farinter_hash_column(unique_key_list+["Version_Id"]) }},'') AS [HashStr_SucEmpVersion]
+        ,LEFT(CONVERT(VARCHAR(32), HASHBYTES('MD5', CAST(CONCAT(Emp_Id,'-', Sucursal_Id) AS NVARCHAR(50))), 2), 32) as HashMD5_EmpSuc
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }} S
