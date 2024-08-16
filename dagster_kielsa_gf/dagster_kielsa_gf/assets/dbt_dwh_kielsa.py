@@ -16,7 +16,7 @@ class MyDbtConfig(Config):
 @dbt_assets(manifest=dbt_manifest, select="tag:dagster_kielsa_gf/dbt", dagster_dbt_translator=MyDbtSourceTranslator())
 def dbt_dwh_kielsa_mart_datos_maestros_assets(context: AssetExecutionContext, dbt_resource: DbtCliResource, config: MyDbtConfig):
     dbt_run_args = ["build"]
-    if context.op_config.full_refresh:
+    if context.op_config.get("full_refresh"):
         dbt_run_args += ["--full-refresh"]
     yield from dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
 
