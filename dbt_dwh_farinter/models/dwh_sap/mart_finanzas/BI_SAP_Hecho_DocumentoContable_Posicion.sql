@@ -1,7 +1,20 @@
 
-{# Add dwh_farinter_remove_incremental_temp_table to all incremental models #}
-{# unique_key is accessible with config.get('unique_key') but it returns a string #}
-{% set unique_key_list = ['Sociedad_Id','Documento_Id', 'Ejercicio_Id', 'Posicion_Id'] %}
+{%- set nombre_esquema_particion = "ps_" + this.identifier + "_fecha" -%}
+{%- if is_incremental() -%}
+	{% set sql_inicializar_particion= '' %}
+{%- else -%}
+	{%- set sql_inicializar_particion %}
+		EXEC ADM_FARINTER.dbo.pa_inicializar_particiones
+			@p_base_datos = '{{this.database}}',
+			@p_nombre_esquema_particion = '{{nombre_esquema_particion}}',
+			@p_nombre_funcion_particion = '{{"pf_" + this.identifier + "_fecha"}}',
+			@p_periodo_tipo = 'Anual', --'Anual' o 'Mensual'
+			@p_tipo_datos = 'Fecha', --'Fecha' o 'AnioMes'
+			@p_fecha_base = '2018-01-01';
+	{% endset -%}
+{%- endif -%}
+{%- set on_clause = nombre_esquema_particion ~ "([Fecha_Creado])" -%}
+{% set unique_key_list = ['Sociedad_Id','Documento_Id', 'Ejercicio_Id', 'Posicion_Id', 'Fecha_Creado'] %}
 {{ 
     config(
 		as_columnstore=false,
@@ -9,12 +22,18 @@
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		on_schema_change="sync_all_columns",
-		pre_hook=[],
+		on_clause_filegroup = on_clause,
+		pre_hook=[sql_inicializar_particion],
 		post_hook=[
 			"{{ dwh_farinter_remove_incremental_temp_table() }}",
       		"{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
             "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
 			"{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
+			"EXEC ADM_FARINTER.dbo.pa_comprimir_indices_particiones_anteriores 
+				@p_base_datos = '{{this.database}}',
+				@p_esquema_tabla = '{{this.schema}}', 
+				@p_nombre_tabla = '{{this.identifier}}', 
+				@p_tipo_datos = 'Fecha';"		
 		]
 		
 ) }}
@@ -33,7 +52,7 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[BELNR] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Documento_Id] -- X-Número de un documento contable-Check: -Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(A.[GJAHR] AS INT),0)  AS [Ejercicio_Id] -- X-Ejercicio-Check:T001-Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[BUZEI] AS VARCHAR(3)),'') COLLATE DATABASE_DEFAULT AS [Posicion_Id] -- X-Posición-Check:T004-Datatype:CHAR-Len:(3,0)
-	, ISNULL(CAST(A.[AnioMes_Id] as INT ),0)  AS [Tipo_CuentaBeneficio] --  -Tp.cta.beneficios-Check: -Datatype:CHAR-Len:(2,0)
+	, ISNULL(CAST(A.[AnioMes_Id] as INT ),0)  AS [AnioMes_Id] 
 	, ISNULL(CAST(A.[CPUDT] AS DATE),'19000101') AS [Fecha_Creado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(TRY_CAST(A.[AEDAT] AS DATE),'19000101') AS [Fecha_Modificado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(TRY_CAST(A.[AUGDT] AS DATE),'19000101') AS [Fecha_Compensado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
