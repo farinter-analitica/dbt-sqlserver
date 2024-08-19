@@ -13,7 +13,7 @@
 		post_hook=[
 			"{{ dwh_farinter_remove_incremental_temp_table() }}",
       		"{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
-            "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=true, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+            "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
 			"{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
 		]
 		
@@ -108,10 +108,10 @@ WHERE
 
 )
 select A.*
-	, C.HashStr_PlanCuenta
-	, CS.HashStr_SociedadCuenta
-	, CP.HashStr_PlanCuenta as HashStr_PlanCuenta_Principal
-	, CSP.HashStr_SociedadCuenta as HashStr_SociedadCuenta_Principal
+	, C.PlanCuenta_Id
+	, CS.SociedadCuenta_Id
+	, CP.PlanCuenta_Id as PlanCuenta_Id_Principal
+	, CSP.SociedadCuenta_Id as SociedadCuenta_Id_Principal
 from staging A
 INNER JOIN {{ref('BI_SAP_Dim_Sociedad')}} S --Sociedades
 	ON A.Sociedad_Id = S.Sociedad_Id
