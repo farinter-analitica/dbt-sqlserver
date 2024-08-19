@@ -15,11 +15,6 @@
       		"{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
             "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=true, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
 			"{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
-			"{{ dwh_farinter_create_foreign_key(columns=['Sociedad_Id'], referenced_columns=['Sociedad_Id'], referenced_table='BI_SAP_Dim_Sociedad',  is_incremental=is_incremental()) }}"
-			"{{ dwh_farinter_create_foreign_key(columns=['HashStr_PlanCuenta'], referenced_columns=['HashStr_PlanCuenta'], referenced_table='BI_SAP_Dim_CuentaContable',  is_incremental=is_incremental()) }}"
-			"{{ dwh_farinter_create_foreign_key(columns=['HashStr_SociedadCuenta'], referenced_columns=['HashStr_SociedadCuenta'], referenced_table='BI_SAP_Dim_CuentaContableSociedad',  is_incremental=is_incremental()) }}"
-			"{{ dwh_farinter_create_foreign_key(columns=['HashStr_PlanCuenta_Principal'], referenced_columns=['HashStr_PlanCuenta'], referenced_table='BI_SAP_Dim_CuentaContable',  is_incremental=is_incremental()) }}"
-			"{{ dwh_farinter_create_foreign_key(columns=['HashStr_SociedadCuenta_Principal'], referenced_columns=['HashStr_SociedadCuenta'], referenced_table='BI_SAP_Dim_CuentaContableSociedad',  is_incremental=is_incremental()) }}"
 		]
 		
 ) }}

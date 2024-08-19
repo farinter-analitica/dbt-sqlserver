@@ -16,9 +16,6 @@
 			"{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
 			"{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['HashStr_SociedadCuenta'], create_unique=true) }}",
             "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}",
-			"{{ dwh_farinter_create_foreign_key(columns=['Sociedad_Id'], referenced_columns=['Sociedad_Id'], referenced_table='BI_SAP_Dim_Sociedad',  is_incremental=is_incremental()) }}",
-			"{{ dwh_farinter_create_foreign_key(columns=['HashStr_PlanCuenta'], referenced_columns=['HashStr_PlanCuenta'], referenced_table='BI_SAP_Dim_CuentaContable',  is_incremental=is_incremental()) }}",
-			"{{ dwh_farinter_create_foreign_key(columns=['PlanCuentas_Id','Cuenta_Id'], referenced_columns=['PlanCuentas_Id','Cuenta_Id'], referenced_table='BI_SAP_Dim_CuentaContable',  is_incremental=is_incremental()) }}"
 		]
 		
 ) }}
@@ -66,6 +63,7 @@ FROM {{ source('DL_FARINTER', 'DL_SAP_SKB1') }} A --Configuración: Cuentas cont
 
 )
 select A.*
+	, ISNULL({{dwh_farinter_concat_key_columns(columns=unique_key_list, input_length=14,table_alias='A' )}}, '') AS [SociedadCuenta_Id]
 	, ISNULL({{ dwh_farinter_hash_column(columns=unique_key_list,table_alias='A' ) }}, '') AS [HashStr_SociedadCuenta] --IdUnico, no cambiar orden
 	, C.HashStr_PlanCuenta
 	, S.PlanCuentas_Id

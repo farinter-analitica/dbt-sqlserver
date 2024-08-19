@@ -65,5 +65,6 @@ WHERE EXISTS
 {% endif %}
 )
 select *
+	, ISNULL({{ dwh_farinter_concat_key_columns(columns=unique_key_list, input_length=14)}}, '') AS [PlanCuenta_Id]
 	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_PlanCuenta] --IdUnicoPlanCuenta, no cambiar orden
 from staging
