@@ -41,7 +41,7 @@
 {% if is_incremental() %}
 	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -3, max(Fecha_Actualizado)), 112), '20240101')  from  """ ~ this, relation_not_found_value='20240101') %}
 {% else %}
-	{% set last_date = '20240101' %}
+	{% set last_date = '20240501' %}
 {% endif %}
 
 WITH
@@ -81,6 +81,7 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[SGTXT] AS VARCHAR(50)),'')  COLLATE DATABASE_DEFAULT AS [Texto_Posicion] --  -Texto posición-Check: -Datatype:CHAR-Len:(50,0)
 	, ISNULL(CAST(A.[BEWAR] AS VARCHAR(3)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Movimiento] --  -Cl.movimiento-Check:T856-Datatype:CHAR-Len:(3,0)
 	, ISNULL(CAST(A.[VORGN] AS VARCHAR(4)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Operacion_GL] --  -Clase de operación para General Ledger-Check: -Datatype:CHAR-Len:(4,0)
+	, ISNULL(CAST(A.[KOKRS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [Sociedad_CO] --   -Sociedad CO-Check:TKA01-Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[FDLEV] AS VARCHAR(2)) ,'') COLLATE DATABASE_DEFAULT AS [Nivel_Gestion_Tesoreria] --  -Nivel gest.tesorería-Check:T036-Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[FDGRP] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Grupo_Tesoreria_Id] --  -Grupo de tesorería-Check:T035-Datatype:CHAR-Len:(10,0)
 	, ISNULL(TRY_CAST(A.[FDTAG] AS DATE),'19000101') AS [Fecha_Tesoreria] --  -Fecha de tesorería-Check: -Datatype:DATS-Len:(8,0)
@@ -122,7 +123,7 @@ WHERE
 {% if is_incremental() %}
    A.AEDAT >= {{last_date}}
 {% else %}
-   A.AEDAT >= '20240101'
+   A.AnioMes_Id >= 202405 AND A.BUKRS = '1400'
 {% endif %}
 
 )
@@ -131,6 +132,7 @@ select A.*
 	, CS.SociedadCuenta_Id
 	, CP.PlanCuenta_Id as PlanCuenta_Id_Principal
 	, CSP.SociedadCuenta_Id as SociedadCuenta_Id_Principal
+	, CC.CentroCosto_SocCo_Id
 from staging A
 INNER JOIN {{ref('BI_SAP_Dim_Sociedad')}} S --Sociedades
 	ON A.Sociedad_Id = S.Sociedad_Id
@@ -146,3 +148,8 @@ LEFT JOIN {{ref('BI_SAP_Dim_CuentaContable')}} CP -- Cuentas contables
 LEFT JOIN {{ref('BI_SAP_Dim_CuentaContableSociedad')}} CSP --Configuración: Cuentas contables Sociedades
 	ON  A.Cuenta_Principal_Id = CSP.Cuenta_Id
 		AND A.Sociedad_Id = CSP.Sociedad_Id
+LEFT JOIN {{ref('BI_SAP_Dim_CentroCosto')}} CC --
+	ON A.Centro_Costo_Id = CC.Centro_Costo_Id
+	AND A.Sociedad_CO = CC.Sociedad_CO
+
+
