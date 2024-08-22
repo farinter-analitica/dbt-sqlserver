@@ -36,7 +36,7 @@ ISNULL(CAST(A.[KTOPL] AS VARCHAR(4)),'X') COLLATE DATABASE_DEFAULT AS [PlanCuent
 
 	, ISNULL(CAST(B.[XBILK] AS VARCHAR(1)),'') COLLATE DATABASE_DEFAULT AS [Indicador_CuentaBalance] --  -Indicador: ¿Es la cuenta una cuenta de balance?-Check: -Datatype:CHAR-Len:(1,0)
 	, ISNULL(CAST(B.[SAKAN] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Cuenta_Id_Significativo] --  -Nº de cuenta de mayor en longitud significativa-Check: -Datatype:CHAR-Len:(10,0)
-	, ISNULL(CAST(B.[BILKT] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Cuenta_Id_Grupo] --  -Número de cuenta de grupo-Check:SKA1-Datatype:CHAR-Len:(10,0)
+	--, ISNULL(CAST(B.[BILKT] AS VARCHAR(10)),'') COLLATE DATABASE_DEFAULT AS [Cuenta_Id_Grupo] --  -Número de cuenta de grupo-Check:SKA1-Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(B.[ERDAT] AS DATE),'19000101') AS [Fecha_Creacion] --  -Fecha de creación del registro-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(B.[ERNAM] AS VARCHAR(12)),'') COLLATE DATABASE_DEFAULT AS [Responsable_Creacion] --  -Nombre del responsable que ha añadido el objeto-Check: -Datatype:CHAR-Len:(12,0)
 	, ISNULL(CAST(B.[GVTYP] AS VARCHAR(2)),'') COLLATE DATABASE_DEFAULT AS [Tipo_Cuenta_Beneficio] --  -Tp.cta.beneficios-Check: -Datatype:CHAR-Len:(2,0)

@@ -41,7 +41,7 @@
 {% if is_incremental() %}
 	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -3, max(Fecha_Actualizado)), 112), '20240101')  from  """ ~ this, relation_not_found_value='20240101') %}
 {% else %}
-	{% set last_date = '20240501' %}
+	{% set last_date = '20240101' %}
 {% endif %}
 
 WITH
@@ -123,7 +123,7 @@ WHERE
 {% if is_incremental() %}
    A.AEDAT >= {{last_date}}
 {% else %}
-   A.AnioMes_Id >= 202405 AND A.BUKRS = '1400'
+   A.AnioMes_Id >= 202401 AND A.BUKRS = '1400'
 {% endif %}
 
 )
@@ -133,6 +133,7 @@ select A.*
 	, CP.PlanCuenta_Id as PlanCuenta_Id_Principal
 	, CSP.SociedadCuenta_Id as SociedadCuenta_Id_Principal
 	, CC.CentroCosto_SocCo_Id
+	, CB.CentroBeneficio_SocCo_Id
 from staging A
 INNER JOIN {{ref('BI_SAP_Dim_Sociedad')}} S --Sociedades
 	ON A.Sociedad_Id = S.Sociedad_Id
@@ -151,5 +152,8 @@ LEFT JOIN {{ref('BI_SAP_Dim_CuentaContableSociedad')}} CSP --Configuración: Cue
 LEFT JOIN {{ref('BI_SAP_Dim_CentroCosto')}} CC --
 	ON A.Centro_Costo_Id = CC.Centro_Costo_Id
 	AND A.Sociedad_CO = CC.Sociedad_CO
+LEFT JOIN {{ref('BI_SAP_Dim_CentroBeneficio')}} CB --
+	ON A.Centro_Beneficio_Id = CB.Centro_Beneficio_Id
+	AND A.Sociedad_CO = CB.Sociedad_CO
 
 

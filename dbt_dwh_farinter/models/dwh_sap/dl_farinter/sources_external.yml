@@ -23,4 +23,6 @@ sources:
       - name: DD03M
       - name: TTXIT
       - name: CSKT
+      - name: CEPCT
+      - name: CEPC
 
