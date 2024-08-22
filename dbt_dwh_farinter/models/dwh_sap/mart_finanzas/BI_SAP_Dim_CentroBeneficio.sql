@@ -30,6 +30,8 @@ ISNULL(CAST(A.[PRCTR] AS VARCHAR(10)),'X') COLLATE DATABASE_DEFAULT AS [Centro_B
 	, ISNULL(CAST(A.[LTEXT] COLLATE DATABASE_DEFAULT AS VARCHAR(40)),'')  AS [Nombre_Largo] --  -Descripción-Check: -Datatype:CHAR-Len:(40,0)
     , ISNULL(TRY_CAST(B.[DATAB] AS DATE),'19000101') AS [Fecha_Inicio_Validez] --Fecha inicio validez-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(B.[BUKRS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [Sociedad_Id] --   -Sociedad-Check:T001-Datatype:CHAR-Len:(4,0)
+    , ISNULL(CAST(B.[ABTEI] COLLATE DATABASE_DEFAULT AS VARCHAR(12)),'')  AS [Departamento]  --  -Departamento-Check: -Datatype:CHAR-Len:(12,0)
+    , ISNULL(CAST(B.[KHINR] COLLATE DATABASE_DEFAULT AS VARCHAR(12)),'')  AS [Area]  --  -Área de centros de beneficio-Check: -Datatype:CHAR-Len:(12,0)
 	, ISNULL(CAST(B.[VERAK] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [Responsable] --   -División-Check:TGSB-Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 	, ISNULL({{ dwh_farinter_concat_key_columns(columns=['KOKRS','PRCTR'], input_length=24, table_alias= 'A')}}, '') AS [CentroBeneficio_SocCo_Id]

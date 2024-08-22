@@ -75,9 +75,10 @@ SELECT ISNULL(CAST(A.[PRCTR] COLLATE DATABASE_DEFAULT AS VARCHAR(10)),'')  AS [P
     , ISNULL(CAST(A.[SEGMENT] COLLATE DATABASE_DEFAULT AS VARCHAR(10)),'')  AS [SEGMENT]  --  -Segmento para reporting de segmento-Check:FAGL_SEGM-Datatype:CHAR-Len:(10,0)    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'CEPC')}} A
-INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001')}} S
-ON A.MANDT = S.MANDT
-  AND A.BUKRS = S.BUKRS		
+--No llevan sociedad estos
+--INNER JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'T001')}} S
+--ON A.MANDT = S.MANDT
+--  AND A.BUKRS = S.BUKRS		
 WHERE A.MANDT = '300'
-  AND S.OPVAR LIKE 'Z%'	
+--  AND S.OPVAR LIKE 'Z%'	
 
