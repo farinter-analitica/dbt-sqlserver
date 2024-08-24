@@ -13,3 +13,9 @@ sources:
     tables:
       - name: DL_SAP_STXH  
       - name: DL_SAP_CSKS  
+      - name: DL_SAP_BKPF
+      - name: DL_SAP_SKAT
+      - name: DL_SAP_SKA1
+      - name: DL_SAP_SKB1
+      - name: DL_SAP_BSEG
+

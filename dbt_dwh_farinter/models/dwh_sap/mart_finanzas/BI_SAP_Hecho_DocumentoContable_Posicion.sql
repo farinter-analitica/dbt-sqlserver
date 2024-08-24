@@ -13,8 +13,8 @@
 			@p_fecha_base = '2018-01-01';
 	{% endset -%}
 {%- endif -%}
-{%- set on_clause = nombre_esquema_particion ~ "([Fecha_Creado])" -%}
-{% set unique_key_list = ['Sociedad_Id','Documento_Id', 'Ejercicio_Id', 'Posicion_Id', 'Fecha_Creado'] %}
+{%- set on_clause = nombre_esquema_particion ~ "([Fecha_Contable])" -%}
+{% set unique_key_list = ['Sociedad_Id','Documento_Id', 'Ejercicio_Id', 'Posicion_Id', 'Fecha_Contable'] %}
 {{ 
     config(
 		as_columnstore=false,
@@ -50,13 +50,15 @@ staging as
 SELECT --TOP 10 
 	  ISNULL(CAST(A.[BUKRS] AS VARCHAR(4)) ,'') COLLATE DATABASE_DEFAULT AS [Sociedad_Id] -- X-Sociedad-Check:T001-Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[BELNR] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Documento_Id] -- X-Número de un documento contable-Check: -Datatype:CHAR-Len:(10,0)
-	, ISNULL(CAST(A.[GJAHR] AS INT),0)  AS [Ejercicio_Id] -- X-Ejercicio-Check:T001-Datatype:CHAR-Len:(4,0)
+	, ISNULL(CAST(A.[GJAHR] AS INT),0)  AS [Ejercicio_Id] -- X-Ejercicio-Check:-Datatype:CHAR-Len:(4,0)
+	, ISNULL(CAST(B.[MONAT] AS SMALLINT),0)  AS [Mes_Contable] -- X-Ejercicio Mes-Check:-Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[BUZEI] AS VARCHAR(3)),'') COLLATE DATABASE_DEFAULT AS [Posicion_Id] -- X-Posición-Check:T004-Datatype:CHAR-Len:(3,0)
-	, ISNULL(CAST(A.[AnioMes_Id] as INT ),0)  AS [AnioMes_Id] 
-	, ISNULL(CAST(A.[CPUDT] AS DATE),'19000101') AS [Fecha_Creado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
-	, ISNULL(TRY_CAST(A.[AEDAT] AS DATE),'19000101') AS [Fecha_Modificado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
+	--, ISNULL(CAST(A.[AnioMes_Id] as INT ),0)  AS [AnioMes_Id] 
+	, ISNULL(CAST(B.[BUDAT] AS DATE),'19000101') AS [Fecha_Contable] --  -Fecha de contabilización en el documento-Check: -Datatype:DATS-Len:(8,0)
+	, ISNULL(CAST(A.[CPUDT] AS DATE),'19000101') AS [Fecha_Creado] --  -Fecha de la Creado-Check: -Datatype:DATS-Len:(8,0)
+	--, ISNULL(TRY_CAST(A.[AEDAT] AS DATE),'19000101') AS [Fecha_Modificado] --  -Fecha de la Modificado-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(TRY_CAST(A.[AUGDT] AS DATE),'19000101') AS [Fecha_Compensado] --  -Fecha de la compensación-Check: -Datatype:DATS-Len:(8,0)
-	, ISNULL(TRY_CAST(A.[AUGCP] AS DATE),'19000101') AS [FechaRegistro_Compensado]  --  -Día de registro de la compensación-Check: -Datatype:DATS-Len:(8,0)
+	--, ISNULL(TRY_CAST(A.[AUGCP] AS DATE),'19000101') AS [FechaRegistro_Compensado]  --  -Día de registro de la compensación-Check: -Datatype:DATS-Len:(8,0)
 	, ISNULL(CAST(A.[AUGBL] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Documento_Compensacion_Id] --  -Número del documento de compensación-Check: -Datatype:CHAR-Len:(10,0)
 	, ISNULL(CAST(A.[BSCHL] AS VARCHAR(2)) ,'') COLLATE DATABASE_DEFAULT AS [Clave_Contabilizacion] --  -Clave de contabilización-Check:TBSL-Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[KOART] AS VARCHAR(1)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Cuenta] --  -Clase de cuenta-Check: -Datatype:CHAR-Len:(1,0)
@@ -72,15 +74,15 @@ SELECT --TOP 10
 	, ISNULL(CAST(A.[MWSTS] AS DECIMAL(13,2)),0) AS [Importe_Impuesto_Moneda_Local] --  -Importe del impuesto en moneda local-Check: -Datatype:CURR-Len:(13,2)
 	, ISNULL(CAST(A.[HWBAS] AS DECIMAL(13,2)),0) AS [Importe_Base_Impuesto_Moneda_Local] --  -Importe base del impuesto en moneda local-Check: -Datatype:CURR-Len:(13,2)
 	, ISNULL(CAST(A.[HWZUZ] AS DECIMAL(13,2)),0) AS [Importe_Provision_Moneda_Local] --  -Importe de provisión en moneda local-Check: -Datatype:CURR-Len:(13,2)
-	, ISNULL(CAST(A.[SHZUZ] AS VARCHAR(1)),'') COLLATE DATABASE_DEFAULT AS [Dato_Adicional_Debe_Haber_Descuento] --  -Dato adicional Debe/Haber para descuento-Check: -Datatype:CHAR-Len:(1,0)
-	, ISNULL(CAST(A.[MWART] AS VARCHAR(1)),'') COLLATE DATABASE_DEFAULT AS [Clase_Impuesto] --  -Clase de impuesto-Check: -Datatype:CHAR-Len:(1,0)
-	, ISNULL(CAST(A.[TXGRP] AS VARCHAR(3)),'') COLLATE DATABASE_DEFAULT AS [Indicador_Grupo_Documentos_Impuesto] --  -Indicador de grupo para documentos de impuesto-Check: -Datatype:NUMC-Len:(3,0)
+	--, ISNULL(CAST(A.[SHZUZ] AS VARCHAR(1)),'') COLLATE DATABASE_DEFAULT AS [Dato_Adicional_Debe_Haber_Descuento] --  -Dato adicional Debe/Haber para descuento-Check: -Datatype:CHAR-Len:(1,0)
+	--, ISNULL(CAST(A.[MWART] AS VARCHAR(1)),'') COLLATE DATABASE_DEFAULT AS [Clase_Impuesto] --  -Clase de impuesto-Check: -Datatype:CHAR-Len:(1,0)
+	--, ISNULL(CAST(A.[TXGRP] AS VARCHAR(3)),'') COLLATE DATABASE_DEFAULT AS [Indicador_Grupo_Documentos_Impuesto] --  -Indicador de grupo para documentos de impuesto-Check: -Datatype:NUMC-Len:(3,0)
 	, ISNULL(CAST(A.[KTOSL] AS VARCHAR(3)),'') COLLATE DATABASE_DEFAULT AS [Clave_Operacion] --  -Clave de operación-Check: -Datatype:CHAR-Len:(3,0)
 	, ISNULL(CAST(A.[QSSHB] AS DECIMAL(13,2)),0) AS [Importe_Base_Retencion] --  -Importe base para retención-Check: -Datatype:CURR-Len:(13,2)
-	, ISNULL(CAST(A.[ZUONR] AS VARCHAR(18)),'')  COLLATE DATABASE_DEFAULT AS [Numero_Asignacion] --  -Número de asignación-Check: -Datatype:CHAR-Len:(18,0)
-	, ISNULL(CAST(A.[SGTXT] AS VARCHAR(50)),'')  COLLATE DATABASE_DEFAULT AS [Texto_Posicion] --  -Texto posición-Check: -Datatype:CHAR-Len:(50,0)
+	--, ISNULL(CAST(A.[ZUONR] AS VARCHAR(18)),'')  COLLATE DATABASE_DEFAULT AS [Numero_Asignacion] --  -Número de asignación-Check: -Datatype:CHAR-Len:(18,0)
+	--, ISNULL(CAST(A.[SGTXT] AS VARCHAR(50)),'')  COLLATE DATABASE_DEFAULT AS [Texto_Posicion] --  -Texto posición-Check: -Datatype:CHAR-Len:(50,0)
 	, ISNULL(CAST(A.[BEWAR] AS VARCHAR(3)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Movimiento] --  -Cl.movimiento-Check:T856-Datatype:CHAR-Len:(3,0)
-	, ISNULL(CAST(A.[VORGN] AS VARCHAR(4)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Operacion_GL] --  -Clase de operación para General Ledger-Check: -Datatype:CHAR-Len:(4,0)
+	--, ISNULL(CAST(A.[VORGN] AS VARCHAR(4)) ,'') COLLATE DATABASE_DEFAULT AS [Clase_Operacion_GL] --  -Clase de operación para General Ledger-Check: -Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[KOKRS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [Sociedad_CO] --   -Sociedad CO-Check:TKA01-Datatype:CHAR-Len:(4,0)
 	, ISNULL(CAST(A.[FDLEV] AS VARCHAR(2)) ,'') COLLATE DATABASE_DEFAULT AS [Nivel_Gestion_Tesoreria] --  -Nivel gest.tesorería-Check:T036-Datatype:CHAR-Len:(2,0)
 	, ISNULL(CAST(A.[FDGRP] AS VARCHAR(10)),'')  COLLATE DATABASE_DEFAULT AS [Grupo_Tesoreria_Id] --  -Grupo de tesorería-Check:T035-Datatype:CHAR-Len:(10,0)
@@ -119,6 +121,11 @@ SELECT --TOP 10
 	, ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 	
 FROM {{ source('DL_FARINTER', 'DL_SAP_BSEG') }} A --Documentos contables por posición
+INNER JOIN {{ source('DL_FARINTER', 'DL_SAP_BKPF') }} B --Cabecera de documento contable
+	ON A.BELNR = B.BELNR
+		AND A.BUKRS = B.BUKRS
+		AND A.GJAHR = B.GJAHR
+		AND A.AnioMes_Id = B.AnioMesCreado_Id
 WHERE
 {% if is_incremental() %}
    A.AEDAT >= {{last_date}}
