@@ -47,5 +47,6 @@ WHERE A.Fila = 1 AND B.Fila = 1
 {% endif %}
 )
 select *
+	, REPLACE(REPLACE(LTRIM(REPLACE(REPLACE(LTRIM(Centro_Costo_Id),' ','{s}'),'0',' ')),' ','0'),'{s}',' ') AS [Centro_Costo_Id_Significativo]
 	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_CentroCosto_SocCo] --IdUnicoPlanCuenta, no cambiar orden
 from staging
