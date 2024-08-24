@@ -123,7 +123,7 @@ WHERE
 {% if is_incremental() %}
    A.AEDAT >= {{last_date}}
 {% else %}
-   A.AnioMes_Id >= 202401 AND A.BUKRS = '1400'
+   A.AnioMes_Id >= 202301 AND A.BUKRS IN ('1400','1301','5000')
 {% endif %}
 
 )

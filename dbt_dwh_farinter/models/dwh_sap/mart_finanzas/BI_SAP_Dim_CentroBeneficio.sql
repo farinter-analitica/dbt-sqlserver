@@ -29,7 +29,7 @@ ISNULL(CAST(A.[PRCTR] AS VARCHAR(10)),'X') COLLATE DATABASE_DEFAULT AS [Centro_B
 	, ISNULL(CAST(A.[KTEXT] COLLATE DATABASE_DEFAULT AS VARCHAR(20)),'')  AS [Nombre_Corto] --  -Denominación general-Check: -Datatype:CHAR-Len:(20,0)
 	, ISNULL(CAST(A.[LTEXT] COLLATE DATABASE_DEFAULT AS VARCHAR(40)),'')  AS [Nombre_Largo] --  -Descripción-Check: -Datatype:CHAR-Len:(40,0)
     , ISNULL(TRY_CAST(B.[DATAB] AS DATE),'19000101') AS [Fecha_Inicio_Validez] --Fecha inicio validez-Check: -Datatype:DATS-Len:(8,0)
-	, ISNULL(CAST(B.[BUKRS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [Sociedad_Id] --   -Sociedad-Check:T001-Datatype:CHAR-Len:(4,0)
+	--, ISNULL(CAST(B.[BUKRS] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [Sociedad_Id] --   -Sociedad-Check:T001-Datatype:CHAR-Len:(4,0)
     , ISNULL(CAST(B.[ABTEI] COLLATE DATABASE_DEFAULT AS VARCHAR(12)),'')  AS [Departamento]  --  -Departamento-Check: -Datatype:CHAR-Len:(12,0)
     , ISNULL(CAST(B.[KHINR] COLLATE DATABASE_DEFAULT AS VARCHAR(12)),'')  AS [Area]  --  -Área de centros de beneficio-Check: -Datatype:CHAR-Len:(12,0)
 	, ISNULL(CAST(B.[VERAK] COLLATE DATABASE_DEFAULT AS VARCHAR(4)),'')  AS [Responsable] --   -División-Check:TGSB-Datatype:CHAR-Len:(4,0)
@@ -49,5 +49,6 @@ WHERE A.Fila = 1 AND B.Fila = 1
 {% endif %}
 )
 select *
+	, REPLACE(REPLACE(LTRIM(REPLACE(REPLACE(LTRIM(Centro_Beneficio_Id),' ','{s}'),'0',' ')),' ','0'),'{s}',' ') AS [Centro_Beneficio_Id_Significativo]
 	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_CentroBeneficio_SocCo] --IdUnicoPlanCuenta, no cambiar orden
 from staging
