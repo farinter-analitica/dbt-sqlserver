@@ -27,11 +27,12 @@
             SELECT {{listColumns}} FROM {{tmp_relation}} {{ query_label }}
 
         {% else %}
-            SELECT * INTO {{ table_name }} FROM {{ tmp_relation }} {{ query_label }}
+            SELECT * 
+            INTO {{ table_name }} FROM {{ tmp_relation }} {{ query_label }}
 
             {% if config.get('on_clause_filegroup') %}
-                {{dwh_farinter_create_index(relation=relation,columns=unique_keys,is_incremental=0, create_clustered=true)}};
-                {{dwh_farinter_create_index(relation=relation,columns=unique_keys,is_incremental=0, just_drop_index=true)}};
+                {{dwh_farinter_create_index(relation=relation,columns=config.get('unique_key'),is_incremental=0, create_clustered=true)}};
+                {{dwh_farinter_create_index(relation=relation,columns=config.get('unique_key'),is_incremental=0, just_drop_index=true)}};
             {% endif %}
 
         {% endif %}
