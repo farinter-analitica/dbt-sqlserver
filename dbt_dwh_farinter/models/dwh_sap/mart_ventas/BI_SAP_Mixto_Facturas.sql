@@ -4,7 +4,7 @@
 		tags=["periodo/por_hora"],
 	) 
 }}
-
+--DBT DAGSTER 
 SELECT 'Actual' AS [Periodo]
 	, CAL.[AnioMes_Id]
 	, C.[AnioMesCreado_Id]
