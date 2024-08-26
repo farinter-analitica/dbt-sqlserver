@@ -1,62 +1,56 @@
-
 {% macro sqlserver__create_table_as(temporary, relation, sql) -%}
-    {%- set sql_header = config.get('sql_header', none) -%}
+    {%- set query_label = apply_label() -%}
+    {%- set tmp_relation = relation.incorporate(path={"identifier": relation.identifier ~ '__dbt_tmp_vw'}, type='view') -%}
 
-    {{ sql_header if sql_header is not none }}
+    {%- do adapter.drop_relation(tmp_relation) -%}
+    {{ get_create_view_as_sql(tmp_relation, sql) }}
 
-    {% set tmp_relation = relation.incorporate(
-    path={"identifier": relation.identifier.replace("#", "") ~ '_temp_view'},
-    type='view')-%}
-    {% do run_query(fabric__get_drop_sql(tmp_relation)) %}
+    {%- set table_name -%}
+        {{ relation.database}}.{{ relation.schema }}.{{ relation.identifier }}
+    {%- endset -%}
 
-    {% set contract_config = config.get('contract') %}
-    {% set unique_keys = config.get('unique_key') %}
-    {% do run_query(fabric__create_view_as(tmp_relation, sql)) %}
-    {#{{ fabric__create_view_as(tmp_relation, sql) }}#}
+    {%- set contract_config = config.get('contract') -%}
+    {%- set query -%}
+        {% if contract_config.enforced and (not temporary) %}
+            CREATE TABLE {{table_name}}
+            {{ get_assert_columns_equivalent(sql)  }}
+            {{ build_columns_constraints(relation) }}
+            {% set listColumns %}
+                {% for column in model['columns'] %}
+                    {{ "["~column~"]" }}{{ ", " if not loop.last }}
+                {% endfor %}
+            {%endset%}
+            {%if config.get('on_clause_filegroup') %} ON {{ config.get('on_clause_filegroup') }} {%endif%}
 
-    {% if contract_config.enforced%}
-        {% set listColumns %}
-            {% for column in model['columns']  %}
-                {{ "["~column~"]" }}{{ ", " if not loop.last }}
-            {% endfor %}
-        {%endset%}
-    {% else %}
-        {% set listColumns %}
-            {% for column in adapter.get_columns_in_relation(tmp_relation)  %}
-                [{{column.name}}] {{ ", " if not loop.last }}
-            {% endfor %}
-        {%endset%}
-    {% endif %}
-    
+ 
+            INSERT INTO {{relation}} ({{listColumns}})
+            SELECT {{listColumns}} FROM {{tmp_relation}} {{ query_label }}
 
-    {% set tmp_sql %}
-            SELECT {{listColumns}} FROM [{{tmp_relation.database}}].[{{tmp_relation.schema}}].[{{tmp_relation.identifier}}]
-    {% endset %}
+        {% else %}
+            SELECT * INTO {{ table_name }} FROM {{ tmp_relation }} {{ query_label }}
 
-    {% if contract_config.enforced %}
+            {% if config.get('on_clause_filegroup') %}
+                {{dwh_farinter_create_index(relation=relation,columns=unique_keys,is_incremental=0, create_clustered=true)}};
+                {{dwh_farinter_create_index(relation=relation,columns=unique_keys,is_incremental=0, just_drop_index=true)}};
+            {% endif %}
 
-        CREATE TABLE [{{relation.database}}].[{{relation.schema}}].[{{relation.identifier}}]
-        {{ fabric__table_columns_and_constraints(relation) }}
-        {{ get_assert_columns_equivalent(sql)  }}
-        {%if config.get('on_clause_filegroup') %} ON {{ config.get('on_clause_filegroup') }} {%endif%}
-
-        INSERT INTO [{{relation.database}}].[{{relation.schema}}].[{{relation.identifier}}]
-        ({{listColumns}}) {{tmp_sql}};
-
-    {%- else %}
-        EXEC('SELECT * INTO [{{relation.database}}].[{{relation.schema}}].[{{relation.identifier}}] FROM [{{tmp_relation.database}}].[{{tmp_relation.schema}}].[{{tmp_relation.identifier}}] WHERE 1=0;');
-
-        {% if config.get('on_clause_filegroup') %}
-            {{dwh_farinter_create_index(relation=relation,columns=unique_keys,is_incremental=0, create_clustered=true)}};
-            {{dwh_farinter_create_index(relation=relation,columns=unique_keys,is_incremental=0, just_drop_index=true)}};
         {% endif %}
+    {%- endset -%}
 
-        INSERT INTO [{{relation.database}}].[{{relation.schema}}].[{{relation.identifier}}]
-        ({{listColumns}}) {{tmp_sql}};
-    {% endif %}
+    EXEC('{{- escape_single_quotes(query) -}}')
 
-    {{fabric__get_drop_sql(tmp_relation)}}
+    {# For some reason drop_relation is not firing. This solves the issue for now. #}
+    EXEC('DROP VIEW IF EXISTS {{tmp_relation.schema}}.{{tmp_relation.identifier}}')
 
-    {#{% do run_query(fabric__get_drop_sql(tmp_relation)) %}#}
+
+    {% set as_columnstore = config.get('as_columnstore', default=true) %}
+    {% if not temporary and as_columnstore -%}
+        {#-
+        add columnstore index
+        this creates with dbt_temp as its coming from a temporary relation before renaming
+        could alter relation to drop the dbt_temp portion if needed
+        -#}
+        {{ sqlserver__create_clustered_columnstore_index(relation) }}
+   {% endif %}
 
 {% endmacro %}

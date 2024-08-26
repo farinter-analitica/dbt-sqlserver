@@ -1,5 +1,7 @@
 
-{% macro sqlserver__create_columns(relation, columns) %}
+{# V1.8.0rc1 fixed #}
+
+{# {% macro sqlserver__create_columns(relation, columns) %}
   {# default__ macro uses "add column"
      TSQL preferes just "add"
   #}
@@ -8,7 +10,7 @@
       alter table {{ relation }} add "{{ column.name }}" {{ column.data_type }};
     {% endcall %}
   {% endfor %}
-{% endmacro %}
+{% endmacro %} #}
 
 
 {#
