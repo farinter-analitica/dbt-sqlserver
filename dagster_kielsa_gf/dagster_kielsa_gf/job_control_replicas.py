@@ -98,6 +98,7 @@ def obtener_servidores_de_replica_en_alerta(
     ldcom_hn_prd_sqlserver: SQLServerResource,
     ldcom_ni_prd_sqlserver: SQLServerResource,
     ldcom_cr_prd_sqlserver: SQLServerResource,
+    ldcom_cr_arb_prd_sqlserver: SQLServerResource,
     ldcom_gt_prd_sqlserver: SQLServerResource,
     ldcom_sv_prd_sqlserver: SQLServerResource,
     siteplus_sqlldsubs_sqlserver: SQLServerResource,
@@ -156,6 +157,14 @@ def obtener_servidores_de_replica_en_alerta(
                                 column_replica="Factura_Fecha",
                                 delta_max=timedelta(hours=1)
                                 ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_cr_arb_prd_sqlserver,
+                                sql_server_replica=dwh_farinter_prd_replicas_ldcom,
+                                relation_origen="dbo.Factura_Encabezado",
+                                relation_replica="REP_LDCOM_ARB.dbo.Factura_Encabezado",
+                                column_origen="Factura_Fecha",
+                                column_replica="Factura_Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
     ParServidoresReplicaSQLServer(sql_server_origen=ldcom_gt_prd_sqlserver,
                                 sql_server_replica=dwh_farinter_prd_replicas_ldcom,
                                 relation_origen="dbo.Ticket_Encabezado",
@@ -192,6 +201,14 @@ def obtener_servidores_de_replica_en_alerta(
                                 sql_server_replica=siteplus_sqlldsubs_sqlserver,
                                 relation_origen="LDCOM_KIELSA_CR.dbo.Factura_Encabezado",
                                 relation_replica="LDCOMREPCR.dbo.Factura_Encabezado",
+                                column_origen="Factura_Fecha",
+                                column_replica="Factura_Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_cr_arb_prd_sqlserver,
+                                sql_server_replica=siteplus_sqlldsubs_sqlserver,
+                                relation_origen="LDCOM_KIELSA_CR.dbo.Factura_Encabezado",
+                                relation_replica="LDCOMREPARBCR.dbo.Factura_Encabezado",
                                 column_origen="Factura_Fecha",
                                 column_replica="Factura_Fecha",
                                 delta_max=timedelta(hours=1)

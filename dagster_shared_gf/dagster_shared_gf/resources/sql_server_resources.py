@@ -356,7 +356,7 @@ dwh_farinter_dl_prd = SQLServerResource(
 
 dwh_farinter_prd_replicas_ldcom = SQLServerResource(
     server= os.getenv('DAGSTER_PRD_DWH_FARINTER_SQL_SERVER'),
-    databases= ["REP_LDCOM_HN", "REP_LDCOM_NI", "REP_LDCOM_CR", "REP_LDCOM_GT", "REP_LDCOM_SV"],
+    databases= ["REP_LDCOM_HN", "REP_LDCOM_NI", "REP_LDCOM_CR", "REP_LDCOM_GT", "REP_LDCOM_SV", "REP_LDCOM_ARB"],
     username=os.getenv('DAGSTER_PRD_DWH_FARINTER_USERNAME'),
     password=EnvVar('DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD'),
     trust_server_certificate='yes',
@@ -369,6 +369,7 @@ LDCOM_SQLSERVER_HOSTS = {
     "CR": r"172.16.2.52",
     "GT": r"172.16.2.62",
     "SV": r"172.16.2.72",
+    "CR_ARB": r"172.16.2.37",
     "SQLLDSUBS": r"172.16.2.125\SQLLDSUBS",
 }
 LDCOM_SQLSERVER_DATABASES = {
@@ -377,8 +378,9 @@ LDCOM_SQLSERVER_DATABASES = {
     "CR": ["LDCOM_KIELSA_CR", "LDFAS_KIELSA_CR"],
     "GT": ["LDCOM_KIELSA_GT", "LDFAS_KIELSA_GT"],
     "SV": ["LDCOM_KIELSA_SALVADOR", "LDFAS_KIELSA_SALVADOR"],
-    "SQLLDSUBS": ["LDCOMREPHN", "LDCOMREPNIC","LDCOMREPSLV","LDCOMREPGT","LDCOMREPCR",
-                  "LDFASREPHN","LDFASREPNIC","LDFASREPSLV","LDFASREPGT","LDFASREPCR",
+    "CR_ARB": ["LDCOM_KIELSA_CR", "LDFAS_KIELSA_CR"],
+    "SQLLDSUBS": ["LDCOMREPHN", "LDCOMREPNIC","LDCOMREPSLV","LDCOMREPGT","LDCOMREPCR", "LDCOMREPARBCR"
+                  "LDFASREPHN","LDFASREPNIC","LDFASREPSLV","LDFASREPGT","LDFASREPCR", "LDFASREPARBCR"
                   "SITEPLUS","RECETAS","KPP_DB"],
 }
 
@@ -406,6 +408,15 @@ ldcom_ni_prd_sqlserver = SQLServerResource(
 ldcom_cr_prd_sqlserver = SQLServerResource(
     server= LDCOM_SQLSERVER_HOSTS["CR"],
     databases= LDCOM_SQLSERVER_DATABASES["CR"],
+    username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
+    password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
+    trust_server_certificate='yes',
+    default_database="LDCOM_KIELSA_CR",
+)
+
+ldcom_cr_arb_prd_sqlserver = SQLServerResource(
+    server= LDCOM_SQLSERVER_HOSTS["CR_ARB"],
+    databases= LDCOM_SQLSERVER_DATABASES["CR_ARB"],
     username=os.getenv('DAGSTER_LDCOM_PRD_USERNAME'),
     password=EnvVar('DAGSTER_SECRET_LDCOM_PRD_PASSWORD'),
     trust_server_certificate='yes',
