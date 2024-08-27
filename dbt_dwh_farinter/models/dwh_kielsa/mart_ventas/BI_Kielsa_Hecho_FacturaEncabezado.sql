@@ -31,19 +31,19 @@
 		pre_hook=[sql_inicializar_particion],
 		post_hook=[
 		"{{ dwh_farinter_remove_incremental_temp_table() }}",
-		after_commit("{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(),
-			if_another_exists_drop_it=true) }}"),
-		after_commit("{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", 
+		"{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(),
+			if_another_exists_drop_it=true) }}",
+		"{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", 
 			create_clustered=false, 
 			is_incremental=is_incremental(), 
-			if_another_exists_drop_it=true) }}"),
-        after_commit("{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado'], included_columns=['Factura_Fecha']) }}"),
-        after_commit("{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Factura_Fecha']) }}"),
-		after_commit("EXEC ADM_FARINTER.dbo.pa_comprimir_indices_particiones_anteriores 
+			if_another_exists_drop_it=true) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado'], included_columns=['Factura_Fecha']) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Factura_Fecha']) }}",
+		"EXEC ADM_FARINTER.dbo.pa_comprimir_indices_particiones_anteriores 
 			@p_base_datos = '{{this.database}}',
 		 	@p_esquema_tabla = '{{this.schema}}', 
 			@p_nombre_tabla = '{{this.identifier}}', 
-			@p_tipo_datos = 'Fecha';")		
+			@p_tipo_datos = 'Fecha';"		
 			]
 		
 ) }}
