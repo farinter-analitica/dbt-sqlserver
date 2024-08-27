@@ -31,6 +31,7 @@
 {{ 
     config(
 		as_columnstore=false,
+    	tags=["periodo/diario"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
