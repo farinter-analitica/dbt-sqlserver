@@ -97,6 +97,11 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_FacturaPosicionDescuento",
         "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,    
     },
+    "DL_paCargarKielsa_Seg_Rol": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Seg_Rol",
+        "tags": tags_repo.Daily.tag,
+    },
     # ahora en su propio asset condicional
     # "DL_paCargarKielsa_FacturaEncabezado": {
     #     "key_prefix": ["DL_FARINTER", "dbo"],
@@ -181,7 +186,8 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Empleado",
         "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Seg_Rol"])],
     },
     "BI_paCargarDim_Empleado_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
