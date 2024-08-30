@@ -35,4 +35,5 @@ SELECT [Monedero_Id]
       ,[Hash_MonederoEmpVersion]
       ,[HashStr_MonEmp]
       ,[HashStr_MonEmpVer]
+	    , {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Monedero_Id'], input_length=49, table_alias='')}} [EmpMon_Id]
   FROM {{ source('DL_FARINTER', 'DL_Kielsa_Monedero') }} 
