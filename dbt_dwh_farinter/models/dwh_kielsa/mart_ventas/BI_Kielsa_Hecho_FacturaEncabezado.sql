@@ -87,6 +87,7 @@ WITH Facturas AS
 		, DOC.HashStr_SubDDocEmp
 		, CLI.HashStr_CliEmp
 		, MON.HashStr_MonEmp
+		, MON.EmpMon_Id
 		, EMPL.HashStr_EmplEmp
 		, BOD.HashStr_SucBodEmp
 		, ISNULL(SAM.Tipo_Id, 0) AS Same_Id
