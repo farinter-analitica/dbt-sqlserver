@@ -99,7 +99,7 @@ SELECT
 		ELSE 0
 	END AS TipoUtilidad_Id
 	, (FP.Detalle_Cantidad * FP.Detalle_Precio_Unitario * (ISNULL(FPD.Descuento_Porcentaje, 0) / 100.0)) AS [Descuento_Proveedor]
-	, FE.[HashStr_FacSucEmpDocCaj]
+	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'TipoDoc_Id', 'Caja_Id', 'Factura_Id'], input_length=49, table_alias='FE')}} [EmpSucDocCajFac_Id]
 FROM {{ref ('BI_Kielsa_Hecho_FacturaEncabezado')}} FE
 INNER JOIN (
 		SELECT  [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id], [AnioMes_Id], [Articulo_Id]

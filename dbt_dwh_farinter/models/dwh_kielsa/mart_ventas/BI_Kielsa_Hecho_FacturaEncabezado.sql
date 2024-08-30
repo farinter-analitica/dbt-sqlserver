@@ -127,7 +127,7 @@ WITH Facturas AS
 	{% endif %}
 ) 
 SELECT *
-    , ISNULL({{ dwh_farinter_hash_column( columns = ["Factura_Id","Suc_Id","Emp_Id","TipoDoc_Id","Caja_Id"], table_alias="") }},'') AS [HashStr_FacSucEmpDocCaj]   
+	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'TipoDoc_Id', 'Caja_Id', 'Factura_Id'], input_length=49, table_alias='')}} [EmpSucDocCajFac_Id]
     , ISNULL(GETDATE(),'19000101') AS [Fecha_Actualizado]
 
 FROM Facturas
