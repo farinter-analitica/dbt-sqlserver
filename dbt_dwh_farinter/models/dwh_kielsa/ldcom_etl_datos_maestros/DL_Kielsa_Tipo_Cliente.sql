@@ -1,5 +1,5 @@
 
-{%- set unique_key_list = ["Tipo_Id","Emp_Id"] -%}
+{%- set unique_key_list = ["TipoCliente_Id","Emp_Id"] -%}
 {{ 
     config(
 		as_columnstore=false,
@@ -36,14 +36,14 @@ AS
 {%- if not loop.first %}
 	UNION ALL{%- endif %}
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
-		, ISNULL(CAST(Tipo_Id AS INT),0) AS Tipo_Id
-		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [Tipo_Nombre]
+		, ISNULL(CAST(Tipo_Id AS INT),0) AS TipoCliente_Id
+		, Tipo_Nombre COLLATE DATABASE_DEFAULT AS [TipoCliente_Nombre]
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Tipo_Cliente 
 	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 {% endfor -%}
 )
 SELECT *
-	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Tipo_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_TipoClienteEmp 
+	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(TipoCliente_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_TipoClienteEmp 
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase
