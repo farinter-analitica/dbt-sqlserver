@@ -83,6 +83,7 @@ SELECT
 		AS CanalVenta_Id
 	, FE.HashStr_CliEmp
 	, FE.HashStr_MonEmp
+	, FE.EmpMon_Id
 	, FE.HashStr_SubDDocEmp
 	, FE.HashStr_SucEmp
 	, FE.HashStr_SucBodEmp
