@@ -103,4 +103,11 @@ sources:
       - name: DL_Kielsa_Bodega
       - name: DL_Kielsa_Empleado
       - name: DL_Kielsa_CanalVenta
+      - name: DL_Kielsa_Articulo_x_Sucursal
+      - name: DL_Kielsa_INV_Demanda_Histo
+      - name: DL_Kielsa_SUC_Demanda_Histo
+      - name: DL_Kielsa_MovimientosHist
+      - name: DL_Kielsa_Tipo_Mov_Inventario
+      - name: DL_Kielsa_INV_Demanda
+
             
