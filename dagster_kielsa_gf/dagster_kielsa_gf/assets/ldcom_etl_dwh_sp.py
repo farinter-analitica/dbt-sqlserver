@@ -241,54 +241,63 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Tipo_Mov_Inventario",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_INV_Demanda": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_INV_Demanda",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_INV_Demanda_Histo": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_INV_Demanda_Histo",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Articulo_x_Sucursal": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Articulo_x_Sucursal",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Boleta_Exterior_Hist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Boleta_Exterior_Hist",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Orden_Local_Detalle": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Orden_Local_Detalle",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Orden_Local_Encabezado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Orden_Local_Encabezado",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Inv_Despacho_Detalle": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Inv_Despacho_Detalle",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Inv_Despacho_Encabezado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Inv_Despacho_Encabezado",
         "tags": tags_repo.Daily.tag ,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "BI_paCargarHecho_Inventarios_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
@@ -439,6 +448,7 @@ def create_store_procedure_asset(stored_procedure_name: str, group_name: str, pa
         @asset(key_prefix= params["key_prefix"], name=params["name"],
                 tags=params.get("tags", None), 
                 deps=params.get("deps", None),
+                owners=params.get("owners", None),
                 group_name=group_name,
                 compute_kind="sqlserver",
                 description=f"EXEC [{params["key_prefix"][0]}].[{params["key_prefix"][1]}].[{stored_procedure_name}]")
@@ -451,10 +461,12 @@ def create_store_procedure_asset(stored_procedure_name: str, group_name: str, pa
         if isinstance(params.get("name", None), List):
             final_outs = {name : AssetOut(key_prefix= params["key_prefix"],
                                     tags=params.get("tags", None),
+                                    owners=params.get("owners", None),
                                     ) for name in params["name"]}
         elif params.get("keys_out", None) is not None:
             final_outs = {current_key.path[-1] : AssetOut(key= current_key,
                                     tags=params.get("tags", None),
+                                    owners=params.get("owners", None),
                                     ) for current_key in params["keys_out"]}
 
         @multi_asset(name=stored_procedure_name,
