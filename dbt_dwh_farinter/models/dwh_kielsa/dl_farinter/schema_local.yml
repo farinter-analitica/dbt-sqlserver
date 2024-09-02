@@ -1,0 +1,5 @@
+models:
+  - name: DL_Kielsa_TC_Sugerido
+    meta:
+        dagster:
+            owners: ["cleymer.mendoza@farinter.com"]

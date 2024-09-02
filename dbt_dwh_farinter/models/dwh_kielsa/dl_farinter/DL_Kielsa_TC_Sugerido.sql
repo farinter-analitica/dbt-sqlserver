@@ -12,8 +12,7 @@
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
         "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
-        ],
-		owners = ["cleymer.mendoza@farinter.com"]
+        ]
 	) 
 }}
 
