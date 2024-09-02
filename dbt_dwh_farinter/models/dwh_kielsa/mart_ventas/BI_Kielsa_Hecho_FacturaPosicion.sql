@@ -32,6 +32,7 @@ SELECT
 	, FP.[Valor_Acum_Monedero]
 	, FP.[Valor_Descuento_Cupon]
 	, FP.[Valor_Descuento_Monedero]
+	, DTE.[Valor_Descuento_Tercera_Edad]
 	, FP.[Detalle_Precio_Unitario]
 	, FP.[Detalle_Descuento_Monto]
 	, FP.[Detalle_Costo_Unitario]
@@ -162,6 +163,17 @@ LEFT JOIN (SELECT Emp_Id, TipoDoc_Id, Suc_Id, Caja_Id, Factura_Id, AnioMes_Id, A
 	AND FPD.Factura_Id = FP.Factura_Id
 	AND FPD.Articulo_Id = FP.Articulo_Id
 	AND FPD.AnioMes_Id = FP.AnioMes_Id	
+LEFT JOIN (SELECT Emp_Id, TipoDoc_Id, Suc_Id, Caja_Id, Factura_Id, AnioMes_Id, Articulo_Id, SUM(Descuento_Monto) AS Valor_Descuento_Tercera_Edad 
+		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturaPosicionDescuento')}} 
+		WHERE Descuento_Origen = 1 AND Descuento_Nombre LIKE 'TERCERA%EDAD%'
+		GROUP BY AnioMes_Id,Emp_Id, TipoDoc_Id, Suc_Id, Caja_Id, Factura_Id,  Articulo_Id) DTE
+	ON DTE.Emp_Id = FP.Emp_Id
+	AND DTE.TipoDoc_Id = FP.TipoDoc_Id
+	AND DTE.Suc_Id = FP.Suc_Id
+	AND DTE.Caja_Id = FP.Caja_Id
+	AND DTE.Factura_Id = FP.Factura_Id
+	AND DTE.Articulo_Id = FP.Articulo_Id
+	AND DTE.AnioMes_Id = FP.AnioMes_Id	
 LEFT JOIN {{ref ('BI_Kielsa_Dim_Articulo')}} ART
 	ON ART.Articulo_Id = FP.Articulo_Id
 	AND ART.Emp_Id = FP.Emp_Id
