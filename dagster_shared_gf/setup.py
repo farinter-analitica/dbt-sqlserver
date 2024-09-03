@@ -24,6 +24,7 @@ setup(
         "dagster-embedded-elt",
         "pymongo",
         "pymongoarrow",
+        "deep-translator",
     ],
     extras_require={"dev": [ "pytest","pytest-mock"]},
 )

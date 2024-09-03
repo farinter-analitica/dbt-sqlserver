@@ -1,3 +1,5 @@
 {
-    "dbt.enableNewLineagePanel": true
+    "dbt.enableNewLineagePanel": true,
+    "pieces.cloudCapabilities": "Blended",
+    "pieces.telemetry": true
 }

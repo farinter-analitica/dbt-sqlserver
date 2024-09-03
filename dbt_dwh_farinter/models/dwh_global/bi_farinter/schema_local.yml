@@ -1,0 +1,3 @@
+models:
+    - name: BI_Dim_Calendario_LaboralPais
+      group: dbt_dwh_mart_datos_maestros

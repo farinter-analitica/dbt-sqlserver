@@ -14,3 +14,7 @@ sources:
         meta:
             dagster:
                 group: "dbt_dwh_mart_datos_maestros"
+      - name: BI_Dim_Pais
+        meta:
+            dagster:
+                group: "dbt_dwh_mart_datos_maestros"
