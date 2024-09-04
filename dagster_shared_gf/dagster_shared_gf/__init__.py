@@ -9,7 +9,9 @@ from dagster_shared_gf.resources import (sql_server_resources,
                                          correo_e,
 
                                          )
-from dagster_shared_gf.assets import dias_festivos
+from dagster_shared_gf.assets import dias_festivos, dbt_dwh_global, dbt_sources
+from dagster_shared_gf.jobs import all_jobs
+from dagster_shared_gf.schedules import all_schedules
 
 all_shared_resources = {
     "dwh_farinter": sql_server_resources.dwh_farinter,
@@ -42,7 +44,9 @@ all_shared_resources = {
 }
 
 defs = Definitions(
-    assets=dias_festivos.all_assets,
+    assets=dias_festivos.all_assets + dbt_dwh_global.all_assets + dbt_sources.all_assets,
+    jobs=all_jobs,
+    schedules=all_schedules,
     asset_checks=dias_festivos.all_asset_checks + dias_festivos.all_asset_freshness_checks,
     resources= all_shared_resources,
 )

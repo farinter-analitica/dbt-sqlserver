@@ -93,7 +93,7 @@ def obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin) -> pl.DataFrame
     key_prefix=["DL_FARINTER", "web_api"],
     tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
     compute_kind="polars",    
-    automation_condition=AutomationCondition.cron_tick_passed("@monthly"),
+    automation_condition=AutomationCondition.on_cron("@monthly")
 )
 def web_api_DL_Edit_CalendarioNoLaboral(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
     table = "DL_Edit_CalendarioNoLaboral_Temp"
@@ -116,7 +116,7 @@ def web_api_DL_Edit_CalendarioNoLaboral(context: AssetExecutionContext, dwh_fari
     key_prefix=["DL_FARINTER", "dbo"],
     tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
     compute_kind="sqlserver",    
-    automation_condition=AutomationCondition.cron_tick_passed("@monthly"),
+    automation_condition=AutomationCondition.cron_tick_passed("@monthly") | AutomationCondition.eager(),
     deps=[web_api_DL_Edit_CalendarioNoLaboral],
 )
 def DL_Edit_CalendarioNoLaboral(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
