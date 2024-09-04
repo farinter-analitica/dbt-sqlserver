@@ -42,7 +42,7 @@ ISNULL(P.Pais_ISO2,'') AS Pais_ISO2
 ,CD.Anio_Relativo
 ,CD.AnioMes_Id
 ,GETDATE() AS [Fecha_Actualizado]
-FROM [dbo].[BI_Dim_Calendario_Dinamico] CD
+FROM {{ ref('BI_Dim_Calendario_Dinamico') }} CD
 CROSS JOIN (SELECT P.* FROM BI_Dim_Pais P WHERE EXISTS (SELECT 1 FROM BI_SAP_Dim_Sociedad S
 WHERE P.Pais_ISO2 = S.Pais_Id)) P
 
