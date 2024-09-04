@@ -52,7 +52,7 @@ AS
     ON PAIS.Pais_Id = EMP.Pais_Id
     INNER JOIN {{ ref('BI_Dim_Calendario_LaboralPais') }} CAL
     on CAL.Fecha_Calendario = FP.Factura_Fecha AND CAL.AnioMes_Id = FP.AnioMes_Id
-    AND CAL.[Es_Dia_Habil] =1
+    AND CAL.[Es_Dia_Feriado] =1
     AND PAIS.Pais_ISO2 = CAL.Pais_ISO2
     WHERE FP.Factura_Fecha >= '{{ v_fecha_inicio }}' AND FP.Factura_Fecha < '{{ v_fecha_fin }}' AND FP.AnioMes_Id >= {{ v_anio_mes_inicio }}
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio
