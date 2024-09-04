@@ -35,7 +35,7 @@ AS
         FP.Emp_Id,
         FP.Suc_Id,
         --@SemanasPonderacion AS Semanas_Ponderacion,
-        COUNT(CAL.Fecha_Calendario)  AS Dias_Ponderacion,
+        COUNT(DISTINCT CAL.Fecha_Calendario)*1.0 AS Dias_Ponderacion,
         SUM(FP.Valor_Neto) AS Sum_Valor_Neto,
         SUM(FP.Valor_Costo) AS Sum_Valor_Costo,
         SUM(FP.Valor_Descuento) AS Sum_Valor_Descuento,
@@ -44,7 +44,7 @@ AS
         SUM(FP.Valor_Descuento_Cupon) AS Sum_Valor_Descuento_Cupon,
         SUM(FP.Descuento_Proveedor) AS Sum_Descuento_Proveedor,
         SUM(FP.Valor_Descuento_Tercera_Edad) AS Sum_Valor_Descuento_Tercera_Edad,
-        COUNT(distinct FP.EmpSucDocCajFac_Id) AS Sum_Conteo_Transacciones
+        COUNT(DISTINCT FP.EmpSucDocCajFac_Id) AS Sum_Conteo_Transacciones
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
     INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
     ON EMP.Empresa_Id = FP.Emp_Id
@@ -61,6 +61,7 @@ AS
 SELECT 
     ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Suc_Id,0) AS Suc_Id,
+    Dias_Ponderacion,
     Sum_Valor_Neto / Dias_Ponderacion AS Prom_Valor_Venta,
     Sum_Valor_Costo / Dias_Ponderacion AS Prom_Valor_Costo,
     Sum_Valor_Descuento / Dias_Ponderacion AS Prom_Valor_Descuento,
