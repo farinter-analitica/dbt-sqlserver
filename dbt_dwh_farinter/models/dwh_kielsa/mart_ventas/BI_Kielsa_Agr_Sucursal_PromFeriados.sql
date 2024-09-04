@@ -54,9 +54,9 @@ AS
     on CAL.Fecha_Calendario = FP.Factura_Fecha AND CAL.AnioMes_Id = FP.AnioMes_Id
     AND CAL.[Es_Dia_Habil] =1
     AND PAIS.Pais_ISO2 = CAL.Pais_ISO2
-    WHERE Factura_Fecha >= '{{ v_fecha_inicio }}' AND Factura_Fecha < '{{ v_fecha_fin }}' AND AnioMes_Id >= {{ v_anio_mes_inicio }}
+    WHERE FP.Factura_Fecha >= '{{ v_fecha_inicio }}' AND FP.Factura_Fecha < '{{ v_fecha_fin }}' AND FP.AnioMes_Id >= {{ v_anio_mes_inicio }}
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio
-    GROUP BY Emp_Id, Suc_Id, PAIS.Pais_Id
+    GROUP BY FP.Emp_Id, FP.Suc_Id, PAIS.Pais_Id
 )
 SELECT 
     ISNULL(Emp_Id,0) AS Emp_Id,
