@@ -190,7 +190,7 @@ INNER JOIN (
 		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
 		{% if is_incremental() and last_date != '19000101' %} 
 		--Esto es por posicion, delimitando encabezado a un mes
-		WHERE FP.Fecha_Actualizado >= '{{ last_date }}' AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + 1
+		WHERE FP.DWH_Fecha_Actualizado >= '{{ last_date }}' AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + 1
 		{% else %}
 		WHERE FP.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
 		{% endif %}
