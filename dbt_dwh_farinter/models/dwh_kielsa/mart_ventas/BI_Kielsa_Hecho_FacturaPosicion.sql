@@ -35,6 +35,7 @@
 			create_clustered=false, 
 			is_incremental=is_incremental(), 
 			if_another_exists_drop_it=true) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado'], included_columns=['Factura_Fecha']) }}",
         "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Factura_Fecha']) }}",
 		"EXEC ADM_FARINTER.dbo.pa_comprimir_indices_particiones_anteriores 
 			@p_base_datos = '{{this.database}}',
