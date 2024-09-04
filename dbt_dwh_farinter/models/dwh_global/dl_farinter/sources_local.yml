@@ -1,7 +1,7 @@
 sources:
-  - name: BI_FARINTER
+  - name: DL_FARINTER
     description: "Base de tablas transformadas (Data Warehouse)"
-    database: BI_FARINTER
+    database: DL_FARINTER
     schema: dbo
     freshness: # default freshness
         warn_after: {count: 28, period: hour}
@@ -9,14 +9,7 @@ sources:
     loaded_at_field: Fecha_Actualizado
 
     tables:
-      - name: BI_Dim_Calendario
-        loaded_at_field: Fecha_Procesado
+      - name: DL_Edit_CalendarioNoLaboral
         meta:
             dagster:
                 group: "dbt_dwh_mart_datos_maestros"
-      - name: BI_Dim_Pais
-        meta:
-            dagster:
-                group: "dbt_dwh_mart_datos_maestros"
-
-  
