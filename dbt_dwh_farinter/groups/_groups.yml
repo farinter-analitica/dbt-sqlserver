@@ -51,3 +51,6 @@ groups:
   - name: dbt_dwh_sap_mart_ventas
     owner:
       email: brian.padilla@farinter.com
+  - name: dbt_dwh_mart_datos_maestros
+    owner:
+      email: brian.padilla@farinter.com

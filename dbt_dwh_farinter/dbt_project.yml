@@ -80,6 +80,9 @@ models:
       ldcom_etl_datos_maestros:
         +group: 'ldcom_etl_dwh'
         +database: 'DL_FARINTER'
+      an_farinter:
+        +group: 'dbt_dwh_kielsa_an'
+        +database: 'AN_FARINTER'
       bi_farinter:
         +group: 'dbt_dwh_kielsa_marts'
         +database: 'BI_FARINTER'
@@ -89,6 +92,9 @@ models:
 
     dwh_global:
       +tags: ["dagster_global_gf/dbt"]
+      an_farinter:
+        +group: 'dbt_dwh_an'
+        +database: 'AN_FARINTER'
       bi_farinter:
         +group: 'dbt_dwh_marts'
         +database: 'BI_FARINTER'
@@ -107,6 +113,8 @@ sources:
       +tags: ["dagster_kielsa_gf/dbt"]
       mart_kpp:
         +group: 'dbt_dwh_kielsa_mart_kpp'
+      an_farinter:
+        +database: 'AN_FARINTER'
       bi_farinter:
         +database: 'BI_FARINTER'
       dl_farinter:
@@ -137,6 +145,9 @@ sources:
 
     dwh_global:
       +tags: ["dagster_global_gf/dbt"]
+      an_farinter:
+        +group: 'dbt_dwh_an'
+        +database: 'AN_FARINTER'
       bi_farinter:
         +group: 'dbt_dwh_marts'
         +database: 'BI_FARINTER'
