@@ -29,14 +29,14 @@
 		pre_hook=[sql_inicializar_particion],
 		post_hook=[
 		"{{ dwh_farinter_remove_incremental_temp_table() }}",
-		"{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=0,
+		"{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(),
 			if_another_exists_drop_it=true) }}",
 		"{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", 
 			create_clustered=false, 
-			is_incremental=0, 
+			is_incremental=is_incremental(), 
 			if_another_exists_drop_it=true) }}",
-        "{{ dwh_farinter_create_index(is_incremental=0, columns=['Fecha_Actualizado'], included_columns=['Factura_Fecha']) }}",
-        "{{ dwh_farinter_create_index(is_incremental=0, columns=['Factura_Fecha']) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado'], included_columns=['Factura_Fecha']) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Factura_Fecha']) }}",
 		"EXEC ADM_FARINTER.dbo.pa_comprimir_indices_particiones_anteriores 
 			@p_base_datos = '{{this.database}}',
 		 	@p_esquema_tabla = '{{this.schema}}', 
@@ -47,7 +47,7 @@
 ) }}
 
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -0, ('20240905')), 112), '19000101')  --from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -0, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
 {% else %}
 	{% set last_date = '19000101' %}
 {% endif %}
@@ -190,7 +190,7 @@ INNER JOIN (
 		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
 		{% if is_incremental() and last_date != '19000101' %} 
 		--Esto es por posicion, delimitando encabezado a un mes
-		WHERE FP.DWH_Fecha_Actualizado >= '{{ last_date }}' AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + 1
+		WHERE FP.Fecha_Actualizado >= '{{ last_date }}' AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + 1
 		{% else %}
 		WHERE FP.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
 		{% endif %}
