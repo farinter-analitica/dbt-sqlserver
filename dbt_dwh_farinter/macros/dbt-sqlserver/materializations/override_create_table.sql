@@ -29,11 +29,15 @@
         {% else %}
             SELECT * 
             INTO {{ table_name }} FROM {{ tmp_relation }} {{ query_label }}
+            WHERE 1=0
 
             {% if config.get('on_clause_filegroup') %}
                 {{dwh_farinter_create_index(relation=relation,columns=config.get('unique_key'),is_incremental=0, create_clustered=true)}};
                 {{dwh_farinter_create_index(relation=relation,columns=config.get('unique_key'),is_incremental=0, just_drop_index=true)}};
             {% endif %}
+
+            INSERT INTO {{ table_name }}
+            SELECT * FROM {{ tmp_relation }} {{ query_label }}
 
         {% endif %}
     {%- endset -%}
