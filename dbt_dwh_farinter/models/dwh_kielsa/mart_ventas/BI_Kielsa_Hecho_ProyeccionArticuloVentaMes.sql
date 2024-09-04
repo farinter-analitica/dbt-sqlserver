@@ -15,11 +15,14 @@
         ]
 	) 
 }}
-{% set v_semanas_ponderacion = 56 %}
-{% set v_dias_ponderacion = v_semanas_ponderacion * 7 %}
+{% set v_dias_minimos = 14 %}  {# Define minimum days, adjust this as per requirement #}
+{% set v_max_dias = 35 %}  {# Maximum days, adjust as per requirement #}
+{% set v_dias_ponderacion = (v_dias_minimos + ((modules.datetime.datetime.now() - modules.datetime.datetime.now().replace(day=1)).days // 7) * 7) %}
+{% set v_dias_ponderacion = v_dias_ponderacion if v_dias_ponderacion <= v_max_dias else v_max_dias %}
+
 {% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_ponderacion)).strftime('%Y%m%d') %}
-{% set v_fecha_fin = modules.datetime.datetime.now().strftime('%Y%m%d')  %}
-{% set v_anio_mes_inicio =  v_fecha_inicio[:6]  %}
+{% set v_fecha_fin = modules.datetime.datetime.now().strftime('%Y%m%d') %}
+{% set v_anio_mes_inicio = v_fecha_inicio[:6] %}
 
 /*
 --1. Pesos de cada dia de la semana por sucursal, valor y peso
@@ -34,8 +37,9 @@ AS
     SELECT 
         FP.Emp_Id,
         FP.Suc_Id,
-        --@SemanasPonderacion AS Semanas_Ponderacion,
-        ISNULL(COUNT(DISTINCT CAL.Fecha_Calendario)*1.0,1.0) AS Dias_Ponderacion,
+        FP.CanalVenta_Id,
+        ART.Articulo_Codigo_Padre AS Articulo_Id,
+        {{ v_dias_ponderacion }} - MAX(CAL.Dias_Feriados) AS Dias_Ponderacion,
         ISNULL(SUM(FP.Valor_Neto),0) AS Sum_Valor_Neto,
         ISNULL(SUM(FP.Valor_Costo),0) AS Sum_Valor_Costo,
         ISNULL(SUM(FP.Valor_Descuento),0) AS Sum_Valor_Descuento,
@@ -44,23 +48,34 @@ AS
         ISNULL(SUM(FP.Valor_Descuento_Cupon),0) AS Sum_Valor_Descuento_Cupon,
         ISNULL(SUM(FP.Descuento_Proveedor),0) AS Sum_Descuento_Proveedor,
         ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0) AS Sum_Valor_Descuento_Tercera_Edad,
-        COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0) AS Sum_Conteo_Transacciones
+        ISNULL(COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0) AS Sum_Conteo_Transacciones
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
     INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
-    ON EMP.Empresa_Id = FP.Emp_Id
+        ON EMP.Empresa_Id = FP.Emp_Id
+    INNER JOIN {{ ref('BI_Kielsa_Dim_Articulo') }} ART
+        ON EMP.Empresa_Id = FP.Emp_Id
     INNER JOIN {{ source ('BI_FARINTER', 'BI_Dim_Pais' ) }} PAIS
-    ON PAIS.Pais_Id = EMP.Pais_Id
-    INNER JOIN {{ ref('BI_Dim_Calendario_LaboralPais') }} CAL
-    on CAL.Fecha_Calendario = FP.Factura_Fecha AND CAL.AnioMes_Id = FP.AnioMes_Id
-    AND CAL.[Es_Dia_Feriado] =1
-    AND PAIS.Pais_ISO2 = CAL.Pais_ISO2
+        ON PAIS.Pais_Id = EMP.Pais_Id
+    LEFT JOIN --Para ignorar dias feriados
+        (SELECT Fecha_Calendario
+                , AnioMes_Id
+                , Pais_ISO2
+                , COUNT(Fecha_Calendario) OVER(PARTITION BY AnioMes_Id, Pais_ISO2) AS [Dias_Feriados] 
+        FROM {{ ref('BI_Dim_Calendario_LaboralPais') }} CAL
+        WHERE CAL.[Es_Dia_Feriado] =1 AND CAL.[Fecha_Calendario] >= '{{ v_fecha_inicio }}' AND CAL.[Fecha_Calendario] < '{{ v_fecha_fin }}'
+    ) CAL
+        on CAL.Fecha_Calendario = FP.Factura_Fecha AND CAL.AnioMes_Id = FP.AnioMes_Id
+        AND PAIS.Pais_ISO2 = CAL.Pais_ISO2
     WHERE FP.Factura_Fecha >= '{{ v_fecha_inicio }}' AND FP.Factura_Fecha < '{{ v_fecha_fin }}' AND FP.AnioMes_Id >= {{ v_anio_mes_inicio }}
+    AND CAL.[Fecha_Calendario] IS NULL
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio
-    GROUP BY FP.Emp_Id, FP.Suc_Id, PAIS.Pais_Id
+    GROUP BY FP.Emp_Id, FP.Suc_Id, FP.CanalVenta_Id, ART.Articulo_Codigo_Padre
 )
 SELECT 
     ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Suc_Id,0) AS Suc_Id,
+    ISNULL(CanalVenta_Id,0) AS CanalVenta_Id,
+    ISNULL(Articulo_Id,0) AS Articulo_Id,
     CAST(Dias_Ponderacion AS INT) AS Dias_Ponderacion,
     CAST(Sum_Valor_Neto AS DECIMAL(16,4)) AS Prom_Valor_Venta,
     CAST(Sum_Valor_Costo / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Costo,

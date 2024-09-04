@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Emp_Id","Suc_Id","Dia_Semana_Iso_Id"] %}
+{% set unique_key_list = ["Emp_Id","Suc_Id","Vendedor_Id"] %}
 {{ 
     config(
 		as_columnstore=true,
@@ -33,37 +33,37 @@ AS
     SELECT 
         Emp_Id,
         Suc_Id,
-        FP.Dia_de_la_Semana as Dia_Semana_Iso_Id,
+        FP.Vendedor_Id as Vendedor_Id,
         --@SemanasPonderacion AS Semanas_Ponderacion,
-        {{ v_semanas_ponderacion }} AS Semanas_Ponderacion,
-        SUM(FP.Valor_Neto) AS Sum_Valor_Neto,
-        SUM(FP.Valor_Costo) AS Sum_Valor_Costo,
-        SUM(FP.Valor_Descuento) AS Sum_Valor_Descuento,
-        SUM(FP.Valor_Descuento_Financiero) AS Sum_Valor_Descuento_Financiero,
-        SUM(FP.Valor_Acum_Monedero) AS Sum_Valor_Acum_Monedero,
-        SUM(FP.Valor_Descuento_Cupon) AS Sum_Valor_Descuento_Cupon,
-        SUM(FP.Descuento_Proveedor) AS Sum_Descuento_Proveedor,
-        SUM(FP.Valor_Descuento_Tercera_Edad) AS Sum_Valor_Descuento_Tercera_Edad,
-        COUNT(distinct FP.EmpSucDocCajFac_Id) AS Sum_Conteo_Transacciones
+        COUNT(FP.Vendedor_Id) OVER (PARTITION BY Emp_Id, Suc_Id)  AS Vendedores_Ponderacion,
+        ISNULL(SUM(FP.Valor_Neto),0) AS Sum_Valor_Neto,
+        ISNULL(SUM(FP.Valor_Costo),0) AS Sum_Valor_Costo,
+        ISNULL(SUM(FP.Valor_Descuento),0) AS Sum_Valor_Descuento,
+        ISNULL(SUM(FP.Valor_Descuento_Financiero),0) AS Sum_Valor_Descuento_Financiero,
+        ISNULL(SUM(FP.Valor_Acum_Monedero),0) AS Sum_Valor_Acum_Monedero,
+        ISNULL(SUM(FP.Valor_Descuento_Cupon),0) AS Sum_Valor_Descuento_Cupon,
+        ISNULL(SUM(FP.Descuento_Proveedor),0) AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0) AS Sum_Valor_Descuento_Tercera_Edad,
+        ISNULL(COUNT(distinct FP.EmpSucDocCajFac_Id),0) AS Sum_Conteo_Transacciones
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
     WHERE Factura_Fecha >= '{{ v_fecha_inicio }}' AND Factura_Fecha < '{{ v_fecha_fin }}' AND AnioMes_Id >= {{ v_anio_mes_inicio }}
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio
-    GROUP BY Emp_Id, Suc_Id, Dia_de_la_Semana
+    GROUP BY Emp_Id, Suc_Id, FP.Vendedor_Id
 )
 SELECT 
     ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Suc_Id,0) AS Suc_Id,
-    ISNULL(Dia_Semana_Iso_Id,0) AS Dia_Semana_Iso_Id,
-    ISNULL(Semanas_Ponderacion,0) AS Semanas_Ponderacion,
+    ISNULL(Vendedor_Id,0) AS Empleado_Id,
+    ISNULL(Vendedores_Ponderacion,0) AS Vendedores_Ponderacion,
     CAST(Sum_Valor_Neto AS DECIMAL(16,4)) AS Prom_Valor_Venta,
-    CAST(Sum_Valor_Costo / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Costo,
-    CAST(Sum_Valor_Descuento / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento,
-    CAST(Sum_Valor_Descuento_Financiero / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Financiero,
-    CAST(Sum_Valor_Acum_Monedero / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Acum_Monedero,
-    CAST(Sum_Valor_Descuento_Cupon / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Cupon,
-    CAST(Sum_Descuento_Proveedor / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Proveedor,
-    CAST(Sum_Valor_Descuento_Tercera_Edad / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Tercera_Edad,
-    CAST(Sum_Conteo_Transacciones / Semanas_Ponderacion AS DECIMAL(16,4)) AS Prom_Conteo_Transacciones,
+    CAST(Sum_Valor_Costo / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Costo,
+    CAST(Sum_Valor_Descuento / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento,
+    CAST(Sum_Valor_Descuento_Financiero / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Financiero,
+    CAST(Sum_Valor_Acum_Monedero / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Acum_Monedero,
+    CAST(Sum_Valor_Descuento_Cupon / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Cupon,
+    CAST(Sum_Descuento_Proveedor / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Proveedor,
+    CAST(Sum_Valor_Descuento_Tercera_Edad / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Tercera_Edad,
+    CAST(Sum_Conteo_Transacciones / Vendedores_Ponderacion AS DECIMAL(16,4)) AS Prom_Conteo_Transacciones,
     ISNULL(CAST(Sum_Valor_Neto / NULLIF(SUM(Sum_Valor_Neto) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,4)),0)  AS Part_Valor_Venta,
     ISNULL(CAST(Sum_Valor_Costo / NULLIF(SUM(Sum_Valor_Costo) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,4)),0)  AS Part_Valor_Costo,
     ISNULL(CAST(Sum_Valor_Descuento / NULLIF(SUM(Sum_Valor_Descuento) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,4)),0)  AS Part_Valor_Descuento,

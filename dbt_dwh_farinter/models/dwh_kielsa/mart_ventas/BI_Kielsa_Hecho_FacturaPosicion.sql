@@ -1,12 +1,55 @@
+{%- set nombre_esquema_particion = "ps_" + this.identifier + "_fecha" -%}
+{%- if is_incremental() -%}
+	{% set sql_inicializar_particion= '' %}
+{%- else -%}
+	{%- set sql_inicializar_particion %}
+		EXEC ADM_FARINTER.dbo.pa_inicializar_particiones
+			@p_base_datos = '{{this.database}}',
+			@p_nombre_esquema_particion = '{{nombre_esquema_particion}}',
+			@p_nombre_funcion_particion = '{{"pf_" + this.identifier + "_fecha"}}',
+			@p_periodo_tipo = 'Mensual', --'Anual' o 'Mensual'
+			@p_tipo_datos = 'Fecha', --'Fecha' o 'AnioMes'
+			@p_fecha_base = '2018-01-01'
+	{% endset -%}
+{%- endif -%}
+{%- set on_clause = nombre_esquema_particion ~ "([Factura_Fecha])" -%}
+{%- set unique_key_list = ["Factura_Id","Suc_Id","Emp_Id","TipoDoc_Id","Caja_Id","Factura_Fecha","Articulo_Id"] -%}
 
 {{ 
     config(
-		materialized="view",
+		as_columnstore=false,
 		tags=["periodo/diario","periodo/por_hora"],
-	) 
-}}
---DBT DAGSTER
+		materialized="incremental",
+        incremental_strategy="farinter_merge",
+		unique_key=unique_key_list,
+		on_schema_change="sync_all_columns",
+		on_clause_filegroup = on_clause,
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
+		pre_hook=[sql_inicializar_particion],
+		post_hook=[
+		"{{ dwh_farinter_remove_incremental_temp_table() }}",
+		"{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(),
+			if_another_exists_drop_it=true) }}",
+		"{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", 
+			create_clustered=false, 
+			is_incremental=is_incremental(), 
+			if_another_exists_drop_it=true) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Factura_Fecha']) }}",
+		"EXEC ADM_FARINTER.dbo.pa_comprimir_indices_particiones_anteriores 
+			@p_base_datos = '{{this.database}}',
+		 	@p_esquema_tabla = '{{this.schema}}', 
+			@p_nombre_tabla = '{{this.identifier}}', 
+			@p_tipo_datos = 'Fecha';"		
+			]
+		
+) }}
 
+{% if is_incremental() %}
+	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -0, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+{% else %}
+	{% set last_date = '19000101' %}
+{% endif %}
 --20230927: Axell Padilla > Vista de las posiciones de facturas para crear el hecho.
 SELECT
 	FE.[Factura_Fecha] Factura_Fecha
@@ -102,6 +145,11 @@ SELECT
 	END AS TipoUtilidad_Id
 	, (FP.Detalle_Cantidad * FP.Detalle_Precio_Unitario * (ISNULL(FPD.Descuento_Porcentaje, 0) / 100.0)) AS [Descuento_Proveedor]
 	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'TipoDoc_Id', 'Caja_Id', 'Factura_Id'], input_length=49, table_alias='FE')}} [EmpSucDocCajFac_Id]
+	{% if is_incremental() and last_date != '19000101' %} 
+	, GETDATE() AS Fecha_Actualizado
+	{% else %}
+	, FE.[Fecha_Actualizado] AS Fecha_Actualizado
+	{% endif %}
 FROM {{ref ('BI_Kielsa_Hecho_FacturaEncabezado')}} FE
 INNER JOIN (
 		SELECT  [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id], [AnioMes_Id], [Articulo_Id]
@@ -139,6 +187,12 @@ INNER JOIN (
 		, MAX(FP.[Detalle_Desc_Financiero_Porc]) 	AS [Detalle_Desc_Financiero_Porc]
 
 		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
+		{% if is_incremental() and last_date != '19000101' %} 
+		--Esto es por posicion, delimitando encabezado a un mes
+		WHERE FP.Fecha_Actualizado >= '{{ last_date }}' AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + 1
+		{% else %}
+		WHERE FP.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
+		{% endif %}
 		GROUP BY [AnioMes_Id], [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id],  [Articulo_Id]
 	) FP
 	ON FE.Emp_Id = FP.Emp_Id
@@ -207,6 +261,13 @@ LEFT JOIN (SELECT DISTINCT A.Emp_Id, A.TipoDoc_Id, A.Suc_Id, A.Caja_Id, A.Factur
 	AND FE.Suc_Id = FEXP.Suc_Id
 	AND FE.Caja_Id = FEXP.Caja_Id
 	AND FE.Factura_Id = FEXP.Factura_Id 
+{% if is_incremental() and last_date != '19000101' %} 
+--Esto es por posicion, delimitando encabezado a un mes
+WHERE FE.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) AND FE.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + 1
+{% else %}
+WHERE FE.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FE.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
+{% endif %}
+
 --OPTION (FORCE ORDER);
 	    
 --SELECT TOP 1000 * FROM BI_Kielsa_Hecho_FacturaPosicion
