@@ -128,7 +128,6 @@ SELECT [Fecha_Id]
     ,[Motivo]
     ,[Json_Sociedades_Id]
     ,[Json_Paises_Id]
-    ,MAX(Fecha_Id) OVER() AS Fecha_Max_Id
 FROM [DL_FARINTER].[web_api].[DL_Edit_CalendarioNoLaboral_Temp]
 --ORDER BY Fecha_Id
 ) AS SOURCE
@@ -147,7 +146,7 @@ WHEN NOT MATCHED BY TARGET THEN
         (SOURCE.[Fecha_Id],SOURCE.[Motivo],SOURCE.[Json_Sociedades_Id],SOURCE.[Json_Paises_Id],GETDATE(),1)
 WHEN NOT MATCHED BY SOURCE 
 AND TARGET.[fue_automatico] =1 AND ISNULL(TARGET.[bloquear_modificacion],0)=0 
-AND TARGET.[Fecha_Id]>GETDATE() AND TARGET.[Fecha_Id]<SOURCE.[Fecha_Max_Id]
+AND TARGET.[Fecha_Id]>GETDATE() AND TARGET.[Fecha_Id]<(SELECT MAX(Fecha_Id) FROM [DL_FARINTER].[web_api].[DL_Edit_CalendarioNoLaboral_Temp])
 THEN
     DELETE
 ;
