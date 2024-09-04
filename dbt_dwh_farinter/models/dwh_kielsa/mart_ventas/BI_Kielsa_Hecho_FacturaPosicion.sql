@@ -52,6 +52,20 @@
 	{% set last_date = '19000101' %}
 {% endif %}
 --20230927: Axell Padilla > Vista de las posiciones de facturas para crear el hecho.
+
+	{% if is_incremental() and last_date != '19000101' %} 
+WITH Resumen_Fecha_Desde AS
+	(
+		SELECT AnioMes_Id, MIN(Factura_Fecha) AS Fecha_Desde
+		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
+		WHERE FP.DWH_Fecha_Actualizado >= '{{ last_date }}' 
+		AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) 
+		AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + YEAR(DATEADD(MONTH, -1, GETDATE()))
+		GROUP BY AnioMes_Id
+	)
+	{% else %}
+	---FULL REFRESH
+	{% endif %}
 SELECT
 	FE.[Factura_Fecha] Factura_Fecha
 	, DATEPART(HOUR,FE.[Factura_FechaHora]) Hora_Id
@@ -153,7 +167,7 @@ SELECT
 	{% endif %}
 FROM {{ref ('BI_Kielsa_Hecho_FacturaEncabezado')}} FE
 INNER JOIN (
-		SELECT  [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id], [AnioMes_Id], [Articulo_Id]
+		SELECT  [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id], FP.[AnioMes_Id], [Articulo_Id]
 		, MAX([Detalle_Fecha] ) AS [Detalle_Fecha]
 		, MAX(FP.[Detalle_Id]) AS [Detalle_Id]
 		, SUM(FP.[Detalle_Cantidad]) AS [Detalle_Cantidad]
@@ -190,11 +204,13 @@ INNER JOIN (
 		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
 		{% if is_incremental() and last_date != '19000101' %} 
 		--Esto es por posicion, delimitando encabezado a un mes
-		WHERE FP.DWH_Fecha_Actualizado >= '{{ last_date }}' AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + 1
+		INNER JOIN  Resumen_Fecha_Desde Res
+		ON Res.AnioMes_Id = FP.AnioMes_Id
+		WHERE FP.Factura_Fecha >= Res.Fecha_Desde 
 		{% else %}
 		WHERE FP.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
 		{% endif %}
-		GROUP BY [AnioMes_Id], [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id],  [Articulo_Id]
+		GROUP BY FP.[AnioMes_Id], [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id],  [Articulo_Id]
 	) FP
 	ON FE.Emp_Id = FP.Emp_Id
 	AND FE.Suc_Id = FP.Suc_Id
