@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Emp_Id","Suc_Id","Articulo_Id"] %}
+{% set unique_key_list = ["Emp_Id","Suc_Id","Articulo_Id","CanalVenta_Id"] %}
 {{ 
     config(
 		as_columnstore=true,

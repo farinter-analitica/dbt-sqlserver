@@ -35,8 +35,8 @@ ISNULL(P.Pais_ISO2,'') AS Pais_ISO2
 ,CASE WHEN CD.Es_Dia_Habil = 0 THEN 0 
 	WHEN CD.NoLaboral_Paises LIKE '%"'+P.Pais_ISO2+'"%' THEN 0
 	ELSE 1 END AS Es_Dia_Habil
-,CASE WHEN CD.NoLaboral_Paises LIKE '%"'+P.Pais_ISO2+'"%' THEN 0
-	ELSE 1 END AS Es_Dia_Feriado
+,CASE WHEN CD.NoLaboral_Paises LIKE '%"'+P.Pais_ISO2+'"%' THEN 1
+	ELSE 0 END AS Es_Dia_Feriado
 ,CD.Mes_Calendario
 ,CD.Dia_de_la_Semana
 ,CD.NoLaboral_Paises
