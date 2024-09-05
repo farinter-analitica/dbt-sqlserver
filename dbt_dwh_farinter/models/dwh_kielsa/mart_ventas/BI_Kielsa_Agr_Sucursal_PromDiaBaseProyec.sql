@@ -38,17 +38,17 @@ AS
         FP.Emp_Id,
         FP.Suc_Id,
         {{ v_Dias_Muestra }} - ISNULL(MAX(CAL.Dias_Feriados),0) AS Dias_Muestra,
-        ISNULL(SUM(FP.Cantidad_Padre),0) AS Sum_Cantidad_Padre,
-        ISNULL(SUM(FP.Valor_Bruto),0) AS Sum_Valor_Bruto,
-        ISNULL(SUM(FP.Valor_Neto),0) AS Sum_Valor_Neto,
-        ISNULL(SUM(FP.Valor_Costo),0) AS Sum_Valor_Costo,
-        ISNULL(SUM(FP.Valor_Descuento),0) AS Sum_Valor_Descuento,
-        ISNULL(SUM(FP.Valor_Descuento_Financiero),0) AS Sum_Valor_Descuento_Financiero,
-        ISNULL(SUM(FP.Valor_Acum_Monedero),0) AS Sum_Valor_Acum_Monedero,
-        ISNULL(SUM(FP.Valor_Descuento_Cupon),0) AS Sum_Valor_Descuento_Cupon,
-        ISNULL(SUM(FP.Descuento_Proveedor),0) AS Sum_Descuento_Proveedor,
-        ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0) AS Sum_Valor_Descuento_Tercera_Edad,
-        ISNULL(COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0) AS Sum_Conteo_Transacciones
+        ISNULL(SUM(FP.Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
+        ISNULL(SUM(FP.Valor_Bruto),0)*1.0 AS Sum_Valor_Bruto,
+        ISNULL(SUM(FP.Valor_Neto),0)*1.0 AS Sum_Valor_Neto,
+        ISNULL(SUM(FP.Valor_Costo),0)*1.0 AS Sum_Valor_Costo,
+        ISNULL(SUM(FP.Valor_Descuento),0)*1.0 AS Sum_Valor_Descuento,
+        ISNULL(SUM(FP.Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
+        ISNULL(SUM(FP.Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
+        ISNULL(SUM(FP.Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
+        ISNULL(SUM(FP.Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
+        ISNULL(COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0)*1.0 AS Sum_Conteo_Transacciones
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
     INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
         ON EMP.Empresa_Id = FP.Emp_Id

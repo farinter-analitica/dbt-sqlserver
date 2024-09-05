@@ -33,27 +33,27 @@ SELECT --TOP (1000)
       ISNULL(PCA.Articulo_Id,0) AS Articulo_Id,
 	  ISNULL(CAL.Fecha_Calendario,'1999-01-01') AS [Fecha_Id],
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Cantidad_Padre ELSE PR.Prom_Cantidad_Padre END)
-        *ISNULL(PDS.Part_Cantidad_Padre,1)*PCA.Part_Cantidad_Padre  AS DECIMAL(16,6)) AS Cantidad_Padre,
+        *ISNULL(PDS.Part_Cantidad_Padre*7,1)*PCA.Part_Cantidad_Padre  AS DECIMAL(16,6)) AS Cantidad_Padre,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Bruto ELSE PR.Prom_Valor_Bruto END)
-        *ISNULL(PDS.Part_Valor_Bruto,1)*PCA.Part_Valor_Bruto  AS DECIMAL(16,6)) AS Valor_Bruto,
+        *ISNULL(PDS.Part_Valor_Bruto*7,1)*PCA.Part_Valor_Bruto  AS DECIMAL(16,6)) AS Valor_Bruto,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Neto ELSE PR.Prom_Valor_Neto END)
-        *ISNULL(PDS.Part_Valor_Neto,1)*PCA.Part_Valor_Neto  AS DECIMAL(16,6)) AS Valor_Neto,
+        *ISNULL(PDS.Part_Valor_Neto*7,1)*PCA.Part_Valor_Neto  AS DECIMAL(16,6)) AS Valor_Neto,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Costo ELSE PR.Prom_Valor_Costo END)
-        *ISNULL(PDS.Part_Valor_Costo,1)*PCA.Part_Valor_Costo  AS DECIMAL(16,6)) AS Valor_Costo,
+        *ISNULL(PDS.Part_Valor_Costo*7,1)*PCA.Part_Valor_Costo  AS DECIMAL(16,6)) AS Valor_Costo,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento ELSE PR.Prom_Valor_Descuento END)
-        *ISNULL(PDS.Part_Valor_Descuento,1)*PCA.Part_Valor_Descuento  AS DECIMAL(16,6)) AS Valor_Descuento,
+        *ISNULL(PDS.Part_Valor_Descuento*7,1)*PCA.Part_Valor_Descuento  AS DECIMAL(16,6)) AS Valor_Descuento,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Financiero ELSE PR.Prom_Valor_Descuento_Financiero END)
-        *ISNULL(PDS.Part_Valor_Descuento_Financiero,1)*PCA.Part_Valor_Descuento_Financiero  AS DECIMAL(16,6)) AS Valor_Descuento_Financiero,
+        *ISNULL(PDS.Part_Valor_Descuento_Financiero*7,1)*PCA.Part_Valor_Descuento_Financiero  AS DECIMAL(16,6)) AS Valor_Descuento_Financiero,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Acum_Monedero ELSE PR.Prom_Valor_Acum_Monedero END)
-        *ISNULL(PDS.Part_Valor_Acum_Monedero,1)*PCA.Part_Valor_Acum_Monedero  AS DECIMAL(16,6)) AS Valor_Acum_Monedero,
+        *ISNULL(PDS.Part_Valor_Acum_Monedero*7,1)*PCA.Part_Valor_Acum_Monedero  AS DECIMAL(16,6)) AS Valor_Acum_Monedero,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Cupon ELSE PR.Prom_Valor_Descuento_Cupon END)
-        *ISNULL(PDS.Part_Valor_Descuento_Cupon,1)*PCA.Part_Valor_Descuento_Cupon  AS DECIMAL(16,6)) AS Valor_Descuento_Cupon,
+        *ISNULL(PDS.Part_Valor_Descuento_Cupon*7,1)*PCA.Part_Valor_Descuento_Cupon  AS DECIMAL(16,6)) AS Valor_Descuento_Cupon,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Proveedor ELSE PR.Prom_Valor_Descuento_Proveedor END)
-        *ISNULL(PDS.Part_Valor_Descuento_Proveedor,1)*PCA.Part_Valor_Descuento_Proveedor  AS DECIMAL(16,6)) AS Valor_Descuento_Proveedor,
+        *ISNULL(PDS.Part_Valor_Descuento_Proveedor*7,1)*PCA.Part_Valor_Descuento_Proveedor  AS DECIMAL(16,6)) AS Valor_Descuento_Proveedor,
     CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Tercera_Edad ELSE PR.Prom_Valor_Descuento_Tercera_Edad END)
-        *ISNULL(PDS.Part_Valor_Descuento_Tercera_Edad,1)*PCA.Part_Valor_Descuento_Tercera_Edad  AS DECIMAL(16,6)) AS Valor_Descuento_Tercera_Edad,
-    CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Conteo_Transacciones ELSE PR.Prom_Conteo_Transacciones END)
-        *ISNULL(PDS.Part_Conteo_Transacciones,1)*PCA.Part_Conteo_Transacciones  AS DECIMAL(16,6)) AS Conteo_Transacciones
+        *ISNULL(PDS.Part_Valor_Descuento_Tercera_Edad*7,1)*PCA.Part_Valor_Descuento_Tercera_Edad  AS DECIMAL(16,6)) AS Valor_Descuento_Tercera_Edad,
+    CAST(PCA.Part_Conteo_Transacciones
+        *ISNULL(PDS.Part_Conteo_Transacciones*7,1)  AS DECIMAL(16,6)) AS Conteo_Transacciones
 
   FROM {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaBaseProyec') }} PR
     INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
