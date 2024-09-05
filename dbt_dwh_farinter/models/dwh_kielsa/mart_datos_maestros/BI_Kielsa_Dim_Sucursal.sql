@@ -57,7 +57,7 @@ SELECT ISNULL([Sucursal_Id],0) AS [Sucursal_Id]
         ,[Sucursal_Sinonimo]
         ,[Hash_SucursalEmp]
         ,[Hash_SucursalEmpVersion]
-        , {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Sucursal_Id'], input_length=19, table_alias='')}} [EmpSuc_Id]
+        , {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Sucursal_Id'], input_length=19, table_alias='S')}} [EmpSuc_Id]
         ,ABS(CAST(HASHBYTES('SHA1', 
                         CONCAT([JOB],'')) AS bigint)) AS [Hash_JOP]
         ,ABS(CAST(HASHBYTES('SHA1', 

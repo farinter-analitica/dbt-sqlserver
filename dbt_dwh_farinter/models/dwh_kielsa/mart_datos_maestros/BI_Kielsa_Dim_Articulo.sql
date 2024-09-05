@@ -117,7 +117,7 @@ SELECT
 		,CASE WHEN ARTCALC.Bit_Cronico = 1 THEN 'CRONICO' ELSE NULL END
 		, CASE WHEN ARTCALC.Bit_Recomendacion = 1 THEN 'RECOMENDADO' ELSE NULL END)
 	 AS Etiquetas
-	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=29, table_alias='')}} [EmpArt_Id]
+	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=29, table_alias='A')}} [EmpArt_Id]
     , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }} AS A

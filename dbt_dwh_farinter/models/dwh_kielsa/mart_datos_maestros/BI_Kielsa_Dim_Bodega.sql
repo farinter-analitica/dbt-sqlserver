@@ -20,6 +20,7 @@
 
 SELECT
 	*
+    , {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Sucursal_Id', 'Bodega_Id'], input_length=19, table_alias='')}} [EmpSucBod_Id]
 	, ABS(CAST(HASHBYTES('SHA1', CONCAT(A.Sucursal_Id, '-', A.Bodega_Id, '-', A.Emp_Id)) AS BIGINT)) AS Hash_SucursalBodegaEmp
     , ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_SucBodEmp]
 FROM
@@ -113,7 +114,6 @@ FROM
 				THEN 8
 			ELSE 99
 		END AS [TipoBodega_Id]
-        , {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Sucursal_Id', 'Bodega_Id'], input_length=19, table_alias='')}} [EmpSucBod_Id]
         , S.HashStr_SucEmp
 	FROM {{source ('DL_FARINTER', 'DL_Kielsa_Bodega')}} B
 	INNER JOIN {{ref ('BI_Kielsa_Dim_Sucursal')}}  S
