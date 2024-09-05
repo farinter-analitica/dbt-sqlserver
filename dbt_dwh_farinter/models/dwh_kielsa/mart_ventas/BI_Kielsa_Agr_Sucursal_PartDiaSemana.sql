@@ -56,6 +56,7 @@ SELECT
     ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Suc_Id,0) AS Suc_Id,
     ISNULL(Dia_Semana_Iso_Id,0) AS Dia_Semana_Iso_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=19, table_alias='')}} [EmpSuc_Id],
     ISNULL(Semanas_Muestra,0) AS Semanas_Muestra,
     CAST(Sum_Cantidad_Padre / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Cantidad_Padre,
     CAST(Sum_Valor_Bruto / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Bruto,
