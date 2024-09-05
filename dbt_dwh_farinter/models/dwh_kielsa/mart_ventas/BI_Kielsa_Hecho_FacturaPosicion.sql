@@ -60,7 +60,7 @@ WITH Resumen_Fecha_Desde AS
 		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
 		WHERE FP.DWH_Fecha_Actualizado >= '{{ last_date }}' 
 		AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) 
-		AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + YEAR(DATEADD(MONTH, -1, GETDATE()))
+		AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + MONTH(DATEADD(MONTH, -1, GETDATE()))
 		GROUP BY AnioMes_Id
 	)
 	{% else %}
