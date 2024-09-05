@@ -45,8 +45,7 @@ ISNULL(P.Pais_ISO2,'') AS Pais_ISO2
 ,CD.AnioMes_Id
 ,GETDATE() AS [Fecha_Actualizado]
 FROM {{ ref('BI_Dim_Calendario_Dinamico') }} CD
-CROSS JOIN (SELECT P.* FROM BI_Dim_Pais P WHERE EXISTS (SELECT 1 FROM BI_SAP_Dim_Sociedad S
-WHERE P.Pais_ISO2 = S.Pais_Id)) P
+CROSS JOIN (SELECT P.* FROM BI_Dim_Pais P WHERE Pais_Id<>0 ) P
 
 WHERE CD.Anio_Relativo BETWEEN -5 AND 2) CL ) CLF
 --SELECT * FROM [dbo].[BI_Dim_Calendario_Dinamico] WHERE Anio_Calendario = 2023

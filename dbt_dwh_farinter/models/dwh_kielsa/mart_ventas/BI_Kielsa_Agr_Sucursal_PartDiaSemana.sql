@@ -35,18 +35,18 @@ AS
         Suc_Id,
         FP.Dia_de_la_Semana as Dia_Semana_Iso_Id,
         --@SemanasPonderacion AS Semanas_Muestra,
-        {{ v_semanas_muestra }} AS Semanas_Muestra,
-        ISNULL(SUM(FP.Cantidad_Padre),0) AS Sum_Cantidad_Padre,
-        ISNULL(SUM(FP.Valor_Bruto),0) AS Sum_Valor_Bruto,
-        ISNULL(SUM(FP.Valor_Neto),0) AS Sum_Valor_Neto,
-        ISNULL(SUM(FP.Valor_Costo),0) AS Sum_Valor_Costo,
-        ISNULL(SUM(FP.Valor_Descuento),0) AS Sum_Valor_Descuento,
-        ISNULL(SUM(FP.Valor_Descuento_Financiero),0) AS Sum_Valor_Descuento_Financiero,
-        ISNULL(SUM(FP.Valor_Acum_Monedero),0) AS Sum_Valor_Acum_Monedero,
-        ISNULL(SUM(FP.Valor_Descuento_Cupon),0) AS Sum_Valor_Descuento_Cupon,
-        ISNULL(SUM(FP.Descuento_Proveedor),0) AS Sum_Descuento_Proveedor,
-        ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0) AS Sum_Valor_Descuento_Tercera_Edad,
-        ISNULL(COUNT(distinct FP.EmpSucDocCajFac_Id),0) AS Sum_Conteo_Transacciones
+        {{ v_semanas_muestra }}*1.0 AS Semanas_Muestra,
+        ISNULL(SUM(FP.Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
+        ISNULL(SUM(FP.Valor_Bruto),0)*1.0 AS Sum_Valor_Bruto,
+        ISNULL(SUM(FP.Valor_Neto),0)*1.0 AS Sum_Valor_Neto,
+        ISNULL(SUM(FP.Valor_Costo),0)*1.0 AS Sum_Valor_Costo,
+        ISNULL(SUM(FP.Valor_Descuento),0)*1.0 AS Sum_Valor_Descuento,
+        ISNULL(SUM(FP.Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
+        ISNULL(SUM(FP.Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
+        ISNULL(SUM(FP.Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
+        ISNULL(SUM(FP.Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
+        ISNULL(COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0)*1.0 AS Sum_Conteo_Transacciones
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
     WHERE Factura_Fecha >= '{{ v_fecha_inicio }}' AND Factura_Fecha < '{{ v_fecha_fin }}' AND AnioMes_Id >= {{ v_anio_mes_inicio }}
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio

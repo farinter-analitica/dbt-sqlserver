@@ -58,7 +58,7 @@ AS
         (SELECT Fecha_Calendario
                 , AnioMes_Id
                 , Pais_ISO2
-                , COUNT(Fecha_Calendario) OVER(PARTITION BY AnioMes_Id, Pais_ISO2) AS [Dias_Feriados] 
+                , COUNT(Fecha_Calendario) OVER(PARTITION BY Pais_ISO2) AS [Dias_Feriados] 
         FROM {{ ref('BI_Dim_Calendario_LaboralPais') }} CAL
         WHERE CAL.[Es_Dia_Feriado] =1 AND CAL.[Fecha_Calendario] >= '{{ v_fecha_inicio }}' AND CAL.[Fecha_Calendario] < '{{ v_fecha_fin }}'
     ) CAL
