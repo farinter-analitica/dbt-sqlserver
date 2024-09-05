@@ -56,7 +56,7 @@
 	{% if is_incremental() and last_date != '19000101' %} 
 WITH Resumen_Fecha_Desde AS
 	(
-		SELECT AnioMes_Id, MIN(Factura_Fecha) AS Fecha_Desde
+		SELECT AnioMes_Id, CAST(MIN(Factura_Fecha) AS DATE) AS Fecha_Desde
 		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
 		WHERE FP.DWH_Fecha_Actualizado >= '{{ last_date }}' 
 		AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) 
