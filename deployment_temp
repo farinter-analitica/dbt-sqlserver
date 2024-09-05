@@ -12,6 +12,9 @@ pip install -r dev_requirements.txt
 
 pip install -U --upgrade-strategy eager -e dagster_shared_gf --config-settings editable_mode=compat
 
+pip install dbt-sqlserver git+https://github.com/axellpadilla/dbt-sqlserver.git@dbt_18#egg=dbt-sqlserver
+
+
 restart service
 su analiticasu
 pass
