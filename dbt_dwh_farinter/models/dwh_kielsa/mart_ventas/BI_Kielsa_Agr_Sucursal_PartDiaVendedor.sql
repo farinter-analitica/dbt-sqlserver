@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Emp_Id","Suc_Id","Dia_Semana_Iso_Id"] %}
+{% set unique_key_list = ["Emp_Id","Suc_Id","Vendedor_Id"] %}
 {{ 
     config(
 		as_columnstore=true,
@@ -15,8 +15,8 @@
 	) 
 }}
 {% set v_semanas_muestra = 12 %}
-{% set v_dias_ponderacion = v_semanas_muestra * 7 %}
-{% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_ponderacion)).strftime('%Y%m%d') %}
+{% set v_dias_muestra = v_semanas_muestra * 7 %}
+{% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_muestra)).strftime('%Y%m%d') %}
 {% set v_fecha_fin = modules.datetime.datetime.now().strftime('%Y%m%d')  %}
 {% set v_anio_mes_inicio =  v_fecha_inicio[:6]  %}
 
@@ -33,9 +33,8 @@ AS
     SELECT 
         Emp_Id,
         Suc_Id,
-        FP.Dia_de_la_Semana as Dia_Semana_Iso_Id,
-        --@SemanasPonderacion AS Semanas_Muestra,
-        {{ v_semanas_muestra }} AS Semanas_Muestra,
+        FP.Vendedor_Id as Vendedor_Id,
+        {{ v_dias_muestra }} AS Dias_Muestra,
         ISNULL(SUM(FP.Cantidad_Padre),0) AS Sum_Cantidad_Padre,
         ISNULL(SUM(FP.Valor_Bruto),0) AS Sum_Valor_Bruto,
         ISNULL(SUM(FP.Valor_Neto),0) AS Sum_Valor_Neto,
@@ -50,24 +49,24 @@ AS
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
     WHERE Factura_Fecha >= '{{ v_fecha_inicio }}' AND Factura_Fecha < '{{ v_fecha_fin }}' AND AnioMes_Id >= {{ v_anio_mes_inicio }}
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio
-    GROUP BY Emp_Id, Suc_Id, Dia_de_la_Semana
+    GROUP BY Emp_Id, Suc_Id, FP.Vendedor_Id
 )
 SELECT 
     ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Suc_Id,0) AS Suc_Id,
-    ISNULL(Dia_Semana_Iso_Id,0) AS Dia_Semana_Iso_Id,
-    ISNULL(Semanas_Muestra,0) AS Semanas_Muestra,
-    CAST(Sum_Cantidad_Padre / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Cantidad_Padre,
-    CAST(Sum_Valor_Bruto / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Bruto,
-    CAST(Sum_Valor_Neto / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Neto,
-    CAST(Sum_Valor_Costo / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Costo,
-    CAST(Sum_Valor_Descuento / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento,
-    CAST(Sum_Valor_Descuento_Financiero / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Financiero,
-    CAST(Sum_Valor_Acum_Monedero / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Acum_Monedero,
-    CAST(Sum_Valor_Descuento_Cupon / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Cupon,
-    CAST(Sum_Descuento_Proveedor / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
-    CAST(Sum_Valor_Descuento_Tercera_Edad / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
-    CAST(Sum_Conteo_Transacciones / Semanas_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones,
+    ISNULL(Vendedor_Id,0) AS Vendedor_Id,
+    ISNULL(COUNT(Vendedor_Id) OVER (PARTITION BY Emp_Id, Suc_Id),0) AS Vendedores_Ponderacion,
+    CAST(Sum_Cantidad_Padre / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Cantidad_Padre,
+    CAST(Sum_Valor_Bruto / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Bruto,
+    CAST(Sum_Valor_Neto / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Neto,
+    CAST(Sum_Valor_Costo / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Costo,
+    CAST(Sum_Valor_Descuento / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento,
+    CAST(Sum_Valor_Descuento_Financiero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Financiero,
+    CAST(Sum_Valor_Acum_Monedero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Acum_Monedero,
+    CAST(Sum_Valor_Descuento_Cupon / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Cupon,
+    CAST(Sum_Descuento_Proveedor / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
+    CAST(Sum_Valor_Descuento_Tercera_Edad / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
+    CAST(Sum_Conteo_Transacciones / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones,
     ISNULL(CAST(Sum_Cantidad_Padre / NULLIF(SUM(Sum_Cantidad_Padre) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Cantidad_Padre,
     ISNULL(CAST(Sum_Valor_Bruto / NULLIF(SUM(Sum_Valor_Bruto) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Bruto,
     ISNULL(CAST(Sum_Valor_Neto / NULLIF(SUM(Sum_Valor_Neto) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Neto,

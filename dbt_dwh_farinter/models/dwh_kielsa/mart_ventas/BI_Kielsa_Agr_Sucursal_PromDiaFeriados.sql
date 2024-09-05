@@ -15,8 +15,8 @@
         ]
 	) 
 }}
-{% set v_semanas_ponderacion = 56 %}
-{% set v_dias_ponderacion = v_semanas_ponderacion * 7 %}
+{% set v_semanas_muestra = 56 %}
+{% set v_dias_ponderacion = v_semanas_muestra * 7 %}
 {% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_ponderacion)).strftime('%Y%m%d') %}
 {% set v_fecha_fin = modules.datetime.datetime.now().strftime('%Y%m%d')  %}
 {% set v_anio_mes_inicio =  v_fecha_inicio[:6]  %}
@@ -35,7 +35,9 @@ AS
         FP.Emp_Id,
         FP.Suc_Id,
         --@SemanasPonderacion AS Semanas_Ponderacion,
-        ISNULL(COUNT(DISTINCT CAL.Fecha_Calendario)*1.0,1.0) AS Dias_Ponderacion,
+        ISNULL(COUNT(DISTINCT CAL.Fecha_Calendario)*1.0,1.0) AS Dias_Muestra,
+        ISNULL(SUM(FP.Cantidad_Padre),0) AS Sum_Cantidad_Padre,
+        ISNULL(SUM(FP.Valor_Bruto),0) AS Sum_Valor_Bruto,
         ISNULL(SUM(FP.Valor_Neto),0) AS Sum_Valor_Neto,
         ISNULL(SUM(FP.Valor_Costo),0) AS Sum_Valor_Costo,
         ISNULL(SUM(FP.Valor_Descuento),0) AS Sum_Valor_Descuento,
@@ -44,7 +46,7 @@ AS
         ISNULL(SUM(FP.Valor_Descuento_Cupon),0) AS Sum_Valor_Descuento_Cupon,
         ISNULL(SUM(FP.Descuento_Proveedor),0) AS Sum_Descuento_Proveedor,
         ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0) AS Sum_Valor_Descuento_Tercera_Edad,
-        COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0) AS Sum_Conteo_Transacciones
+        ISNULL(COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0) AS Sum_Conteo_Transacciones
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
     INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
     ON EMP.Empresa_Id = FP.Emp_Id
@@ -61,16 +63,18 @@ AS
 SELECT 
     ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Suc_Id,0) AS Suc_Id,
-    CAST(Dias_Ponderacion AS INT) AS Dias_Ponderacion,
-    CAST(Sum_Valor_Neto AS DECIMAL(16,4)) AS Prom_Valor_Venta,
-    CAST(Sum_Valor_Costo / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Costo,
-    CAST(Sum_Valor_Descuento / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento,
-    CAST(Sum_Valor_Descuento_Financiero / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Financiero,
-    CAST(Sum_Valor_Acum_Monedero / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Acum_Monedero,
-    CAST(Sum_Valor_Descuento_Cupon / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Cupon,
-    CAST(Sum_Descuento_Proveedor / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Proveedor,
-    CAST(Sum_Valor_Descuento_Tercera_Edad / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Valor_Descuento_Tercera_Edad,
-    CAST(Sum_Conteo_Transacciones / Dias_Ponderacion AS DECIMAL(16,4)) AS Prom_Conteo_Transacciones
+    CAST(Dias_Muestra AS INT) AS Dias_Muestra,
+    CAST(Sum_Cantidad_Padre / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Cantidad_Padre,
+    CAST(Sum_Valor_Bruto / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Bruto,
+    CAST(Sum_Valor_Neto / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Neto ,
+    CAST(Sum_Valor_Costo / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Costo,
+    CAST(Sum_Valor_Descuento / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento,
+    CAST(Sum_Valor_Descuento_Financiero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Financiero,
+    CAST(Sum_Valor_Acum_Monedero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Acum_Monedero,
+    CAST(Sum_Valor_Descuento_Cupon / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Cupon,
+    CAST(Sum_Descuento_Proveedor / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
+    CAST(Sum_Valor_Descuento_Tercera_Edad / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
+    CAST(Sum_Conteo_Transacciones / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones
 --INTO #Temp
 FROM ResumenBase
 

@@ -1,5 +1,5 @@
 dbt_dwh_farinter:
-  target: dev
+  target: prd
   outputs:
     dev:
       type: sqlserver
