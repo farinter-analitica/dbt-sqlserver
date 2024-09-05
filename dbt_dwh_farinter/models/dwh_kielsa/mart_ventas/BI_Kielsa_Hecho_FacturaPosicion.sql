@@ -56,12 +56,12 @@
 	{% if is_incremental() and last_date != '19000101' %} 
 WITH Resumen_Fecha_Desde AS
 	(
-		SELECT AnioMes_Id, CAST(MIN(Factura_Fecha) AS DATE) AS Fecha_Desde
+		SELECT MIN(AnioMes_Id) AnioMes_Id, CAST(MIN(Factura_Fecha) AS DATE) AS Fecha_Desde
 		FROM {{source ('DL_FARINTER', 'DL_Kielsa_FacturasPosiciones')}} FP
 		WHERE FP.DWH_Fecha_Actualizado >= '{{ last_date }}' 
 		AND FP.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE()) 
 		AND FP.AnioMes_Id >= YEAR(DATEADD(MONTH, -1, GETDATE()))*100 + MONTH(DATEADD(MONTH, -1, GETDATE()))
-		GROUP BY AnioMes_Id
+
 	)
 	{% else %}
 	---FULL REFRESH
@@ -205,7 +205,7 @@ INNER JOIN (
 		{% if is_incremental() and last_date != '19000101' %} 
 		--Esto es por posicion, delimitando encabezado a un mes
 		INNER JOIN  Resumen_Fecha_Desde Res
-		ON Res.AnioMes_Id = FP.AnioMes_Id
+		ON FP.AnioMes_Id >= Res.AnioMes_Id 
 		WHERE FP.Factura_Fecha >= Res.Fecha_Desde 
 		{% else %}
 		WHERE FP.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
