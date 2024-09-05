@@ -33,6 +33,7 @@ SELECT [Emp_Id]
         ,[Estado]
         ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_CliEmp]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
+	    , {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Cliente_Id'], input_length=29, table_alias='')}} [EmpCli_Id]
         ,Hash_ClienteEmp
         ,Tipo_Cliente
         ,[Fecha_Actualizado]

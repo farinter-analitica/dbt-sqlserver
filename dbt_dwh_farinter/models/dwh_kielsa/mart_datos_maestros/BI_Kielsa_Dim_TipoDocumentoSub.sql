@@ -17,7 +17,8 @@
 		]
 		
 ) }}
-
+WITH Datos_Base AS
+(
 SELECT
 	ISNULL(D.Emp_Id,0) AS [Emp_Id]
 	, ISNULL(D.Documento_Id,0) AS [Documento_Id]
@@ -32,3 +33,7 @@ FROM {{ ref('DL_Kielsa_Documento') }}	D
 LEFT JOIN {{ ref('DL_Kielsa_SubDocumento') }} SD1
 	ON D.Documento_Id = SD1.Documento_Id
     AND D.Emp_Id = SD1.Emp_Id
+)
+SELECT *
+		, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Documento_Id', 'SubDocumento_Id'], input_length=29, table_alias='')}} [EmpDocSubD_Id]
+FROM Datos_Base

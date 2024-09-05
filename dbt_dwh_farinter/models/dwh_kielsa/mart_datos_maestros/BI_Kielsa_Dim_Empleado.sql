@@ -20,6 +20,7 @@
 
 SELECT
 	*
+	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Empleado_Id'], input_length=29, table_alias='')}} [EmpEmpl_Id]
     , ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_EmplEmp]
 FROM
 	(SELECT 
