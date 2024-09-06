@@ -29,6 +29,7 @@ SELECT
 	, ISNULL(A.[Emp_Id],0) AS [Emp_Id]
 	, A.[Version_Id]
 	, A.[Version_Fecha]
+	, A.[Marca_Id]
 	, A.[Nauca_Id]
     , A.[Casa_Id]
     , Casa.Casa_Nombre
