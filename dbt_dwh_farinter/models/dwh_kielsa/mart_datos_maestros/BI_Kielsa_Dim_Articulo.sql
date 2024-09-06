@@ -29,7 +29,6 @@ SELECT
 	, ISNULL(A.[Emp_Id],0) AS [Emp_Id]
 	, A.[Version_Id]
 	, A.[Version_Fecha]
-	, A.[Marca_Id]
 	, A.[Nauca_Id]
     , A.[Casa_Id]
     , Casa.Casa_Nombre
@@ -76,6 +75,8 @@ SELECT
 	, A.[CodigoBarra_Id]
 	, A.[PrincipioActivo_Id]
 	, ISNULL(A.PrincipioActivo_Nombre, 'No definido') AS PrincipioActivo_Nombre
+	, A.[Marca_Id]
+	, ISNULL(Marca.Marca_Nombre, 'No definido') AS Marca_Nombre
 	, A.[Indicador_PadreHijo]
 	, A.[Factor_Numerador]
 	, A.[Factor_Denominador]
