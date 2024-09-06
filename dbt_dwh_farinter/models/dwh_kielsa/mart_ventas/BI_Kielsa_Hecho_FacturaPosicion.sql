@@ -166,6 +166,11 @@ SELECT
 	, FE.[Fecha_Actualizado] AS Fecha_Actualizado
 	{% endif %}
 FROM {{ref ('BI_Kielsa_Hecho_FacturaEncabezado')}} FE
+{% if is_incremental() and last_date != '19000101' %} 
+INNER JOIN  Resumen_Fecha_Desde Res
+	ON FE.AnioMes_Id = Res.AnioMes_Id 
+	AND FE.Factura_Fecha >= Res.Fecha_Desde 
+{% endif %}
 INNER JOIN (
 		SELECT  [Emp_Id], [Suc_Id], [TipoDoc_id], [Caja_Id], [Factura_Id], FP.[AnioMes_Id], [Articulo_Id]
 		, MAX([Detalle_Fecha] ) AS [Detalle_Fecha]
@@ -205,8 +210,8 @@ INNER JOIN (
 		{% if is_incremental() and last_date != '19000101' %} 
 		--Esto es por posicion, delimitando encabezado a un mes
 		INNER JOIN  Resumen_Fecha_Desde Res
-		ON FP.AnioMes_Id = Res.AnioMes_Id 
-		WHERE FP.Factura_Fecha >= Res.Fecha_Desde 
+			ON FP.AnioMes_Id = Res.AnioMes_Id 
+			AND FP.Factura_Fecha >= Res.Fecha_Desde 
 		{% else %}
 		WHERE FP.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FP.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
 		{% endif %}
