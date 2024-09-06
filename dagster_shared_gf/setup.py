@@ -11,6 +11,7 @@ setup(
         "dbt-sqlserver @ git+https://github.com/axellpadilla/dbt-sqlserver.git@dbt_18#egg=dbt-sqlserver",
         #"dbt-sqlserver>=1.8.0,<2.0",
         "dagster-webserver>=1.7,<2.0",
+        "pydantic<2.9.0",
         "dagster-postgres",
         "dagster-cloud",
         "trycast",
