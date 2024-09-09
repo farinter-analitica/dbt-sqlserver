@@ -5,7 +5,7 @@ import hashlib
 from types import ModuleType
 from pydantic import Field
 from datetime import timedelta
-from pathlib import Path
+from pathlib import Path, PurePath
 from dagster import config_from_files, AssetsDefinition
 from dagster_graphql import DagsterGraphQLClient
 from dotenv import load_dotenv
@@ -338,3 +338,29 @@ def get_unique_hash_sha2_256(strings: List[str] | str, length: int = 18) -> str:
     full_string:str = "-".join(strings)
     hash_str:str  = hashlib.sha256(full_string.encode(charset), usedforsecurity=False).hexdigest()
     return hash_str[:length]
+
+
+def clean_filename(filename: str) -> str:
+    """
+    Cleans a filename by removing or replacing unsafe characters and reducing multiple underscores to one,
+    without altering the file extension.
+    """
+    # Split the filename and its extension
+    name, ext = PurePath(filename).stem, PurePath(filename).suffix
+
+    # Clean using a normalizer
+    clean_name = normalize_str_to_snake_case(name)
+
+    # Replace multiple underscores with a single underscore
+    clean_name = re.sub(r'_+', '_', clean_name)
+
+    # Ensure no trailing underscore before the extension
+    if clean_name.endswith('_'):
+        clean_name = clean_name[:-1]
+
+    # Ensure not empty
+    if len(clean_name) == 0:
+        clean_name = 'file'
+
+    # Reattach the file extension
+    return clean_name + ext.lower()

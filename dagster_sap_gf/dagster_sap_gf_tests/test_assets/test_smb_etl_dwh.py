@@ -37,7 +37,7 @@ from dagster_shared_gf import all_shared_resources
 # def directory_files(directory: Path, smb_resource: SMBResource):
 #     directory_path = Path(f"//{smb_resource.server}").joinpath(directory).resolve()
 #     smbsession:smbclient = SMBResource.get_smbclient()
-#     return smbsession.scandir(directory_path)
+#     return smb_resource.scandir(directory_path)
 
 # def open_file(file_path: Path, smb_resource: SMBResource):
 #     file_path = Path(f"//{smb_resource.server}").joinpath(file_path).resolve()

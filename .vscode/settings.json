@@ -1,5 +1,6 @@
 {
     "dbt.enableNewLineagePanel": true,
     "pieces.cloudCapabilities": "Blended",
-    "pieces.telemetry": true
+    "pieces.telemetry": true,
+    "python.analysis.autoImportCompletions": true
 }

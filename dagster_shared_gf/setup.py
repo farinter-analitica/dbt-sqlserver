@@ -26,6 +26,7 @@ setup(
         "pymongo",
         "pymongoarrow",
         "deep-translator",
+        "ydata-profiling"
     ],
     extras_require={"dev": [ "pytest","pytest-mock"]},
 )

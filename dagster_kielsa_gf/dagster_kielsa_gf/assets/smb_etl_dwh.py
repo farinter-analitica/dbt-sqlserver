@@ -1,6 +1,8 @@
+import json
+from unittest.mock import MagicMock, patch
 from dagster import (asset
                      , AssetChecksDefinition 
-                     , AssetExecutionContext
+                     , AssetExecutionContext, build_op_context, build_resources
                      , op 
                      , OpExecutionContext
                      , build_last_update_freshness_checks
@@ -10,6 +12,7 @@ from dagster import (asset
                      , Config
                      , Output
                      , MaterializeResult
+                     , materialize_to_memory
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource 
 from dagster_shared_gf.resources.smb_resources import SMBResource
@@ -22,11 +25,12 @@ from typing import List, Dict, Any, Mapping, Sequence, Union, Iterator, Literal
 from datetime import datetime, date, timedelta
 import polars as pl, re
 from io import BytesIO
+from ydata_profiling import ProfileReport
 
 ##
 class ExcelSchemaConfig(Config):
-    expected_columns: Dict[str, str] = Field(description="Columns", default_factory=Dict)
-    polars_schema: Dict[str, pl.DataType | Any] = Field(description="polars_schema", default_factory=Dict)
+    expected_columns: dict[str, str] = Field(description="Columns", default_factory=dict)
+    polars_schema: dict[str, pl.DataType | Any] = Field(description="polars_schema", default_factory=dict)
     blanks_allowed: bool = Field(description="Allow blanks", default=True)
     blanks_on_type_error: bool = Field(description="Convert type error to blanks", default=False)
 
@@ -55,7 +59,7 @@ def open_file(file_path: PurePath, smb_resource: SMBResource
         The opened file using the specified mode.
     """
     file_path = PurePath(f"//{smb_resource.server_ip}").joinpath(file_path)
-    return smb_resource.open_file(file_path, mode=mode)
+    return smb_resource.open_file(path=file_path, mode=mode)
 
 def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SMBResource, new_path: PurePath):
     def get_unique_dst_path(dst_path: PurePath):
@@ -84,56 +88,38 @@ def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SM
     # required_resource_keys={"smb_resource_analitica_nasgftgu02"},
     
 )
-def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
-    table = "DL_Finanzas_Presupuesto_Temp"
+def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
+    table = "DL_Kielsa_MetasHist_Temp"
     database = "DL_FARINTER"
     schema = "excel"
     class NullsException(BaseException):
         pass
     class FileException(BaseException):
         pass
-    directory_path = PurePath("data_repo/grupo_farinter/presupuesto_ventas_finanzas")
+    class ErrorsOccurred(BaseException):
+        pass
+    directory_path = PurePath("data_repo/kielsa/metas_venta/SV")
     smbres: SMBResource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
     schema_config = ExcelSchemaConfig(
-        expected_columns={
-            "Sociedad_Id": "Cod Sociedad",
-            "Zona_Id": "Cod Territorio",
-            "Division_Id": "Division",
-            "Articulo_Id": "Cod Material",
-            "Cliente_Id": "Cod Cliente",
-            "Casa_Id": "Cod Grupo Articulos",
-            "Vendedor_Id": "Cod Vendedor",
-            "Fecha_Id": "Mes",
-            "Monto": "Valor",
-        },
         polars_schema={
-            "Sociedad_Id": pl.String,
-            "Zona_Id": pl.String,
-            "Division_Id": pl.String,
-            "Articulo_Id": pl.String,
-            "Cliente_Id": pl.String,
-            "Casa_Id": pl.String,
-            "Vendedor_Id": pl.String,
-            "Fecha_Id": pl.String,
-            "Monto": pl.Decimal(16,4),
+            "Emp_Id": pl.Int16,
+            "Sucursal_Id": pl.Int16,
+            "Empleado_Rol": pl.String,
+            "Vendedor_Id": pl.Int32,
+            "AnioMes": pl.String,
+            "Dia_Desde": pl.Int16,
+            "Dia_Hasta": pl.Int16,
         },
+        blanks_allowed=False,
     )
     drop_table_count = 0
     v_metadata = {}
     try:
         rows_inserted = 0
         nulls_count = 0
-        # recopilar division de la base de datos
-        dfdc: pl.DataFrame
-        with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
-            # conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP")
-            dfdc = pl.read_database("SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP", connection=conn)
-        dfdc = dfdc.select(["Division_Nombre","Division_Id"])
-        division_id_map_reversed: Dict = dict(dfdc.rows())        
-        context.log.info(dfdc)
         for file_descriptor in list(directory_files(directory=directory_path, smb_resource=smbres)):
             # ignore non excel files xlsx
-            if not file_descriptor.name.endswith(".xlsx"):
+            if not file_descriptor.name.lower().endswith(".xlsx") or file_descriptor.name.lower() in ["cargados", "plantilla.xlsx"]:
                 continue
             try:
                 df: pl.DataFrame
@@ -155,28 +141,66 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                             df = dfd[sheet_name]
                             break
                     else:
-                        raise FileException(f"No se encontro una hoja con el patron {sheet_name_pattern.pattern}")
-                
-                df=df.select(**schema_config.expected_columns)
+                        raise FileException(
+                            f"No se encontro una hoja con el patron {sheet_name_pattern.pattern}"
+                        )
+
                 df=df.cast(schema_config.polars_schema)
-                # Reemplazar farma y cualquier otro nombre en division_id por su id y limpieza de datos:
-                df=df.with_columns(Division_Id = pl.col("Division_Id").replace(division_id_map_reversed, default="00"),
-                                    Zona_Id = pl.col("Zona_Id").str.zfill(6),
-                                    Cliente_Id = pl.col("Cliente_Id").str.zfill(10),
-                                    Vendedor_Id = pl.col("Vendedor_Id").str.zfill(3),
-                                    Articulo_Id = pl.col("Articulo_Id").str.zfill(18),
-                                    Fecha_Id = pl.col("Fecha_Id").str.slice(0, 10).str.to_date('%F').cast(pl.Date),
-                                    AnioMes_Id = pl.col("Fecha_Id").str.slice(0, 10).str.to_date().dt.to_string("%Y%m").cast(pl.Int32),
-                                    Nombre_Archivo = pl.lit(clean_filename(file_descriptor.name)),
-                                    Fecha_Carga = pl.lit(datetime.now()),
-                                    Fecha_Actualizado = pl.lit(datetime.now()),
-                                    )
+                df=df.unpivot(index=schema_config.polars_schema.keys(), variable_name="variable", value_name="valor")
+                context.log.debug(df.head(5))
+                # Separar variable en alerta y atributo por primer _:
+                df = (
+                    df.with_columns(
+                        pl.col("variable")
+                        .str.split_exact("_", 1)
+                        .struct.rename_fields(["Alerta_Id", "Atributo"])
+                        .alias("fields"),
+                        AnioMes_Id=pl.col("AnioMes")
+                        .str.replace("-", "")
+                        .str.slice(0, 6)
+                        .cast(pl.Int32),
+                        Nombre_Archivo=pl.lit(clean_filename(file_descriptor.name)),
+                        Fecha_Carga=pl.lit(datetime.now()),
+                        Fecha_Actualizado=pl.lit(datetime.now()),
+                    ).unnest("fields")
+                    .drop(["variable", "AnioMes"])
+                    .with_columns(
+                        pl.col("Atributo")
+                        .fill_null(""),
+                        Fecha_Desde=pl.col("AnioMes_Id")
+                        .cast(pl.String)
+                        .add(pl.col("Dia_Desde").cast(pl.String).str.zfill(2))
+                        .str.slice(0, 8)
+                        .str.to_date("%Y%m%d"),
+                        Fecha_Hasta=pl.col("AnioMes_Id")
+                        .cast(pl.String)
+                        .add(pl.col("Dia_Hasta").cast(pl.String).str.zfill(2))
+                        .str.slice(0, 8)
+                        .str.to_date("%Y%m%d"),
+                    )
+                    .drop(["Dia_Desde", "Dia_Hasta"])
+                )
+                # context.log.debug(df.head(5))
                 nulls_count = df.null_count().sum_horizontal().sum()
                 row_count = df.height
+                v_metadata.update(
+                    {
+                        file_descriptor.name: {
+                            "Cargado": False,
+                            "Cant. Filas": row_count,
+                            "Cant. Valores en Blanco": nulls_count,
+                            "Perfil de Datos": json.loads(
+                                ProfileReport(
+                                    df.to_pandas(), title="Pandas Profiling Report"
+                                ).to_json()
+                            ).get("table", "error"),
+                        }
+                    }
+                )
                 if not schema_config.blanks_allowed and nulls_count > 0:
                     raise NullsException(f"File {file_descriptor.path} tiene {nulls_count} valores en Blanco.")
                 else:
-                    df.fill_null(0)
+                    df.fill_null(strategy='zero')
                 # cargar en la db
                 with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
                     if drop_table_count == 0:
@@ -201,21 +225,28 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                             clean_filename(file_descriptor.name)
                         ),
                     )
+                v_metadata[file_descriptor.name]["Cargado"] = True
 
-                v_metadata.update({file_descriptor.name: {"Cant. Filas": row_count, "Cant. Valores en Blanco": nulls_count}})
+                v_metadata["Cant. Archivos Cargados"] = v_metadata.get("Cant. Archivos Cargados", 0) + 1
 
             except NullsException as ne:
                 context.log.error(ne)
                 log_message = (f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
+                v_metadata[file_descriptor.name]["Error"] = log_message
+                v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {file_descriptor.path} error {e}.\n")
+                            f"Archivo {file_descriptor.path} error {str(e)}.\n")
+                v_metadata[file_descriptor.name]["Error"] = log_message
+                v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
-                raise FileException(f"Error {str(e)} en el archivo: " + file_descriptor.name)
+        if v_metadata.get("Cant. Errores", 0) > 0:
+            raise ErrorsOccurred(v_metadata)
+
     except FileException as fe:
         context.log.error(fe)
         raise fe
@@ -228,18 +259,24 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
     return MaterializeResult(metadata=v_metadata)
 ##
 
-@asset(
-    key_prefix=["BI_FARINTER", "dbo"],
-    deps=[DL_Finanzas_Presupuesto_Temp],
-    compute_kind="sqlserver",
-    tags={"dagster/storage_kind": "sqlserver"},
-)
-def BI_SAP_Hecho_PresupuestoHist(context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource):
-    with dwh_farinter_bi.get_connection(engine="sqlalchemy") as conn:
-        conn.execute(dwh_farinter_bi.text(f"EXEC BI_FARINTER.dbo.BI_paCargarSAP_Hecho_PresupuestoHist")) 
+# @asset(
+#     key_prefix=["BI_FARINTER", "dbo"],
+#     deps=[DL_Finanzas_Presupuesto_Temp],
+#     compute_kind="sqlserver",
+#     tags={"dagster/storage_kind": "sqlserver"},
+# )
+# def BI_SAP_Hecho_PresupuestoHist(context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource):
+#     with dwh_farinter_bi.get_connection(engine="sqlalchemy") as conn:
+#         conn.execute(dwh_farinter_bi.text(f"EXEC BI_FARINTER.dbo.BI_paCargarSAP_Hecho_PresupuestoHist"))
+
+if __name__ == '__main__':
+    from dagster_shared_gf.resources.smb_resources import smb_resource_analitica_nasgftgu02
+    with patch("polars.DataFrame.write_database", MagicMock(return_value=MagicMock())) as mock_write_database:
+        materialize_to_memory([DL_Kielsa_MetasHist_Temp], resources={"smb_resource_analitica_nasgftgu02": smb_resource_analitica_nasgftgu02, "dwh_farinter_dl": MagicMock()})
+        assert mock_write_database.call_count > 0
 
 
-if not __name__ == '__main__':
+else:
     all_assets = load_assets_from_current_module(group_name="smb_etl_dwh")
 
     all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
