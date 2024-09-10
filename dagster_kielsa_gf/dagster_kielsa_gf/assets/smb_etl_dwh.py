@@ -74,8 +74,8 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
             try:
                 df: pl.DataFrame
                 dfd: dict[str, pl.DataFrame]
-                current_file_path = PureWindowsPath(file_descriptor.path)
-                current_file_key = current_file_path.relative_to(directory_path)
+                current_file_path = smb_resource.get_full_server_path(file_descriptor.path)
+                current_file_key = clean_filename(current_file_path.relative_to(smb_resource.get_full_server_path(directory_path)))
                 v_metadata["Archivos"][current_file_key] = {}
                 with smb_resource.open_server_file(file_path=current_file_path, mode="rb") as file:
                     file_content = BytesIO(file.read())

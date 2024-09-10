@@ -66,6 +66,9 @@ class SMBResource(ConfigurableResource):
                                                    , username=self.username
                                                    , password=self.password
                                                    )
+        
+    def get_full_server_path(self, directory: str) -> PureWindowsPath:
+        return PureWindowsPath(f"//{self.server_ip}").joinpath(directory)
     def get_server_dirs(self, directory: PureWindowsPath, recursive_depth: int | None = None, extension: str = ".xlsx", exclude: list[str] | None = None) -> Iterator[smbclient.SMBDirEntry]:
         """
         Retrieves a list of directories from the server share, filtered by the specified directory, recursive depth, file extension, and excluded files.
@@ -92,7 +95,7 @@ class SMBResource(ConfigurableResource):
                 Iterator[SMBResource.SMBDirEntry]: A generator of SMB directory entries.
             """
             # Generate the full path for the SMB directory
-            directory_path = PureWindowsPath(f"//{self.server_ip}").joinpath(current_dir)
+            directory_path = self.get_full_server_path(current_dir)
             
             # List all files and directories in the current directory
             for file_descriptor in self.scandir(directory_path):
@@ -132,8 +135,8 @@ class SMBResource(ConfigurableResource):
                 counter += 1
                 
             return new_dst_path
-        file_path = PureWindowsPath(f"//{self.server_ip}").joinpath(file_path)
-        new_path = PureWindowsPath(f"//{self.server_ip}").joinpath(new_path)
+        file_path = self.get_full_server_path(file_path)
+        new_path = self.get_full_server_path(new_path)
         #if exists add a number
         new_path = get_unique_dst_path(new_path)
         self.log_event(type="info", message=f"Moving {str(file_path.as_posix())} to {str(new_path.as_posix())}")
@@ -158,7 +161,7 @@ class SMBResource(ConfigurableResource):
         Returns:
             The opened file using the specified mode.
         """
-        file_path = PureWindowsPath(f"//{self.server_ip}").joinpath(file_path)
+        file_path = self.get_full_server_path(file_path)
         return self.open_file(path=file_path, mode=mode)
 
 
