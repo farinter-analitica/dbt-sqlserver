@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from pathlib import PurePath
+from pathlib import PureWindowsPath
 from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, Definitions
 from pydantic import Field, dataclasses, PrivateAttr
 from typing import ClassVar, List, Literal, Generator, Any, Dict
@@ -66,20 +66,20 @@ class SMBResource(ConfigurableResource):
                                                    , username=self.username
                                                    , password=self.password
                                                    )
-    def get_server_dirs(self, directory: PurePath, recursive_depth: int | None = None, extension: str = ".xlsx", exclude: list[str] | None = None) -> Iterator[smbclient.SMBDirEntry]:
-        def _scan_dir(current_dir: PurePath, current_depth: int) -> Iterator[SMBResource.SMBDirEntry]:
+    def get_server_dirs(self, directory: PureWindowsPath, recursive_depth: int | None = None, extension: str = ".xlsx", exclude: list[str] | None = None) -> Iterator[smbclient.SMBDirEntry]:
+        def _scan_dir(current_dir: PureWindowsPath, current_depth: int) -> Iterator[SMBResource.SMBDirEntry]:
             """
             Recursively scans a directory and its subdirectories for files and directories on current server share, no server needed on path.
 
             Args:
-                current_dir (PurePath): The current directory being scanned.
+                current_dir (PureWindowsPath): The current directory being scanned.
                 current_depth (int): The current depth of the directory scan.
 
             Yields:
                 Iterator[SMBResource.SMBDirEntry]: A generator of SMB directory entries.
             """
             # Generate the full path for the SMB directory
-            directory_path = PurePath(f"//{self.server_ip}").joinpath(current_dir)
+            directory_path = PureWindowsPath(f"//{self.server_ip}").joinpath(current_dir)
             
             # List all files and directories in the current directory
             for file_descriptor in self.scandir(directory_path):
@@ -95,18 +95,18 @@ class SMBResource(ConfigurableResource):
         # Start scanning the directory from depth 0
         return _scan_dir(directory, 0)
     
-    def move_server_file(self, file_path: PurePath, new_path: PurePath):
+    def move_server_file(self, file_path: PureWindowsPath, new_path: PureWindowsPath):
         """
         Moves a file from one current server share location to another.
 
         Args:
-            file_path (PurePath): The path of the file to be moved, no server needed.
-            new_path (PurePath): The new path where the file will be moved, no server needed.
+            file_path (PureWindowsPath): The path of the file to be moved, no server needed.
+            new_path (PureWindowsPath): The new path where the file will be moved, no server needed.
 
         Returns:
             None
         """
-        def get_unique_dst_path(dst_path: PurePath):
+        def get_unique_dst_path(dst_path: PureWindowsPath):
             counter = 1
             new_dst_path = dst_path
             
@@ -116,14 +116,14 @@ class SMBResource(ConfigurableResource):
                 counter += 1
                 
             return new_dst_path
-        file_path = PurePath(f"//{self.server_ip}").joinpath(file_path)
-        new_path = PurePath(f"//{self.server_ip}").joinpath(new_path)
+        file_path = PureWindowsPath(f"//{self.server_ip}").joinpath(file_path)
+        new_path = PureWindowsPath(f"//{self.server_ip}").joinpath(new_path)
         #if exists add a number
         new_path = get_unique_dst_path(new_path)
         self.log_event(type="info", message=f"Moving {str(file_path.as_posix())} to {str(new_path.as_posix())}")
         self.renames(file_path.as_posix(),new_path.as_posix())
     
-    def open_server_file(self, file_path: PurePath
+    def open_server_file(self, file_path: PureWindowsPath
                 , mode: str="rb"):
         """
         A function to open a file using the provided file path, SMB resource, and mode.
@@ -142,7 +142,7 @@ class SMBResource(ConfigurableResource):
         Returns:
             The opened file using the specified mode.
         """
-        file_path = PurePath(f"//{self.server_ip}").joinpath(file_path)
+        file_path = PureWindowsPath(f"//{self.server_ip}").joinpath(file_path)
         return self.open_file(path=file_path, mode=mode)
 
 

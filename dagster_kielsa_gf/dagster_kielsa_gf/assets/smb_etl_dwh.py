@@ -14,7 +14,7 @@ from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.resources.smb_resources import SMBResource
 from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags_repo
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, clean_filename
-from pathlib import PurePath
+from pathlib import PureWindowsPath
 from pydantic import Field
 from typing import Any
 from collections.abc import    Mapping, Sequence, Iterator
@@ -42,7 +42,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
     table = "DL_Kielsa_MetasHist_Temp"
     database = "DL_FARINTER"
     schema = "excel"
-    directory_path = PurePath("data_repo/kielsa/metas_venta/")
+    directory_path = PureWindowsPath(r"data_repo/kielsa/metas_venta/")
     schema_config = ExcelSchemaConfig(
         polars_schema={
             "Emp_Id": pl.Int16,
@@ -75,7 +75,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 df: pl.DataFrame
                 dfd: dict[str, pl.DataFrame]
                 v_metadata["Archivos"][file_descriptor.name] = {}
-                current_file_path = PurePath(file_descriptor.path)
+                current_file_path = PureWindowsPath(file_descriptor.path)
                 with smb_resource.open_server_file(file_path=current_file_path, mode="rb") as file:
                     file_content = BytesIO(file.read())
                     dfd = pl.read_excel(file_content
