@@ -67,6 +67,19 @@ class SMBResource(ConfigurableResource):
                                                    , password=self.password
                                                    )
     def get_server_dirs(self, directory: PureWindowsPath, recursive_depth: int | None = None, extension: str = ".xlsx", exclude: list[str] | None = None) -> Iterator[smbclient.SMBDirEntry]:
+        """
+        Retrieves a list of directories from the server share, filtered by the specified directory, recursive depth, file extension, and excluded files.
+
+        Args:
+            directory (PureWindowsPath): The directory to scan for files and subdirectories.
+            recursive_depth (int | None): The maximum depth to recurse into subdirectories. Defaults to None.
+            extension (str): The file extension to filter by. Defaults to ".xlsx".
+            exclude (list[str] | None): A list of file names to exclude from the results. Defaults to None.
+
+        Yields:
+            Iterator[smbclient.SMBDirEntry]: A generator of SMB directory entries.
+        """
+        exclude = [x.lower() for x in exclude] if exclude else []
         def _scan_dir(current_dir: PureWindowsPath, current_depth: int) -> Iterator[SMBResource.SMBDirEntry]:
             """
             Recursively scans a directory and its subdirectories for files and directories on current server share, no server needed on path.
@@ -83,8 +96,11 @@ class SMBResource(ConfigurableResource):
             
             # List all files and directories in the current directory
             for file_descriptor in self.scandir(directory_path):
+                if file_descriptor.name.lower() in exclude:
+                    continue
+
                 # Ignore non-excel files or specific filenames
-                if file_descriptor.name.lower().endswith(extension) and file_descriptor.name.lower() not in [x.lower() for x in exclude]:
+                if file_descriptor.name.lower().endswith(extension):
                     yield file_descriptor  # Yield the valid file
                 
                 # If the item is a directory and the depth limit hasn't been reached, recurse into it
