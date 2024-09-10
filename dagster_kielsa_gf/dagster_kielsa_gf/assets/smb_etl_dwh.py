@@ -63,7 +63,7 @@ def open_file(file_path: PurePath, smb_resource: SMBResource
     file_path = PurePath(f"//{smb_resource.server_ip}").joinpath(file_path)
     return smb_resource.open_file(path=file_path, mode=mode)
 
-def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SMBResource, new_path: PurePath):
+def move_file(context: AssetExecutionContext, file_path: PurePath, smb_resource: SMBResource, new_path: PurePath):
     def get_unique_dst_path(dst_path: PurePath):
         counter = 1
         new_dst_path = dst_path
@@ -239,7 +239,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
 
                 if env_str in ["prd"]:
                     move_file(
-                        context=context.op_execution_context(),
+                        context=context,
                         file_path=file_descriptor.path,
                         smb_resource=smbres,
                         new_path=PurePath(file_descriptor.path).parent.joinpath("cargados").joinpath(
