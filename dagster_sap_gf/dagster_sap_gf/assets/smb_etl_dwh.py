@@ -136,7 +136,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 row_count = df.height
                 v_metadata["Archivos"].update(
                     {
-                        file_descriptor.name: {
+                        current_file_key: {
                             "Cargado": False,
                             "Cant. Filas": row_count,
                             "Cant. Valores en Blanco": nulls_count,
