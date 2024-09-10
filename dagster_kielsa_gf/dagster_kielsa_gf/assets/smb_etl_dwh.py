@@ -35,71 +35,6 @@ class ExcelSchemaConfig(Config):
     blanks_allowed: bool = Field(description="Allow blanks", default=True)
     blanks_on_type_error: bool = Field(description="Convert type error to blanks", default=False)
 
-def directory_files(directory: PurePath, smb_resource: SMBResource) -> Iterator[SMBResource.SMBDirEntry]:
-    directory_path = PurePath(f"//{smb_resource.server_ip}").joinpath(directory)
-    return smb_resource.scandir(directory_path)
-
-def open_file(file_path: PurePath, smb_resource: SMBResource
-              , mode: str="rb"):
-    """
-    A function to open a file using the provided file path, SMB resource, and mode.
-    
-    Args:
-        file_path (Path): The path to the file to be opened.
-        smb_resource (SMBResource): The SMB resource used to access the file.
-        mode (str, optional): The mode in which the file should be opened. Defaults to "rb".
-        Open Modes:
-                    'r': Open for reading (default).
-                    'w': Open for writing, truncating the file first.
-                    'x': Open for exclusive creation, failing if the file already exists.
-                    'a': Open for writing, appending to the end of the file if it exists.
-                    '+': Open for updating (reading and writing), can be used in conjunction with any of the above. Open Type - can be specified with the OpenMode
-                    't': Text mode (default).
-                    'b': Binary mode.
-    Returns:
-        The opened file using the specified mode.
-    """
-    file_path = PurePath(f"//{smb_resource.server_ip}").joinpath(file_path)
-    return smb_resource.open_file(path=file_path, mode=mode)
-
-def move_file(context: AssetExecutionContext, file_path: PurePath, smb_resource: SMBResource, new_path: PurePath):
-    def get_unique_dst_path(dst_path: PurePath):
-        counter = 1
-        new_dst_path = dst_path
-        
-        # Check if file already exists
-        while smb_resource.path.exists(new_dst_path):
-            new_dst_path = dst_path.with_name(f"{dst_path.stem}_{counter}{dst_path.suffix}")
-            counter += 1
-            
-        return new_dst_path
-    file_path = PurePath(f"//{smb_resource.server_ip}").joinpath(file_path)
-    new_path = PurePath(f"//{smb_resource.server_ip}").joinpath(new_path)
-    #if exists add a number
-    new_path = get_unique_dst_path(new_path)
-    context.log.info(f"Moving {str(file_path.as_posix())} to {str(new_path.as_posix())}")
-    #smbsession.makedirs(new_path.parent, exist_ok=True)
-    smb_resource.renames(file_path.as_posix(),new_path.as_posix())
-
-def get_files_dirs(directory: PurePath, smb_resource: SMBResource, recursive_depth: int | None = None, extension: str = ".xlsx", exclude: list[str] | None = None) -> Iterator[SMBResource.SMBDirEntry]:
-    def _scan_dir(current_dir: PurePath, current_depth: int) -> Iterator[SMBResource.SMBDirEntry]:
-        # Generate the full path for the SMB directory
-        directory_path = PurePath(f"//{smb_resource.server_ip}").joinpath(current_dir)
-        
-        # List all files and directories in the current directory
-        for file_descriptor in smb_resource.scandir(directory_path):
-            # Ignore non-excel files or specific filenames
-            if file_descriptor.name.lower().endswith(extension) and file_descriptor.name.lower() not in [x.lower() for x in exclude]:
-                yield file_descriptor  # Yield the valid file
-            
-            # If the item is a directory and the depth limit hasn't been reached, recurse into it
-            if file_descriptor.is_dir() and (recursive_depth is None or current_depth < recursive_depth):
-                # Recursively scan subdirectories
-                yield from _scan_dir(current_dir.joinpath(file_descriptor.name), current_depth + 1)
-
-    # Start scanning the directory from depth 0
-    return _scan_dir(directory, 0)
-
 @asset(
     key_prefix=["DL_FARINTER", "excel"],
     tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "smb_xslx_files"},
@@ -119,7 +54,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
     class ErrorsOccurred(BaseException):
         pass
     directory_path = PurePath("data_repo/kielsa/metas_venta/")
-    smbres: SMBResource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
+    smb_resource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
     schema_config = ExcelSchemaConfig(
         polars_schema={
             "Emp_Id": pl.Int16,
@@ -134,18 +69,18 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
         exclude_colums=["Vendedor"]
     )
     drop_table_count = 0
-    v_metadata = {}
+    v_metadata = {"Archivos": {}}
     try:
         rows_inserted = 0
         nulls_count = 0
-        for file_descriptor in get_files_dirs(directory=directory_path, smb_resource=smbres, extension=".xlsx", exclude=["cargados", "plantilla.xlsx"]):
+        for file_descriptor in smb_resource.get_server_dirs(directory=directory_path, extension=".xlsx", exclude=["cargados", "plantilla.xlsx"]):
             # ignore non excel files xlsx
             try:
                 df: pl.DataFrame
                 dfd: dict[str, pl.DataFrame]
-
+                v_metadata["Archivos"][file_descriptor.name] = {}
                 current_file_path = PurePath(file_descriptor.path)
-                with open_file(file_path=current_file_path, smb_resource=smbres) as file:
+                with smb_resource.open_server_file(file_path=current_file_path, mode="rb") as file:
                     file_content = BytesIO(file.read())
                     dfd = pl.read_excel(file_content
                                     , sheet_id=0
@@ -165,11 +100,11 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                         raise FileException(
                             f"No se encontro una hoja con el patron {sheet_name_pattern.pattern}"
                         )
-
+                ###TRANSFORMATIONS
                 df=df.cast(schema_config.polars_schema)
                 df=df.drop(schema_config.exclude_colums, strict=False)
                 df=df.unpivot(index=schema_config.polars_schema.keys(), variable_name="variable", value_name="valor")
-                context.log.debug(df.head(5))
+                #context.log.debug(df.head(5))
                 # Separar variable en alerta y atributo por primer _:
                 df = (
                     df.with_columns(
@@ -202,10 +137,11 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                     )
                     .drop(["Dia_Desde", "Dia_Hasta"])
                 )
+                ###END TRANSFORMATIONS
                 # context.log.debug(df.head(5))
                 nulls_count = df.null_count().sum_horizontal().sum()
                 row_count = df.height
-                v_metadata.update(
+                v_metadata["Archivos"].update(
                     {
                         file_descriptor.name: {
                             "Cargado": False,
@@ -235,19 +171,18 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 #     context.log.info('schema: ',df.schema)
                 #     context.log.info('count: ',row_count)
                 #     print('head: ',df.head(10))
-                with open_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {current_file_path} cargado con {row_count} filas.\n")
 
                 if env_str in ["prd"]:
-                    move_file(
+                    smb_resource.move_server_file(
                         context=context,
                         file_path=current_file_path,
-                        smb_resource=smbres,
                         new_path=current_file_path.parent.joinpath("cargados").joinpath(
                             clean_filename(file_descriptor.name)
                         ),
                     )
-                v_metadata[file_descriptor.name]["Cargado"] = True
+                v_metadata["Archivos"][file_descriptor.name]["Cargado"] = True
 
                 v_metadata["Cant. Archivos Cargados"] = v_metadata.get("Cant. Archivos Cargados", 0) + 1
 
@@ -255,24 +190,24 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 context.log.error(ne)
                 log_message = (f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {current_file_path} tiene {nulls_count} valores en Blanco.\n")
-                v_metadata[file_descriptor.name]["Error"] = log_message
+                v_metadata["Archivos"][file_descriptor.name]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with open_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message)
             except FileException as fe:
                 context.log.error(fe)
                 log_message = (f"ERROR, 'NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {current_file_path} error {str(fe)}.\n")
-                v_metadata[file_descriptor.name]["Error"] = log_message
+                v_metadata["Archivos"][file_descriptor.name]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1 #
-                with open_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message) #
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {current_file_path} error {str(e)}.\n")
-                v_metadata[file_descriptor.name]["Error"] = e
+                v_metadata["Archivos"][file_descriptor.name]["Error"] = e
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with open_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message)
                 
         if v_metadata.get("Cant. Errores", 0) > 0:
@@ -281,7 +216,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
     except Exception as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
         log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e)}\n")
-        with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+        with smb_resource.open_server_file(file_path=directory_path.joinpath("logs_carga.txt"), mode="a") as file:
             file.write(log_message)
         raise e    
     return MaterializeResult(metadata=v_metadata)
