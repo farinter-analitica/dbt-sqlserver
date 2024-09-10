@@ -52,8 +52,8 @@ class SMBResource(ConfigurableResource):
     def log_event(self, type: Literal['info', 'warning', 'error'], message: str):
         if not hasattr(self, '_context') or self._context is None:
             raise ValueError("Context has not been set. Call setup_for_execution first.")
-        with self._context.log as cl:
-            cl.info(message) if type == "info" else cl.warning(message) if type == "warning" else cl.error(message)
+        cl = self._context.log
+        cl.info(message) if type == "info" else cl.warning(message) if type == "warning" else cl.error(message)
 
     def register_session(self) -> None: # returns smbclient:
         """
