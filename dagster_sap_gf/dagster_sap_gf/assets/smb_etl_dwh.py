@@ -13,7 +13,7 @@ from dagster import (asset
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource 
 from dagster_shared_gf.resources.smb_resources import SMBResource
 from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags_repo
-from dagster_shared_gf.shared_functions import filter_assets_by_tags, clean_filename
+from dagster_shared_gf.shared_functions import filter_assets_by_tags, clean_filename, clean_string_to_key
 from pathlib import PureWindowsPath
 from pydantic import Field
 from typing import Any
@@ -93,7 +93,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 df: pl.DataFrame
                 dfd: dict[str, pl.DataFrame]
                 current_file_path = smb_resource.get_full_server_path(file_descriptor.path)
-                current_file_key = clean_filename(current_file_path.relative_to(smb_resource.get_full_server_path(directory_path)))
+                current_file_key = clean_string_to_key(current_file_path.relative_to(smb_resource.get_full_server_path(directory_path)))
                 v_metadata["Archivos"][current_file_key] = {}
                 with smb_resource.open_server_file(file_path=current_file_path, mode="rb") as file:
                     file_content = BytesIO(file.read())

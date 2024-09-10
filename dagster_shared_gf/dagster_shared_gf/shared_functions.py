@@ -358,9 +358,39 @@ def clean_filename(filename: str) -> str:
     if clean_name.endswith('_'):
         clean_name = clean_name[:-1]
 
+    # Ensure no leading underscore
+    if clean_name.startswith('_'):
+        clean_name = clean_name[1:]
+
     # Ensure not empty
     if len(clean_name) == 0:
         clean_name = 'file'
 
     # Reattach the file extension
     return clean_name + ext.lower()
+
+def clean_string_to_key(string: str) -> str:
+    """
+    Cleans a string by removing or replacing unsafe characters and reducing multiple underscores to one,
+    without altering the file extension.
+    """
+
+    # Clean using a normalizer
+    clean_string = normalize_str_to_snake_case(string)
+
+    # Replace multiple underscores with a single underscore
+    clean_string = re.sub(r'_+', '_', clean_string)
+
+    # Ensure no trailing underscore 
+    if clean_string.endswith('_'):
+        clean_string = clean_string[:-1]
+
+    # Ensure no leading underscore
+    if clean_string.startswith('_'):
+        clean_string = clean_string[1:]
+
+    # Ensure not empty
+    if len(clean_string) == 0:
+        clean_string = 'file'
+
+    return clean_string
