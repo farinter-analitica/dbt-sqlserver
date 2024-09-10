@@ -21,7 +21,8 @@ from dagster_shared_gf.shared_functions import filter_assets_by_tags, clean_file
 import dagster_sap_gf.assets.dbt_dwh_sap as dbt_dwh_sap
 from pathlib import PurePath
 from pydantic import Field
-from typing import List, Dict, Any, Mapping, Sequence, Union, Iterator, Literal
+from typing import Any
+from collections.abc import    Mapping, Sequence, Iterator
 from datetime import datetime, date, timedelta
 import polars as pl, re
 from io import BytesIO
@@ -29,8 +30,9 @@ from ydata_profiling import ProfileReport
 
 ##
 class ExcelSchemaConfig(Config):
-    expected_columns: dict[str, str] = Field(description="Columns", default_factory=dict)
+    expected_columns: dict[str, str] = Field(description="Columns New Name : File Name", default_factory=dict)
     polars_schema: dict[str, pl.DataType | Any] = Field(description="polars_schema", default_factory=dict)
+    exclude_colums: list[str] = Field(description="Exclude columns", default_factory=list)
     blanks_allowed: bool = Field(description="Allow blanks", default=True)
     blanks_on_type_error: bool = Field(description="Convert type error to blanks", default=False)
 
@@ -80,6 +82,25 @@ def move_file(context: OpExecutionContext, file_path: PurePath, smb_resource: SM
     #smbsession.makedirs(new_path.parent, exist_ok=True)
     smb_resource.renames(file_path.as_posix(),new_path.as_posix())
 
+def get_files_dirs(directory: PurePath, smb_resource: SMBResource, recursive_depth: int | None = None, extension: str = ".xlsx", exclude: list[str] | None = None) -> Iterator[SMBResource.SMBDirEntry]:
+    def _scan_dir(current_dir: PurePath, current_depth: int) -> Iterator[SMBResource.SMBDirEntry]:
+        # Generate the full path for the SMB directory
+        directory_path = PurePath(f"//{smb_resource.server_ip}").joinpath(current_dir)
+        
+        # List all files and directories in the current directory
+        for file_descriptor in smb_resource.scandir(directory_path):
+            # Ignore non-excel files or specific filenames
+            if file_descriptor.name.lower().endswith(extension) and file_descriptor.name.lower() not in [x.lower() for x in exclude]:
+                yield file_descriptor  # Yield the valid file
+            
+            # If the item is a directory and the depth limit hasn't been reached, recurse into it
+            if file_descriptor.is_dir() and (recursive_depth is None or current_depth < recursive_depth):
+                # Recursively scan subdirectories
+                yield from _scan_dir(current_dir.joinpath(file_descriptor.name), current_depth + 1)
+
+    # Start scanning the directory from depth 0
+    return _scan_dir(directory, 0)
+
 @asset(
     key_prefix=["DL_FARINTER", "excel"],
     tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "smb_xslx_files"},
@@ -98,7 +119,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
         pass
     class ErrorsOccurred(BaseException):
         pass
-    directory_path = PurePath("data_repo/kielsa/metas_venta/SV")
+    directory_path = PurePath("data_repo/kielsa/metas_venta/")
     smbres: SMBResource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
     schema_config = ExcelSchemaConfig(
         polars_schema={
@@ -111,19 +132,18 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
             "Dia_Hasta": pl.Int16,
         },
         blanks_allowed=False,
+        exclude_colums=["Vendedor"]
     )
     drop_table_count = 0
     v_metadata = {}
     try:
         rows_inserted = 0
         nulls_count = 0
-        for file_descriptor in list(directory_files(directory=directory_path, smb_resource=smbres)):
+        for file_descriptor in get_files_dirs(directory=directory_path, smb_resource=smbres, extension=".xlsx", exclude=["cargados", "plantilla.xlsx"]):
             # ignore non excel files xlsx
-            if not file_descriptor.name.lower().endswith(".xlsx") or file_descriptor.name.lower() in ["cargados", "plantilla.xlsx"]:
-                continue
             try:
                 df: pl.DataFrame
-                dfd: Dict[str, pl.DataFrame]
+                dfd: dict[str, pl.DataFrame]
                 with open_file(file_path=file_descriptor.path, smb_resource=smbres) as file:
                     file_content = BytesIO(file.read())
                     dfd = pl.read_excel(file_content
@@ -146,6 +166,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                         )
 
                 df=df.cast(schema_config.polars_schema)
+                df=df.drop(schema_config.exclude_colums, strict=False)
                 df=df.unpivot(index=schema_config.polars_schema.keys(), variable_name="variable", value_name="valor")
                 context.log.debug(df.head(5))
                 # Separar variable en alerta y atributo por primer _:
@@ -166,7 +187,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                     .drop(["variable", "AnioMes"])
                     .with_columns(
                         pl.col("Atributo")
-                        .fill_null(""),
+                        .fill_null("No Definido"),
                         Fecha_Desde=pl.col("AnioMes_Id")
                         .cast(pl.String)
                         .add(pl.col("Dia_Desde").cast(pl.String).str.zfill(2))
@@ -213,7 +234,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 #     context.log.info('schema: ',df.schema)
                 #     context.log.info('count: ',row_count)
                 #     print('head: ',df.head(10))
-                with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                with open_file(file_path=PurePath(file_descriptor.path).parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {file_descriptor.path} cargado con {row_count} filas.\n")
 
                 if env_str in ["prd"]:
@@ -221,7 +242,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                         context=context.op_execution_context(),
                         file_path=file_descriptor.path,
                         smb_resource=smbres,
-                        new_path=directory_path.joinpath("cargados").joinpath(
+                        new_path=PurePath(file_descriptor.path).parent.joinpath("cargados").joinpath(
                             clean_filename(file_descriptor.name)
                         ),
                     )
@@ -235,14 +256,14 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                             f"Archivo {file_descriptor.path} tiene {nulls_count} valores en Blanco.\n")
                 v_metadata[file_descriptor.name]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                with open_file(file_path=PurePath(file_descriptor.path).parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {file_descriptor.path} error {str(e)}.\n")
                 v_metadata[file_descriptor.name]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with open_file(file_path=directory_path.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                with open_file(file_path=PurePath(file_descriptor.path).parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
         if v_metadata.get("Cant. Errores", 0) > 0:
             raise ErrorsOccurred(v_metadata)
