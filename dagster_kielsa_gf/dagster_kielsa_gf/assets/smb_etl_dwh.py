@@ -35,7 +35,7 @@ class ExcelSchemaConfig(Config):
     key_prefix=["DL_FARINTER", "excel"],
     tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "smb_xslx_files"},
     compute_kind="polars",
-
+    metadata={"parent_directory": "data_repo/kielsa/metas_venta/"},
 )
 def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
     ###INICIO DE PREPARACION DE PARAMETROS
@@ -74,8 +74,9 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
             try:
                 df: pl.DataFrame
                 dfd: dict[str, pl.DataFrame]
-                v_metadata["Archivos"][file_descriptor.name] = {}
                 current_file_path = PureWindowsPath(file_descriptor.path)
+                current_file_key = current_file_path.relative_to(directory_path)
+                v_metadata["Archivos"][current_file_key] = {}
                 with smb_resource.open_server_file(file_path=current_file_path, mode="rb") as file:
                     file_content = BytesIO(file.read())
                     dfd = pl.read_excel(file_content
@@ -152,7 +153,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                     }
                 )
                 if not schema_config.blanks_allowed and nulls_count > 0:
-                    raise NullsException(f"Archivo {current_file_path} tiene {nulls_count} valores en Blanco.")
+                    raise NullsException(f"Archivo {current_file_key} tiene {nulls_count} valores en Blanco.")
                 else:
                     df.fill_null(strategy='zero')
                 # cargar en la db
@@ -164,7 +165,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                     rows_inserted = df.write_database(table_name=f"{schema}.{table}", connection=conn, if_table_exists="append")
 
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
-                    file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {current_file_path} cargado con {row_count} filas.\n")
+                    file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {current_file_key} cargado con {row_count} filas.\n")
 
                 if env_str in ["prd"]:
                     smb_resource.move_server_file(
@@ -173,30 +174,30 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                             clean_filename(file_descriptor.name)
                         ),
                     )
-                v_metadata["Archivos"][file_descriptor.name]["Cargado"] = True
+                v_metadata["Archivos"][current_file_key]["Cargado"] = True
 
                 v_metadata["Cant. Archivos Cargados"] = v_metadata.get("Cant. Archivos Cargados", 0) + 1
 
             except NullsException as ne:
                 context.log.error(ne)
                 log_message = (f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_path} tiene {nulls_count} valores en Blanco.\n")
-                v_metadata["Archivos"][file_descriptor.name]["Error"] = log_message
+                            f"Archivo {current_file_key} tiene {nulls_count} valores en Blanco.\n")
+                v_metadata["Archivos"][current_file_key]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message)
             except FileException as fe:
                 context.log.error(fe)
                 log_message = (f"ERROR, 'NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_path} error {str(fe)}.\n")
-                v_metadata["Archivos"][file_descriptor.name]["Error"] = log_message
+                            f"Archivo {current_file_key} error {str(fe)}.\n")
+                v_metadata["Archivos"][current_file_key]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1 #
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message) #
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_path} error {str(e)}.\n")
-                v_metadata["Archivos"][file_descriptor.name]["Error"] = e
+                            f"Archivo {current_file_key} error {str(e)}.\n")
+                v_metadata["Archivos"][current_file_key]["Error"] = e
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message)
