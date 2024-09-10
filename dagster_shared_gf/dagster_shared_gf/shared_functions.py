@@ -376,7 +376,7 @@ def clean_string_to_key(string: str) -> str:
     """
 
     # Clean using a normalizer
-    clean_string = normalize_str_to_snake_case(string)
+    clean_string = normalize_str_to_snake_case(str(string))
 
     # Replace multiple underscores with a single underscore
     clean_string = re.sub(r'_+', '_', clean_string)
