@@ -30,7 +30,7 @@ from ydata_profiling import ProfileReport
 
 ##
 class ExcelSchemaConfig(Config):
-    expected_columns: dict[str, str] = Field(description="Columns New Name : File Name", default_factory=dict)
+    expected_columns: dict[str, str] = Field(description="Columns New Name : Column File Name", default_factory=dict)
     polars_schema: dict[str, pl.DataType | Any] = Field(description="polars_schema", default_factory=dict)
     exclude_colums: list[str] = Field(description="Exclude columns", default_factory=list)
     blanks_allowed: bool = Field(description="Allow blanks", default=True)
@@ -258,6 +258,14 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with open_file(file_path=PurePath(file_descriptor.path).parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
+            except FileException as fe:
+                context.log.error(fe)
+                log_message = (f"ERROR, 'NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
+                            f"Archivo {file_descriptor.path} error {str(fe)}.\n")
+                v_metadata[file_descriptor.name]["Error"] = log_message
+                v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1 #
+                with open_file(file_path=PurePath(file_descriptor.path).parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
+                    file.write(log_message) #
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {file_descriptor.path} error {str(e)}.\n")
@@ -265,12 +273,10 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with open_file(file_path=PurePath(file_descriptor.path).parent.joinpath("logs_carga.txt"), smb_resource=smbres, mode="a") as file:
                     file.write(log_message)
+                
         if v_metadata.get("Cant. Errores", 0) > 0:
             raise ErrorsOccurred(v_metadata)
 
-    except FileException as fe:
-        context.log.error(fe)
-        raise fe
     except Exception as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
         log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e)}\n")
