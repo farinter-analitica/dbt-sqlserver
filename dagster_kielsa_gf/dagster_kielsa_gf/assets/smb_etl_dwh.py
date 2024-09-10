@@ -2,15 +2,11 @@ import json
 from unittest.mock import MagicMock, patch
 from dagster import (asset
                      , AssetChecksDefinition 
-                     , AssetExecutionContext, build_op_context, build_resources
-                     , op 
-                     , OpExecutionContext
+                     , AssetExecutionContext
                      , build_last_update_freshness_checks
-                     , build_asset_context
                      , load_assets_from_current_module
                      , load_asset_checks_from_current_module
                      , Config
-                     , Output
                      , MaterializeResult
                      , materialize_to_memory
                      )
@@ -40,21 +36,13 @@ class ExcelSchemaConfig(Config):
     tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "smb_xslx_files"},
     compute_kind="polars",
 
-    # required_resource_keys={"smb_resource_analitica_nasgftgu02"},
-    
 )
 def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
+    ###INICIO DE PREPARACION DE PARAMETROS
     table = "DL_Kielsa_MetasHist_Temp"
     database = "DL_FARINTER"
     schema = "excel"
-    class NullsException(BaseException):
-        pass
-    class FileException(BaseException):
-        pass
-    class ErrorsOccurred(BaseException):
-        pass
     directory_path = PurePath("data_repo/kielsa/metas_venta/")
-    smb_resource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
     schema_config = ExcelSchemaConfig(
         polars_schema={
             "Emp_Id": pl.Int16,
@@ -68,12 +56,20 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
         blanks_allowed=False,
         exclude_colums=["Vendedor"]
     )
+    ###FIN DE PREPARACION DE PARAMETROS
     drop_table_count = 0
+    class NullsException(BaseException):
+        pass
+    class FileException(BaseException):
+        pass
+    class ErrorsOccurred(BaseException):
+        pass
+    smb_resource = smb_resource_analitica_nasgftgu02 #context.resources.smb_resource_analitica_nasgftgu02
     v_metadata = {"Archivos": {}}
     try:
-        rows_inserted = 0
-        nulls_count = 0
         for file_descriptor in smb_resource.get_server_dirs(directory=directory_path, extension=".xlsx", exclude=["cargados", "plantilla.xlsx"]):
+            rows_inserted = 0
+            nulls_count = 0
             # ignore non excel files xlsx
             try:
                 df: pl.DataFrame
@@ -100,7 +96,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                         raise FileException(
                             f"No se encontro una hoja con el patron {sheet_name_pattern.pattern}"
                         )
-                ###TRANSFORMATIONS
+                ###INICIO DE TRANSFORMACIONES ESPECIFICAS
                 df=df.cast(schema_config.polars_schema)
                 df=df.drop(schema_config.exclude_colums, strict=False)
                 df=df.unpivot(index=schema_config.polars_schema.keys(), variable_name="variable", value_name="valor")
@@ -137,7 +133,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                     )
                     .drop(["Dia_Desde", "Dia_Hasta"])
                 )
-                ###END TRANSFORMATIONS
+                ###FIN DE TRANSFORMACIONES ESPECIFICAS
                 # context.log.debug(df.head(5))
                 nulls_count = df.null_count().sum_horizontal().sum()
                 row_count = df.height
@@ -166,17 +162,12 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                         drop_table_count += 1
                     conn.commit()
                     rows_inserted = df.write_database(table_name=f"{schema}.{table}", connection=conn, if_table_exists="append")
-                    # conn.execute(dwh_farinter_dl.text(f"ALTER TABLE {schema}.{table} ADD PRIMARY KEY (Sociedad_Id, Zona_Id, Division_Id, Articulo_Id, Cliente_Id, Casa_Id, Vendedor_Id, AnioMes_Id)"))
-                # with pl.Config(tbl_cols=-1):
-                #     context.log.info('schema: ',df.schema)
-                #     context.log.info('count: ',row_count)
-                #     print('head: ',df.head(10))
+
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {current_file_path} cargado con {row_count} filas.\n")
 
                 if env_str in ["prd"]:
                     smb_resource.move_server_file(
-                        context=context,
                         file_path=current_file_path,
                         new_path=current_file_path.parent.joinpath("cargados").joinpath(
                             clean_filename(file_descriptor.name)
@@ -220,17 +211,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
             file.write(log_message)
         raise e    
     return MaterializeResult(metadata=v_metadata)
-##
 
-# @asset(
-#     key_prefix=["BI_FARINTER", "dbo"],
-#     deps=[DL_Finanzas_Presupuesto_Temp],
-#     compute_kind="sqlserver",
-#     tags={"dagster/storage_kind": "sqlserver"},
-# )
-# def BI_SAP_Hecho_PresupuestoHist(context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource):
-#     with dwh_farinter_bi.get_connection(engine="sqlalchemy") as conn:
-#         conn.execute(dwh_farinter_bi.text(f"EXEC BI_FARINTER.dbo.BI_paCargarSAP_Hecho_PresupuestoHist"))
 
 if __name__ == '__main__':
     from dagster_shared_gf.resources.smb_resources import smb_resource_analitica_nasgftgu02
