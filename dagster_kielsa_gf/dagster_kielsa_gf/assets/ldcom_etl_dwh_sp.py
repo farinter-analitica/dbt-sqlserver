@@ -45,7 +45,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "BI_paCargarHecho_ExistenciasHist_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_ExistenciasHist_Kielsa",
-        "tags": tags_repo.Daily.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
     },
     "DL_paCargarKielsa_Bodega": {
         "key_prefix": ["DL_FARINTER", "dbo"],
