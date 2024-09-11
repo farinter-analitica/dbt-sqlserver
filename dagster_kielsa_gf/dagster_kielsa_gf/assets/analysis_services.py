@@ -54,7 +54,7 @@ def olap_ventas_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Agr_Sucursal_PartDiaSemana"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_ProyeccionVenta_SucCanArt"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empleado"]),
-        AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Calendario_Dinamico"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Calendario_Dinamico"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Sucursal"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ExistenciasHist_Kielsa"]),
     ],
