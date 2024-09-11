@@ -89,6 +89,12 @@ read_source_config_multi_column: DltSourceConfigResourceList = {
     DltSourceConfig(cursor_path="createdDate", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_createddate", dep="mongo_crm_hn_multi_enddate"): [
         "campaignSchedule", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
+    DltSourceConfig(cursor_path="updatedAt", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_updatedat", initial_value=pendulum.now().subtract(months=1)): [
+        "dataViewList", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+    ],
+    DltSourceConfig(cursor_path="creationDate", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_creationdate", dep="mongo_crm_hn_multi_updatedat"): [
+        "dataViewList", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
+    ],
     DltSourceConfig(cursor_path="UpdatedAt", primary_key="_id", pipeline_name_prefix="mongo_crm_hn_multi_updatedat", initial_value=pendulum.now().subtract(months=1)): [
         "crmCall", ##pedir que actualicen de ser necesario para que funcione con updated_at en todos los docs
     ],
