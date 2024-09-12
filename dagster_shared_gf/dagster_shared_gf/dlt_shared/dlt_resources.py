@@ -15,7 +15,7 @@ mssql_destination = dlt.destinations.mssql(credentials=connection_url_dest.rende
 fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
 ExtractedResourceMetadata = Dict[str , Any]
 class BaseDltPipeline(ConfigurableResource):
-    write_disposition: str = Field(default="merge")
+    write_disposition: Literal["replace", "append", "merge", "skip"] = Field(default="merge")
     refresh: str | None = Field(default=None, 
                                 description=f"""drop_sources: Drop tables and source and resource state for all sources currently being processed in run or extract methods of the pipeline. (Note: schema history is erased)
 drop_resources: Drop tables and resource state for all resources being processed. Source level state is not modified. (Note: schema history is erased)
@@ -36,7 +36,7 @@ drop_data: Wipe all data and resource state for all resources being processed. S
     
     def run_pipeline(self, 
                      resource_data: DltResource,
-                     pipeline: dlt.pipeline, 
+                     pipeline: dlt.Pipeline, 
                      write_disposition:Literal["replace", "append", "merge", "skip"] | None = None) -> LoadInfo:
         """
         A function to run a pipeline with the given resource data, pipeline, and write disposition.
