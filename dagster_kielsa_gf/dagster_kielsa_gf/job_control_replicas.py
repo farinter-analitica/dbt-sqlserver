@@ -229,6 +229,54 @@ def obtener_servidores_de_replica_en_alerta(
                                 column_replica="Factura_Fecha",
                                 delta_max=timedelta(hours=1)
                                 ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_hn_prd_sqlserver,
+                                sql_server_replica=siteplus_sqlldsubs_sqlserver,
+                                relation_origen="LDFAS_KIELSA_HN.dbo.Cola_Control",
+                                relation_replica="LDFASREPHN.dbo.Cola_Control",
+                                column_origen="Fecha",
+                                column_replica="Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_ni_prd_sqlserver,
+                                sql_server_replica=siteplus_sqlldsubs_sqlserver,
+                                relation_origen="LDFAS_KIELSA_NIC.dbo.Cola_Control",
+                                relation_replica="LDFASREPNIC.dbo.Cola_Control",
+                                column_origen="Fecha",
+                                column_replica="Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_cr_prd_sqlserver,
+                                sql_server_replica=siteplus_sqlldsubs_sqlserver,
+                                relation_origen="LDFAS_KIELSA_CR.dbo.Cola_Control",
+                                relation_replica="LDFASREPCR.dbo.Cola_Control",
+                                column_origen="Fecha",
+                                column_replica="Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_cr_arb_prd_sqlserver,
+                                sql_server_replica=siteplus_sqlldsubs_sqlserver,
+                                relation_origen="LDFAS_KIELSA_CR.dbo.Cola_Control",
+                                relation_replica="LDFASREPARBCR.dbo.Cola_Control",
+                                column_origen="Fecha",
+                                column_replica="Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_gt_prd_sqlserver,
+                                sql_server_replica=siteplus_sqlldsubs_sqlserver,
+                                relation_origen="LDFAS_KIELSA_GT.dbo.Cola_Control",
+                                relation_replica="LDFASREPGT.dbo.Cola_Control",
+                                column_origen="Fecha",
+                                column_replica="Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
+    ParServidoresReplicaSQLServer(sql_server_origen=ldcom_sv_prd_sqlserver,
+                                sql_server_replica=siteplus_sqlldsubs_sqlserver,
+                                relation_origen="LDFAS_KIELSA_GT.dbo.Cola_Control",
+                                relation_replica="LDFASREPGT.dbo.Cola_Control",
+                                column_origen="Fecha",
+                                column_replica="Fecha",
+                                delta_max=timedelta(hours=1)
+                                ),
     ]
     
     servidores_en_alerta: Dict[str, List[Dict[str, Any]]] = {}
