@@ -104,6 +104,9 @@ models:
 
 snapshots:
   dbt_dwh_farinter:
+    dl_farinter:
+      +group: 'dbt_snapshots'
+      +database: 'DL_FARINTER'
     example:
       +group: 'dbt_first_group'
 

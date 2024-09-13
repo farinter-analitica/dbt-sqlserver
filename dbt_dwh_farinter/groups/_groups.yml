@@ -54,3 +54,6 @@ groups:
   - name: dbt_dwh_mart_datos_maestros
     owner:
       email: brian.padilla@farinter.com
+  - name: dbt_snapshots
+    owner:
+      email: brian.padilla@farinter.com
