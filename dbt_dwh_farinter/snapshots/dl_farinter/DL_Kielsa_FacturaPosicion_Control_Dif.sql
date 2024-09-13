@@ -1,5 +1,5 @@
 
-{% snapshot DL_Kielsa_FacturaPosicion_Diferencia_Snapshot %}
+{% snapshot DL_Kielsa_FacturaPosicion_Control_Dif %}
 
     {{
         config(
