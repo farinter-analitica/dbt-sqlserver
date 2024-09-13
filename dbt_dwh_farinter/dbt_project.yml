@@ -105,6 +105,7 @@ models:
 snapshots:
   dbt_dwh_farinter:
     dl_farinter:
+      +tags: ["dagster_kielsa_gf/dbt"]
       +group: 'dbt_snapshots'
       +database: 'DL_FARINTER'
     example:
