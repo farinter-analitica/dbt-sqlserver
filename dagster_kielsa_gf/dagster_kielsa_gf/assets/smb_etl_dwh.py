@@ -1,4 +1,5 @@
 import json
+from types import TracebackType
 from unittest.mock import MagicMock, patch
 from dagster import (asset
                      , AssetChecksDefinition 
@@ -45,8 +46,8 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
     directory_path = PureWindowsPath(r"data_repo/kielsa/metas_venta/")
     schema_config = ExcelSchemaConfig(
         polars_schema={
-            "Emp_Id": pl.Int16,
-            "Sucursal_Id": pl.Int16,
+            "Emp_Id": pl.Int32,
+            "Sucursal_Id": pl.Int32,
             "Empleado_Rol": pl.String,
             "Vendedor_Id": pl.Int32,
             "AnioMes": pl.String,
@@ -100,40 +101,172 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 ###INICIO DE TRANSFORMACIONES ESPECIFICAS
                 df=df.cast(schema_config.polars_schema)
                 df=df.drop(schema_config.exclude_colums, strict=False)
-                df=df.unpivot(index=schema_config.polars_schema.keys(), variable_name="variable", value_name="valor")
-                #context.log.debug(df.head(5))
-                # Separar variable en alerta y atributo por primer _:
+                df = df.with_columns(
+                    pl.col("AnioMes")
+                    .str.replace("-", "")
+                    .str.slice(0, 6)
+                    .cast(pl.Int32)
+                    .alias("AnioMes_Id"),
+                )
+                df = df.with_columns(
+                    Fecha_Desde=pl.col("AnioMes_Id")
+                    .cast(pl.String)
+                    .add(pl.col("Dia_Desde").cast(pl.String).str.zfill(2))
+                    .str.slice(0, 8)
+                    .str.to_date("%Y%m%d"),
+                    Fecha_Hasta=pl.col("AnioMes_Id")
+                    .cast(pl.String)
+                    .add(pl.col("Dia_Hasta").cast(pl.String).str.zfill(2))
+                    .str.slice(0, 8)
+                    .str.to_date("%Y%m%d"),
+                ).drop(["Dia_Desde", "Dia_Hasta"])
+                context.log.debug(df)
+
+                # Validar unicidad
+                unique_check_height = df.n_unique(subset=["Emp_Id", "Sucursal_Id", "Vendedor_Id", "AnioMes_Id", "Fecha_Desde", "Fecha_Hasta"])
+
+                if unique_check_height != df.height:
+                    raise ErrorsOccurred("Los registros no son únicos por las claves especificadas.")
+
+                # Verificar entrelazados (superposición de fechas)
+                # Paso 1: Ordenar los registros como en el paso anterior
                 df = (
-                    df.with_columns(
+                    df.sort(
+                        by=[
+                            "Emp_Id",
+                            "Sucursal_Id",
+                            "Vendedor_Id",
+                            "AnioMes_Id",
+                            "Fecha_Desde",
+                        ]
+                    )
+                    .with_columns(  # Paso 2: Shift de Fecha_Hasta para comparar si la Fecha_Desde de un registro es mayor o igual a la Fecha_Hasta del anterior en el grupo
+                        Fecha_Hasta_Anterior=pl.col("Fecha_Hasta")
+                        .shift(1)
+                        .over(["Emp_Id", "Sucursal_Id", "Vendedor_Id", "AnioMes_Id"])
+                    )
+                    .with_columns(  # Paso 3: Filtrar registros donde Fecha_Desde es igual a Fecha_Hasta anterior y sumar 1 día
+                        pl.when(pl.col("Fecha_Desde") == pl.col("Fecha_Hasta_Anterior"))
+                        .then(
+                            pl.col("Fecha_Desde").dt.offset_by("1d")
+                        )  # sumar 1 día si son iguales
+                        .otherwise(pl.col("Fecha_Desde"))
+                        .alias(
+                            "Fecha_Desde"
+                        ),  # Sobreescribir la columna Fecha_Desde con la corrección
+                        # Agregar una nueva columna con el conteo de las claves principales (sin fechas)
+                        pl.count()
+                        .over(
+                            [
+                                "Emp_Id",
+                                "Sucursal_Id",
+                                "Empleado_Rol",
+                                "Vendedor_Id",
+                                "AnioMes_Id",
+                            ]
+                        )
+                        .alias("Count_Por_Claves"),
+                        # Agregar una columna que indique si es la última fecha (fin de mes)
+                        pl.when(
+                            pl.col("Fecha_Hasta")
+                            == pl.col("Fecha_Hasta")
+                            .max()
+                            .over(
+                                [
+                                    "Emp_Id",
+                                    "Sucursal_Id",
+                                    "Empleado_Rol",
+                                    "Vendedor_Id",
+                                    "AnioMes_Id",
+                                ]
+                            )
+                        )
+                        .then(
+                            pl.lit(True)
+                        )  # Si es la última fecha en el grupo, marcar como True
+                        .otherwise(pl.lit(False))  # Si no, marcar como False
+                        .alias("Es_Ultima_Fecha"),
+                        pl.when(
+                            pl.col("Fecha_Desde")
+                            == pl.col("Fecha_Desde")
+                            .min()
+                            .over(
+                                [
+                                    "Emp_Id",
+                                    "Sucursal_Id",
+                                    "Empleado_Rol",
+                                    "Vendedor_Id",
+                                    "AnioMes_Id",
+                                ]
+                            )
+                        )
+                        .then(
+                            pl.lit(True)
+                        )  # Si es la primer fecha en el grupo, marcar como True
+                        .otherwise(pl.lit(False))  # Si no, marcar como False
+                        .alias("Es_Primer_Fecha"),
+                    )
+                    .with_columns(  # Limpieza si es ultima fecha enviar hasta el fin de mes y si es primera a inicio de mes
+                        pl.when(pl.col("Es_Ultima_Fecha"))
+                        .then(pl.col("Fecha_Hasta").dt.month_end())
+                        .otherwise(pl.col("Fecha_Hasta"))
+                        .alias("Fecha_Hasta"),
+                        pl.when(pl.col("Es_Primer_Fecha"))
+                        .then(pl.col("Fecha_Desde").dt.month_start())
+                        .otherwise(pl.col("Fecha_Desde"))
+                        .alias("Fecha_Desde"),
+                    )
+                    .with_columns(  # Si hay gaps, corregirlos
+                        pl.when(pl.col("Fecha_Desde").dt.offset_by("-1d") > pl.col("Fecha_Hasta_Anterior"))
+                        .then(pl.col("Fecha_Hasta_Anterior").dt.offset_by("1d"))
+                        .otherwise(pl.col("Fecha_Desde"))
+                        .alias("Fecha_Desde"),
+                    )
+                    .with_columns(  # Si hay entrelazados corregirlos
+                        pl.when(pl.col("Fecha_Desde") < pl.col("Fecha_Hasta_Anterior"))
+                        .then(pl.col("Fecha_Hasta_Anterior").dt.offset_by("1d"))
+                        .otherwise(pl.col("Fecha_Desde"))
+                        .alias("Fecha_Desde"),
+                    )
+                )
+                with pl.Config(tbl_cols=-1):
+                    context.log.debug(df.head(5))
+
+                # Paso 4: Verificar si aún existen entrelazados, pero ahora solo aquellos donde Fecha_Desde < Fecha_Hasta_Anterior
+                overlapping_check = df.filter(
+                    pl.col("Fecha_Desde") < pl.col("Fecha_Hasta_Anterior")
+                ).height
+
+                if overlapping_check > 0:
+                    raise ErrorsOccurred("Se detectaron registros entrelazados (fechas superpuestas) tras la corrección.")
+               
+
+                df=df.drop(["Fecha_Hasta_Anterior", "Count_Por_Claves", "Es_Ultima_Fecha"])
+
+                df = (
+                    df.unpivot(
+                        index=["Emp_Id", "Sucursal_Id", "Empleado_Rol", "Vendedor_Id", "AnioMes_Id", "Fecha_Desde", "Fecha_Hasta"],
+                        variable_name="variable",
+                        value_name="valor",
+                    )
+                    .with_columns(  # Separar variable en alerta y atributo por primer _:
                         pl.col("variable")
                         .str.split_exact("_", 1)
                         .struct.rename_fields(["Alerta_Id", "Atributo"])
                         .alias("fields"),
-                        AnioMes_Id=pl.col("AnioMes")
-                        .str.replace("-", "")
-                        .str.slice(0, 6)
-                        .cast(pl.Int32),
                         Nombre_Archivo=pl.lit(clean_filename(file_descriptor.name)),
                         Fecha_Carga=pl.lit(datetime.now()),
                         Fecha_Actualizado=pl.lit(datetime.now()),
-                    ).unnest("fields")
-                    .drop(["variable", "AnioMes"])
-                    .with_columns(
-                        pl.col("Atributo")
-                        .fill_null("No Definido"),
-                        Fecha_Desde=pl.col("AnioMes_Id")
-                        .cast(pl.String)
-                        .add(pl.col("Dia_Desde").cast(pl.String).str.zfill(2))
-                        .str.slice(0, 8)
-                        .str.to_date("%Y%m%d"),
-                        Fecha_Hasta=pl.col("AnioMes_Id")
-                        .cast(pl.String)
-                        .add(pl.col("Dia_Hasta").cast(pl.String).str.zfill(2))
-                        .str.slice(0, 8)
-                        .str.to_date("%Y%m%d"),
                     )
-                    .drop(["Dia_Desde", "Dia_Hasta"])
+                    .unnest("fields")
+                    .drop(["variable"])
+                    .with_columns(
+                        pl.col("Atributo").fill_null("No Definido"),
+                    )
                 )
+
+                context.log.debug(df.head(5))
+
                 ###FIN DE TRANSFORMACIONES ESPECIFICAS
                 # context.log.debug(df.head(5))
                 nulls_count = df.null_count().sum_horizontal().sum()
@@ -178,36 +311,28 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
 
                 v_metadata["Cant. Archivos Cargados"] = v_metadata.get("Cant. Archivos Cargados", 0) + 1
 
-            except NullsException as ne:
+            except (NullsException, FileException, ErrorsOccurred) as ne:
                 context.log.error(ne)
                 log_message = (f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_key} tiene {nulls_count} valores en Blanco.\n")
+                            f"Archivo {current_file_key} error { str(ne) }.")
                 v_metadata["Archivos"][current_file_key]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
-                    file.write(log_message)
-            except FileException as fe:
-                context.log.error(fe)
-                log_message = (f"ERROR, 'NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_key} error {str(fe)}.\n")
-                v_metadata["Archivos"][current_file_key]["Error"] = log_message
-                v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1 #
-                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
-                    file.write(log_message) #
+                    file.write(log_message + f"\n")
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_key} error {str(e)}.\n")
-                v_metadata["Archivos"][current_file_key]["Error"] = e
+                            f"Archivo {current_file_key} error { str(e) }.\n")
+                v_metadata["Archivos"][current_file_key]["Error"] = f"{e.__repr__() + f" Linea: {str(e.__traceback__.tb_lineno)}" if e.__traceback__ else '' }"
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message)
-                
+
         if v_metadata.get("Cant. Errores", 0) > 0:
             raise ErrorsOccurred(v_metadata)
 
-    except Exception as e:
+    except (Exception, ErrorsOccurred) as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
-        log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e)}\n")
+        log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e) }\n")
         with smb_resource.open_server_file(file_path=directory_path.joinpath("logs_carga.txt"), mode="a") as file:
             file.write(log_message)
         raise e    

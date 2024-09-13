@@ -174,36 +174,28 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
 
                 v_metadata["Cant. Archivos Cargados"] = v_metadata.get("Cant. Archivos Cargados", 0) + 1
 
-            except NullsException as ne:
+            except (NullsException, FileException, ErrorsOccurred) as ne:
                 context.log.error(ne)
                 log_message = (f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_key} tiene {nulls_count} valores en Blanco.\n")
+                            f"Archivo {current_file_key} error { str(ne) }.")
                 v_metadata["Archivos"][current_file_key]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
-                    file.write(log_message)
-            except FileException as fe:
-                context.log.error(fe)
-                log_message = (f"ERROR, 'NO CARGADO en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_key} error {str(fe)}.\n")
-                v_metadata["Archivos"][current_file_key]["Error"] = log_message
-                v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1 #
-                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
-                    file.write(log_message) #
+                    file.write(log_message + f"\n")
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
-                            f"Archivo {current_file_key} error {str(e)}.\n")
-                v_metadata["Archivos"][current_file_key]["Error"] = e
+                            f"Archivo {current_file_key} error { str(e) }.\n")
+                v_metadata["Archivos"][current_file_key]["Error"] = f"{e.__repr__() + f" Linea: {str(e.__traceback__.tb_lineno)}" if e.__traceback__ else '' }"
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message)
-                
+
         if v_metadata.get("Cant. Errores", 0) > 0:
             raise ErrorsOccurred(v_metadata)
 
-    except Exception as e:
+    except (Exception, ErrorsOccurred) as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
-        log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e)}\n")
+        log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e) }\n")
         with smb_resource.open_server_file(file_path=directory_path.joinpath("logs_carga.txt"), mode="a") as file:
             file.write(log_message)
         raise e    
