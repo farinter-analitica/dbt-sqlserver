@@ -109,5 +109,9 @@ sources:
       - name: DL_Kielsa_MovimientosHist
       - name: DL_Kielsa_Tipo_Mov_Inventario
       - name: DL_Kielsa_INV_Demanda
+      - name: DL_Kielsa_BoletaLocal_Detalle
+      - name: DL_Kielsa_BoletaLocal_Encabezado
+      - name: DL_Kielsa_Boleta_Exterior_Hist
+
 
             

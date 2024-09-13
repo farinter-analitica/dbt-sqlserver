@@ -1,0 +1,10 @@
+sources:
+  - name: KPP_DB
+    description: "Kielsa Plus Plus"
+    database: KPP_DB
+    schema: dbo
+    meta:
+        dagster:
+            group: "kpp_etl_dwh"
+    tables:
+      - name: LogMovimientoSuscripcion
