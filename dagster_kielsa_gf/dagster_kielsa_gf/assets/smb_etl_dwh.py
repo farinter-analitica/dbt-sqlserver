@@ -1,5 +1,4 @@
 import json
-from types import TracebackType
 from unittest.mock import MagicMock, patch
 from dagster import (asset
                      , AssetChecksDefinition 
@@ -21,6 +20,7 @@ from typing import Any
 from collections.abc import    Mapping, Sequence, Iterator
 from datetime import datetime, date, timedelta
 import polars as pl, re
+import polars.selectors as cs
 from io import BytesIO
 from ydata_profiling import ProfileReport
 
@@ -241,10 +241,11 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
                     raise ErrorsOccurred("Se detectaron registros entrelazados (fechas superpuestas) tras la corrección.")
                
 
-                df=df.drop(["Fecha_Hasta_Anterior", "Count_Por_Claves", "Es_Ultima_Fecha"])
 
                 df = (
-                    df.unpivot(
+                    df.drop(["Fecha_Hasta_Anterior", "Count_Por_Claves", "Es_Ultima_Fecha", "Es_Primer_Fecha"])
+                    .unpivot(
+                        on=cs.matches(r'^\d'), #regex empiezan con numeros
                         index=["Emp_Id", "Sucursal_Id", "Empleado_Rol", "Vendedor_Id", "AnioMes_Id", "Fecha_Desde", "Fecha_Hasta"],
                         variable_name="variable",
                         value_name="valor",
@@ -261,7 +262,7 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
                     .unnest("fields")
                     .drop(["variable"])
                     .with_columns(
-                        pl.col("Atributo").fill_null("No Definido"),
+                        pl.col("Atributo").fill_null("No_Definido"),
                         pl.col("Alerta_Id").cast(pl.Int32),
                     )
                     
