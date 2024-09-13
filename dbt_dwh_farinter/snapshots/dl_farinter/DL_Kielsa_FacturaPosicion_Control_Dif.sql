@@ -32,6 +32,6 @@
         AND FE.Caja_Id = FP.Caja_Id
         AND FE.Factura_Id = FP.Factura_Id
         AND FE.AnioMes_Id = FP.AnioMes_Id
-    WHERE FE.Factura_Fecha > CAST(GETDATE()-3 AS DATE) AND FE.Factura_Fecha < CAST('20241003' AS DATE) 
+    WHERE FE.Factura_Fecha > CAST(GETDATE()-7 AS DATE) AND FE.Factura_Fecha < CAST('20241003' AS DATE) 
 {% endsnapshot %}
 
