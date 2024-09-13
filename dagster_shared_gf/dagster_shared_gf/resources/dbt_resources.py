@@ -67,11 +67,11 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         https://docs.getdbt.com/reference/artifacts/manifest-json#resource-details
 
         """
-        if dbt_resource_props["resource_type"] in ["model", "source"]:
+        if dbt_resource_props["resource_type"] in ["model", "source", "snapshot"]:
             configured_database = (
-                dbt_resource_props.get("database")
-                if dbt_resource_props["resource_type"] == "model"
-                else dbt_resource_props.get("source_name")
+                dbt_resource_props.get("source_name")
+                if dbt_resource_props["resource_type"] == "source"
+                else dbt_resource_props.get("database")
             )
             configured_schema = dbt_resource_props.get("schema")
             configured_name = dbt_resource_props["name"]
