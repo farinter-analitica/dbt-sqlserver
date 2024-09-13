@@ -251,7 +251,7 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
                     )
                     .with_columns(  # Separar variable en alerta y atributo por primer _:
                         pl.col("variable")
-                        .str.split_exact("_", 1)
+                        .str.splitn("_", 2)
                         .struct.rename_fields(["Alerta_Id", "Atributo"])
                         .alias("fields"),
                         Nombre_Archivo=pl.lit(clean_filename(file_descriptor.name)),
@@ -265,7 +265,7 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
                     )
                 )
 
-                context.log.debug(df.head(5))
+                context.log.debug(df.get_column("Atributo").value_counts().head(20))
 
                 ###FIN DE TRANSFORMACIONES ESPECIFICAS
                 # context.log.debug(df.head(5))
