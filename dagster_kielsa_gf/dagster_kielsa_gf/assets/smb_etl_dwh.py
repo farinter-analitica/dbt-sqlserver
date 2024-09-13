@@ -290,7 +290,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
                 else:
                     df.fill_null(strategy='zero')
                 # cargar en la db
-                with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
+                with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
                     if drop_table_count == 0:
                         conn.execute( dwh_farinter_dl.text(f"IF OBJECT_ID('{schema}.{table}', 'U') IS NOT NULL BEGIN DROP TABLE {schema}.{table} END; "))
                         drop_table_count += 1
