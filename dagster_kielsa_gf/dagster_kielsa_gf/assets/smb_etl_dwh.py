@@ -264,6 +264,7 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
                     .with_columns(
                         pl.col("Atributo").fill_null("No_Definido"),
                         pl.col("Alerta_Id").cast(pl.Int32),
+                        pl.col("valor").cast(pl.Decimal(20, 6)),
                     )
                     
                 )
