@@ -12,7 +12,7 @@
     }}
 --Source SCRIPT cannot have identity columns
     SELECT
-        {{ dwh_farinter_concat_key_columns(columns=["Factura_Id","Suc_Id","Emp_Id","TipoDoc_Id","Caja_Id","Articulo_Id"], input_length=19, table_alias='FP')}} [id],
+        {{ dwh_farinter_concat_key_columns(columns=["Factura_Id","Suc_Id","Emp_Id","TipoDoc_Id","Caja_Id","Articulo_Id"], input_length=99, table_alias='FP')}} [id],
         FP.Emp_Id,
         FP.Factura_Id,
         FP.Suc_Id,
