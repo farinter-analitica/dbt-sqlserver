@@ -38,7 +38,7 @@ class ExcelSchemaConfig(Config):
     compute_kind="polars",
     metadata={"parent_directory": "data_repo/kielsa/metas_venta/"},
 )
-def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
+def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
     ###INICIO DE PREPARACION DE PARAMETROS
     table = "DL_Kielsa_MetaHist_Temp"
     database = "DL_FARINTER"
@@ -342,7 +342,7 @@ def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analit
 if __name__ == '__main__':
     from dagster_shared_gf.resources.smb_resources import smb_resource_analitica_nasgftgu02
     with patch("polars.DataFrame.write_database", MagicMock(return_value=MagicMock())) as mock_write_database:
-        materialize_to_memory([DL_Kielsa_MetasHist_Temp], resources={"smb_resource_analitica_nasgftgu02": smb_resource_analitica_nasgftgu02, "dwh_farinter_dl": MagicMock()})
+        materialize_to_memory([DL_Kielsa_MetaHist_Temp], resources={"smb_resource_analitica_nasgftgu02": smb_resource_analitica_nasgftgu02, "dwh_farinter_dl": MagicMock()})
         assert mock_write_database.call_count > 0
 
 
