@@ -40,7 +40,7 @@ class ExcelSchemaConfig(Config):
 )
 def DL_Kielsa_MetasHist_Temp(context: AssetExecutionContext, smb_resource_analitica_nasgftgu02: SMBResource, dwh_farinter_dl: SQLServerResource):
     ###INICIO DE PREPARACION DE PARAMETROS
-    table = "DL_Kielsa_MetasHist_Temp"
+    table = "DL_Kielsa_MetaHist_Temp"
     database = "DL_FARINTER"
     schema = "excel"
     directory_path = PureWindowsPath(r"data_repo/kielsa/metas_venta/")
