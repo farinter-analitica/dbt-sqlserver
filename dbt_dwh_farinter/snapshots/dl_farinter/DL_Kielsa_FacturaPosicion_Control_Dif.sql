@@ -3,6 +3,7 @@
 
     {{
         config(
+            as_columnstore=false,
             tags=["periodo/diario"],
             target_schema='dbt_snapshot',
             strategy='check',
