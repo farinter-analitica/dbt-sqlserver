@@ -119,7 +119,7 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
                     .add(pl.col("Dia_Hasta").cast(pl.String).str.zfill(2))
                     .str.slice(0, 8)
                     .str.to_date("%Y%m%d"),
-                ).drop(["Dia_Desde", "Dia_Hasta"])
+                ).drop(["Dia_Desde", "Dia_Hasta", "AnioMes"])
                 context.log.debug(df)
 
                 # Validar unicidad
@@ -262,7 +262,9 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
                     .drop(["variable"])
                     .with_columns(
                         pl.col("Atributo").fill_null("No Definido"),
+                        pl.col("Alerta_Id").cast(pl.Int32),
                     )
+                    
                 )
 
                 context.log.debug(df.get_column("Atributo").value_counts().head(20))
