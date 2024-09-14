@@ -398,7 +398,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_MetaHist",
         "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
-        "deps": [AssetKey(["DL_FARINTER", "excel", "DL_paCargarKielsa_MetaHist_Temp"])],
+        "deps": [AssetKey(["DL_FARINTER", "excel", "DL_Kielsa_MetaHist_Temp"])],
     },
     "DL_paCargarKielsa_Articulo_Alerta": {
         "key_prefix": ["DL_FARINTER", "dbo"],
