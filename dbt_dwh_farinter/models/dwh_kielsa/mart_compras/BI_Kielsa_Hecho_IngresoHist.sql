@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Emp_Id","Sucursal_Id","Articulo_Id", "Boleta_Id", "TipoCompra_Id", "Fecha_Id"] %}
+{% set unique_key_list = ["Emp_Id","Sucursal_Id","Articulo_Id", "Boleta_Id", "Orden_Id", "Fecha_Id"] %}
 {{ 
     config(
 		as_columnstore=true,
@@ -12,7 +12,8 @@
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
 		"{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
-        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado'], included_columns=['Factura_Fecha']) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado'] ) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Id'] ) }}",
         ]
 	) 
 }}
