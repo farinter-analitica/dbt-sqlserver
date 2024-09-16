@@ -62,6 +62,36 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Articulo_x_Compra",
         "tags": tags_repo.Daily.tag,
     },
+    "DL_paCargarKielsa_Articulo_Info": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Articulo_Info",
+        "tags": tags_repo.Daily.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
+    "DL_paCargarKielsa_TSP_ABCCadena": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_TSP_ABCCadena",
+        "tags": tags_repo.Daily.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
+    "DL_paCargarKielsa_Orden_Exterior_Detalle": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Orden_Exterior_Detalle",
+        "tags": tags_repo.Daily.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
+    "DL_paCargarKielsa_Orden_Exterior_Encabezado": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Orden_Exterior_Encabezado",
+        "tags": tags_repo.Daily.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
+    "DL_paCargarKielsa_Detalle_Pedido": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Detalle_Pedido",
+        "tags": tags_repo.Daily.tag | tags_repo.HourlyUnique.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
     # ahora en su propio asset condicional
     # "DL_paCargarKielsa_FacturasPosiciones": {
     #     "key_prefix": ["DL_FARINTER", "dbo"],
