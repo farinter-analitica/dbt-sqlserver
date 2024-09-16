@@ -1,0 +1,5 @@
+models:
+  - name: BI_Kielsa_Hecho_IngresoHist
+    meta:
+        dagster:
+            owners: ["cleymer.mendoza@farinter.com"]

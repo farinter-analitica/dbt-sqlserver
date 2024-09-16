@@ -112,6 +112,7 @@ sources:
       - name: DL_Kielsa_BoletaLocal_Detalle
       - name: DL_Kielsa_BoletaLocal_Encabezado
       - name: DL_Kielsa_Boleta_Exterior_Hist
+      - name: DL_TC_ArticuloXMecanica_Kielsa
 
 
             
