@@ -108,8 +108,53 @@ SELECT
 				, B.Boleta_FechaSola
 )
 
-SELECT COUNT(*)
---INTO #TempIngresos
+SELECT 			ISNULL(Emp_Id, 0) AS Emp_Id
+			,ISNULL(Sucursal_Id, 0) AS Sucursal_Id
+			,Zona_Id
+			,Departamento_Id
+			,Municipio_Id
+			,Ciudad_Id
+			,TipoSucursal_Id
+			,ISNULL(Boleta_Id, 0) AS Boleta_Id
+			,ISNULL(Orden_Id, 0) AS Orden_Id
+			,Compra_Estado
+			, TipoCompra_Id
+			, Usuario_Id
+			, Prov_Distribuye
+			, Articulo_Id
+			, Casa_Id
+			, Marca1_Id
+			, CategoriaArt_Id
+			, DeptoArt_Id
+			, SubCategoria1Art_Id
+			, SubCategoria2Art_Id
+			, SubCategoria3Art_Id
+			, SubCategoria4Art_Id
+			, Proveedor_Id
+			, Mecanica_Id
+			, Cuadro_Id
+			, AlertaInv_Id
+			, DiasInv_Id
+			, ISNULL(Fecha_Id, '19000101') AS Fecha_Id
+			, Anio_Id
+			, Trimestre_Id
+			, Mes_Id
+			, Dias_Id
+			, Dia_Id
+			, Ingreso_Pedido
+			, Ingreso_Entrada
+			, Ingreso_Facturada
+			, Ingreso_Scaneada
+			, Ingreso_Bonificacion
+			, Ingreso_Costo_Bruto
+			, Compra_Costo_Bruto
+			, Ingreso_Descuento
+			, Compra_Descuento
+			, Ingreso_Impuesto
+			, Compra_Impuesto
+			, EmpArt_Id
+			, EmpSuc_Id
+			, GETDATE() AS Fecha_Actualizado
 
 FROM Ingresos
 --WHERE Fecha_Id >= '20240901' 
