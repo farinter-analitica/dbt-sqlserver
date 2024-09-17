@@ -121,7 +121,7 @@ SELECT 			ISNULL(Emp_Id, 0) AS Emp_Id
 			, TipoCompra_Id
 			, Usuario_Id
 			, Prov_Distribuye
-			, Articulo_Id
+			, ISNULL(Articulo_Id, 'X') AS Articulo_Id
 			, Casa_Id
 			, Marca1_Id
 			, CategoriaArt_Id
