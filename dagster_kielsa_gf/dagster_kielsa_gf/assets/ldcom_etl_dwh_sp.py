@@ -354,15 +354,16 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"])],
     },
-    "BI_paCargarDim_MecanicaCanje_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "keys_out": [AssetKey(["BI_FARINTER", "dbo","BI_Dim_MecanicaCanje_Kielsa"]),
-                 AssetKey(["DL_FARINTER", "dbo","DL_TC_ArticuloXMecanica_Kielsa"])],
-        "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
-        "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]), ### TODO : Cambiar origen externo por interno del DWH
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
-                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),],
-    },
+    #Ahora en dbt y dagster
+    # "BI_paCargarDim_MecanicaCanje_Kielsa": {
+    #     "key_prefix": ["BI_FARINTER", "dbo"],
+    #     "keys_out": [AssetKey(["BI_FARINTER", "dbo","BI_Dim_MecanicaCanje_Kielsa"]),
+    #              AssetKey(["DL_FARINTER", "dbo","DL_TC_ArticuloXMecanica_Kielsa"])],
+    #     "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
+    #     "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"]), ### TODO : Cambiar origen externo por interno del DWH
+    #              AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
+    #              AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Alerta"]),],
+    # },
     "BI_paCargarHecho_IngresosHist_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_IngresosHist_Kielsa",

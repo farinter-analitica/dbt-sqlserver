@@ -86,7 +86,7 @@ SELECT
 			ON A.Emp_Id = Suc.Emp_Id AND A.Suc_Id = Suc.Sucursal_Id
 		INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo Art -- {{ref ('BI_Kielsa_Dim_Articulo')}} Art
 			ON A.Emp_Id = Art.Emp_Id AND A.Articulo_Id = Art.Articulo_Id
-		LEFT OUTER JOIN DL_FARINTER.[dbo].[DL_TC_ArticuloXMecanica_Kielsa] E --{{ source('DL_FARINTER', 'DL_TC_ArticuloXMecanica_Kielsa')}} E
+		LEFT OUTER JOIN DL_FARINTER.[dbo].[DL_TC_ArticuloXMecanica_Kielsa] E --{{ ref('DL_TC_ArticuloXMecanica_Kielsa')}} E
 			ON A.Emp_Id = CONVERT(INT, LEFT(E.MecanicaCanje_Id, 1))
 			AND A.Articulo_Id = E.Articulo_Id 
 			AND B.Boleta_Fecha BETWEEN E.Inicio AND E.Final
