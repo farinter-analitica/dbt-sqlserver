@@ -476,6 +476,17 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
                  AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"])],
     },
+    "DL_paCargarKielsa_ExistenciaHist": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_ExistenciaHist",
+        "tags": tags_repo.Daily.tag, # | tags_repo.Hourly.tag,
+        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_x_Bodega"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_x_Sucursal"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"])],
+    },
 
 }   
 
