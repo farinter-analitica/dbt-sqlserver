@@ -17,6 +17,7 @@ from datetime import timedelta, datetime, date
 from typing import Sequence
 import polars as pl
 import re
+from functools import partial
 
 
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
@@ -186,7 +187,7 @@ def BI_Dim_MecanicaCanje_Kielsa(context: AssetExecutionContext
 
     # Apply the function to extract 'Tipo'
     df = df.with_columns(
-        pl.col('Nombre').map_elements(extract_tipo, return_dtype=pl.String).alias('Mecanica_Tipo'),
+        pl.col('Nombre').map_elements(extract_tipo, return_dtype=pl.String).fill_null('CANJE').alias('Mecanica_Tipo'),
         pl.concat_str([pl.col('Emp_Id').cast(pl.String()), pl.lit('-'), pl.col('Alerta_Id').cast(pl.String())]).alias('Mecanica_Id'),
         pl.col('Nombre').alias('Mecanica_Nombre'),
     ).drop('Alerta_Id', 'Nombre')
@@ -220,7 +221,7 @@ def BI_Dim_MecanicaCanje_Kielsa(context: AssetExecutionContext
     USING {staging_table_name} AS source
     ON ({key_columns_str})
     WHEN MATCHED 
-    AND NOT EXISTS (SELECT {except_target_str} EXCEPT SELECT {except_source_str}) 
+    AND EXISTS (SELECT {except_target_str} EXCEPT SELECT {except_source_str}) 
     THEN
         UPDATE SET {update_columns_str}
     WHEN NOT MATCHED THEN
@@ -233,28 +234,41 @@ def BI_Dim_MecanicaCanje_Kielsa(context: AssetExecutionContext
     extra_sql = f"""
 		if not exists(select * from dbo.BI_Dim_MecanicaCanje_Kielsa where Mecanica_Id = 'x')
 		
-		   insert INTO [dbo].[BI_Dim_MecanicaCanje_Kielsa](
-	                   Mecanica_Id,
-				       Mecanica_Nombre,
-				       Mecanica_Tipo)
-					   select 'x', 'No Aplica', 'No Aplica'
+            INSERT INTO {table_name} (
+                Mecanica_Id,
+                Mecanica_Nombre,
+                Mecanica_Tipo,
+                Emp_Id
+            )
+            SELECT 'x', 'No Aplica', 'No Aplica', 0
        ;
 
-	   if not exists(select * from dbo.BI_Dim_MecanicaCanje_Kielsa where Mecanica_Id in ('1-142', '165') )
-	      
-		  INSERT INTO BI_FARINTER.dbo.BI_Dim_MecanicaCanje_Kielsa
-          SELECT '1-142', 'Canje borrado en BD', 'Canje borrado en BD'
-	      union all 
-	      SELECT '1-165', 'Canje borrado en BD', 'Canje borrado en BD'
-              ;
+            INSERT INTO {table_name} (
+                Mecanica_Id,
+                Mecanica_Nombre,
+                Mecanica_Tipo,
+                Emp_Id
+            )
+            SELECT t.Mecanica_Id, t.Mecanica_Nombre, t.Mecanica_Tipo, t.Emp_Id
+            FROM (
+                SELECT '1-142' AS Mecanica_Id, 'Canje borrado en BD' AS Mecanica_Nombre, 'Canje borrado en BD' AS Mecanica_Tipo, 1 AS Emp_Id
+                UNION ALL
+                SELECT '1-165', 'Canje borrado en BD', 'Canje borrado en BD', 1
+            ) t
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM dbo.BI_Dim_MecanicaCanje_Kielsa e
+                WHERE e.Mecanica_Id = t.Mecanica_Id
+            );              
                       """
 
     # Execute the MERGE statement within a transaction
     with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-        conn.execute(merge_sql)
+        exec=dwh_farinter_bi.execute_and_commit
+        exec(merge_sql,connection=conn)
         # Optionally, drop or truncate the staging table
-        conn.execute(f"DROP TABLE {staging_table_name}")
-        conn.execute(extra_sql)
+        exec(f"DROP TABLE {staging_table_name}",connection=conn)
+        exec(extra_sql,connection=conn)
 
 
 if __name__ == "__main__":
@@ -311,7 +325,7 @@ if __name__ == "__main__":
     
     # run tests
     test_BI_Dim_MecanicaCanje_Kielsa() if 0==1 else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa")
-    test_BI_Dim_MecanicaCanje_Kielsa_funcional() if 0==1 and env_str in ["local", "dev"] else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa_funcional")       
+    test_BI_Dim_MecanicaCanje_Kielsa_funcional() if 1==1 and env_str in ["local", "dev"] else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa_funcional")       
 
 else:
     all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
