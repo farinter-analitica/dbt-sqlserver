@@ -178,7 +178,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_BoletaLocal": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": ["DL_Kielsa_BoletaLocal_Encabezado","DL_Kielsa_BoletaLocal_Detalle"],
-        "tags": tags_repo.Daily.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
     },
     "DL_paCargarKielsa_Articulo_ProveedorEstadistico_Hist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -297,14 +297,14 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Boleta_Exterior_Hist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Boleta_Exterior_Hist",
-        "tags": tags_repo.Daily.tag ,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag, 
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
         "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Orden_Local_Detalle": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Orden_Local_Detalle",
-        "tags": tags_repo.Daily.tag ,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
         "owners": ["cleymer.mendoza@farinter.com"],
     },
@@ -476,6 +476,23 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
                  AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"])],
     },
+    "DL_paCargarTC_Sugeridos_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_TC_Sugeridos_Kielsa",
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    },
+    "BI_paCargarHecho_Sugeridos_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": ["BI_Hecho_Sugeridos_Kielsa","BI_Hecho_SugeridosResumen_Kielsa"],
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Articulo"]),
+                 AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Sucursal"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_TC_Sugeridos_Kielsa"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Boleta_Exterior_Hist"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Encabezado"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Detalle"]),
+                 AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Calendario"]),],
+    },
     "DL_paCargarKielsa_ExistenciaHist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ExistenciaHist",
@@ -487,6 +504,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"])],
     },
+
 
 }   
 

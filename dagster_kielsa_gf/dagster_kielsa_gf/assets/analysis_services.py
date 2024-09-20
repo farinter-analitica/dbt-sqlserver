@@ -75,6 +75,22 @@ def olap_tabular_kielsa_general_ejecucion(context: AssetExecutionContext, dwh_fa
         context.log.info(f"No se ejecuta el job de OLAP VENTAS KIELSA en {env_str}")
 
 
+@asset(
+    key_prefix=["DWH_204", "SSAS"],
+    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    deps=[
+        AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Sugeridos_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_SugeridosResumen_Kielsa"]),
+    ],
+    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';"
+)
+def olap_ventas_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
+    if env_str == "prd": 
+        dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';")
+    else:
+        context.log.info("No se ejecuta el job de OLAP SUGERIDOS KIELSA en dev")
+
+
 all_assets = load_assets_from_current_module(group_name="analysis_services")
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(

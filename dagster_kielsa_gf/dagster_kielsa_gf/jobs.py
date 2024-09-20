@@ -133,6 +133,12 @@ knime_workflows_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_
     tags=tags_repo.Daily.tag,
 )
 
+smb_etl_dwh_kielsa_all_downstream_assets: AssetSelection = AssetSelection.groups("smb_etl_dwh").downstream()
+smb_etl_dwh_kielsa_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="smb_etl_dwh_kielsa_all_downstream_job"
+                                                            , selection=smb_etl_dwh_kielsa_all_downstream_assets
+                                                            #, tags= {"dagster/max_runtime": (4*60*60)} # max 4 hours in seconds, then mark it as failed.
+                                                            )
+
 
 all_jobs = get_all_instances_of_class(
     class_type_list=[JobDefinition, UnresolvedAssetJobDefinition]
