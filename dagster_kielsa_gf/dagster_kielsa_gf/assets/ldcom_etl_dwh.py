@@ -1,4 +1,5 @@
 from dagster import (
+    AssetKey,
     asset,
     load_assets_from_current_module,
     load_asset_checks_from_current_module,
@@ -142,6 +143,7 @@ def DL_Kielsa_Articulo(context: AssetExecutionContext
         , compute_kind="polars"
         , config_schema={"p_actualizar_todo":  Field(bool, is_required=False, default_value=False)
                         }
+        , deps=[AssetKey("DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta")]
         )
 def BI_Dim_MecanicaCanje_Kielsa(context: AssetExecutionContext
                 , dwh_farinter_bi: SQLServerResource
