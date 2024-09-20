@@ -1,26 +1,21 @@
 from dagster import (
     asset,
-    AssetKey,
     load_assets_from_current_module,
     load_asset_checks_from_current_module,
     build_last_update_freshness_checks,
     AssetChecksDefinition,
     AssetExecutionContext,
-    AssetsDefinition,
-    multi_asset,
-    AssetSpec,
-    Output,
-    AssetOut,
     Field
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
-    get_all_instances_of_class,
 )
 from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
 from datetime import timedelta, datetime, date
-from typing import Sequence, List, Mapping, Dict, Any
+from typing import Sequence
+import polars as pl
+import re
 
 
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
@@ -141,19 +136,195 @@ def DL_Kielsa_Articulo(context: AssetExecutionContext
         #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
 
-all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-    lower_bound_delta=timedelta(hours=13),
-    deadline_cron="0 10-16 * * 1-6",
-)
+@asset(key_prefix= ["BI_FARINTER", "dbo"]
+        , tags=tags_repo.Daily.tag | {"dagster/storage_kind": "sqlserver"}
+        , compute_kind="polars"
+        , config_schema={"p_actualizar_todo":  Field(bool, is_required=False, default_value=False)
+                        }
+        )
+def BI_Dim_MecanicaCanje_Kielsa(context: AssetExecutionContext
+                , dwh_farinter_bi: SQLServerResource
+                ) -> None: 
+    table_name = "BI_Dim_MecanicaCanje_Kielsa"
+    # Read data from SQL Server
+    df: pl.DataFrame
+    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
+        # conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP")
+        df = pl.read_database("""SELECT Emp_Id, Alerta_Id, Nombre FROM DL_FARINTER.dbo.DL_Kielsa_PV_Alerta
+                              WHERE Nombre LIKE '%CANJE%'
+                              """, connection=conn) 
 
-all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
-all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+    # Define regular expression patterns
+    pattern_canje = r'(?i)\bCANJES?\b'  # Matches 'CANJE' or 'CANJES', case-insensitive
+    pattern_xy = r'\d+\s*\+\s*\d+'      # Matches 'x+y' patterns, allowing spaces around '+'
+
+    # Function to extract 'Tipo' from 'Nombre'
+    def extract_tipo(nombre):
+        # Search for 'CANJE' or 'CANJES'
+        match_canje = re.search(pattern_canje, nombre, re.IGNORECASE)
+        if match_canje:
+            # Always use 'CANJE' (singular) for 'Tipo'
+            canje_word = 'CANJE'
+            # Find all 'x+y' patterns in the string
+            xy_patterns = re.findall(pattern_xy, nombre)
+            if xy_patterns:
+                # Remove spaces within 'x+y' patterns for consistency
+                xy_patterns_cleaned = [xy_pattern.replace(' ', '') for xy_pattern in xy_patterns]
+                # Create 'Tipo' entries by combining 'CANJE' with each 'x+y' pattern
+                tipos = [f"{xy_pattern}" for xy_pattern in xy_patterns_cleaned]
+                # Join multiple 'Tipo' entries with a comma
+                tipo = f"{canje_word} {', '.join(set(tipos))}"
+                return tipo
+            else:
+                # If no 'x+y' patterns found, return 'CANJE'
+                return canje_word
+        else:
+            return None  # If 'CANJE' not found
+
+    # Apply the function to extract 'Tipo'
+    df = df.with_columns(
+        pl.col('Nombre').map_elements(extract_tipo, return_dtype=pl.String).alias('Mecanica_Tipo'),
+        pl.concat_str([pl.col('Emp_Id').cast(pl.String()), pl.lit('-'), pl.col('Alerta_Id').cast(pl.String())]).alias('Mecanica_Id'),
+        pl.col('Nombre').alias('Mecanica_Nombre'),
+    ).drop('Alerta_Id', 'Nombre')
+
+    # Display the DataFrame
+    with pl.Config() as config:
+        config.set_tbl_cols(10)
+        config.set_tbl_rows(10)
+        context.log.debug(df.head())
+
+
+    # Define a staging table name
+    staging_table_name = f"{table_name}_temp_dagster"
+
+    # Write the DataFrame to the staging table
+    # Use 'replace' to create or replace the staging table
+    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
+        df.write_database(staging_table_name, connection=conn, if_table_exists='replace')
+
+    key_columns = ['Mecanica_Id']
+    key_columns_str = ' AND '.join([f'target.{col} = source.{col}' for col in key_columns])
+    non_key_columns = [col for col in df.columns if col not in key_columns]
+    update_columns_str = ', '.join([f"target.{col} = source.{col}" for col in non_key_columns])
+    insert_columns_str = ', '.join(df.columns)
+    insert_values_str = ', '.join([f"source.{col}" for col in df.columns])
+    except_target_str = ', '.join([f"target.{col}" for col in non_key_columns])
+    except_source_str = ', '.join([f"source.{col}" for col in non_key_columns])
+    # Build the MERGE SQL statement
+    merge_sql = f"""
+    MERGE INTO {table_name} AS target
+    USING {staging_table_name} AS source
+    ON ({key_columns_str})
+    WHEN MATCHED 
+    AND NOT EXISTS (SELECT {except_target_str} EXCEPT SELECT {except_source_str}) 
+    THEN
+        UPDATE SET {update_columns_str}
+    WHEN NOT MATCHED THEN
+        INSERT ({insert_columns_str})
+        VALUES ({insert_values_str});
+    """
+
+    context.log.debug(merge_sql)
+
+    extra_sql = f"""
+		if not exists(select * from dbo.BI_Dim_MecanicaCanje_Kielsa where Mecanica_Id = 'x')
+		
+		   insert INTO [dbo].[BI_Dim_MecanicaCanje_Kielsa](
+	                   Mecanica_Id,
+				       Mecanica_Nombre,
+				       Mecanica_Tipo)
+					   select 'x', 'No Aplica', 'No Aplica'
+       ;
+
+	   if not exists(select * from dbo.BI_Dim_MecanicaCanje_Kielsa where Mecanica_Id in ('1-142', '165') )
+	      
+		  INSERT INTO BI_FARINTER.dbo.BI_Dim_MecanicaCanje_Kielsa
+          SELECT '1-142', 'Canje borrado en BD', 'Canje borrado en BD'
+	      union all 
+	      SELECT '1-165', 'Canje borrado en BD', 'Canje borrado en BD'
+              ;
+                      """
+
+    # Execute the MERGE statement within a transaction
+    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
+        conn.execute(merge_sql)
+        # Optionally, drop or truncate the staging table
+        conn.execute(f"DROP TABLE {staging_table_name}")
+        conn.execute(extra_sql)
+
+
+if __name__ == "__main__":
+    from unittest.mock import MagicMock, patch
+    from dagster import materialize_to_memory
+    def test_BI_Dim_MecanicaCanje_Kielsa():
+        mock_data = pl.from_dict( {
+                                        'Emp_Id': list(range(1, 26)),
+                                        'Alerta_Id': list(range(1, 26)),
+                                        'Nombre': [
+                                            'ALERTA CANJES 1+1 GRUPO1',
+                                            'ALERTA CANJES 1+1 GRUPO2',
+                                            'ALERTA CANJE 1+1 GRUPO3',
+                                            'ALERTA CANJES 2+1 GRUPO1',
+                                            'CANJES 3+1',
+                                            'CANJES 2+1',
+                                            'CANJE 1+1',
+                                            'CANJE 4+1',
+                                            'CANJES 20+10',
+                                            'CANJES 5+1',
+                                            'CANJE 2+1 LUVECK',
+                                            'CANJE 15+ 5 TAB NEWPORT',
+                                            'CANJE 1+1 CJA 15+15 TAB NEWPOR',
+                                            'CANJE FINLAY TABL 5+3 5+3.',
+                                            'CANJE  3+1 ACROMAX',
+                                            'CANJE 2+1 ZINEREO',
+                                            'CANJE  8+8 TAB  RAVEN',
+                                            'CANJE  1+1 ULTRADOCEPLEX LIQUI',
+                                            'CANJE 2+1 MEDIKEM',
+                                            'CANJE 2+1 MEFASA  CARDIO',
+                                            'CANJE 2+1 RODIM',
+                                            'CANJE  3+1  SOPHIA',
+                                            'CANJE 2+1 GLAXO',
+                                            'CANJE  2+1 RAVEN',
+                                            'CANJE 2+1 MARCA PROPIAS'
+                                        ]
+                                    })
+        with patch("polars.DataFrame.write_database", MagicMock(return_value=MagicMock())) as mock_write_database, \
+            patch("polars.read_database", MagicMock(return_value=mock_data )) as mock_read_database:
+            #      patch("dagster_shared_gf.resources.sql_server_resources.dwh_farinter_bi.get_sqlalchemy_conn", MagicMock()) as mock_get_conn:
+
+            # # Mock connection and execute methods
+            # mock_conn = mock_get_conn.return_value.__enter__.return_value
+            # mock_conn.execute = MagicMock()
+            
+            materialize_to_memory([BI_Dim_MecanicaCanje_Kielsa], resources={"dwh_farinter_bi": MagicMock()})
+            # assert mock_write_database.call_count > 0
+            # assert mock_read_database.call_count > 0
+
+    #prueba funcional
+    def test_BI_Dim_MecanicaCanje_Kielsa_funcional():
+        from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_bi
+        materialize_to_memory([BI_Dim_MecanicaCanje_Kielsa], resources={"dwh_farinter_bi": dwh_farinter_bi})
+    
+    # run tests
+    test_BI_Dim_MecanicaCanje_Kielsa() if 0==1 else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa")
+    test_BI_Dim_MecanicaCanje_Kielsa_funcional() if 0==1 and env_str in ["local", "dev"] else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa_funcional")       
+
+else:
+    all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
+
+    all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+        lower_bound_delta=timedelta(hours=26),
+        deadline_cron="0 9 * * 1-6",
+    )
+    # print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
+    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+        lower_bound_delta=timedelta(hours=13),
+        deadline_cron="0 10-16 * * 1-6",
+    )
+
+    all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+    all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks

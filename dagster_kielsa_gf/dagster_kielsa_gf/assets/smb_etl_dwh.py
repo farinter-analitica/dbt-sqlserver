@@ -1,5 +1,4 @@
 import json
-from unittest.mock import MagicMock, patch
 from dagster import (asset
                      , AssetChecksDefinition 
                      , AssetExecutionContext
@@ -344,6 +343,7 @@ def DL_Kielsa_MetaHist_Temp(context: AssetExecutionContext, smb_resource_analiti
 
 
 if __name__ == '__main__':
+    from unittest.mock import MagicMock, patch
     from dagster_shared_gf.resources.smb_resources import smb_resource_analitica_nasgftgu02
     with patch("polars.DataFrame.write_database", MagicMock(return_value=MagicMock())) as mock_write_database:
         materialize_to_memory([DL_Kielsa_MetaHist_Temp], resources={"smb_resource_analitica_nasgftgu02": smb_resource_analitica_nasgftgu02, "dwh_farinter_dl": MagicMock()})

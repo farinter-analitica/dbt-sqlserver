@@ -1,64 +1,75 @@
-import requests
 import polars as pl
-from datetime import datetime, timedelta
-import json
-from deep_translator import GoogleTranslator
+import re
 
-# Función para obtener los días festivos para una lista de países y un rango de fechas específico
-def obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin):
-    datos_festivos = []
-    
-    # Inicializar el traductor a español
-    traductor = GoogleTranslator(source='auto', target='es')
-    
-    for codigo_pais in codigos_pais:
-        # URL base para la API de Nager.Date
-        url_base = f"https://date.nager.at/api/v3/publicholidays/{datetime.now().year}/{codigo_pais}"
-        
-        # Realizar la solicitud a la API
-        respuesta = requests.get(url_base)
-        
-        # Verificar si la solicitud fue exitosa
-        if respuesta.status_code == 200:
-            dias_festivos = respuesta.json()
-            
-            # Filtrar los días festivos por el rango de fechas especificado
-            for dia_festivo in dias_festivos:
-                fecha_dia_festivo = dia_festivo['date']
-                if fecha_inicio <= fecha_dia_festivo <= fecha_fin:
-                    # Traducir el nombre del día festivo al español
-                    motivo_es = traductor.translate(dia_festivo['localName'])
-                    
-                    datos_festivos.append({
-                        'Fecha_Id': fecha_dia_festivo,
-                        'Motivo': motivo_es,
-                        'Json_Sociedades_Id': '["*"]',  # Marcador de posición ya que no se proporciona información de sociedades
-                        'Json_Paises_Id': json.dumps([codigo_pais])
-                    })
+# Combined data with additional test cases
+data = {
+    'Alerta_Id': list(range(1, 26)),
+    'Nombre': [
+        'ALERTA CANJES 1+1 GRUPO1',
+        'ALERTA CANJES 1+1 GRUPO2',
+        'ALERTA CANJE 1+1 GRUPO3',
+        'ALERTA CANJES 2+1 GRUPO1',
+        'CANJES 3+1',
+        'CANJES 2+1',
+        'CANJE 1+1',
+        'CANJE 4+1',
+        'CANJES 20+10',
+        'CANJES 5+1',
+        'CANJE 2+1 LUVECK',
+        'CANJE 15+ 5 TAB NEWPORT',
+        'CANJE 1+1 CJA 15+15 TAB NEWPOR',
+        'CANJE FINLAY TABL 5+3 5+3.',
+        'CANJE  3+1 ACROMAX',
+        'CANJE 2+1 ZINEREO',
+        'CANJE  8+8 TAB  RAVEN',
+        'CANJE  1+1 ULTRADOCEPLEX LIQUI',
+        'CANJE 2+1 MEDIKEM',
+        'CANJE 2+1 MEFASA  CARDIO',
+        'CANJE 2+1 RODIM',
+        'CANJE  3+1  SOPHIA',
+        'CANJE 2+1 GLAXO',
+        'CANJE  2+1 RAVEN',
+        'CANJE 2+1 MARCA PROPIAS'
+    ]
+}
+
+# Create DataFrame
+df = pl.DataFrame(data)
+
+# Define regular expression patterns
+pattern_canje = r'(?i)\bCANJES?\b'  # Matches 'CANJE' or 'CANJES', case-insensitive
+pattern_xy = r'\d+\s*\+\s*\d+'      # Matches 'x+y' patterns, allowing spaces around '+'
+
+# Function to extract 'Tipo' from 'Nombre'
+def extract_tipo(nombre):
+    # Search for 'CANJE' or 'CANJES'
+    match_canje = re.search(pattern_canje, nombre, re.IGNORECASE)
+    if match_canje:
+        # Always use 'CANJE' (singular) for 'Tipo'
+        canje_word = 'CANJE'
+        # Find all 'x+y' patterns in the string
+        xy_patterns = re.findall(pattern_xy, nombre)
+        if xy_patterns:
+            # Remove spaces within 'x+y' patterns for consistency
+            xy_patterns_cleaned = [xy_pattern.replace(' ', '') for xy_pattern in xy_patterns]
+            # Create 'Tipo' entries by combining 'CANJE' with each 'x+y' pattern
+            tipos = [f"{canje_word} {xy_pattern}" for xy_pattern in xy_patterns_cleaned]
+            # Join multiple 'Tipo' entries with a comma
+            tipo = ', '.join(set(tipos))
+            return tipo
         else:
-            print(f"Error al obtener datos para {codigo_pais}: {respuesta.status_code}")
-    
-    # Convertir a DataFrame de Polars para manejo eficiente
-    df_festivos = pl.DataFrame(datos_festivos)
-    
-    # Asegurar que la fecha sea única, combinando los países en una lista y asegurando el motivo en español
-    df_festivos = df_festivos.group_by('Fecha_Id').agg([
-        pl.col('Motivo').first().alias('Motivo'),
-        pl.col('Json_Sociedades_Id').first().alias('Json_Sociedades_Id'),
-        pl.col('Json_Paises_Id').map_elements(lambda x: json.dumps(list({pais for lista in x for pais in json.loads(lista)}))).alias('Json_Paises_Id')
-    ])
-    
-    return df_festivos
+            # If no 'x+y' patterns found, return 'CANJE'
+            return canje_word
+    else:
+        return None  # If 'CANJE' not found
 
-# Ejemplo de uso
-codigos_pais = ["HN", "NI", "CR", "SV", "GT"]  # Lista de códigos ISO2 de los países
-fecha_inicio = datetime.now().strftime('%Y-%m-%d')  # Formato YYYY-MM-DD
-fecha_fin = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')     # Formato YYYY-MM-DD
+# Apply the function to extract 'Tipo'
+df = df.with_columns(
+    pl.col('Nombre').map_elements(extract_tipo).alias('Tipo')
+)
 
-# Obtener y mostrar los días festivos
-df_festivos = obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin)
-if df_festivos is not None:
-    print(df_festivos)
-
-    # Ejemplo: Guardar el DataFrame en un archivo CSV que pueda cargarse en la tabla SQL
-    #df_festivos.write_csv("DL_Edit_CalendarioNoLaboral.csv")
+# Display the DataFrame
+with pl.Config() as config:
+    config.set_tbl_cols(50)
+    config.set_tbl_rows(100)
+    print(df.head(100))
