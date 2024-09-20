@@ -201,47 +201,47 @@ class SQLServerBaseResource:
             
 #            print(f"An unexpected error occurred: {str(e)}")
 
-    def execute_and_commit(self, query: str, connection: pyodbc.Connection | None = None, database: str = ""):
+    def _execute_query_and_commit(self, conn: pyodbc.Connection | sqlalchemy.engine.Connection, query: str, autocommit: bool):
+        if isinstance(conn, pyodbc.Connection):
+            cursor = conn.cursor()
+            cursor.execute(query)
+            if not conn.autocommit:
+                conn.commit()
+        elif isinstance(conn, sqlalchemy.engine.Connection):
+            conn.execute(sqlalchemy.text(query))
+            if not autocommit and conn.in_transaction():
+                conn.commit()
+
+    def execute_and_commit(self, query: str, connection: pyodbc.Connection | sqlalchemy.engine.Connection | None = None,
+                        database: str = "", autocommit: bool = True, engine: Literal["pyodbc", "sqlalchemy"] = "pyodbc"):
         """
-        Executes an SQL query on a database connection, 
-        beware, by default is autocommit when using auto generated connection instead of a provided connection.
+        Executes an SQL query on a database connection.
 
         Args:
             query (str): The SQL query to execute.
-            connection (pyodbc.Connection, optional): The database connection to use. If not provided, a new connection
-                will be created using the default database.
+            connection (pyodbc.Connection | sqlalchemy.engine.Connection, optional): The database connection to use.
+                If not provided, a new connection will be created using the specified engine.
             database (str, optional): The name of the database to connect to. If not provided, the default database
                 will be used.
-            fetch_one (bool, optional): Whether to fetch only one row. Defaults to False.
             autocommit (bool, optional): Whether to enable autocommit. Defaults to True.
+            engine (Literal["pyodbc", "sqlalchemy"], optional): The database engine to use. Defaults to "pyodbc".
 
         Raises:
-            RuntimeError: If there is an error executing and committing the query.
-
-        Example:
-            >>> query = "INSERT INTO table (column1, column2) VALUES ('value1', 'value2')"
-            >>> connection = SQLServerResource.connect(connection_string)
-            >>> execute_and_commit(query, connection)
+            Exception: If there is an error executing and committing the query.
         """
         try:
             if connection is None:
-                with self.get_connection(database=database, autocommit = True) as new_conn:
-                    cursor = new_conn.cursor()
-                    cursor.execute(query)
-                    if not new_conn.autocommit:
-                        new_conn.commit()
+                with self.get_connection(database=database, autocommit=autocommit, engine=engine) as conn:
+                    self._execute_query_and_commit(conn, query, autocommit)
             else:
-                existing_conn = connection
-                cursor = existing_conn.cursor()
-                cursor.execute(query)
-                if not existing_conn.autocommit:
-                    existing_conn.commit()
+                self._execute_query_and_commit(connection, query, autocommit)
                 
         except pyodbc.Error as e:
             # Add proper logging here
             self.log_event('error', f"Error executing and committing query: {str(e.args)}.")
             e.__traceback__ = None
             raise e
+    
 
     def text(self, string: str) -> sqlalchemy.sql.text:
         """Text type that can be used in SQLAlchemy expressions to execute queries."""
