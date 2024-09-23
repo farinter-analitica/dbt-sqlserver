@@ -84,7 +84,7 @@ def olap_tabular_kielsa_general_ejecucion(context: AssetExecutionContext, dwh_fa
     ],
     description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';"
 )
-def olap_ventas_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
+def olap_sugeridos_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
     if env_str == "prd": 
         dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';")
     else:
