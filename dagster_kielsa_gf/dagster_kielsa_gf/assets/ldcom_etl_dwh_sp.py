@@ -496,7 +496,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_ExistenciaHist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ExistenciaHist",
-        "tags": tags_repo.Daily.tag, # | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_x_Bodega"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_x_Sucursal"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
