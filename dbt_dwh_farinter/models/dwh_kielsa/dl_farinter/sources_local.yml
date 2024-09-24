@@ -113,5 +113,4 @@ sources:
       - name: DL_Kielsa_BoletaLocal_Encabezado
       - name: DL_Kielsa_Boleta_Exterior_Hist
       - name: DL_Kielsa_Articulo_Alerta
-
-            
+      - name: DL_Kielsa_ExistenciaHist
