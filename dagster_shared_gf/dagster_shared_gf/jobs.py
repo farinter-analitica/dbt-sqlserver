@@ -33,8 +33,8 @@ shared_daily_assets_job: UnresolvedAssetJobDefinition = define_asset_job(
 shared_hourly_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
 ).upstream().required_multi_asset_neighbors() - AssetSelection.tag(
-    key=tags_repo.DailyUnique.key,
-    value=tags_repo.DailyUnique.value,
+    key=tags_repo.UniquePeriod.key,
+    value=tags_repo.UniquePeriod.value,
 )
 shared_hourly_assets_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="shared_hourly_assets_job",

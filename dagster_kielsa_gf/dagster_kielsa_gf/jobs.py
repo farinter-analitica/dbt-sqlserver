@@ -65,11 +65,17 @@ dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(
     tags=tags_repo.Daily.tag,
 )
 
+
+# Definir assets que tengan la etiqueta por_hora y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_hourly_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
-).upstream().required_multi_asset_neighbors() - AssetSelection.tag(
-    key=tags_repo.DailyUnique.key,
-    value=tags_repo.DailyUnique.value,
+)
+kielsa_hourly_assets = kielsa_hourly_assets | (
+    kielsa_hourly_assets.upstream().required_multi_asset_neighbors()
+    - AssetSelection.tag(
+        key=tags_repo.UniquePeriod.key,
+        value=tags_repo.UniquePeriod.value,
+    )
 )
 kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_hourly_job",
@@ -84,7 +90,7 @@ kielsa_olap_kielsa_general_temp_dev_job: UnresolvedAssetJobDefinition = define_a
     name="kielsa_olap_kielsa_general_temp_dev_job",
     selection=AssetSelection.assets(
         AssetKey(["DWH_TABULAR","SSAS","olap_tabular_kielsa_general_ejecucion"])).upstream() \
-        - AssetSelection.tag(key=tags_repo.DailyUnique.key,value=tags_repo.DailyUnique.value),
+        & kielsa_hourly_assets,
     tags=tags_repo.Hourly.tag
     | {
         "dagster/max_runtime": (100 * 60)

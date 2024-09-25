@@ -23,7 +23,7 @@ tags_repo = TagsRepositoryGF
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Replicas.tag,
+    tags=tags_repo.Replicas.tag | tags_repo.Daily.tag,
     compute_kind="sqlserver"
 )
 def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None: 
@@ -58,7 +58,7 @@ def DL_SAP_T001(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResour
 
 # DL_paCargarSAP_Replica_BSEG
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
-        , tags=tags_repo.Replicas.tag | {"dagster/max_runtime": str(50*60) # max 50 minutes in seconds, then mark it as failed.
+        , tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | {"dagster/max_runtime": str(50*60) # max 50 minutes in seconds, then mark it as failed.
                 }
         , compute_kind="sqlserver"
         , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
@@ -137,7 +137,7 @@ store_procedure_assets: List[AssetsDefinition] = generate_hourly_store_procedure
 
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
  #       , name="sp_start_job_sap_cadahora"
-        , tags= tags_repo.Replicas.tag | tags_repo.Hourly.tag | tags_repo.HourlyUnique.tag #replicas_tag | hourly_unique_tag
+        , tags= tags_repo.Replicas.tag | tags_repo.Hourly.tag | tags_repo.UniquePeriod.tag #replicas_tag | hourly_unique_tag
         , deps=store_procedure_assets+list([DL_SAP_T001])+list() + [AssetKey( ["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"] )]
         , compute_kind="sqlserver"
         )
@@ -165,7 +165,7 @@ def sp_start_job_sap_cadahora(context: AssetExecutionContext, dwh_farinter_dl: S
         context.log.error(f"Job {job_name} not executed, fail.")
 
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
-        , tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.DailyUnique.tag #replicas_tag | daily_unique_tag
+        , tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod.tag #replicas_tag | daily_unique_tag
         , deps=store_procedure_assets+list([DL_SAP_T001])+list([dbt_dwh_sap.dbt_sap_etl_dwh_assets]) + [AssetKey( ["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"] )]
 #        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa") #deprecated
         , compute_kind="sqlserver"
@@ -231,9 +231,9 @@ def DL_paSecuenciaSAP_HechosDimensiones(
 
 @multi_asset(
     outs={
-        "SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.DailyUnique.tag),
-        "DL_SAP_Atributos_Cliente": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.DailyUnique.tag),
-        "DL_SAP_Atributos_Cliente_CategoriasDistribucion": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.DailyUnique.tag),
+        "SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag),
+        "DL_SAP_Atributos_Cliente": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag),
+        "DL_SAP_Atributos_Cliente_CategoriasDistribucion": AssetOut( key_prefix=["DL_FARINTER", "dbo"], tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag),
     },
     name="DL_paSecuenciaSAP_Atributos_Cliente",
     compute_kind="sqlserver",

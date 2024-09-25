@@ -25,17 +25,34 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(name="dbt_dwh_sap_etl_dw
                                            , config=RunConfig({"dbt_sap_etl_dwh_assets": MyDbtConfig(full_refresh= True)}))
 
 
-sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups("sap_etl_dwh").downstream()
-sap_etl_dwh_all_downstream_assets = sap_etl_dwh_all_downstream_assets - sap_etl_dwh_all_downstream_assets.tag(key=tags_repo.HourlyUnique.key, value=tags_repo.HourlyUnique.value)
+sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups(
+    "sap_etl_dwh"
+).tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+sap_etl_dwh_all_downstream_assets = sap_etl_dwh_all_downstream_assets | (
+    sap_etl_dwh_all_downstream_assets.downstream()
+    - (
+        sap_etl_dwh_all_downstream_assets.tag(
+            key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+        )
+    )
+)
 sap_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="sap_etl_dwh_all_downstream_job"
                                                             , selection=sap_etl_dwh_all_downstream_assets
                                                             , tags= {"dagster/max_runtime": (4*60*60)} # max 4 hours in seconds, then mark it as failed.
                                                                 | tags_repo.Daily.tag 
                                                             )
 
-#Definir assets que tenga la etiqueta por_hora
+# Definir assets que tenga la etiqueta por_hora y todos los dependientes que no tengan la etiqueta de periodo unico
 sap_etl_dwh_hourly_all_downstream_assets: AssetSelection =  \
      AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
+sap_etl_dwh_hourly_all_downstream_assets = sap_etl_dwh_hourly_all_downstream_assets | (
+    sap_etl_dwh_hourly_all_downstream_assets.downstream()
+    - (
+        sap_etl_dwh_hourly_all_downstream_assets.tag(
+            key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+        )
+    )
+)
 sap_etl_dwh_hourly_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(name="sap_etl_dwh_hourly_all_downstream_job"
                                                             , selection=sap_etl_dwh_hourly_all_downstream_assets
                                                             , tags= {"dagster/max_runtime": (100*60)} # max 100 minutes in seconds, then mark it as failed.

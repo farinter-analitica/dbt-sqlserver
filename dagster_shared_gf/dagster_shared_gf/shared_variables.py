@@ -68,14 +68,11 @@ class TagsRepositoryGF:
     class Replicas(_base_tag_class, key="replicas_sap", value=""):
         """{"replicas_sap": ""}"""
 
-    class HourlyUnique(_base_tag_class, key="periodo_unico/por_hora", value=""):
-        """{"periodo_unico/por_hora": ""}"""
+    class UniquePeriod(_base_tag_class, key="periodo_unico/si", value=""):
+        """{"periodo_unico/si": ""}"""
 
     class Daily(_base_tag_class, key="periodo/diario", value=""):
         """{"periodo/diario": ""}"""
-
-    class DailyUnique(_base_tag_class, key="periodo_unico/diario", value=""):
-        """{"periodo_unico/diario": ""}"""
 
     class SmbDataRepository(_base_tag_class, key="smb_data_repository/data_repo", value=""):
         """{"smb_data_repository/data_repo": ""}"""
