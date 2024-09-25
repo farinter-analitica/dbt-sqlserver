@@ -126,7 +126,7 @@ def DL_Kielsa_Articulo(context: AssetExecutionContext
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
         actualizar_todo = 1
-    else:
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None or context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None:
         actualizar_todo = 0
     
     if actualizar_todo:
@@ -154,7 +154,7 @@ def DL_Kielsa_Articulo_x_Bodega(context: AssetExecutionContext
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
         actualizar_todo = 1
-    else:
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None or context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None:
         actualizar_todo = 0
     
     if actualizar_todo:
@@ -181,7 +181,7 @@ def DL_Kielsa_Articulo_x_Sucursal(context: AssetExecutionContext
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
         actualizar_todo = 1
-    else:
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None or context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None:
         actualizar_todo = 0
     
     if actualizar_todo:
