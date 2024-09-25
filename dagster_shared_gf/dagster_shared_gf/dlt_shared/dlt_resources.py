@@ -60,7 +60,7 @@ drop_data: Wipe all data and resource state for all resources being processed. S
     def _get_destination(self) -> Destination | None:
         return None
     
-    def extract_resource_metadata(self, resource_data: DltResource, load_info: LoadInfo) -> ExtractedResourceMetadata:
+    def extract_resource_metadata(self, context, resource_data: DltResource, load_info: LoadInfo, dlt_pipeline: dlt.Pipeline) -> ExtractedResourceMetadata:
         return fn_extract_resource_metadata( resource=resource_data, load_info=load_info)
 
 class DltPipelineDestMssql(BaseDltPipeline):

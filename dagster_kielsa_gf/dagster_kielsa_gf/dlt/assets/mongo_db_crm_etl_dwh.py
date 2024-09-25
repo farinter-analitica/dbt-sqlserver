@@ -300,7 +300,7 @@ def create_dlt_asset(dlt_resource: DltResource,
         load_info: LoadInfo = dlt_pipeline_dest_mssql.run_pipeline(dlt_resource, new_pipeline)
         load_info.raise_on_failed_jobs()
     
-        extracted_resource_metadata = dlt_pipeline_dest_mssql.extract_resource_metadata(dlt_resource, load_info)
+        extracted_resource_metadata = dlt_pipeline_dest_mssql.extract_resource_metadata(context, dlt_resource, load_info, new_pipeline)
         # loaded_schema = load_info.pipeline.schemas.get("mongodb").get_table(dlt_resource.name).get("columns") #no se optiene la tabla normalizada
         # context.log.info(f"schema: {loaded_schema}")        
         #agregar llave indice de llave primaria y de _dlt_id
