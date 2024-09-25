@@ -325,7 +325,7 @@ def enviar_alertas_si_aplica(context: OpExecutionContext, servidores_en_alerta: 
     if len(servidores_en_alerta) > 0: 
         email_subject = "[analiticastetl][Advertencia] Delta de valor superado por la replica"
         email_body = EMAIL_BODY.format(json_data=json.dumps(servidores_en_alerta, indent=3))
-        email_to = ["brian.padilla@farinter.com", "edwin.martinez@farinter.com", "Wilson.zavala@farinter.com"] if env_str == "prd" else ["brian.padilla@farinter.com"]
+        email_to = ["brian.padilla@farinter.com", "edwin.martinez@farinter.com", "Wilson.zavala@farinter.com", "david.saravia@grupobrasilsv.com"] if env_str == "prd" else ["brian.padilla@farinter.com"]
         enviador_correo_e_analitica_farinter.send_email(email_to, email_subject, email_body)
         context.log.info(f"Enviado alerta por correo electronico a {email_to} con el siguiente body: {email_body}")
     else:
