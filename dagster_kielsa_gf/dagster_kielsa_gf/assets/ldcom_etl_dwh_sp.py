@@ -353,13 +353,14 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
         "owners": ["cleymer.mendoza@farinter.com"],
     },
-    "BI_paCargarHecho_Inventarios_Kielsa": {
-        "key_prefix": ["BI_FARINTER", "dbo"],
-        "name": "BI_Hecho_Inventarios_Kielsa",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"]),
-                 AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Bodega_Kielsa"]),],
-    },
+    # Ahora en nuevo proceso con sp existencias
+    # "BI_paCargarHecho_Inventarios_Kielsa": {
+    #     "key_prefix": ["BI_FARINTER", "dbo"],
+    #     "name": "BI_Hecho_Inventarios_Kielsa",
+    #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    #     "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"]),
+    #              AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Bodega_Kielsa"]),],
+    # },
     "DL_paCargarKielsa_ClientesXArticulo": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Acum_ClientesXArticulo_Kielsa",
