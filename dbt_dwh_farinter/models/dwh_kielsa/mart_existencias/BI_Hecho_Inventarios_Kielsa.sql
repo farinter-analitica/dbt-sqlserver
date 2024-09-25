@@ -41,4 +41,4 @@ SELECT	--TOP (1000)
     , EHN.Venta_365 [Venta_365]
 		, EHN.Fecha_Actualizado AS [Fecha_Actualizado]
 FROM	[DL_FARINTER].[dbo].[DL_Kielsa_ExistenciaHist] EHN --{{ source ('DL_FARINTER', 'DL_Kielsa_ExistenciaHist') }}
-WHERE EHN.Bodega_Id = 1 AND EHN.AnioMes_Id = {{v_anio_mes}}
+WHERE EHN.AnioMes_Id = {{v_anio_mes}} AND EHN.Bodega_Id = 1  
