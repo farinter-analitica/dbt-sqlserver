@@ -86,6 +86,27 @@ kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     },  # max 100 minutes in seconds, then mark it as failed.)
 )
 
+# Definir assets que tengan la etiqueta por_hora adicional (para ejecutar en medio del otro job) y todos los dependientes que no tengan la etiqueta de periodo unico
+kielsa_hourly_additional_assets: AssetSelection = AssetSelection.tag(
+    key=tags_repo.HourlyAdditional.key, value=tags_repo.HourlyAdditional.value
+)
+kielsa_hourly_additional_assets = kielsa_hourly_additional_assets | (
+    kielsa_hourly_additional_assets.upstream().required_multi_asset_neighbors()
+    - AssetSelection.tag(
+        key=tags_repo.UniquePeriod.key,
+        value=tags_repo.UniquePeriod.value,
+    )
+)
+kielsa_hourly_additional_job: UnresolvedAssetJobDefinition = define_asset_job(
+    name="kielsa_hourly_additional_job",
+    selection=kielsa_hourly_additional_assets,
+    tags=tags_repo.Hourly.tag | tags_repo.HourlyAdditional.tag
+    | {
+        "dagster/max_runtime": (45 * 60)
+    },  # max 45 minutes in seconds, then mark it as failed.)
+)
+
+
 kielsa_olap_kielsa_general_temp_dev_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_olap_kielsa_general_temp_dev_job",
     selection=AssetSelection.assets(

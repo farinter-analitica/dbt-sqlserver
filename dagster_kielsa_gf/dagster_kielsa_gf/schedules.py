@@ -137,14 +137,39 @@ def should_exec_kielsa_hourly_job_run(
 kielsa_hourly_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env(
         dict={
-            "dev": ["05 6-19 * * *", "05 23 * * *"],
-            "prd": ["05 6-19 * * *", "05 23 * * *"],
+            "dev": ["01 6-19 * * *", "01 23 * * *"],
+            "prd": ["01 6-19 * * *", "01 23 * * *"],
         }
     ),  # cron template: hour minute day month day_of_week
     execution_timezone=default_timezone,
     job=kielsa_hourly_job,
     default_status=only_prd_default_schedule_status,
     should_execute=should_exec_kielsa_hourly_job_run,
+)
+
+def should_exec_kielsa_hourly_additional_job_run(
+    context: ScheduleEvaluationContext,
+    job_name: str = kielsa_hourly_additional_job.name,
+) -> bool:
+    filters = RunsFilter(
+        job_name=job_name,
+        statuses=[DagsterRunStatus.STARTED],
+    )
+    if context.instance.get_runs(filters=filters):
+        return False
+    return True
+
+kielsa_hourly_additional_job_schedule = ScheduleDefinition(
+    cron_schedule=get_for_current_env(
+        dict={
+            "dev": ["31 6-19 * * *", "31 23 * * *"],
+            "prd": ["31 6-19 * * *", "31 23 * * *"],
+        }
+    ),  # cron template: hour minute day month day_of_week
+    execution_timezone=default_timezone,
+    job=kielsa_hourly_additional_job,
+    default_status=only_prd_default_schedule_status,
+    should_execute=should_exec_kielsa_hourly_additional_job_run,
 )
 
 kielsa_olap_kielsa_general_temp_dev_job_schedule = ScheduleDefinition(

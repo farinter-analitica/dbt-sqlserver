@@ -80,6 +80,9 @@ class TagsRepositoryGF:
     class Monthly(_base_tag_class, key="periodo/mensual", value=""):
         """{"periodo/mensual": ""}"""
 
+    class HourlyAdditional(_base_tag_class, key="periodo/por_hora_adicional", value=""):
+        """{"periodo/por_hora_adicional": ""}"""
+
 
 if __name__ == "__main__":
     print(TagsRepositoryGF.Hourly())
