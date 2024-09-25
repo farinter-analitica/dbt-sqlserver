@@ -46,9 +46,9 @@ sap_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
 )
 
 
-def should_exec_sap_etl_dwh_hourly_all_downstream_job_run(
+def should_exec_sap_dwh_hourly_job_run(
     context: ScheduleEvaluationContext,
-    job_name: str = sap_etl_dwh_hourly_all_downstream_job.name,
+    job_name: str = sap_dwh_hourly_job.name,
 ) -> bool:
     filters = RunsFilter(
         job_name=job_name,
@@ -59,7 +59,7 @@ def should_exec_sap_etl_dwh_hourly_all_downstream_job_run(
     return True
 
 
-sap_etl_dwh_hourly_all_downstream_job_schedule = ScheduleDefinition(
+sap_dwh_hourly_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env(
         dict={
             "dev": ["05 6-18 * * *", "15 23 * * *"],
@@ -67,7 +67,7 @@ sap_etl_dwh_hourly_all_downstream_job_schedule = ScheduleDefinition(
         }
     ),  # cron template: hour minute day month day_of_week
     execution_timezone=default_timezone,
-    job=sap_etl_dwh_hourly_all_downstream_job,
+    job=sap_dwh_hourly_job,
     default_status=get_for_current_env(
         {
             "local": DefaultScheduleStatus.STOPPED,
@@ -75,7 +75,7 @@ sap_etl_dwh_hourly_all_downstream_job_schedule = ScheduleDefinition(
             "prd": DefaultScheduleStatus.RUNNING,
         }
     ),
-    should_execute=should_exec_sap_etl_dwh_hourly_all_downstream_job_run,
+    should_execute=should_exec_sap_dwh_hourly_job_run,
 )
 
 dbt_dwh_sap_marts_all_orphan_job_schedule = ScheduleDefinition(
