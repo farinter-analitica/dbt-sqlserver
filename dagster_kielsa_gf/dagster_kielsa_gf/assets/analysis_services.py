@@ -100,7 +100,6 @@ def olap_sugeridos_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Pais"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Sucursal_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_SucursalDest_Kielsa"]),
-        AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Inventario_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Existencias_Kielsa"]),
     ],
     description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';"
