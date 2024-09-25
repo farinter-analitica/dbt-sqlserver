@@ -53,11 +53,13 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Bodega",
         "tags": tags_repo.Daily.tag,
     },
-    "DL_paCargarKielsa_Articulo_x_Bodega": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Articulo_x_Bodega",
-        "tags": tags_repo.Daily.tag,
-    },
+    # Ahora condicional por separado 
+    # "DL_paCargarKielsa_Articulo_x_Bodega": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": "DL_Kielsa_Articulo_x_Bodega",
+    #     "tags": tags_repo.Daily.tag,
+    #     "owners": ["cleymer.mendoza@farinter.com"],
+    # },
     "DL_paCargarKielsa_Articulo_x_Compra": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Articulo_x_Compra",
@@ -308,13 +310,14 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
         "owners": ["cleymer.mendoza@farinter.com"],
     },
-    "DL_paCargarKielsa_Articulo_x_Sucursal": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Articulo_x_Sucursal",
-        "tags": tags_repo.Daily.tag ,
-        "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
-        "owners": ["cleymer.mendoza@farinter.com"],
-    },
+    # Ahora condicional por separado 
+    # "DL_paCargarKielsa_Articulo_x_Sucursal": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": "DL_Kielsa_Articulo_x_Sucursal",
+    #     "tags": tags_repo.Daily.tag ,
+    #     "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
+    #     "owners": ["cleymer.mendoza@farinter.com"],
+    # },
     "DL_paCargarKielsa_Boleta_Exterior_Hist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Boleta_Exterior_Hist",

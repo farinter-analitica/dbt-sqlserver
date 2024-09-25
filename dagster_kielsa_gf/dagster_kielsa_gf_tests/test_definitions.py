@@ -57,25 +57,31 @@ def count_assetkeys(data: Any) -> int:
         return count
     return 0
 
-def test_all_assets_loaded():
+all_assets: List[AssetsDefinition | SourceAsset] = apply_function_to_submodules(import_variable_from_module, module_name= "dagster_kielsa_gf.assets", variable_name="all_assets")
+all_assets = all_assets + apply_function_to_submodules(import_variable_from_module, module_name= "dagster_kielsa_gf.dlt.assets", variable_name="all_assets")
+all_sources_assets_keys = [{asset.key} for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)]
+#print("sources:" + str(all_sources_assets_keys))
+all_assets_keys = flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), all_assets)])
+all_defs_assets_keys = set(flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), defs.assets)] 
+                                        + [asset.key for asset in filter(lambda asset: isinstance(asset, SourceAsset), defs.assets)]))
+#print("assets:" + str(all_assets_keys))
+all_assets_keys_deduplicated = set(all_assets_keys)
+all_assets_deduplicated = set(flatten_elements(list(all_assets_keys_deduplicated) + list(filter(lambda x: x not in all_assets_keys_deduplicated, all_sources_assets_keys))))
+#print("assets_deduplicated:" + str(all_assets_deduplicated))
+all_duplicated_assets = set(filter(lambda x: x in all_assets_keys_deduplicated, all_assets_keys))
+all_not_in_definitions = set(filter(lambda x: x not in all_defs_assets_keys, all_assets_deduplicated))
 
-    all_assets: List[AssetsDefinition | SourceAsset] = apply_function_to_submodules(import_variable_from_module, module_name= "dagster_kielsa_gf.assets", variable_name="all_assets")
-    all_assets = all_assets + apply_function_to_submodules(import_variable_from_module, module_name= "dagster_kielsa_gf.dlt.assets", variable_name="all_assets")
-    all_sources_assets_keys = [{asset.key} for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)]
-    #print("sources:" + str(all_sources_assets_keys))
-    all_assets_keys = set(flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), all_assets)]))
-    all_defs_assets_keys = set(flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), defs.assets)] 
-                                            + [asset.key for asset in filter(lambda asset: isinstance(asset, SourceAsset), defs.assets)]))
-    #print("assets:" + str(all_assets_keys))
-    all_assets_deduplicated = set(flatten_elements(list(all_assets_keys) + list(filter(lambda x: x not in all_assets_keys, all_sources_assets_keys))))
-    #print("assets_deduplicated:" + str(all_assets_deduplicated))
-    all_not_in_definitions = all_assets_deduplicated - all_defs_assets_keys
+def test_all_assets_loaded():
     assert count_assetkeys(all_defs_assets_keys)==count_assetkeys(all_assets_deduplicated) , f"""Loaded assets expected = all_assets variables accumulated on assets module: 
     loaded={count_assetkeys(all_defs_assets_keys)} vs instances={count_assetkeys(all_assets_deduplicated)}
     pending on defs={all_not_in_definitions}
-    instances not found={all_defs_assets_keys -all_assets_deduplicated}
 
     """
 
+def test_all_no_asset_duplicates():
+    assert count_assetkeys(all_assets_keys)==count_assetkeys(all_assets_keys_deduplicated) , f"""Duplicated assets found: {all_duplicated_assets}"""
+
+
 if __name__ == "__main__":
     test_all_assets_loaded()
+    test_all_no_asset_duplicates()

@@ -90,20 +90,48 @@ def olap_sugeridos_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter
     else:
         context.log.info("No se ejecuta el job de OLAP SUGERIDOS KIELSA en dev")
 
-
-all_assets = load_assets_from_current_module(group_name="analysis_services")
-
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
+@asset(
+    key_prefix=["DWH_204", "SSAS"],
+    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.HourlyAdditional.tag,
+    deps=[
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Articulo_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_ArticuloPadre_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Ciudad_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Pais"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Sucursal_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_SucursalDest_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Inventario_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Existencias_Kielsa"]),
+    ],
+    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';"
 )
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-    lower_bound_delta=timedelta(hours=13),
-    deadline_cron="0 10-16 * * 1-6",
-)
+def olap_existencias_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
+    if env_str == "prd": 
+        dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';")
+    else:
+        context.log.info("No se ejecuta el job de OLAP EXISTENCIAS KIELSA en dev")
 
-all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
-all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+
+if __name__ == "__main__":
+
+    all_assets = load_assets_from_current_module(group_name="analysis_services")
+    print([asset.keys for asset in all_assets])
+
+
+else:
+    all_assets = load_assets_from_current_module(group_name="analysis_services")
+
+    all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+        lower_bound_delta=timedelta(hours=26),
+        deadline_cron="0 9 * * 1-6",
+    )
+    # print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
+    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+        lower_bound_delta=timedelta(hours=13),
+        deadline_cron="0 10-16 * * 1-6",
+    )
+
+    all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+    all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
