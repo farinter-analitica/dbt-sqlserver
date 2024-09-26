@@ -125,11 +125,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),],
     },
-    "DL_paCargarKielsa_FacturaPosicionDescuento": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_FacturaPosicionDescuento",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,    
-    },
+    # Ahora condicional por separado
+    # "DL_paCargarKielsa_FacturaPosicionDescuento": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": "DL_Kielsa_FacturaPosicionDescuento",
+    #     "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,    
+    # },
     "DL_paCargarKielsa_Seg_Rol": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Seg_Rol",

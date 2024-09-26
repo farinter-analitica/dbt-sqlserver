@@ -84,8 +84,40 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
     context.log.info(final_query)
 
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit = True) as conn:
-        #print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
+
+@asset(key_prefix= ["DL_FARINTER", "dbo"]
+        , tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag
+        , compute_kind="sqlserver"
+        , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
+                        }
+        , description="EXEC dbo.DL_paCargarKielsa_FacturaPosicionDescuento condicional, por hora hoy/ayer, por dia los ultimos 7 dias, por mes, todo el mes anterior."
+        )
+def DL_Kielsa_FacturaPosicionDescuento(context: AssetExecutionContext
+                , dwh_farinter_dl: SQLServerResource
+                ) -> None: 
+    final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaPosicionDescuento"
+    from_date: date = None
+    if context.op_execution_context.op_config.get("p_fecha_desde") != "" and context.op_execution_context.op_config.get("p_fecha_desde") :
+        from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
+    elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
+        from_date = datetime.now().date() - timedelta(days=7)
+    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None \
+        or (context.job_def.tags.get(tags_repo.Hourly.key) is not None and datetime.now().hour not in [12, 4]): #Actualizar desde dia de ayer a las 12 y las 4 de la noche
+        from_date = datetime.now().date() - timedelta(days=0)
+    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+        from_date = datetime.now().date() - timedelta(days=1)
+    elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+        from_date = (datetime.now().date() - timedelta(months=1)).replace(day=1)
+    
+    if from_date:
+        final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
+    
+    context.log.info(final_query)
+
+    with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit = True) as conn:
+        dwh_farinter_dl.execute_and_commit(final_query, connection = conn)
+
 
 
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
