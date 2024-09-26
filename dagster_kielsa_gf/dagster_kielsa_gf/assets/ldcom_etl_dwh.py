@@ -25,7 +25,7 @@ from functools import partial
         , compute_kind="sqlserver"
         , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
                         }
-        , description="EXEC dbo.DL_paCargarKielsa_FacturaEncabezado condicional, por hora sin parametros, por dia los ultimos 7 dias, por mes, todo el mes anterior."
+        , description="EXEC dbo.DL_paCargarKielsa_FacturaEncabezado condicional, por hora hoy/ayer, por dia los ultimos 7 dias, por mes, todo el mes anterior."
         )
 def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
@@ -36,6 +36,9 @@ def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
         from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
+    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None 
+        or (context.job_def.tags.get(tags_repo.Hourly.key) is not None and datetime.now().hour not in [12, 4]): #Actualizar desde dia de ayer a las 12 y las 4 de la noche
+        from_date = datetime.now().date() - timedelta(days=0)
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
@@ -56,7 +59,7 @@ def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
         , compute_kind="sqlserver"
         , config_schema={"p_fecha_desde":  Field(str, is_required=False, default_value="")
                         }
-        , description="EXEC dbo.DL_paCargarKielsa_FacturasPosiciones condicional, por hora sin parametros, por dia los ultimos 7 dias, por mes, todo el mes anterior."
+        , description="EXEC dbo.DL_paCargarKielsa_FacturasPosiciones condicional, por hora hoy/ayer, por dia los ultimos 7 dias, por mes, todo el mes anterior."
         )
 def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
@@ -67,6 +70,9 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
         from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
+    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None 
+        or (context.job_def.tags.get(tags_repo.Hourly.key) is not None and datetime.now().hour not in [12, 4]): #Actualizar desde dia de ayer a las 12 y las 4 de la noche
+        from_date = datetime.now().date() - timedelta(days=0)
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
