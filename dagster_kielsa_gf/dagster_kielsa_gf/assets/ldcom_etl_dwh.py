@@ -36,7 +36,7 @@ def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
         from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None 
+    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None \
         or (context.job_def.tags.get(tags_repo.Hourly.key) is not None and datetime.now().hour not in [12, 4]): #Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
@@ -70,7 +70,7 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
         from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None 
+    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None \
         or (context.job_def.tags.get(tags_repo.Hourly.key) is not None and datetime.now().hour not in [12, 4]): #Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
