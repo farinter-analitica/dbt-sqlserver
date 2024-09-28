@@ -368,6 +368,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"])],
+        "owners": ["cleymer.mendoza@farinter.com"],
     },
     "BI_paCargarDim_Tiempo": {	
         "key_prefix": ["BI_FARINTER", "dbo"],

@@ -18,7 +18,7 @@ from dagster_shared_gf.shared_functions import (
     get_for_current_env,
 )
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf import failed_sensors
+from dagster_shared_gf import shared_failed_sensors
 
 env_str:str=shared_vars.env_str
 
@@ -41,7 +41,7 @@ def upstream_completion_sensor(context):
         yield RunRequest(run_key=None)
 
 # shared sensors
-failed_asset_notification_sensor = failed_sensors.failed_asset_notification_sensor
+failed_asset_notification_sensor = shared_failed_sensors.failed_asset_notification_sensor
 
 all_asset_freshness_checks = dbt_dwh_kielsa.all_asset_freshness_checks + ldcom_etl_dwh_sp.all_asset_freshness_checks + recetas_libros_etl_dwh.all_asset_freshness_checks + knime_asset_factory.all_asset_freshness_checks
 freshness_checks_sensor = build_sensor_for_freshness_checks(

@@ -59,7 +59,7 @@ only_dev_default_schedule_status: DefaultSensorStatus = get_for_current_env(
 )
 
 # Default email if asset owner is not provided
-DEFAULT_EMAIL = "brian.padilla@farinter.com"
+DEFAULT_EMAILS = ["brian.padilla@farinter.com","edwin.martinez@farinter.com"]
 
 def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext):
     """
@@ -67,7 +67,7 @@ def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext):
     Uses context to fetch dynamic data for owners.
     """
     asset_metadata = context.repository_def.assets_defs_by_key.get(asset_key).owners_by_key.get(asset_key)
-    return asset_metadata if asset_metadata else [DEFAULT_EMAIL]
+    return asset_metadata if asset_metadata else DEFAULT_EMAILS
 
 def get_downstream_lineage_with_owners(asset_key: AssetKey, context: SensorEvaluationContext):
     """
