@@ -74,3 +74,39 @@ def create_email_on_failure_sensor(email_to: List[str] = ["brian.padilla@farinte
         default_status=default_status,
         name=name
     )
+    
+
+
+
+if __name__ == "__main__":
+    from dagster import op, job
+    @op
+    def fails():
+        raise Exception("failure!")
+
+    @job
+    def my_job_fails():
+        fails()
+
+    from dagster import DagsterInstance, build_run_status_sensor_context
+
+    # execute the job
+    instance = DagsterInstance.ephemeral()
+    result = my_job_fails.execute_in_process(instance=instance, raise_on_error=False)
+
+    # retrieve the DagsterRun
+    dagster_run = result.dagster_run
+
+    # retrieve a failure event from the completed job execution
+    dagster_event = result.get_job_failure_event()
+
+    # create the context
+    run_failure_sensor_context = build_run_status_sensor_context(
+        sensor_name="create_email_on_failure_sensor",
+        dagster_instance=instance,
+        dagster_run=dagster_run,
+        dagster_event=dagster_event,
+    ).for_run_failure()
+
+    # run the sensor
+    create_email_on_failure_sensor(run_failure_sensor_context)
