@@ -5,6 +5,7 @@ import time
 from dagster import (
     AssetChecksDefinition,
     AssetExecutionContext,
+    JobDefinition,
     job,
     sensor,
     AssetKey,
@@ -59,8 +60,7 @@ only_dev_default_schedule_status: DefaultSensorStatus = get_for_current_env(
 )
 
 # Default email if asset owner is not provided
-DEFAULT_EMAILS = ["brian.padilla@farinter.com","edwin.martinez@farinter.com"]
-
+DEFAULT_EMAILS = get_for_current_env({"local": ["brian.padilla@farinter.com"], "dev": ["brian.padilla@farinter.com"], "prd": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"]})
 def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext):
     """
     Fetch asset owners from context. This simulates looking up asset metadata.
@@ -69,13 +69,14 @@ def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext):
     asset_metadata = context.repository_def.assets_defs_by_key.get(asset_key).owners_by_key.get(asset_key)
     return asset_metadata if asset_metadata else DEFAULT_EMAILS
 
-def get_downstream_lineage_with_owners(asset_key: AssetKey, context: SensorEvaluationContext):
+def get_downstream_lineage_with_owners(asset_key: AssetKey, job: JobDefinition, context: SensorEvaluationContext):
     """
     Retrieve downstream lineage and their owners from the asset graph.
     Returns a dictionary with downstream assets as keys and their respective owners as values.
     """
-    selection: AssetSelection = AssetSelection.keys(asset_key).downstream()
-    downstream_assets = selection.resolve(context.repository_def.asset_graph)
+    
+    selection: AssetSelection = AssetSelection.keys(asset_key).downstream() 
+    downstream_assets = selection.resolve(context.repository_def.asset_graph) 
     downstream_owners = defaultdict(list)
     
     for downstream_asset in downstream_assets:
@@ -140,8 +141,8 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
 
     for event in events:
         # Check for failed asset materializations
+        job_failed =context.repository_def.get_job(event.event_log_entry.job_name)
         if not event.asset_key:
-            job_failed =context.repository_def.get_job(event.event_log_entry.job_name)
             node_handle = event.event_log_entry.dagster_event.node_handle
             input_node_handles = job_failed.asset_layer.asset_keys_by_node_input_handle
             failed_asset_key = [assetkey for handle, assetkey in input_node_handles.items() if handle.node_handle == node_handle][0]
@@ -160,10 +161,10 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
             asset_owners = get_asset_owners(asset_key, context)
 
             # Get downstream assets and their respective owners
-            downstream_owners = get_downstream_lineage_with_owners(asset_key, context)
+            downstream_owners = get_downstream_lineage_with_owners(asset_key, job_failed, context)
 
             # Create the email subject and body
-            email_subject = f"Fallo en la materialización del activo: {asset_key}"
+            email_subject = f"Fallo en la materialización del activo {asset_key} dentro del job {job_failed.name}"
             email_body = create_email_body(asset_key, downstream_owners)
 
             # Collect all unique owners from the failed asset and downstream assets
