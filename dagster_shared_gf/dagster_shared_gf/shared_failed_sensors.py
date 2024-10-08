@@ -85,18 +85,26 @@ def get_downstream_lineage_with_owners(asset_key: AssetKey, job: JobDefinition, 
     return downstream_owners
 
 def create_email_body(asset_key: AssetKey, downstream_owners: dict[AssetKey, list[str]]):
+    
     """
-    Create an email body in Spanish that explains the failed asset and the impact on downstream assets.
+    Create the email body to be sent when an asset fails.
+
+    Args:
+        asset_key (AssetKey): The key of the asset that failed.
+        downstream_owners (dict[AssetKey, list[str]]): A dictionary with downstream assets as keys and their respective owners as values.
+
+    Returns:
+        str: The email body to be sent.
     """
     downstream_message = ""
     for downstream_asset, owners in downstream_owners.items():
-        downstream_message += f"\n- {downstream_asset.to_user_string()}: {' ,'.join(owners)}"
+        downstream_message += f"- {downstream_asset.to_user_string()}: {f' ,\n'.join(owners)}"
     
     email_body = (
         f"Se ha producido un fallo en la materialización del activo: {asset_key}.\n"
-        "Debido a este fallo, los siguientes activos descendentes no se ejecutarán:\n"
-        f"{downstream_message}\n"
-        "Por favor, revise el error y tome las medidas necesarias."
+        f"Debido a este fallo, los siguientes activos descendentes no se ejecutarán:\n"
+        f"{downstream_message}\n\n"
+        f"Por favor, revise el error y tome las medidas necesarias.\n"
     )
     return email_body
 
@@ -166,7 +174,7 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
             downstream_owners = get_downstream_lineage_with_owners(asset_key, job_failed, context)
 
             # Create the email subject and body
-            email_subject = f"Fallo en la materialización del activo {asset_key.to_user_string()} dentro del job {job_failed.name}"
+            email_subject = f"[analiticastetl][Error] Activo {asset_key.to_user_string()}, job {job_failed.name}"
             email_body = create_email_body(asset_key, downstream_owners)
 
             # Collect all unique owners from the failed asset and downstream assets
