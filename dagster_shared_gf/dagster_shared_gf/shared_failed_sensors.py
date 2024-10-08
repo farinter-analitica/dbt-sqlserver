@@ -145,12 +145,14 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
         if not event.asset_key:
             node_handle = event.event_log_entry.dagster_event.node_handle
             input_node_handles = job_failed.asset_layer.asset_keys_by_node_input_handle
-            failed_asset_key = [assetkey for handle, assetkey in input_node_handles.items() if handle.node_handle == node_handle][0]
+            failed_asset_key_list = [assetkey for handle, assetkey in input_node_handles.items() if handle.node_handle == node_handle]
+            failed_asset_key = failed_asset_key_list[0] if failed_asset_key_list else None
             if not failed_asset_key:
                 failed_asset_key = job_failed.asset_layer.asset_key_for_node(node_handle) 
             if not failed_asset_key:
                 output_node_handles = job_failed.asset_layer.asset_keys_by_node_output_handle
-                failed_asset_key = [assetkey for handle, assetkey in output_node_handles.items() if handle.node_handle == node_handle][0] 
+                failed_asset_key_list = [assetkey for handle, assetkey in output_node_handles.items() if handle.node_handle == node_handle]
+                failed_asset_key = failed_asset_key_list[0] if failed_asset_key_list else None
         else:
             failed_asset_key = event.asset_key
 
