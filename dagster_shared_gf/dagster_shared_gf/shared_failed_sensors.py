@@ -60,7 +60,7 @@ only_dev_default_schedule_status: DefaultSensorStatus = get_for_current_env(
 )
 
 # Default email if asset owner is not provided
-DEFAULT_EMAILS = get_for_current_env({"local": ["brian.padilla@farinter.com"], "dev": ["brian.padilla@farinter.com"], "prd": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"]})
+DEFAULT_EMAILS = get_for_current_env({"local": ["brian.padilla@farinter.com"], "dev": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"], "prd": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"]})
 def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext):
     """
     Fetch asset owners from context. This simulates looking up asset metadata.
@@ -80,11 +80,11 @@ def get_downstream_lineage_with_owners(asset_key: AssetKey, job: JobDefinition, 
     downstream_owners = defaultdict(list)
     
     for downstream_asset in downstream_assets:
-        downstream_owners[str(downstream_asset)] = get_asset_owners(downstream_asset, context)
+        downstream_owners[downstream_asset] = get_asset_owners(downstream_asset, context)
 
     return downstream_owners
 
-def create_email_body(asset_key: AssetKey, downstream_owners: dict):
+def create_email_body(asset_key: AssetKey, downstream_owners: dict[AssetKey, list[str]]):
     """
     Create an email body in Spanish that explains the failed asset and the impact on downstream assets.
     """
@@ -101,7 +101,7 @@ def create_email_body(asset_key: AssetKey, downstream_owners: dict):
     return email_body
 
 @sensor(
-    default_status=only_prd_default_schedule_status,
+    default_status=running_default_schedule_status,
     minimum_interval_seconds=get_for_current_env({"local": 60*5, "dev": 60*5, "prd": 60*5}),  # Adjust based on your frequency needs
 )
 def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_correo_e_analitica_farinter: EmailSenderResource):
