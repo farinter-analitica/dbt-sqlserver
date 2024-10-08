@@ -98,12 +98,12 @@ def create_email_body(asset_key: AssetKey, downstream_owners: dict[AssetKey, lis
     """
     downstream_message = ""
     for downstream_asset, owners in downstream_owners.items():
-        downstream_message += f"- {downstream_asset.to_user_string()}: {f' ,\n'.join(owners)}"
+        downstream_message += f"- {downstream_asset.to_user_string()}: {f' ,'.join(owners)}\n"
     
     email_body = (
         f"Se ha producido un fallo en la materialización del activo: {asset_key}.\n"
         f"Debido a este fallo, los siguientes activos descendentes no se ejecutarán:\n"
-        f"{downstream_message}\n\n"
+        f"{downstream_message}\n"
         f"Por favor, revise el error y tome las medidas necesarias.\n"
     )
     return email_body
