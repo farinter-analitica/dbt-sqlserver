@@ -177,7 +177,7 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
             if all_owners:
                 # Send a single email to all owners in Spanish
                 enviador_correo_e_analitica_farinter.send_email(
-                    email_to=", ".join(all_owners),  # All owners in the 'To' list
+                    email_to=all_owners,  # All owners in the 'To' list
                     email_subject=email_subject,
                     email_body=email_body
                 )
