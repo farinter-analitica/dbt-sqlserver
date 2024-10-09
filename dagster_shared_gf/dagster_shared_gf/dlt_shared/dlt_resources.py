@@ -1,10 +1,10 @@
-from dagster import ConfigurableResource, Config
+from dagster import ConfigurableResource
 from dagster_shared_gf.resources import sql_server_resources
 from dagster_embedded_elt.dlt import DagsterDltResource
 from typing import Literal, Any, Dict
 import dlt
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field
 from dlt.common.destination.reference import Destination
 from dlt.common.pipeline import LoadInfo
 from dlt.extract import DltResource
@@ -16,10 +16,11 @@ fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
 ExtractedResourceMetadata = Dict[str , Any]
 class BaseDltPipeline(ConfigurableResource):
     write_disposition: Literal["replace", "append", "merge", "skip"] = Field(default="merge")
-    refresh: str | None = Field(default=None, 
+    refresh: Literal["drop_sources", "drop_resources", "drop_data"]  | None = Field(default=None, 
                                 description=f"""drop_sources: Drop tables and source and resource state for all sources currently being processed in run or extract methods of the pipeline. (Note: schema history is erased)
 drop_resources: Drop tables and resource state for all resources being processed. Source level state is not modified. (Note: schema history is erased)
 drop_data: Wipe all data and resource state for all resources being processed. Schema is not modified.""")
+    restore_from_destination: bool | None = Field(default=None, description="Enables the run method of the Pipeline object to restore the pipeline state and schemas from the destination")
 
     def get_pipeline(self, pipeline_name: str, dataset_name: str) -> dlt.Pipeline:
 
@@ -31,8 +32,9 @@ drop_data: Wipe all data and resource state for all resources being processed. S
             progress="log",
             refresh=self.refresh
         )
+        if self.restore_from_destination is not None:
+            pipeline.config.restore_from_destination  = self.restore_from_destination
         return pipeline
-    
     
     def run_pipeline(self, 
                      resource_data: DltResource,
