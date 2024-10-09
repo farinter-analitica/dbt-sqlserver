@@ -25,6 +25,7 @@ from dagster_shared_gf.shared_functions import (
     get_all_instances_of_class,
     get_for_current_env,
 )
+from dagster_shared_gf.shared_variables import env_str
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -176,7 +177,7 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
             downstream_owners = get_downstream_lineage_with_owners(asset_key, job_failed, context)
 
             # Create the email subject and body
-            email_subject = f"[analiticastetl][Error] Activo {asset_key.to_user_string()}, job {job_failed.name}"
+            email_subject = f"[analiticastetl][Error][{env_str}] Activo {asset_key.to_user_string()}, job {job_failed.name}"
             email_body = create_email_body(asset_key, downstream_owners)
 
             # Collect all unique owners from the failed asset and downstream assets
