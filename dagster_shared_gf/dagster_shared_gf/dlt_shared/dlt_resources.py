@@ -16,7 +16,7 @@ fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
 ExtractedResourceMetadata = Dict[str , Any]
 class BaseDltPipeline(ConfigurableResource):
     write_disposition: Literal["replace", "append", "merge", "skip"] = Field(default="merge")
-    refresh: Literal["drop_sources", "drop_resources", "drop_data", None] = Field(default=None, 
+    refresh: str | None = Field(default=None, 
                                 description=f"""drop_sources: Drop tables and source and resource state for all sources currently being processed in run or extract methods of the pipeline. (Note: schema history is erased)
 drop_resources: Drop tables and resource state for all resources being processed. Source level state is not modified. (Note: schema history is erased)
 drop_data: Wipe all data and resource state for all resources being processed. Schema is not modified.""")
