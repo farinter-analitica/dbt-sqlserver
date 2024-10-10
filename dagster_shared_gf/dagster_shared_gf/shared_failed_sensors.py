@@ -64,15 +64,15 @@ only_dev_default_schedule_status: DefaultSensorStatus = get_for_current_env(
 # Default email if asset owner is not provided
 #DEFAULT_EMAILS = get_for_current_env({"local": ["brian.padilla@farinter.com"], "dev": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"], "prd": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"]})
 DEFAULT_EMAILS = ["brian.padilla@farinter.com" ]
-def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext):
+def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext) -> list[str]:
     """
     Fetch asset owners from context. This simulates looking up asset metadata.
     Uses context to fetch dynamic data for owners.
     """
     asset_metadata = context.repository_def.assets_defs_by_key.get(asset_key).owners_by_key.get(asset_key)
-    return asset_metadata if asset_metadata else None
+    return asset_metadata if asset_metadata else []
 
-def get_downstream_lineage_with_owners(asset_key: AssetKey, job: JobDefinition, context: SensorEvaluationContext):
+def get_downstream_lineage_with_owners(asset_key: AssetKey, job: JobDefinition, context: SensorEvaluationContext) -> dict[AssetKey, list[str]]:
     """
     Retrieve downstream lineage and their owners from the asset graph.
     Returns a dictionary with downstream assets as keys and their respective owners as values.
