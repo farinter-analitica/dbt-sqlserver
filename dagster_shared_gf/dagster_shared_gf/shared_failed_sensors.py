@@ -194,10 +194,13 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
                 )
                 # Log the notification
                 context.log.info(f"Notificación enviada a los siguientes correos: {', '.join(all_owners)} con el evento id {event.storage_id}")
+            
+        if int_cursor < event.storage_id:
+            int_cursor = event.storage_id
 
-        return SensorResult(
-            cursor=str(event.storage_id),
-        )
+    return SensorResult(
+        cursor=str(int_cursor),
+    )
 
 if __name__ == "__main__":
     # Mocked test environment for running the sensor
