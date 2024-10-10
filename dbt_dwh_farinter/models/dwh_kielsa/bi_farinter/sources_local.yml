@@ -39,6 +39,10 @@ sources:
           - name: Emp_Id
             description: "Empresa de Kielsa"
             type: int
+      - name: BI_Kielsa_Dim_ArticuloPresentacion
+        meta:
+            dagster:
+                group: "dbt_dwh_kielsa_mart_datos_maestros"
 
 
 

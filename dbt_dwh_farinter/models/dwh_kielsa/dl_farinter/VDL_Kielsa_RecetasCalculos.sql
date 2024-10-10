@@ -1,0 +1,52 @@
+{{ 
+    config(
+		tags=["periodo/diario", "periodo_unico/si"],
+		materialized="view",
+	) 
+}}
+--DBT DAGSTER
+--AXELL PADILLA -- 20241010
+SELECT --TOP (1000) 
+	[Pais_Id]
+      ,[Emp_Id]
+      ,[Sucursal_Id]
+      ,[Sucursal_Nombre]
+      ,[Nombre_Medico]
+      ,[Identidad]
+      ,[Cliente_Nombre]
+      ,[Articulo_Id]
+      ,[Articulo_Nombre]
+      ,[Presentacion]
+      ,[Presentacion_Tipo]
+      ,[Receta_Id]
+      ,[Linea_Id]
+      ,[Fecha_Receta]
+      ,[Fecha_Compra]
+      ,[Cantidad_Recetada]
+      ,[Dosis_Cantidad]
+      ,[Periodo_Tratamiento]
+      ,[Periodo_Tratamiento_Dias]
+      ,[Unidad_Periodo]
+      ,[Duracion_Tratamiento]
+      ,[Duracion_Tratamiento_Dias]
+      ,[Unidad_Duracion]
+      ,[Tipo_Duracion]
+      ,[Forma_Medicamento]
+      ,[Factura_Receta]
+      ,[Consumo_Diario]
+      ,[Comprado_Presentacion]
+      ,[Necesidad_Vida_Tratamiento]
+      ,[Faltante_Vida_Tratamiento]
+      ,[Tratamiento_Completo]
+      ,[Indicador_Tratamiento_Completo]
+      ,[Uso_Medicamento]
+      ,[Dias_Stock_Comprados]
+      ,[Dias_Stock_Actual]
+      ,[Indicacion_Receta]
+      ,[Contactar_El]
+      ,[A_Tiempo]
+      ,[Indicador_A_Tiempo]
+      ,[DiaSemana_Preferido]
+      ,[Hora_Preferida]
+      ,[AnioMes_Id]
+  FROM [DL_FARINTER].[dbo].[DL_Kielsa_RecetasCalculos]

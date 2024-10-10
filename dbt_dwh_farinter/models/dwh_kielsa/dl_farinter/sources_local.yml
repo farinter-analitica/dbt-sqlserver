@@ -114,3 +114,7 @@ sources:
       - name: DL_Kielsa_Boleta_Exterior_Hist
       - name: DL_Kielsa_Articulo_Alerta
       - name: DL_Kielsa_ExistenciaHist
+      - name: DL_Kielsa_RecetasDetalle
+      - name: DL_Kielsa_RecetasCabecera
+      - name: DL_ArticulosPresentacionesFormas_ExcelTemp
+      - name: DL_Kielsa_RecetasMedicos
