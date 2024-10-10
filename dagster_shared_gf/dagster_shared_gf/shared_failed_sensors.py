@@ -155,7 +155,7 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
 
             node_handle = event.event_log_entry.dagster_event.node_handle
             failed_asset_key_list = job_failed.asset_layer.asset_keys_for_node(node_handle)
-            failed_asset_key = failed_asset_key_list[0] if failed_asset_key_list else None
+            failed_asset_key = failed_asset_key_list.pop() if failed_asset_key_list else None
             if not failed_asset_key:
                 input_node_handles = job_failed.asset_layer.asset_keys_by_node_input_handle
                 failed_asset_key_list = [assetkey for handle, assetkey in input_node_handles.items() if handle.node_handle == node_handle]
@@ -322,6 +322,7 @@ if __name__ == "__main__":
             failed_materialization_event = MagicMock(spec=EventLogRecord)
             failed_materialization_event.asset_key = can_fail_asset.key
             failed_materialization_event.storage_id = 12345
+            failed_materialization_event.event_log_entry.job_name = 'can_fail_job'
             context.log.debug(f"After cursor: {event_records_filter.after_cursor}")
             if not event_records_filter.after_cursor \
             or int(event_records_filter.after_cursor.id) != 12345:
