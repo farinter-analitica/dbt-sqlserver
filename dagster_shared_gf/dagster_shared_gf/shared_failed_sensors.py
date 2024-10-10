@@ -30,6 +30,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from more_itertools import side_effect
+from sqlalchemy import all_
 
 running_default_schedule_status: DefaultSensorStatus = get_for_current_env(
     {
@@ -61,14 +62,15 @@ only_dev_default_schedule_status: DefaultSensorStatus = get_for_current_env(
 )
 
 # Default email if asset owner is not provided
-DEFAULT_EMAILS = get_for_current_env({"local": ["brian.padilla@farinter.com"], "dev": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"], "prd": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"]})
+#DEFAULT_EMAILS = get_for_current_env({"local": ["brian.padilla@farinter.com"], "dev": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"], "prd": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"]})
+DEFAULT_EMAILS = ["brian.padilla@farinter.com" ]
 def get_asset_owners(asset_key: AssetKey, context: SensorEvaluationContext):
     """
     Fetch asset owners from context. This simulates looking up asset metadata.
     Uses context to fetch dynamic data for owners.
     """
     asset_metadata = context.repository_def.assets_defs_by_key.get(asset_key).owners_by_key.get(asset_key)
-    return asset_metadata if asset_metadata else DEFAULT_EMAILS
+    return asset_metadata if asset_metadata else None
 
 def get_downstream_lineage_with_owners(asset_key: AssetKey, job: JobDefinition, context: SensorEvaluationContext):
     """
@@ -99,7 +101,7 @@ def create_email_body(asset_key: AssetKey, downstream_owners: dict[AssetKey, lis
     """
     downstream_message = ""
     for downstream_asset, owners in downstream_owners.items():
-        downstream_message += f"- {downstream_asset.to_user_string()}: {f' ,'.join(owners)}\n"
+        downstream_message += f"- {downstream_asset.to_user_string()}: {f', '.join(owners if owners else "Sin dueño definido.")}\n"
     
     email_body = (
         f"Se ha producido un fallo en la materialización del activo: {asset_key}.\n"
@@ -182,6 +184,7 @@ def failed_asset_notification_sensor(context: SensorEvaluationContext, enviador_
 
             # Collect all unique owners from the failed asset and downstream assets
             all_owners = set(asset_owners)  # Use a set to avoid duplicate emails
+            all_owners.update(DEFAULT_EMAILS)
             for owners in downstream_owners.values():
                 all_owners.update(owners)
 
