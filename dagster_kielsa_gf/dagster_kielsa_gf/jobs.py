@@ -100,7 +100,7 @@ kielsa_start_of_month_assets = kielsa_start_of_month_assets | (
 kielsa_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_start_of_month_job",
     selection=kielsa_start_of_month_assets,
-    tags=tags_repo.monthly.tag
+    tags=tags_repo.Monthly.tag
     | {
         "dagster/max_runtime": (100 * 60)
     },  # max 100 minutes in seconds, then mark it as failed.)
