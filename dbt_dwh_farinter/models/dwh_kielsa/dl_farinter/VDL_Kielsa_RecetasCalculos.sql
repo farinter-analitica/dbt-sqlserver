@@ -49,4 +49,4 @@ SELECT --TOP (1000)
       ,[DiaSemana_Preferido]
       ,[Hora_Preferida]
       ,[AnioMes_Id]
-  FROM [DL_FARINTER].[dbo].[DL_Kielsa_RecetasCalculos]
+  FROM [DL_FARINTER].[dbo].[DL_Kielsa_RecetasCalculos] --{{ ref('DL_Kielsa_RecetasCalculos') }}
