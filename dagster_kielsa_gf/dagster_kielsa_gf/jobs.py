@@ -86,6 +86,26 @@ kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     },  # max 100 minutes in seconds, then mark it as failed.)
 )
 
+# Definir assets que tengan la etiqueta mensual y todos los dependientes que no tengan la etiqueta de periodo unico
+kielsa_start_of_month_assets: AssetSelection = AssetSelection.tag(
+    key=tags_repo.Monthly.key, value=tags_repo.Monthly.value
+)
+kielsa_start_of_month_assets = kielsa_start_of_month_assets | (
+    kielsa_start_of_month_assets.upstream().required_multi_asset_neighbors()
+    - AssetSelection.tag(
+        key=tags_repo.UniquePeriod.key,
+        value=tags_repo.UniquePeriod.value,
+    )
+)
+kielsa_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
+    name="kielsa_start_of_month_job",
+    selection=kielsa_start_of_month_assets,
+    tags=tags_repo.monthly.tag
+    | {
+        "dagster/max_runtime": (100 * 60)
+    },  # max 100 minutes in seconds, then mark it as failed.)
+)
+
 # Definir assets que tengan la etiqueta por_hora adicional (para ejecutar en medio del otro job) y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_hourly_additional_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.HourlyAdditional.key, value=tags_repo.HourlyAdditional.value

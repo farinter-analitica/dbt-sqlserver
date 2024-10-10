@@ -147,6 +147,18 @@ kielsa_hourly_job_schedule = ScheduleDefinition(
     should_execute=should_exec_kielsa_hourly_job_run,
 )
 
+kielsa_start_of_month_job_schedule = ScheduleDefinition(
+    cron_schedule=get_for_current_env(
+        dict={
+            "dev": ["01 3 1 * *"],
+            "prd": ["01 1 1 * *"],
+        }
+    ),  # cron template: hour minute day month day_of_week
+    execution_timezone=default_timezone,
+    job=kielsa_start_of_month_job,
+    default_status=running_default_schedule_status,
+)
+
 def should_exec_kielsa_hourly_additional_job_run(
     context: ScheduleEvaluationContext,
     job_name: str = kielsa_hourly_additional_job.name,
