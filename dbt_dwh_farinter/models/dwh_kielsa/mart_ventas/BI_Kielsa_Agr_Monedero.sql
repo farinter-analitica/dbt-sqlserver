@@ -70,7 +70,7 @@ Resumen_FacturaEncabezado AS
 		AND FD.Monedero_Id = MonederoTarj_Id_Limpio
 		AND FE.Factura_Fecha > FD.Fecha_Desde
 		AND FE.AnioMes_Id >= FD.AnioMes_Id_Desde
-	WHERE FD.Emp_Id IS NOT NULL OR (FE.Factura_Fecha > '{{ v_last_date }}' AND FE.AnioMes_Id >= '{{ v_last_date[0:6] }}')
+	WHERE FD.Emp_Id IS NOT NULL OR (FD.Emp_Id IS NULL AND FE.Fecha_Actualizado > '{{ v_last_date }}' AND FE.AnioMes_Id >= '{{ v_last_date[0:6] }}')
 {% endif %}
     GROUP BY FE.MonederoTarj_Id_Limpio, FE.Emp_Id
 )   
