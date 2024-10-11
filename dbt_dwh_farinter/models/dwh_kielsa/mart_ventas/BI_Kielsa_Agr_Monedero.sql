@@ -5,8 +5,10 @@
 	{% set v_last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, 0, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
 	{% set v_merge_exclude_columns = unique_key_list + ["Fecha_Carga","Fecha_Primer_Factura"]  %}
 	{% set v_merge_check_diff_exclude_columns = v_merge_exclude_columns + ["Fecha_Actualizado"]  %}
+	{% set v_last_date_control = (modules.datetime.datetime.fromisoformat(v_last_date) - modules.datetime.timedelta(days=30)).strftime('%Y%m%d') %}
 {% else %}
-	{% set v_last_date = '19000101' %}
+	{% set v_last_date = '19000101'  %}
+	{% set v_last_date_control = '19000101'  %}
 	{% set v_merge_exclude_columns = unique_key_list + ["Fecha_Carga"]  %}
 	{% set v_merge_check_diff_exclude_columns = v_merge_exclude_columns + ["Fecha_Actualizado"]  %}
 {% endif %}
@@ -32,11 +34,11 @@
 WITH Fecha_Desde AS
 (
 	--Se hace asi ya que cada empresa puede estar actualizando por separado
-	SELECT Emp_Id
-		,max(Fecha_Actualizado) AS Fecha_Desde
-		, YEAR(max(Fecha_Actualizado) ) * 100 + MONTH(max(Fecha_Actualizado) ) AS AnioMes_Id_Desde
+	SELECT Emp_Id, Monedero_Id
+		,(Fecha_Actualizado) AS Fecha_Desde
+		, YEAR((Fecha_Actualizado) ) * 100 + MONTH((Fecha_Actualizado) ) AS AnioMes_Id_Desde
 	FROM {{ this }}
-	GROUP BY Emp_Id
+	--GROUP BY Emp_Id
 ),
 {% else %}
 WITH
@@ -46,6 +48,7 @@ Fecha_Max AS
 	--Excluir las facturas del ultimo día (puede estar incompleto, ej. hoy)
 	SELECT CAST(MAX(Factura_Fecha) AS DATE) AS Fecha_Max, Emp_Id, MAX(AnioMes_Id) AS AnioMes_Id_Max
 	FROM {{source('DL_FARINTER', 'DL_Kielsa_FacturaEncabezado')}}
+	WHERE AnioMes_Id >= '{{ v_last_date_control[0:6] }}'
 	GROUP BY Emp_ID
 ),
 Resumen_FacturaEncabezado AS
@@ -64,9 +67,10 @@ Resumen_FacturaEncabezado AS
 		AND FE.AnioMes_Id <= FM.AnioMes_Id_Max
 	LEFT JOIN Fecha_Desde FD
 		ON FD.Emp_Id = FE.Emp_Id
+		AND FD.Monedero_Id = MonederoTarj_Id_Limpio
 		AND FE.Factura_Fecha > FD.Fecha_Desde
 		AND FE.AnioMes_Id >= FD.AnioMes_Id_Desde
-	WHERE FD.Emp_Id IS NOT NULL OR FE.Factura_Fecha > '{{ v_last_date }}'
+	WHERE FD.Emp_Id IS NOT NULL OR (FE.Factura_Fecha > '{{ v_last_date }}' AND FE.AnioMes_Id >= '{{ v_last_date[0:6] }}')
 {% endif %}
     GROUP BY FE.MonederoTarj_Id_Limpio, FE.Emp_Id
 )   
