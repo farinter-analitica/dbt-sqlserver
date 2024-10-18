@@ -91,6 +91,11 @@ WITH Facturas AS
 		, EMPL.HashStr_EmplEmp
 		, BOD.HashStr_SucBodEmp
 		, ISNULL(SAM.Tipo_Id, 0) AS Same_Id
+		{% if is_incremental() and last_date != '19000101' %} 
+		, ISNULL(GETDATE(), '19000101') AS Fecha_Actualizado
+		{% else %}
+		, CASE WHEN FE.[Fecha_Actualizado] > GETDATE()-7 THEN GETDATE() ELSE ISNULL(FE.[Fecha_Actualizado],'19000101') END AS Fecha_Actualizado
+		{% endif %}
 	FROM  {{source('DL_FARINTER', 'DL_Kielsa_FacturaEncabezado')}} FE
 	INNER JOIN {{source('BI_FARINTER', 'BI_Dim_Calendario')}} CAL 
 		ON CAL.Fecha_Id = CAST(FE.Factura_Fecha AS DATE) AND CAL.AnioMes_Id = FE.AnioMes_Id
@@ -127,8 +132,86 @@ WITH Facturas AS
 	WHERE FE.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FE.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
 	{% endif %}
 ) 
+{% if not is_incremental() and (modules.datetime.datetime.now() - modules.datetime.timedelta(days=5*365)) < modules.datetime.datetime(2024, 10, 1) %}
+--Carga de historico sistema anterior arboleda
+, FacturasArboleda AS
+(
+	SELECT --TOP 1000
+		ISNULL(CAST(FE.[Factura_Fecha] AS DATE), '19000101') Factura_Fecha
+		, ISNULL(FE.[Emp_Id], 0) [Emp_Id]
+		, ISNULL(FE.[Suc_Id], 0) [Suc_Id] --, FE.[Suc_Id]
+		, ISNULL(FE.[Bodega_Id], 0) [Bodega_Id] --, FE.[Bodega_Id]
+		, ISNULL(FE.[Caja_Id], 0) [Caja_Id] --, FE.[Caja_Id]
+		, ISNULL(FE.[TipoDoc_Id], 0) [TipoDoc_Id] --, FE.[TipoDoc_Id]
+		, ISNULL(FE.[Factura_Id], 0) [Factura_Id] --, FE.[Factura_Id]
+		, ISNULL(FE.[SubDoc_Id], 0) [SubDoc_Id] --, FE.[SubDoc_Id]
+		, FE.[Consecutivo] Consecutivo_Factura
+		, CAST(FE.[Factura_Fecha] AS TIME(0)) Factura_FechaHora
+		, FE.[MonederoTarj_Id]
+		, FE.[MonederoTarj_Id_Limpio] as [Monedero_Id]
+		, FE.[Cliente_Id]
+		, FE.[Vendedor_Id]
+		, FE.[Preventa_Id]
+		, FE.[PreFactura_id]
+		, FE.Factura_Numero_CAI AS Factura_Clave_Tributaria
+		, FE.[Factura_Estado]
+		, FE.[Factura_Origen]
+		, FE.[AnioMes_Id]
+		, ISNULL(FE.Factura_Costo, 0) Valor_Costo
+		, ISNULL(FE.Factura_Costo_Bonificacion, 0) Valor_Costo_Bonificacion
+		, ISNULL(FE.Factura_Subtotal, 0) Valor_Subtotal
+		, ISNULL(FE.Factura_Descuento, 0) Valor_Descuento
+		, ISNULL(FE.Factura_Impuesto, 0) Valor_Impuesto
+		, ISNULL(FE.Factura_Total, 0) Valor_Total
+		, SUC.HashStr_SucEmp
+		, DOC.HashStr_SubDDocEmp
+		, CLI.HashStr_CliEmp
+		, MON.HashStr_MonEmp
+		, MON.EmpMon_Id
+		, EMPL.HashStr_EmplEmp
+		, BOD.HashStr_SucBodEmp
+		, ISNULL(SAM.Tipo_Id, 0) AS Same_Id
+		, ISNULL((FE.[Factura_Fecha]), '19000101')  AS Fecha_Actualizado
+	FROM [DL_FARINTER].[dbo].[DL_Kielsa_FacturaEncabezado_ArboledaOld] FE -- {{source('DL_FARINTER', 'DL_Kielsa_FacturaEncabezado_ArboledaOld')}} FE
+	INNER JOIN {{source('BI_FARINTER', 'BI_Dim_Calendario')}} CAL 
+		ON CAL.Fecha_Id = CAST(FE.Factura_Fecha AS DATE) AND CAL.AnioMes_Id = FE.AnioMes_Id
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Monedero')}} MON
+		ON MON.Monedero_Id = FE.MonederoTarj_Id_Limpio
+		AND MON.Emp_Id = FE.Emp_Id
+	LEFT JOIN {{source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa')}} E
+		ON E.Empresa_Id = FE.Emp_Id
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Sucursal')}} SUC
+		ON SUC.Sucursal_Id = FE.Suc_Id
+		AND SUC.Emp_Id = FE.Emp_Id
+	LEFT JOIN {{source ('BI_FARINTER', 'BI_Hecho_SameSucursales_Kielsa')}} SAM
+		ON SAM.Sucursal_Id_Solo = FE.Suc_Id
+		AND SAM.Pais_Id = FE.Emp_Id
+		AND SAM.Anio_Id = CAL.Anio_Calendario
+		AND SAM.Mes_Id = CAL.Mes_Calendario
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_TipoDocumentoSub')}} DOC
+		ON DOC.Documento_Id = FE.TipoDoc_Id
+		AND DOC.SubDocumento_Id = FE.SubDoc_Id
+		AND DOC.Emp_Id = FE.Emp_Id
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Cliente')}} CLI
+		ON CLI.Cliente_Id = FE.Cliente_Id
+		AND CLI.Emp_Id = FE.Emp_Id
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Empleado')}} EMPL
+		ON EMPL.Empleado_Id = FE.Vendedor_Id
+		AND EMPL.Emp_Id = FE.Emp_Id
+	LEFT JOIN {{ref ('BI_Kielsa_Dim_Bodega')}} BOD
+		ON BOD.Bodega_Id = FE.Bodega_Id
+		AND BOD.Sucursal_Id = FE.Suc_Id
+		AND BOD.Emp_Id = FE.Emp_Id
+	WHERE FE.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FE.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
+) 
+
+{% endif %}
 SELECT *
 	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'TipoDoc_Id', 'Caja_Id', 'Factura_Id'], input_length=49, table_alias='')}} [EmpSucDocCajFac_Id]
-    , ISNULL(GETDATE(),'19000101') AS [Fecha_Actualizado]
-
 FROM Facturas
+{% if not is_incremental() and (modules.datetime.datetime.now() - modules.datetime.timedelta(days=5*365)) < modules.datetime.datetime(2024, 10, 1) %}
+UNION ALL 
+SELECT *
+	, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'TipoDoc_Id', 'Caja_Id', 'Factura_Id'], input_length=49, table_alias='')}} [EmpSucDocCajFac_Id]
+FROM FacturasArboleda
+{% endif %}

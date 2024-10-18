@@ -118,3 +118,5 @@ sources:
       - name: DL_Kielsa_RecetasCabecera
       - name: DL_ArticulosPresentacionesFormas_ExcelTemp
       - name: DL_Kielsa_RecetasMedicos
+      - name: DL_Kielsa_FacturasPosiciones_ArboledaOld
+      - name: DL_Kielsa_FacturaEncabezado_ArboledaOld
