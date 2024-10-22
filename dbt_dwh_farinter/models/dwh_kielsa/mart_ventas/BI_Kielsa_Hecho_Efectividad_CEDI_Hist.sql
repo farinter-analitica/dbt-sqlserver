@@ -203,10 +203,10 @@ Efectividad AS (
 				      and Despacho.Fecha_Id between Prov.Inicio and Prov.Final
 
 				GROUP BY
+	               Despacho.Fecha_Id,
 				   Despacho.Emp_Id,
 	               Art.Articulo_Id,
-	               Suc.Sucursal_Id,
-	               Despacho.Fecha_Id
+	               Suc.Sucursal_Id
 					
 )	
 Select
@@ -250,7 +250,7 @@ Select
 				   Efectividad.Efectividad_Descuento,
 				   Efectividad.EmpSuc_Id,
 				   Efectividad.EmpArt_Id,
-				   GETDATE() as Fecha_Actualizacion
+				   GETDATE() as Fecha_Actualizado
 
 --INTO #PruebaEfectividad
 FROM Efectividad
