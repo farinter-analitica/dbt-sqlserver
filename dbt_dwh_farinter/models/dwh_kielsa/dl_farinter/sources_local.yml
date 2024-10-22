@@ -120,3 +120,11 @@ sources:
       - name: DL_Kielsa_RecetasMedicos
       - name: DL_Kielsa_FacturasPosiciones_ArboledaOld
       - name: DL_Kielsa_FacturaEncabezado_ArboledaOld
+      - name: DL_Kielsa_Inv_Despacho_Detalle
+      - name: DL_Kielsa_Inv_Despacho_Encabezado
+      - name: DL_Kielsa_Detalle_Pedido
+      - name: DL_Kielsa_Articulo_Info
+      - name: DL_Kielsa_Orden_Local_Detalle
+      - name: DL_Kielsa_Orden_Local_Encabezado
+      - name: DL_Kielsa_Orden_Exterior_Detalle
+      - name: DL_Kielsa_Orden_Exterior_Encabezado

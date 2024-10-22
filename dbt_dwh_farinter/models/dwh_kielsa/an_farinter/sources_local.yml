@@ -13,3 +13,4 @@ sources:
     tables:
       - name: AN_Cal_ArticulosEstado_Kielsa
       - name: AN_Cal_AtributosCliente_Kielsa
+      - name: AN_Cal_CasaXProveedor_Kielsa

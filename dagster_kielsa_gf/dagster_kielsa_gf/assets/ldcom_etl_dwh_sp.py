@@ -157,6 +157,30 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Descuento_Venta",
         "tags": tags_repo.Daily.tag,
     },
+    "DL_paCargarKielsa_Boleta_CEDI_Detalle": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Boleta_CEDI_Detalle",
+        "tags": tags_repo.Daily.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
+    "DL_paCargarKielsa_Boleta_CEDI_Encabezado": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Boleta_CEDI_Encabezado",
+        "tags": tags_repo.Daily.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
+    "DL_paCargarKielsa_Inv_Dev_Proveedor_Detalle": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Inv_Dev_Proveedor_Detalle",
+        "tags": tags_repo.Daily.tag ,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
+    "DL_paCargarKielsa_Inv_Dev_Proveedor_Encabezado": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Inv_Dev_Proveedor_Encabezado",
+        "tags": tags_repo.Daily.tag,
+        "owners": ["cleymer.mendoza@farinter.com"],
+    },
     "DL_paCargarKielsa_Precios": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Precios",
@@ -519,6 +543,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Encabezado"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_BoletaLocal_Detalle"]),
                  AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Calendario"]),],
+    },
+    "AN_paCargarCal_ArticulosEstado_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": "AN_Cal_ArticulosEstado_Kielsa",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Sugeridos_Kielsa"])],
     },
     "DL_paCargarKielsa_ExistenciaHist": {
         "key_prefix": ["DL_FARINTER", "dbo"],

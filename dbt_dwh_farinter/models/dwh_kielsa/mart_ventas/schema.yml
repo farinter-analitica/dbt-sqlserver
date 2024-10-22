@@ -1,2 +1,11 @@
 models:
   - name: BI_Kielsa_Hecho_FacturaEncabezado
+  - name: BI_Kielsa_Hecho_CompraHist
+    meta:
+        dagster:
+            owners: ["cleymer.mendoza@farinter.com"]
+  - name: BI_Kielsa_Hecho_Efectividad_CEDI_Hist
+    meta:
+      dagster:
+          owners: ["cleymer.mendoza@farinter.com"]
+
