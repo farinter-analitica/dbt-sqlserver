@@ -27,3 +27,7 @@ sudo systemctl restart dagster_dev
 sudo systemctl stop dagster_<prd/dev>
 sudo systemctl stop dagster_prd
 sudo systemctl stop dagster_dev
+
+
+systemctl restart dagster_prd
+systemctl restart dagster_dev
