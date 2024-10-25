@@ -28,6 +28,6 @@ setup(
         "deep-translator",
         "ydata-profiling"
     ],
-    extras_require={"dev": [ "pytest", "pytest-mock", "mypy", "ruff"]},
+    extras_require={"dev": [ "pytest", "pytest-mock", "mypy", "ruff", "pre-commit"]},
 )
 #Install module with python ,"pytest-mock",
