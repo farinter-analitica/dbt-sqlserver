@@ -17,3 +17,5 @@ repos:
         args:
           - '--show-error-codes'
           - '--explicit-package-bases'
+          - '--install-types'
+          - '--non-interactive'
