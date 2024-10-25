@@ -1,6 +1,6 @@
 from dagster import ConfigurableResource
 from dagster_shared_gf.resources import sql_server_resources
-from dagster_shared_gf.shared_variables import env_var
+from dagster_shared_gf.shared_variables import env_str
 from dagster_embedded_elt.dlt import DagsterDltResource
 from typing import Literal, Any, Dict
 import dlt, os
@@ -10,7 +10,7 @@ from dlt.common.destination.reference import Destination
 from dlt.common.pipeline import LoadInfo, get_dlt_pipelines_dir
 from dlt.extract import DltResource
 
-new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_var)
+new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
 connection_url_dest:str = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url()
 
