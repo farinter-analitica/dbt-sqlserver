@@ -1,23 +1,17 @@
-from datetime import datetime
-from os import remove
 import dlt
 from dlt.common import pendulum
 from dlt.common.pipeline import LoadInfo
-from dlt.pipeline.configuration import PipelineConfiguration, configspec
 from dlt.extract.resource import DltResource
 import dlt.extract
 from dlt.common.normalizers.naming.snake_case import NamingConvention
-from dlt.pipeline.pipeline import Pipeline
-from dagster_shared_gf.dlt_shared.mongodb import mongodb, mongodb_collection
+from dagster_shared_gf.dlt_shared.mongodb import mongodb_collection
 from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
-from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     get_for_current_env,
-    get_unique_hash_sha2_256,
     filter_assets_by_tags,
 )
 from datetime import timedelta
-from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
 from dagster import (
     EnvVar,
     SourceAsset,
@@ -26,18 +20,17 @@ from dagster import (
     AssetsDefinition,
     AssetKey,
     MaterializeResult,
-    MetadataValue,
     build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
     AssetChecksDefinition,
 )
 from dagster_embedded_elt.dlt import (
     dlt_assets,
-    DagsterDltResource,
     DagsterDltTranslator,
 )
 from typing import Dict, Iterable, Any, Mapping, Sequence, Optional
-from pydantic import dataclasses, Field, field_validator
+from collections import deque
+from pydantic import dataclasses, Field
 from dataclasses import asdict
 from itertools import chain
 
@@ -59,7 +52,7 @@ class DltResourceCollection():
     primary_key: Optional[str | tuple] = None
     table_new_name: Optional[str] = None
     columns_hints: Optional[dict[str, Any]] = None
-    columns_to_remove: Optional[list[str]] = None
+    columns_to_remove: Optional[tuple[str, ...]] = None
     limit: Optional[int] = None
     cursor_path: Optional[str] = None
     initial_value: Optional[pendulum.DateTime] = None
@@ -76,7 +69,7 @@ class DltPipelineSourceConfig():
     initial_value: pendulum.DateTime = Field(
         default_factory=default_date_fn
     )
-    collections: list[DltResourceCollection] = Field(default_factory=list)
+    collections: tuple[DltResourceCollection, ...] = Field(default_factory=tuple)
     dep_pipeline_base_name: Optional[str] = None
 
     def __post_init__(self):
@@ -93,15 +86,14 @@ class DltPipelineSourceConfig():
 
 DLTRCol = DltResourceCollection
 
+DltPipelineSourceConfigResourceTuple = tuple[DltPipelineSourceConfig , ...]
 
-DltPipelineSourceConfigResourceList = dict[DltPipelineSourceConfig, list[str]]
-
-read_source_config_updated_at: list[DltPipelineSourceConfig] = [
+read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
         cursor_path="updated_at",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_updated_at",
-        collections=[
+        collections=(
             DLTRCol(
                 collection_name="crm_email",
             ),
@@ -128,23 +120,19 @@ read_source_config_updated_at: list[DltPipelineSourceConfig] = [
                 cursor_path="updatedAt", 
             ),
 
-        ],
+        ),
     ),
     DltPipelineSourceConfig(
         cursor_path="updatedAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_updatedat",
-        collections=[
+        collections=(
             DLTRCol(
                 collection_name="crm_list",
             ),
-        ],
+        ),
     ),
-]
-
-read_source_config_multi_column: list[DltPipelineSourceConfig] = [
-    # Para rellenar con los pipelines y configuraciones
-]
+)
 
 dltrccol_crm_person = DLTRCol(
                 collection_name="crm_person",
@@ -201,90 +189,63 @@ dltrccol_crm_person = DLTRCol(
                 #limit=1000,
             )
 
-read_source_config_multi_column.append(
+read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
         cursor_path="updated_at",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updated_at",
         initial_value=pendulum.now().subtract(months=1),
-        collections=[
+        collections=(
             dltrccol_crm_person,
             DLTRCol(collection_name="crm_message"),
             DLTRCol(collection_name="crm_campaign"),
-        ],
-    )
-)
-
-read_source_config_multi_column.append(
+        ),
+    ),
     DltPipelineSourceConfig(
         cursor_path="created_at",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_created_at",
         dep_pipeline_base_name="mongo_crm_hn_multi_updated_at",
-        collections=[
+        collections=(
             dltrccol_crm_person,
             DLTRCol(collection_name="crm_message"),
             DLTRCol(collection_name="crm_campaign"),
-        ],
-    )
-)
-
-read_source_config_multi_column.append(
+        ),
+    ),
     DltPipelineSourceConfig(
         cursor_path="EndDate",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_enddate",
         initial_value=pendulum.now().subtract(months=1),
-        collections=[
-            DLTRCol(collection_name="campaignSchedule"),
-        ],
-    )
-)
-
-
-read_source_config_multi_column.append(
+        collections=(DLTRCol(collection_name="campaignSchedule"),),
+    ),
     DltPipelineSourceConfig(
         cursor_path="createdDate",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_createddate",
         dep_pipeline_base_name="mongo_crm_hn_multi_enddate",
-        collections=[
-            DLTRCol(collection_name="campaignSchedule"),
-        ],
-    )
-)
-
-read_source_config_multi_column.append(
+        collections=(DLTRCol(collection_name="campaignSchedule"),),
+    ),
     DltPipelineSourceConfig(
         cursor_path="updatedAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updatedat",
         initial_value=pendulum.now().subtract(months=1),
-        collections=[
-            DLTRCol(collection_name="dataViewList"),
-        ],
-    )
-)
-
-read_source_config_multi_column.append(
+        collections=(DLTRCol(collection_name="dataViewList"),),
+    ),
     DltPipelineSourceConfig(
         cursor_path="creationDate",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_creationdate",
         dep_pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        collections=[
-            DLTRCol(collection_name="dataViewList"),
-        ],
-    )
-)
-
-read_source_config_multi_column.append(
+        collections=(DLTRCol(collection_name="dataViewList"),),
+    ),
     DltPipelineSourceConfig(
         cursor_path="UpdatedAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updatedat",
         initial_value=pendulum.now().subtract(months=1),
-        collections=[
+        collections=(
             DLTRCol(
                 collection_name="crmCall",
                 table_new_name="crm_call",
@@ -294,17 +255,14 @@ read_source_config_multi_column.append(
                     "clientId": {"data_type": "bigint", "name": "callee_id"},
                 },
             ),
-        ],
-    )
-)
-
-read_source_config_multi_column.append(
+        ),
+    ),
     DltPipelineSourceConfig(
         cursor_path="createdAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_createdat",
         dep_pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        collections=[
+        collections=(
             DLTRCol(
                 collection_name="crmCall",
                 table_new_name="crm_call",
@@ -314,32 +272,30 @@ read_source_config_multi_column.append(
                     "clientId": {"data_type": "bigint", "name": "callee_id"},
                 },
             ),
-        ],
-    )
+        ),
+    ),
 )
 
 
-read_source_config_not_incremental: list[DltPipelineSourceConfig] = [
+read_source_config_not_incremental: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_not_incremental",
-        collections=[
+        collections=(
             DLTRCol(collection_name="campaignActivity"),
-        ],
-    )
-]
+        ),
+    ),
+)
 
 
-
-all_mongo_db_source_configs: list[DltPipelineSourceConfigResourceList] = [
-    read_source_config_updated_at,
-    read_source_config_multi_column,
-    read_source_config_not_incremental,
-]
-
+all_mongo_db_source_configs: DltPipelineSourceConfigResourceTuple = (
+    read_source_config_updated_at
+    + read_source_config_multi_column
+    + read_source_config_not_incremental
+)
 
 def get_config_filtered(
-    dlt_source_config_resource_list: DltPipelineSourceConfigResourceList,
+    dlt_source_config_resource_list: DltPipelineSourceConfigResourceTuple,
     dlt_source_config: DltPipelineSourceConfig,
 ) -> list[str]:
     return list(chain(dlt_source_config_resource_list[dlt_source_config]))
@@ -465,67 +421,66 @@ def create_dlt_asset(
 
 
 def dlt_mongo_db_crm_hn_asset_factory(
-    mongo_db_source_configs: list[DltPipelineSourceConfigResourceList],
+    mongo_db_source_configs: DltPipelineSourceConfigResourceTuple,
 ) -> list[AssetsDefinition]:
-    dlt_assets_list: list[AssetsDefinition] = []
+    dlt_assets_list: deque[AssetsDefinition] = deque()
     for dlt_source_config in mongo_db_source_configs:
-        for config in dlt_source_config:
-            for collection in config.collections:
-                
-                resource: DltResource = mongodb_collection(
-                    connection_url=dlt.secrets["connection_str_source"],
-                    database="pro01",
-                    collection=collection.collection_name,
-                    limit=collection.limit,
-                    incremental=dlt.sources.incremental(
-                        cursor_path=config.cursor_path,
-                        primary_key=config.primary_key,
-                        initial_value=config.initial_value,
-                    ),
-                    parallel=True,
-                    # data_item_format="arrow", #aparentemente no con esta combinacion de source / destino
+        for collection in dlt_source_config.collections:
+            
+            resource: DltResource = mongodb_collection(
+                connection_url=dlt.secrets["connection_str_source"],
+                database="pro01",
+                collection=collection.collection_name,
+                limit=collection.limit,
+                incremental=dlt.sources.incremental(
+                    cursor_path=dlt_source_config.cursor_path,
+                    primary_key=dlt_source_config.primary_key,
+                    initial_value=dlt_source_config.initial_value,
+                ),
+                parallel=True,
+                # data_item_format="arrow", #aparentemente no con esta combinacion de source / destino
+            )
+
+            if collection.table_new_name:
+                resource = resource.apply_hints(
+                    table_name=collection.table_new_name
                 )
 
-                if collection.table_new_name:
-                    resource = resource.apply_hints(
-                        table_name=collection.table_new_name
-                    )
-
-                if collection.columns_hints:
-                    resource = resource.apply_hints(
-                        columns=collection.columns_hints
-                    )
-
-                if collection.columns_to_remove:
-                    resource = resource.add_map(
-                        lambda doc, columns=collection.columns_to_remove: DagsterDltTranslatorMongodbCRMHN.remove_columns(
-                            doc, remove_columns = columns
-                        )
-                    )
-
-                if isinstance(collection.primary_key, str):
-                    resource = resource.apply_hints(
-                        columns={
-                            collection.primary_key: {"data_type": "text", "precision": 50}
-                        }
-                    )
-                elif isinstance(collection.primary_key, tuple):
-                    resource = resource.apply_hints(
-                        columns={
-                            key: {"data_type": "text", "precision": 50}
-                            for key in collection.primary_key
-                        }
-                    )
-
-                new_assets = create_dlt_asset(
-                    dlt_resource=resource,
-                    group_name="dlt_mongo_db_crm_hn_etl_dwh",
-                    dlt_t=DagsterDltTranslatorMongodbCRMHN(config=config, collection=collection),
-                    dataset_name="mongo_db_crm_hn",
-                    tags={"dagster/storage_kind": "sqlserver"},
-                    dep_asset_pipeline=config.dep_pipeline_base_name,
+            if collection.columns_hints:
+                resource = resource.apply_hints(
+                    columns=collection.columns_hints
                 )
-                dlt_assets_list.append(new_assets)
+
+            if collection.columns_to_remove:
+                resource = resource.add_map(
+                    lambda doc, columns=collection.columns_to_remove: DagsterDltTranslatorMongodbCRMHN.remove_columns(
+                        doc, remove_columns = columns
+                    )
+                )
+
+            if isinstance(collection.primary_key, str):
+                resource = resource.apply_hints(
+                    columns={
+                        collection.primary_key: {"data_type": "text", "precision": 50}
+                    }
+                )
+            elif isinstance(collection.primary_key, tuple):
+                resource = resource.apply_hints(
+                    columns={
+                        key: {"data_type": "text", "precision": 50}
+                        for key in collection.primary_key
+                    }
+                )
+
+            new_assets = create_dlt_asset(
+                dlt_resource=resource,
+                group_name="dlt_mongo_db_crm_hn_etl_dwh",
+                dlt_t=DagsterDltTranslatorMongodbCRMHN(config=dlt_source_config, collection=collection),
+                dataset_name="mongo_db_crm_hn",
+                tags={"dagster/storage_kind": "sqlserver"},
+                dep_asset_pipeline=dlt_source_config.dep_pipeline_base_name,
+            )
+            dlt_assets_list.append(new_assets)
 
     return list(chain(dlt_assets_list))
 
