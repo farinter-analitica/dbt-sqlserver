@@ -1,19 +1,15 @@
 # .pre-commit-config.yaml
 repos:
-  - repo: local
+  - repo: https://github.com/astral-sh/ruff-pre-commit
     hooks:
+      # Run the linter.
       - id: ruff
-        name: ruff
-        entry: ruff
-        language: system
-        types: [python]
-  - repo: local
+        args: [ --fix ]      
+      # Run the formatter.
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
     hooks:
       - id: mypy
-        name: mypy
-        entry: mypy
-        language: system
-        types: [python]
         args:
           - '--show-error-codes'
           - '--explicit-package-bases'
