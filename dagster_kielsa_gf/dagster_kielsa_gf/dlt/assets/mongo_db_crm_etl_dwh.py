@@ -63,7 +63,7 @@ class DltResourceCollection:
     cursor_path: Optional[str] = None
     initial_value: Optional[pendulum.DateTime] = None
 
-    def get_all_configs_dict(self):
+    def get_all_configs_dict(self) -> Mapping[str, Any]:
         return asdict(self)
 
 
@@ -323,7 +323,10 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         return [AssetKey(["mongo_db_crm_hn", f"{resource.name}"])]
 
     def get_collection_metadata(self, resource: DltResource) -> Mapping[str, Any]:
-        collection_meta = {key: MetadataValue.text(value) for key, value in self.collection.get_all_configs_dict()}
+        collection_dict = self.collection.get_all_configs_dict()
+        collection_meta = {}
+        if collection_dict:
+            collection_meta = {key: MetadataValue.text(str(value)) for key, value in collection_dict.items()}
         return (
             collection_meta
             | resource.explicit_args
