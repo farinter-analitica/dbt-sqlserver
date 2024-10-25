@@ -1,53 +1,58 @@
-import dlt
-from dlt.common import pendulum
-from dlt.common.pipeline import LoadInfo
-from dlt.extract.resource import DltResource
-import dlt.extract
-from dlt.common.normalizers.naming.snake_case import NamingConvention
-from dagster_shared_gf.dlt_shared.mongodb import mongodb_collection
-from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
-from dagster_shared_gf.shared_functions import (
-    get_for_current_env,
-    filter_assets_by_tags,
-)
+from collections import deque
+from dataclasses import asdict
 from datetime import timedelta
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from itertools import chain
+from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
+
+import dlt
+import dlt.extract
 from dagster import (
+    AssetChecksDefinition,
+    AssetExecutionContext,
+    AssetKey,
+    AssetsDefinition,
     EnvVar,
+    MaterializeResult,
     SourceAsset,
     asset,
-    AssetExecutionContext,
-    AssetsDefinition,
-    AssetKey,
-    MaterializeResult,
     build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
-    AssetChecksDefinition,
 )
 from dagster_embedded_elt.dlt import (
-    dlt_assets,
     DagsterDltTranslator,
+    dlt_assets,
 )
-from typing import Dict, Iterable, Any, Mapping, Sequence, Optional
-from collections import deque
-from pydantic import dataclasses, Field
-from dataclasses import asdict
-from itertools import chain
+from dlt.common import pendulum
+from dlt.common.normalizers.naming.snake_case import NamingConvention
+from dlt.common.pipeline import LoadInfo
+from dlt.extract.resource import DltResource
+from pydantic import Field, dataclasses
+
+from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
+from dagster_shared_gf.dlt_shared.mongodb import mongodb_collection
+from dagster_shared_gf.shared_functions import (
+    filter_assets_by_tags,
+    get_for_current_env,
+)
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
 
 dlt.secrets["connection_str_source"] = EnvVar(
     "DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL"
 ).get_value()
 snake_case_normalizer = NamingConvention()
 
-default_date_fn = lambda: get_for_current_env(
-            {
-                "dev": pendulum.now().subtract(years=2),
-                "prd": pendulum.now().subtract(years=5),
-            }
-        )
+
+def default_date_fn():
+    return get_for_current_env(
+        {
+            "dev": pendulum.now().subtract(years=2),
+            "prd": pendulum.now().subtract(years=5),
+        }
+    )
+
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
-class DltResourceCollection():
+class DltResourceCollection:
     collection_name: str
     primary_key: Optional[str | tuple] = None
     table_new_name: Optional[str] = None
@@ -56,37 +61,36 @@ class DltResourceCollection():
     limit: Optional[int] = None
     cursor_path: Optional[str] = None
     initial_value: Optional[pendulum.DateTime] = None
-    
+
     def all_configs(self):
         return asdict(self)
 
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
-class DltPipelineSourceConfig():
+class DltPipelineSourceConfig:
     pipeline_base_name: str
     primary_key: str | tuple
     cursor_path: Optional[str] = None
-    initial_value: pendulum.DateTime = Field(
-        default_factory=default_date_fn
-    )
+    initial_value: pendulum.DateTime = Field(default_factory=default_date_fn)
     collections: tuple[DltResourceCollection, ...] = Field(default_factory=tuple)
     dep_pipeline_base_name: Optional[str] = None
 
     def __post_init__(self):
         for collection in self.collections:
             if collection.primary_key is None:
-                object.__setattr__(collection, 'primary_key', self.primary_key)
+                object.__setattr__(collection, "primary_key", self.primary_key)
             if collection.cursor_path is None:
-                object.__setattr__(collection, 'cursor_path', self.cursor_path)
+                object.__setattr__(collection, "cursor_path", self.cursor_path)
             if collection.initial_value is None:
-                object.__setattr__(collection, 'initial_value', self.initial_value)
-        
+                object.__setattr__(collection, "initial_value", self.initial_value)
+
     def all_configs(self):
         return asdict(self)
 
+
 DLTRCol = DltResourceCollection
 
-DltPipelineSourceConfigResourceTuple = tuple[DltPipelineSourceConfig , ...]
+DltPipelineSourceConfigResourceTuple = tuple[DltPipelineSourceConfig, ...]
 
 read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
@@ -116,10 +120,9 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
             ),
             DLTRCol(
                 collection_name="campaignsRecetas",
-                columns_to_remove=["created_at"], 
-                cursor_path="updatedAt", 
+                columns_to_remove=["created_at"],
+                cursor_path="updatedAt",
             ),
-
         ),
     ),
     DltPipelineSourceConfig(
@@ -135,59 +138,59 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
 )
 
 dltrccol_crm_person = DLTRCol(
-                collection_name="crm_person",
-                columns_hints={
-                    "id": {"data_type": "bigint"},
-                    "treatment": {"data_type": "text"},
-                    "first_name": {"data_type": "text"},
-                    "middle_name": {"data_type": "text"},
-                    "last_name": {"data_type": "text"},
-                    "second_last_name": {"data_type": "text"},
-                    "email": {"data_type": "text"},
-                    "dni": {"data_type": "text"},
-                    "phone_number": {"data_type": "text"},
-                    "landline": {"data_type": "text"},
-                    "address": {"data_type": "text"},
-                    "gender": {"data_type": "text"},
-                    "code": {"data_type": "text"},
-                    "sap_company_name": {"data_type": "text"},
-                    "country_code": {"data_type": "text"},
-                    "country_name": {"data_type": "text"},
-                    "department_code": {"data_type": "text"},
-                    "department_name": {"data_type": "text"},
-                    "municipality_code": {"data_type": "text"},
-                    "town_code": {"data_type": "text"},
-                    "neighborhood_code": {"data_type": "text"},
-                    "class_name": {"data_type": "text"},
-                    "business_name": {"data_type": "text"},
-                    "category_client": {"data_type": "text"},
-                    "company_id": {"data_type": "bigint"},
-                    "notes": {"data_type": "text"},
-                    "sap_company_code": {"data_type": "text"},
-                    "sap_zone_code": {"data_type": "text"},
-                    "sap_zone_name": {"data_type": "text"},
-                    "_id": {"data_type": "text"},
-                    "birth_date": {"data_type": "date"},
-                    "created_at": {"data_type": "timestamp"},
-                    "updated_at": {"data_type": "timestamp"},
-                    "sap_username": {"data_type": "text"},
-                    "user_id": {"data_type": "bigint"},
-                    "sapusercode": {"data_type": "text"},
-                    "number": {"data_type": "text"},
-                    "sellers": {"data_type": "complex"},
-                    "seller_id": {"data_type": "text"},
-                    "custom_fields": {"data_type": "complex"},
-                    "debt_collectors": {"data_type": "complex"},
-                    "facebook_username": {"data_type": "text"},
-                    "facebook_id": {"data_type": "text"},
-                    "twitter_username": {"data_type": "text"},
-                    "twitter_id": {"data_type": "text"},
-                    "linkedin_username": {"data_type": "text"},
-                    "instagram_username": {"data_type": "text"},
-                    "fecha_ingreso": {"data_type": "timestamp"},
-                },
-                #limit=1000,
-            )
+    collection_name="crm_person",
+    columns_hints={
+        "id": {"data_type": "bigint"},
+        "treatment": {"data_type": "text"},
+        "first_name": {"data_type": "text"},
+        "middle_name": {"data_type": "text"},
+        "last_name": {"data_type": "text"},
+        "second_last_name": {"data_type": "text"},
+        "email": {"data_type": "text"},
+        "dni": {"data_type": "text"},
+        "phone_number": {"data_type": "text"},
+        "landline": {"data_type": "text"},
+        "address": {"data_type": "text"},
+        "gender": {"data_type": "text"},
+        "code": {"data_type": "text"},
+        "sap_company_name": {"data_type": "text"},
+        "country_code": {"data_type": "text"},
+        "country_name": {"data_type": "text"},
+        "department_code": {"data_type": "text"},
+        "department_name": {"data_type": "text"},
+        "municipality_code": {"data_type": "text"},
+        "town_code": {"data_type": "text"},
+        "neighborhood_code": {"data_type": "text"},
+        "class_name": {"data_type": "text"},
+        "business_name": {"data_type": "text"},
+        "category_client": {"data_type": "text"},
+        "company_id": {"data_type": "bigint"},
+        "notes": {"data_type": "text"},
+        "sap_company_code": {"data_type": "text"},
+        "sap_zone_code": {"data_type": "text"},
+        "sap_zone_name": {"data_type": "text"},
+        "_id": {"data_type": "text"},
+        "birth_date": {"data_type": "date"},
+        "created_at": {"data_type": "timestamp"},
+        "updated_at": {"data_type": "timestamp"},
+        "sap_username": {"data_type": "text"},
+        "user_id": {"data_type": "bigint"},
+        "sapusercode": {"data_type": "text"},
+        "number": {"data_type": "text"},
+        "sellers": {"data_type": "complex"},
+        "seller_id": {"data_type": "text"},
+        "custom_fields": {"data_type": "complex"},
+        "debt_collectors": {"data_type": "complex"},
+        "facebook_username": {"data_type": "text"},
+        "facebook_id": {"data_type": "text"},
+        "twitter_username": {"data_type": "text"},
+        "twitter_id": {"data_type": "text"},
+        "linkedin_username": {"data_type": "text"},
+        "instagram_username": {"data_type": "text"},
+        "fecha_ingreso": {"data_type": "timestamp"},
+    },
+    # limit=1000,
+)
 
 read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
@@ -281,9 +284,7 @@ read_source_config_not_incremental: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_not_incremental",
-        collections=(
-            DLTRCol(collection_name="campaignActivity"),
-        ),
+        collections=(DLTRCol(collection_name="campaignActivity"),),
     ),
 )
 
@@ -293,6 +294,7 @@ all_mongo_db_source_configs: DltPipelineSourceConfigResourceTuple = (
     + read_source_config_multi_column
     + read_source_config_not_incremental
 )
+
 
 def get_config_filtered(
     dlt_source_config_resource_list: DltPipelineSourceConfigResourceTuple,
@@ -317,7 +319,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         Origen
 
         """
-        return [AssetKey([f"mongo_db_crm_hn", f"{resource.name}"])]
+        return [AssetKey(["mongo_db_crm_hn", f"{resource.name}"])]
 
     def get_metadata(self, resource: DltResource) -> Mapping[str, Any]:
         return (
@@ -367,7 +369,6 @@ def create_dlt_asset(
     dataset_name: str,
     dep_asset_pipeline: str | None = None,
 ) -> dlt_assets:
-
     if dep_asset_pipeline is not None:
         dep_asset_pipeline = [
             AssetKey([f"dlt_{dep_asset_pipeline}", f"{dlt_resource.name}"])
@@ -375,7 +376,7 @@ def create_dlt_asset(
     else:
         dep_asset_pipeline = []
 
-    target_table_identifier = dlt_t.get_normalized_table_identifier(dlt_resource)
+    #target_table_identifier = dlt_t.get_normalized_table_identifier(dlt_resource)
     target_pipeline_name = dlt_t.get_pipeline_name(dlt_resource)
 
     @asset(
@@ -426,7 +427,6 @@ def dlt_mongo_db_crm_hn_asset_factory(
     dlt_assets_list: deque[AssetsDefinition] = deque()
     for dlt_source_config in mongo_db_source_configs:
         for collection in dlt_source_config.collections:
-            
             resource: DltResource = mongodb_collection(
                 connection_url=dlt.secrets["connection_str_source"],
                 database="pro01",
@@ -442,19 +442,16 @@ def dlt_mongo_db_crm_hn_asset_factory(
             )
 
             if collection.table_new_name:
-                resource = resource.apply_hints(
-                    table_name=collection.table_new_name
-                )
+                resource = resource.apply_hints(table_name=collection.table_new_name)
 
             if collection.columns_hints:
-                resource = resource.apply_hints(
-                    columns=collection.columns_hints
-                )
+                resource = resource.apply_hints(columns=collection.columns_hints)
 
             if collection.columns_to_remove:
                 resource = resource.add_map(
-                    lambda doc, columns=collection.columns_to_remove: DagsterDltTranslatorMongodbCRMHN.remove_columns(
-                        doc, remove_columns = columns
+                    lambda doc,
+                    columns=collection.columns_to_remove: DagsterDltTranslatorMongodbCRMHN.remove_columns(
+                        doc, remove_columns=columns
                     )
                 )
 
@@ -475,7 +472,9 @@ def dlt_mongo_db_crm_hn_asset_factory(
             new_assets = create_dlt_asset(
                 dlt_resource=resource,
                 group_name="dlt_mongo_db_crm_hn_etl_dwh",
-                dlt_t=DagsterDltTranslatorMongodbCRMHN(config=dlt_source_config, collection=collection),
+                dlt_t=DagsterDltTranslatorMongodbCRMHN(
+                    config=dlt_source_config, collection=collection
+                ),
                 dataset_name="mongo_db_crm_hn",
                 tags={"dagster/storage_kind": "sqlserver"},
                 dep_asset_pipeline=dlt_source_config.dep_pipeline_base_name,
