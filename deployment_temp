@@ -1,4 +1,6 @@
 BASH
+python3.12 -m venv .venv_main_dagster
+
 pip uninstall dagster_sap dagster_kielsa
 
 pip -V
