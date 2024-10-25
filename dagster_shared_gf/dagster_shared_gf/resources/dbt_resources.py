@@ -8,7 +8,7 @@ from dagster_dbt import DbtCliResource, DagsterDbtTranslator
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
 import warnings
-from dagster._core.definitions.utils import is_valid_definition_tag_key
+from dagster._utils.tags  import is_valid_tag_key 
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 env_str:str = shared_vars.env_str
@@ -52,7 +52,7 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         """
         if dbt_resource_props["resource_type"] == "source":
             tags = dbt_resource_props.get("config", {}).get("tags", [])
-            return {tag: "" for tag in tags if is_valid_definition_tag_key(tag)}
+            return {tag: "" for tag in tags if is_valid_tag_key(tag)}
 
         return super().get_tags(dbt_resource_props)
     

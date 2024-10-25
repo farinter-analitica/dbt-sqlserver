@@ -7,6 +7,7 @@ pip -V
 
 
 pip install --force-reinstall -e dagster_shared_gf --config-settings editable_mode=compat
+pip install -e dagster_shared_gf[dev] --config-settings editable_mode=compat
 pip install -e dagster_shared_gf --config-settings editable_mode=compat
 pip install -e dagster_sap_gf --config-settings editable_mode=compat
 pip install -e dagster_kielsa_gf --config-settings editable_mode=compat
