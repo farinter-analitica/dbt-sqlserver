@@ -6,7 +6,7 @@ import dlt
 from dlt.common.data_writers import TDataItemFormat
 from dlt.sources import DltResource
 
-from .helpers import (
+from dagster_shared_gf.dlt_shared.mongodb.helpers import (
     MongoDbCollectionConfiguration,
     MongoDbCollectionResourceConfiguration,
     client_from_credentials,

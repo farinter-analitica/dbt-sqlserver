@@ -34,7 +34,7 @@ from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
     get_for_current_env,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
 
 dlt.secrets["connection_str_source"] = EnvVar(
     "DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL"
@@ -427,6 +427,8 @@ def dlt_mongo_db_crm_hn_asset_factory(
     dlt_assets_list: deque[AssetsDefinition] = deque()
     for dlt_source_config in mongo_db_source_configs:
         for collection in dlt_source_config.collections:
+            if env_str == "local": 
+                print(f"Processing collection: {collection.collection_name}")
             resource: DltResource = mongodb_collection(
                 connection_url=dlt.secrets["connection_str_source"],
                 database="pro01",
@@ -531,6 +533,15 @@ all_asset_freshness_checks = (
 )
 
 if __name__ == "__main__":
+    def test_all_assets_loaded():
+        configured_total = 0
+        for Source in all_mongo_db_source_configs:
+            configured_total += len(Source.collections)
+
+        loaded_total = len(all_assets)
+        assert configured_total == loaded_total, f"Expected {configured_total} assets, but loaded {loaded_total} assets"
+                
+
     pass
     # def load_select_collection_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
     #     """Use the mongodb source to reflect an entire database schema and load select tables from it.
