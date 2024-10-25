@@ -13,6 +13,7 @@ from dagster import (
     AssetsDefinition,
     EnvVar,
     MaterializeResult,
+    MetadataValue,
     SourceAsset,
     asset,
     build_last_update_freshness_checks,
@@ -62,7 +63,7 @@ class DltResourceCollection:
     cursor_path: Optional[str] = None
     initial_value: Optional[pendulum.DateTime] = None
 
-    def all_configs(self):
+    def get_all_configs_dict(self):
         return asdict(self)
 
 
@@ -84,7 +85,7 @@ class DltPipelineSourceConfig:
             if collection.initial_value is None:
                 object.__setattr__(collection, "initial_value", self.initial_value)
 
-    def all_configs(self):
+    def get_all_configs_dict(self):
         return asdict(self)
 
 
@@ -321,15 +322,13 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         """
         return [AssetKey(["mongo_db_crm_hn", f"{resource.name}"])]
 
-    def get_metadata(self, resource: DltResource) -> Mapping[str, Any]:
+    def get_collection_metadata(self, resource: DltResource) -> Mapping[str, Any]:
+        collection_meta = {key: MetadataValue.text(value) for key, value in self.collection.get_all_configs_dict()}
         return (
-            self.collection.all_configs()
+            collection_meta
             | resource.explicit_args
             | {"columns_schema": resource.columns}
         )
-
-    def get_config(self) -> DltPipelineSourceConfig:
-        return self.config
 
     def get_normalized_table_identifier(self, resource: DltResource) -> str:
         return snake_case_normalizer.normalize_table_identifier(resource.name)
@@ -382,8 +381,8 @@ def create_dlt_asset(
     @asset(
         key=dlt_t.get_asset_key(dlt_resource),
         group_name=group_name,
-        description=f"cursor {dlt_t.get_config().cursor_path} resource {dlt_t.get_asset_key(dlt_resource)}",
-        metadata=dlt_t.get_metadata(dlt_resource),
+        description=f"cursor {dlt_t.collection.cursor_path} resource {dlt_t.get_asset_key(dlt_resource)}",
+        metadata=dlt_t.get_collection_metadata(dlt_resource),
         deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_asset_pipeline,
         compute_kind="dlt",
         tags=tags,
@@ -435,9 +434,9 @@ def dlt_mongo_db_crm_hn_asset_factory(
                 collection=collection.collection_name,
                 limit=collection.limit,
                 incremental=dlt.sources.incremental(
-                    cursor_path=dlt_source_config.cursor_path,
-                    primary_key=dlt_source_config.primary_key,
-                    initial_value=dlt_source_config.initial_value,
+                    cursor_path=collection.cursor_path,
+                    primary_key=collection.primary_key,
+                    initial_value=collection.initial_value,
                 ),
                 parallel=True,
                 # data_item_format="arrow", #aparentemente no con esta combinacion de source / destino
