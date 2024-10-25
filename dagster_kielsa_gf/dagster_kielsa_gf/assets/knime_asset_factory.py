@@ -145,7 +145,7 @@ def create_knime_assets(context: OpExecutionContext, workflows) -> List[AssetsDe
                                                                 , ambiente=ambiente
                                                                 , knime_workflow=knime_workflow
                                                                 , workflow_directory=workflow_directory))
-            #print(workflow_asset)
+            #print(workflow_asset) #BI_CRM_Hecho_Llamadas
         context.log.info(f"Created {len(asset_definitions)} knime assets.")
         return asset_definitions
     else:

@@ -6,11 +6,11 @@ from datetime import timedelta
 from typing import Sequence
 
 tags_repo = TagsRepositoryGF
-dl_farinter_assets_prefix = "DL_FARINTER"
+dl_farinter_assets_prefix = ["DL_FARINTER","dbo"]
 #DL_Kielsa_RecetasCabecera, DL_Kielsa_RecetasDetalle, DL_Kielsa_RecetasMedicos
-@multi_asset(specs= [AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_RecetasCabecera"]))
-                     ,AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_RecetasDetalle"]))
-                     ,AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_RecetasMedicos"]))
+@multi_asset(specs= [AssetSpec(key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_RecetasCabecera"]))
+                     ,AssetSpec(key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_RecetasDetalle"]))
+                     ,AssetSpec(key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_RecetasMedicos"]))
                     ]
        )
 def DL_paCargarKielsa_Recetas(dwh_farinter_dl: SQLServerResource) -> tuple[None, None, None]: 
@@ -18,9 +18,9 @@ def DL_paCargarKielsa_Recetas(dwh_farinter_dl: SQLServerResource) -> tuple[None,
 
     return None, None, None
 
-@multi_asset(specs= [AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_Libros_Cliente"]))
-                     ,AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_Libros_Historico"]))
-                     ,AssetSpec(key=AssetKey([dl_farinter_assets_prefix,"DL_Kielsa_Libros_Tipo"]))
+@multi_asset(specs= [AssetSpec(key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_Libros_Cliente"]))
+                     ,AssetSpec(key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_Libros_Historico"]))
+                     ,AssetSpec(key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_Libros_Tipo"]))
                     ]
        )
 def DL_paCargarKielsa_Libros(dwh_farinter_dl: SQLServerResource) -> tuple[None, None, None]: 

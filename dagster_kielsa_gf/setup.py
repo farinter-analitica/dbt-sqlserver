@@ -6,5 +6,5 @@ setup(
     install_requires=[
         "dagster_shared_gf"
     ],
-    extras_require={"dev": [ "pytest", "pytest_mock"]},
+    extras_require={"dev": [ "pytest", "pytest-mock", "mypy", "ruff", "pre-commit"]},
 )
