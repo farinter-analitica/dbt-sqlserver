@@ -33,8 +33,8 @@ drop_data: Wipe all data and resource state for all resources being processed. S
             destination=self._get_destination(),
             dataset_name=dataset_name,
             progress="log",
-            refresh=self.refresh
-            pipelines_dir=dev_pipelines_dir
+            refresh=self.refresh,
+            pipelines_dir=new_pipelines_dir
         )
         if self.restore_from_destination is not None:
             pipeline.config.restore_from_destination  = self.restore_from_destination
