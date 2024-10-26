@@ -44,7 +44,12 @@ dlt.secrets["connection_str_source"] = EnvVar(
 snake_case_normalizer = NamingConvention()
 default_timezone: str = "America/Tegucigalpa"
 
-
+automation_hourly_cron = get_for_current_env(
+    {
+        "dev": None,
+        "prd": AutomationCondition.cron_tick_passed("01 6-19 * * *", cron_timezone=default_timezone).since_last_handled(),
+    }
+)
 def default_date_fn():
     return get_for_current_env(
         {
@@ -126,8 +131,13 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
                 collection_name="campaignsRecetas",
                 columns_to_remove=["created_at"],
                 cursor_path="updatedAt",
-                automation_condition=AutomationCondition.on_cron("01 6-19 * * *", cron_timezone=default_timezone),
+                automation_condition=automation_hourly_cron,
             ),
+            DLTRCol(
+                collection_name="clientToCall",
+                cursor_path="updatedAt",
+                automation_condition=automation_hourly_cron,
+            )
         ),
     ),
     DltPipelineSourceConfig(
@@ -548,6 +558,10 @@ if __name__ == "__main__":
         loaded_total = len(all_assets)
         assert configured_total == loaded_total, f"Expected {configured_total} assets, but loaded {loaded_total} assets"
                 
+
+   # from dagster import materialize, instance_for_test
+    # with instance_for_test() as instance:
+    #     materialize(all_assets)
 
     pass
     # def load_select_collection_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
