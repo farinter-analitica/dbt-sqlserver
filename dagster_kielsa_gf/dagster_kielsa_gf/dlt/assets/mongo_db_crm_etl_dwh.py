@@ -18,6 +18,7 @@ from dagster import (
     asset,
     build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
+    AutomationCondition,
 )
 from dagster_embedded_elt.dlt import (
     DagsterDltTranslator,
@@ -41,6 +42,7 @@ dlt.secrets["connection_str_source"] = EnvVar(
     "DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL"
 ).get_value()
 snake_case_normalizer = NamingConvention()
+default_timezone: str = "America/Tegucigalpa"
 
 
 def default_date_fn():
@@ -62,9 +64,10 @@ class DltResourceCollection:
     limit: Optional[int] = None
     cursor_path: Optional[str] = None
     initial_value: Optional[pendulum.DateTime] = None
+    automation_condition: Optional[AutomationCondition] = None
 
     def get_all_configs_dict(self) -> Mapping[str, Any]:
-        return asdict(self)
+        return {key: value for key, value in self.__dict__.items() if value is not None}
 
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
@@ -86,7 +89,7 @@ class DltPipelineSourceConfig:
                 object.__setattr__(collection, "initial_value", self.initial_value)
 
     def get_all_configs_dict(self):
-        return asdict(self)
+        return {key: value for key, value in self.__dict__.items() if value is not None}
 
 
 DLTRCol = DltResourceCollection
@@ -123,6 +126,7 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
                 collection_name="campaignsRecetas",
                 columns_to_remove=["created_at"],
                 cursor_path="updatedAt",
+                automation_condition=AutomationCondition.on_cron("01 6-19 * * *", cron_timezone=default_timezone),
             ),
         ),
     ),
@@ -389,6 +393,7 @@ def create_dlt_asset(
         deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_asset_pipeline,
         compute_kind="dlt",
         tags=tags,
+        automation_condition=dlt_t.collection.automation_condition,
     )
     def created_dlt_assets(
         context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline
