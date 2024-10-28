@@ -1,5 +1,4 @@
 from collections import deque
-from dataclasses import asdict
 from datetime import timedelta
 from itertools import chain
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
@@ -426,9 +425,11 @@ def create_dlt_asset(
         )
         load_info.raise_on_failed_jobs()
 
-        extracted_resource_metadata = dlt_pipeline_dest_mssql.extract_resource_metadata(
-            context, dlt_resource, load_info, new_pipeline
-        )
+        extracted_resource_metadata = {"error": "LoadInfo vacía."}
+        if load_info:
+            extracted_resource_metadata = dlt_pipeline_dest_mssql.extract_resource_metadata(
+                context, dlt_resource, load_info, new_pipeline
+            )
 
         return MaterializeResult(
             asset_key=dlt_t.get_asset_key(dlt_resource),
