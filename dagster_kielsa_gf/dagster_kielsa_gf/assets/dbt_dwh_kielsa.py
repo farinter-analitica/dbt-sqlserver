@@ -59,7 +59,7 @@ p_end_date = datetime.combine((datetime.now() + timedelta(days=30)).date(), date
         timezone=default_timezone_teg,
         end_offset=1,
     ),
-    backfill_policy=BackfillPolicy.single_run(max_partitions_per_run=30),
+    backfill_policy=BackfillPolicy.single_run(),
 )
 def CRM_Kielsa_RecetasContactarHist(
     context: AssetExecutionContext, dbt_resource: DbtCliResource, config: MyDbtConfig
