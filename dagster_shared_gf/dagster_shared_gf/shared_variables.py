@@ -11,6 +11,8 @@ dlt_snake_case_normalizer = NamingConvention()
 
 env_str:str = dagster_instance_current_env.env
 shared_class_holder = [UnresolvedAssetJobDefinition, AssetExecutionType]
+default_timezone_teg: str = "America/Tegucigalpa"
+
 @dataclass
 class TagsRepositoryGF:
     """
@@ -83,6 +85,8 @@ class TagsRepositoryGF:
     class HourlyAdditional(_base_tag_class, key="periodo/por_hora_adicional", value=""):
         """{"periodo/por_hora_adicional": ""}"""
 
+    class Partitioned(_base_tag_class, key="particionado/si", value=""):
+        """{"particionado/si": ""}"""
 
 if __name__ == "__main__":
     print(TagsRepositoryGF.Hourly())

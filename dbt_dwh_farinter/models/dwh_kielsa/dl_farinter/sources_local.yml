@@ -128,3 +128,4 @@ sources:
       - name: DL_Kielsa_Orden_Local_Encabezado
       - name: DL_Kielsa_Orden_Exterior_Detalle
       - name: DL_Kielsa_Orden_Exterior_Encabezado
+      - name: DL_Kielsa_VendedorSucursal

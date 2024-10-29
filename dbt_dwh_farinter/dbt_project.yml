@@ -89,6 +89,9 @@ models:
       dl_farinter:
         +group: 'ldcom_etl_dwh'
         +database: 'DL_FARINTER'
+      crm_farinter:
+        +group: 'crm_dwh_kielsa'
+        +database: 'CRM_FARINTER'
 
     dwh_global:
       +tags: ["dagster_global_gf/dbt"]
@@ -124,6 +127,9 @@ sources:
       dl_farinter:
         +group: 'ldcom_etl_dwh'
         +database: 'DL_FARINTER'
+      crm_farinter:
+        +group: 'crm_dwh_kielsa'
+        +database: 'CRM_FARINTER'
 
     dwh_sap:
       +tags: ["dagster_sap_gf/dbt"]
@@ -167,11 +173,12 @@ sources:
 #  +post_hook:    "{{dwh_farinter_create_primary_key(this,columns=['Sociedad_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}"
 
 
-
 vars:
   P_SAPPRD_LS: SAPPRD #Linked server de SAP PRD
   P_SQLLDSUBS_LS: REPLICASLD #Linked server de Replicas de KIelsa, SITEPLUS y otros
   P_DWHPRD_LS: DWHPRD #Linked server de DWH PRD
+  P_FECHADESDE_INC: #a usar por modelos particionados, fecha inicial inclusiva >=
+  P_FECHAHASTA_EXC: #a usar por modelos particionados, fecha final exclusiva <
 
   P_LDCOM_FULL_LINKED_SERVERS:
     HN:

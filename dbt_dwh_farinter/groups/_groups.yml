@@ -57,3 +57,6 @@ groups:
   - name: dbt_snapshots
     owner:
       email: brian.padilla@farinter.com
+  - name: crm_dwh_kielsa
+    owner:
+      email: brian.padilla@farinter.com
