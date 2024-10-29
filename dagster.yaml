@@ -16,3 +16,11 @@ run_monitoring:
   cancel_timeout_seconds: 180
   max_resume_run_attempts: 0 # experimental if above 0
   poll_interval_seconds: 120
+
+# for higher dequeue throughput, threading can be enabled:
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    dequeue_use_threads: true
+    dequeue_num_workers: 8
