@@ -129,3 +129,6 @@ sources:
       - name: DL_Kielsa_Orden_Exterior_Detalle
       - name: DL_Kielsa_Orden_Exterior_Encabezado
       - name: DL_Kielsa_VendedorSucursal
+      - name: DL_Kielsa_Libros_Cliente
+      - name: DL_Kielsa_Libros_Tipo
+      - name: DL_MDBECOMM_Usuarios
