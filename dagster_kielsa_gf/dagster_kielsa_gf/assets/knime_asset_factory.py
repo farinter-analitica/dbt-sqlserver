@@ -88,7 +88,7 @@ def filter_logs_std(logs):
 
 # Operation to fetch workflows from the database
 @op(required_resource_keys={"db_analitica_etl"})
-def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str]]:
+def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str | None]]:
     query = f"""
     SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
     FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"DEV", "prd":"PRD"})}';"""
@@ -195,7 +195,7 @@ def create_knime_workflow_asset(
 
 
 # Dynamically create assets based on the fetched workflows
-@op(ins={"workflows": In(List[Dict[str, str]])}, out=Out(List[AssetsDefinition]))
+@op(ins={"workflows": In(List[Dict[str, str | None]])}, out=Out(List[AssetsDefinition]))
 def create_knime_assets(
     context: OpExecutionContext, workflows
 ) -> List[AssetsDefinition]:
