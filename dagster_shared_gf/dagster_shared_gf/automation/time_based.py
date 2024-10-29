@@ -1,6 +1,9 @@
-from dagster import AutomationCondition
+from dagster import AssetSelection, AutomationCondition
 from dagster_shared_gf.shared_functions import get_for_current_env
-from dagster_shared_gf.shared_variables import default_timezone_teg
+from dagster_shared_gf.shared_variables import (
+    default_timezone_teg,
+    TagsRepositoryGF as tags_repo,
+)
 
 # https://docs.dagster.io/concepts/automation/declarative-automation
 # https://docs.dagster.io/concepts/automation/declarative-automation/customizing-automation-conditions
@@ -31,7 +34,7 @@ def get_cron_eager_execution_condition(cron_schedule: str) -> AutomationConditio
         & ~AutomationCondition.any_deps_missing()
         & ~AutomationCondition.any_deps_in_progress()
         & ~AutomationCondition.in_progress()
-    ).on_cron('@hourly')
+    ).on_cron("@hourly")
 
     final_condition = (eager_condition & cron_condition) | cron_condition
 
@@ -53,3 +56,27 @@ automation_hourly_cron_prd = get_for_current_env(
         ).with_label("Por hora (06-19)"),
     }
 )
+
+all_daily_deps_updated = (
+    AutomationCondition.all_deps_match(
+        (AutomationCondition.newly_updated()).with_label("newly_updated")
+        | AutomationCondition.will_be_requested()
+    )
+    .ignore(
+        selection=(
+            AssetSelection.all()
+            - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+        )
+    )
+    .with_label("all_daily_deps_updated")
+)
+
+automation_daily_cron_prd = (
+    AutomationCondition.cron_tick_passed(
+        get_for_current_env({"dev": "0 1 * * *", "prd": "10 0 * * *"}),
+        cron_timezone=default_timezone_teg,
+    ).since_last_handled().with_label(f"Cron diario {get_for_current_env({'dev':'0 1 * * *','prd':'10 0 * * *'})}")
+    & ~AutomationCondition.in_progress()
+    & ~AutomationCondition.any_deps_in_progress()
+    & all_daily_deps_updated.since_last_handled()
+).with_label("Cron diario condicional.")

@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
 import json
-from typing import Mapping, Any
+from typing import Mapping, Any, Optional
 #from ...dbt_kielsa
-from dagster import ExperimentalWarning, AssetKey
+from dagster import AutomationCondition, ExperimentalWarning, AssetKey
 from dagster_dbt import DbtCliResource, DagsterDbtTranslator
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.automation import automation_daily_cron_prd
 import warnings
 from dagster._utils.tags  import is_valid_tag_key 
 
@@ -107,3 +108,16 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         if group is not None and group != "default":
             return group
         return "dbt_default_group"
+    
+    def get_automation_condition(self, dbt_resource_props) -> Optional[AutomationCondition]:
+        tags = self.get_tags(dbt_resource_props)
+        daily_auto_tags = shared_vars.TagsRepositoryGF.Daily.tag | shared_vars.TagsRepositoryGF.Partitioned.tag
+        all_automations = super().get_automation_condition(dbt_resource_props)
+        if all(item in tags.items() for item in daily_auto_tags.items()):
+            if all_automations is None:
+                all_automations = automation_daily_cron_prd
+            else:
+                all_automations = all_automations | automation_daily_cron_prd
+
+        return all_automations
+

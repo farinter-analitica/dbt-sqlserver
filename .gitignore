@@ -139,4 +139,6 @@ logs/
 dbt_packages/
 
 dagster_sap_gf/dagster_sap_gf/dlt/.dlt/secrets.toml
-.vscode
+
+#vscode
+.vscode/

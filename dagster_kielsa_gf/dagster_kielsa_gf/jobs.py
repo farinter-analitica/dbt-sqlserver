@@ -48,7 +48,9 @@ dbt_dwh_kielsa_marts_job = define_asset_job(
 
 kielsa_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups(
     "ldcom_etl_dwh", "recetas_libros_etl_dwh"
-).downstream()
+).downstream() - AssetSelection.tag(
+    key=tags_repo.Partitioned.key, value=tags_repo.Partitioned.value
+)
 kielsa_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_etl_dwh_all_downstream_job",
     selection=kielsa_etl_dwh_all_downstream_assets,

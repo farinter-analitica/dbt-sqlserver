@@ -206,9 +206,9 @@ __all__ = list(map(lambda x: x.name, all_schedules) )
 if __name__ == "__main__":
     ##tests
     context = build_schedule_context(scheduled_execution_time=datetime.now())
-    assert should_skip_run(context,default_timezone) == False
+    assert should_skip_run(context,default_timezone) is False
     context = build_schedule_context(scheduled_execution_time=datetime.now()-timedelta(days=1))
-    assert should_skip_run(context,default_timezone) == True
+    assert should_skip_run(context,default_timezone) is True
    
     
     print(all_schedules)

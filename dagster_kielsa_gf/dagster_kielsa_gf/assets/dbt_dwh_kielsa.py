@@ -49,16 +49,18 @@ def dbt_dwh_kielsa_mart_datos_maestros_assets(
 
 p_start_date = datetime.combine((datetime.now() - timedelta(days=360)).date(), datetime.min.time()).astimezone(pytz.timezone(default_timezone_teg))
 p_end_date = datetime.combine((datetime.now() + timedelta(days=30)).date(), datetime.min.time()).astimezone(pytz.timezone(default_timezone_teg))
-@dbt_assets(
-    manifest=dbt_manifest,
-    select="tag:dagster_kielsa_gf/dbt,tag:particionado/si",
-    dagster_dbt_translator=MyDbtSourceTranslator(),
-    partitions_def=DailyPartitionsDefinition(
+
+particionado_contactar_hist = DailyPartitionsDefinition(
         start_date=p_start_date,
         end_date=p_end_date,
         timezone=default_timezone_teg,
         end_offset=1,
-    ),
+    )
+@dbt_assets(
+    manifest=dbt_manifest,
+    select="tag:dagster_kielsa_gf/dbt,tag:particionado/si",
+    dagster_dbt_translator=MyDbtSourceTranslator(),
+    partitions_def=particionado_contactar_hist,
     backfill_policy=BackfillPolicy.single_run(),
 )
 def CRM_Kielsa_RecetasContactarHist(
