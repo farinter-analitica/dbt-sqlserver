@@ -1,7 +1,7 @@
 import re
 import subprocess
 from datetime import timedelta
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from dagster import (
     AssetChecksDefinition,
@@ -88,7 +88,7 @@ def filter_logs_std(logs):
 
 # Operation to fetch workflows from the database
 @op(required_resource_keys={"db_analitica_etl"})
-def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, str | None]]:
+def fetch_knime_workflows(context: OpExecutionContext) -> List[Dict[str, Any | None]]:
     query = f"""
     SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
     FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"DEV", "prd":"PRD"})}';"""
