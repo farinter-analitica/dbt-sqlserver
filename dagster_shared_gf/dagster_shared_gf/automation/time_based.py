@@ -50,6 +50,6 @@ automation_hourly_cron_prd = get_for_current_env(
             ).since_last_handled()
             & ~AutomationCondition.in_progress()
             & ~AutomationCondition.any_deps_in_progress()
-        ),
+        ).with_label("Por hora (06-19)"),
     }
 )

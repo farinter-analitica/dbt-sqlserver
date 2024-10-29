@@ -195,7 +195,7 @@ def create_knime_workflow_asset(
 
 
 # Dynamically create assets based on the fetched workflows
-@op(ins={"workflows": In(List[Dict[str, str | None]])}, out=Out(List[AssetsDefinition]))
+@op(ins={"workflows": In(List[Dict[str, Any | None]])}, out=Out(List[AssetsDefinition]))
 def create_knime_assets(
     context: OpExecutionContext, workflows
 ) -> List[AssetsDefinition]:
