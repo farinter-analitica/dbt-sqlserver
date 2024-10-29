@@ -64,9 +64,9 @@ p_end_date = datetime.combine((datetime.now() + timedelta(days=30)).date(), date
 def CRM_Kielsa_RecetasContactarHist(
     context: AssetExecutionContext, dbt_resource: DbtCliResource, config: MyDbtConfig
 ):
-    dbt_run_args = ["build"]
-    v_date_from = (datetime.now().date() - timedelta(days=360)).replace(day=1)
-    v_date_to = (datetime.now().date() + timedelta(days=30)).replace(day=1)
+    dbt_run_args: List[str] = ["build"]
+    v_date_from: str = (datetime.now().date() - timedelta(days=360)).replace(day=1).strftime("%Y%m%d")
+    v_date_to: str = (datetime.now().date() + timedelta(days=30)).replace(day=1).strftime("%Y%m%d")
     if config.full_refresh or not context.has_partition_key_range:
         dbt_run_args += ["--full-refresh"]
     if context.has_partition_key_range:
