@@ -35,7 +35,7 @@ from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
     get_for_current_env,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str, default_timezone_teg
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
 from dagster_shared_gf.automation import automation_hourly_cron_prd
 
 dlt.secrets["connection_str_source"] = EnvVar(
