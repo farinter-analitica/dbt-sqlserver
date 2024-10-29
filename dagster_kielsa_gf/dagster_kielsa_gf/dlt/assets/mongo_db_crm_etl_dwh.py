@@ -35,20 +35,14 @@ from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
     get_for_current_env,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str, default_timezone_teg
+from dagster_shared_gf.automation import automation_hourly_cron_prd
 
 dlt.secrets["connection_str_source"] = EnvVar(
     "DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL"
 ).get_value()
 snake_case_normalizer = NamingConvention()
-default_timezone: str = "America/Tegucigalpa"
 
-automation_hourly_cron = get_for_current_env(
-    {
-        "dev": None,
-        "prd": AutomationCondition.cron_tick_passed("01 6-19 * * *", cron_timezone=default_timezone).since_last_handled(),
-    }
-)
 def default_date_fn():
     return get_for_current_env(
         {
@@ -130,12 +124,12 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
                 collection_name="campaignsRecetas",
                 columns_to_remove=["created_at"],
                 cursor_path="updatedAt",
-                automation_condition=automation_hourly_cron,
+                automation_condition=automation_hourly_cron_prd,
             ),
             DLTRCol(
                 collection_name="clientToCall",
                 cursor_path="updatedAt",
-                automation_condition=automation_hourly_cron,
+                automation_condition=automation_hourly_cron_prd,
             )
         ),
     ),
