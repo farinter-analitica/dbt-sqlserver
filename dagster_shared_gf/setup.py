@@ -25,6 +25,7 @@ setup(
         "dagster-embedded-elt",
         "pymongo",
         "pymongoarrow",
+        "arrow-odbc",
         "deep-translator",
         "ydata-profiling"
     ],

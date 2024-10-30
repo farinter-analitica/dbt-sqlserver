@@ -57,26 +57,51 @@ automation_hourly_cron_prd = get_for_current_env(
     }
 )
 
-all_daily_deps_updated = (
-    AutomationCondition.all_deps_match(
-        (AutomationCondition.newly_updated()).with_label("newly_updated")
-        | AutomationCondition.will_be_requested()
-    )
-    .ignore(
+def my_automation_condition() -> AutomationCondition:
+        cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "0 0 * * *"})
+        cron_timezone=default_timezone_teg
+        cron_label = f"'{cron_schedule}' ({cron_timezone})"
+        cron_tick_passed = AutomationCondition.cron_tick_passed(
+            cron_schedule, cron_timezone
+        ).with_label(f"tick of {cron_label} passed")
+        #newly_updated = AutomationCondition.newly_updated().with_label("newly updated")
+        all_deps_updated_since_cron = AutomationCondition.all_deps_match(
+            AutomationCondition.newly_updated().since(cron_tick_passed)
+            | AutomationCondition.will_be_requested()
+        ).ignore(
         selection=(
             AssetSelection.all()
             - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
-        )
-    )
-    .with_label("all_daily_deps_updated")
-)
+            )
+        ).with_label(f"all parents updated since {cron_label}")
+        return (
+            AutomationCondition.in_latest_time_window()
+            & cron_tick_passed
+            & all_deps_updated_since_cron
+        ).with_label(f"on cron {cron_label}")
 
-automation_daily_cron_prd = (
-    AutomationCondition.cron_tick_passed(
-        get_for_current_env({"dev": "0 1 * * *", "prd": "10 0 * * *"}),
-        cron_timezone=default_timezone_teg,
-    ).since_last_handled().with_label(f"Cron diario {get_for_current_env({'dev':'0 1 * * *','prd':'10 0 * * *'})}")
-    & ~AutomationCondition.in_progress()
-    & ~AutomationCondition.any_deps_in_progress()
-    & all_daily_deps_updated.since_last_handled()
-).with_label("Cron diario condicional.")
+# all_daily_deps_updated = (
+#     AutomationCondition.all_deps_match(
+#         (AutomationCondition.newly_updated()).with_label("newly_updated")
+#         | AutomationCondition.will_be_requested()
+#     )
+#     .ignore(
+#         selection=(
+#             AssetSelection.all()
+#             - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+#         )
+#     )
+#     .with_label("all_daily_deps_updated")
+# )
+
+# automation_daily_cron_prd = (
+#     AutomationCondition.cron_tick_passed(
+#         get_for_current_env({"dev": "0 1 * * *", "prd": "10 0 * * *"}),
+#         cron_timezone=default_timezone_teg,
+#     ).since_last_handled().with_label(f"Cron diario {get_for_current_env({'dev':'0 1 * * *','prd':'10 0 * * *'})}")
+#     & ~AutomationCondition.in_progress()
+#     & ~AutomationCondition.any_deps_in_progress()
+#     & all_daily_deps_updated.since_last_handled()
+# ).with_label("Cron diario condicional.")
+
+automation_daily_cron_prd = my_automation_condition() 

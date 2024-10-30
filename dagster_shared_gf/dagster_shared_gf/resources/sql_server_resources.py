@@ -1,14 +1,20 @@
-from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, Definitions
+import base64
+import contextlib
+import os
+from typing import Any, Generator, List, Literal
+import urllib.parse
+
+import pyodbc
+import sqlalchemy
+from dagster import ConfigurableResource, EnvVar, InitResourceContext
 from pydantic import Field
-from typing import List, Literal, Generator, Any
 
-import os, base64, contextlib, pyodbc, sqlalchemy
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.load_env_run import load_env_vars
-
+from dagster_shared_gf.shared_functions import get_for_current_env
 
 Row = pyodbc.Row
+encode_url = urllib.parse.quote
 
 def encode_password(input_str: str) -> str:
     # Convert the string to bytes
@@ -75,36 +81,14 @@ class SQLServerBaseResource:
 
         """
 
-        if database is None or database == "":
-            database = self.default_database
-        if not self.allow_any_database and  database not in self.databases:
-            raise ValueError(f"Database {database} is not in the allowed list.")
-        if engine == "pyodbc":
-            connection_string = (
-                f"DRIVER={self.driver};"
-                f"SERVER={self.server};"
-                f"DATABASE={database};"
-                f"UID={self.username};"
-                f"PWD={self.password};"
-                f"TrustServerCertificate={self.trust_server_certificate};"
-            )
-        elif engine == "sqlalchemy":
-            connection_url = sqlalchemy.URL.create(
-                "mssql+pyodbc",
-                username=self.username,
-                password=self.password,
-                host=self.server,
-                database=database,
-                query={"driver": self.driver, "TrustServerCertificate": self.trust_server_certificate},
-            )
-
+        connection_string = self.get_connection_string(database=database, engine=engine)
 
         conn = None
         try:
             if engine == "pyodbc":
                 conn = pyodbc.connect(connection_string, autocommit=autocommit)
             elif engine == "sqlalchemy":
-                conn = sqlalchemy.create_engine(connection_url
+                conn = sqlalchemy.create_engine(connection_string
                                                 , isolation_level="AUTOCOMMIT" if autocommit else None
                                                 , poolclass=sqlalchemy.pool.NullPool
                                                 ).connect()
@@ -124,6 +108,59 @@ class SQLServerBaseResource:
 
             if conn:
                 self.close_connection(conn)
+
+    def get_connection_string(self, database: str | None = None
+                                                     , engine: Literal["pyodbc", "sqlalchemy", "arrow-odbc"] = "pyodbc"
+            ) -> str | sqlalchemy.URL:
+        """
+        Generates a connection string for the specified database.
+
+        Args:
+            database (str, optional): The name of the database to connect to. Defaults to None.
+            engine (Literal["pyodbc", "sqlalchemy", "arrow-odbc"], optional): The database engine to use. Defaults to "pyodbc".
+
+        Raises:
+            ValueError: If the specified database is not in the allowed list.
+
+        Returns:
+            str | sqlalchemy.URL: The connection string or URL.
+
+        """
+
+        connection_instance: str | sqlalchemy.URL  = None
+        if database is None or database == "":
+            database = self.default_database
+        if not self.allow_any_database and  database not in self.databases:
+            raise ValueError(f"Database {database} is not in the allowed list.")
+        if engine == "pyodbc":
+            connection_instance = (
+                f"DRIVER={self.driver};"
+                f"SERVER={self.server};"
+                f"DATABASE={database};"
+                f"UID={self.username};"
+                f"PWD={self.password};"
+                f"TrustServerCertificate={self.trust_server_certificate};"
+            )
+        elif engine == "sqlalchemy":
+            connection_instance = sqlalchemy.URL.create(
+                "mssql+pyodbc",
+                username=self.username,
+                password=self.password,
+                host=self.server,
+                database=database,
+                query={"driver": self.driver, "TrustServerCertificate": self.trust_server_certificate},
+            )
+        elif engine == "arrow-odbc":
+            connection_instance = (
+                f"DRIVER={{{self.driver}}};"
+                f"SERVER={{{self.server}}};"
+                f"DATABASE={{{database}}};"
+                f"UID={{{self.username}}};"
+                f"PWD={{{self.password}}};"
+                f"TrustServerCertificate={{{self.trust_server_certificate}}};"
+            )
+
+        return connection_instance
 
     def close_connection(self, connection: pyodbc.Connection | sqlalchemy.Connection):
         try:
@@ -188,7 +225,7 @@ class SQLServerBaseResource:
         except pyodbc.DatabaseError as opex:           
             if opex.args[0] == '42S02':
                 #print("Table does not exist error handling")
-                self.log_event('info',f"Table does not exist error handling. Returning None to caller.")
+                self.log_event('info',"Table does not exist error handling. Returning None to caller.")
                 return None
                 # Handle the error specific to table not existing
             else:
@@ -206,7 +243,10 @@ class SQLServerBaseResource:
             cursor = conn.cursor()
             cursor.execute(query)
             if not conn.autocommit:
-                conn.commit()
+                try: 
+                    conn.commit()
+                except Exception:
+                    pass
         elif isinstance(conn, sqlalchemy.engine.Connection):
             conn.execute(sqlalchemy.text(query))
             if not autocommit and conn.in_transaction():
@@ -246,6 +286,10 @@ class SQLServerBaseResource:
     def text(self, string: str) -> sqlalchemy.sql.text:
         """Text type that can be used in SQLAlchemy expressions to execute queries."""
         return sqlalchemy.text(string)
+
+    def get_arrow_odbc_conn_string(self, database: str | None = None) -> str:
+        """Get the Arrow ODBC connection string for the SQL Server resource."""
+        return self.get_connection_string(engine="arrow-odbc", database=database)
 
     def get_sqlalchemy_url(self) -> sqlalchemy.URL:
         """Get the SQLAlchemy URL for the SQL Server resource."""
@@ -463,3 +507,203 @@ if __name__ == "__main__":
             trust_server_certificate="yes",
             allow_any_database=False
         )
+
+    from unittest.mock import MagicMock, patch
+    # from dagster_shared_gf.resources.sql_server_resources import (
+    #     SQLServerNonRuntimeResource,
+    #     SQLServerNonRuntimeResource,
+    #     SQLServerResource,
+    # )
+
+    # Test the SQLServerNonRuntimeResource class
+    def test_sql_server_base_resource():
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+        )
+        assert resource.server == "test_server"
+        assert resource.databases == ["test_database"]
+        assert resource.username == "test_username"
+        assert resource.password == "test_password"
+        assert resource.default_database == "test_default_database"
+
+    # Test the SQLServerNonRuntimeResource class
+    def test_sql_server_non_runtime_resource():
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+        )
+        assert resource.server == "test_server"
+        assert resource.databases == ["test_database"]
+        assert resource.username == "test_username"
+        assert resource.password == "test_password"
+        assert resource.default_database == "test_default_database"
+
+    # Test the SQLServerResource class
+    def test_sql_server_resource():
+        resource = SQLServerResource(
+            server="test_server",
+            databases=["test_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+            trust_server_certificate="yes",
+            allow_any_database=False,
+        )
+        assert resource._context is None
+
+        # Test the setup_for_execution method
+        context = MagicMock()  # Mock context object
+        resource.setup_for_execution(context)
+        assert resource._context is context
+
+        # Test the log_event method
+        resource.log_event("info", "Test message")
+
+    # Test the get_connection method
+    @patch('pyodbc.connect')
+    def test_get_connection(mock_connect):
+        mock_conn = MagicMock()  # Mock connection object
+        mock_connect.return_value = mock_conn  # Return the mock connection object
+
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+            allow_any_database=True
+        )
+        with resource.get_connection() as connection:
+            assert connection is mock_conn  # Assert that the connection is the mock connection object
+            mock_connect.assert_called_once()  # Assert that the mock connection was called once
+        
+
+    # Test the query method
+    @patch('pyodbc.connect')
+    def test_query(mock_connect):
+        mock_cursor = MagicMock()
+        mock_cursor.execute.return_value = None
+        mock_cursor.fetchall.return_value = []
+        mock_connect.return_value.cursor.return_value = mock_cursor
+
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_default_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+        )
+        query_result = resource.query("SELECT * FROM test_table")
+        assert query_result == []
+        mock_cursor.execute.assert_called_once()
+        mock_cursor.fetchall.assert_called_once()
+
+    # Test the execute_and_commit method
+    @patch('pyodbc.connect')
+    def test_execute_and_commit(mock_connect):
+        mock_cursor = MagicMock(spec=pyodbc.Cursor)
+        mock_cursor.execute.return_value = None
+        mock_conn = MagicMock(spec=pyodbc.Connection)   
+        mock_connect.return_value = mock_conn
+
+        mock_connect.return_value.cursor.return_value = mock_cursor
+
+        mock_conn.autocommit = False
+
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_default_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+        )
+        resource.execute_and_commit("INSERT INTO test_table (column1) VALUES ('value1')", autocommit=False)
+        mock_cursor.execute.assert_called_once()
+        assert mock_connect.return_value.commit.call_count == 2
+    # Test the get_sqlalchemy_url method
+    def test_get_sqlalchemy_url():
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_default_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+        )
+        url = resource.get_sqlalchemy_url()
+        assert url is not None
+
+    # Test the get_sqlalchemy_conn method
+    @patch('sqlalchemy.create_engine')
+    def test_get_sqlalchemy_conn(mock_create_engine):
+        mock_conn = MagicMock(spec=sqlalchemy.Connection)
+        mock_create_engine.return_value.connect.return_value = mock_conn
+        
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_default_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+        )
+        with resource.get_sqlalchemy_conn() as conn:
+            assert conn is mock_conn
+            mock_create_engine.assert_called_once()
+
+    # Test the get_pyodbc_conn method
+    @patch('pyodbc.connect')
+    def test_get_pyodbc_conn(mock_connect):
+        mock_connect.return_value = MagicMock()
+
+        mock_connect.return_value.cursor.return_value = MagicMock()
+
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_default_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+        )
+        with resource.get_pyodbc_conn() as conn:
+            assert conn is not None
+            mock_connect.assert_called_once()
+
+    # Test the get_arrow_odbc_conn_string method
+    def test_get_arrow_odbc_conn_string():
+        resource = SQLServerNonRuntimeResource(
+            server="test_server",
+            databases=["test_default_database"],
+            username="test_username",
+            password="test_password",
+            default_database="test_default_database",
+            trust_server_certificate="yes",
+            allow_any_database=False
+        )
+        expected_conn_string = (
+                f"DRIVER={{{resource.driver}}};"
+                f"SERVER={{{resource.server}}};"
+                f"DATABASE={{{resource.default_database}}};"
+                f"UID={{{resource.username}}};"
+                f"PWD={{{resource.password}}};"
+                f"TrustServerCertificate={{{resource.trust_server_certificate}}};"
+            )
+        conn_string = resource.get_arrow_odbc_conn_string()
+        assert conn_string == expected_conn_string, f"Expected connection string: {expected_conn_string}, but got: {conn_string}"
+    # Test
+    test_sql_server_base_resource()
+    test_sql_server_non_runtime_resource()
+    test_sql_server_resource()
+    test_get_connection()
+    test_query()
+    test_execute_and_commit()
+    test_get_sqlalchemy_url()
+    test_get_sqlalchemy_conn()
+    test_get_pyodbc_conn()
+    test_get_arrow_odbc_conn_string()
+    #print(dwh_farinter_dl.get_arrow_odbc_conn_string())
