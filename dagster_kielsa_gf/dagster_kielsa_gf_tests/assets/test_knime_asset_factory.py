@@ -36,3 +36,7 @@ def test_filter_logs_std():
     expected_logs = """INFO This is a normal log line.\nDEBUG A debug message.\nINFO Another info message."""
     filtered_logs = filter_logs_std(logs)
     assert filtered_logs == expected_logs, f"Expected:\n{expected_logs}\nGot:\n{filtered_logs}"       
+
+if __name__ == "__main__":
+    test_knime_asset_factory()
+    test_filter_logs_std()
