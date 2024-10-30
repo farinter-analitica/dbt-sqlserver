@@ -1,14 +1,15 @@
-from dagster import ConfigurableResource, EnvVar, asset, Definitions
-from typing import List, Any
-import os
-import psycopg2
-from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf.shared_functions import get_for_current_env
-from dagster_shared_gf.load_env_run import load_env_vars
 import contextlib
+import os
+from typing import Any, List
+
+import psycopg
+from dagster import ConfigurableResource, EnvVar
+
+from dagster_shared_gf.load_env_run import load_env_vars
+from dagster_shared_gf.shared_functions import get_for_current_env
 
 Connection = Any
-Row = Any
+Row_Tuple = tuple[Any, ...]
 
 if not os.environ.get("DAGSTER_PG_USERNAME"):
     load_env_vars()
@@ -45,7 +46,7 @@ class PostgreSQLResource(ConfigurableResource):
             }
         if self.password:
             connection_dict["password"] = self.password
-        conn = psycopg2.connect(**connection_dict)
+        conn = psycopg.connect(**connection_dict)
         
         try:
             yield conn
@@ -56,11 +57,11 @@ class PostgreSQLResource(ConfigurableResource):
     def close_connection(self, connection: Connection):
         try:
             connection.close()
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
-    def query(self, query: str, connection: Connection = None, database: str = "") -> List[Row]:
+    def query(self, query: str, connection: Connection = None, database: str = "") -> List[Row_Tuple]:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows.
 
@@ -94,17 +95,17 @@ class PostgreSQLResource(ConfigurableResource):
                 cursor = connection.cursor()
                 cursor.execute(query)
                 return cursor.fetchall()
-        except psycopg2.DatabaseError as opex:           
+        except psycopg.DatabaseError as opex:           
             if opex.args[0] == '42S02':
                 #print("Table does not exist error handling")
-                self.get_resource_context().log.info(f"Table does not exist error handling. Returning None to caller.")
+                self.get_resource_context().log.info("Table does not exist error handling. Returning None to caller.")
                 return None
                 # Handle the error specific to table not existing
             else:
                 #print(f"An unexpected database error occurred: {str(opex)}")
                 self.get_resource_context().log.info(f"An unexpected database error occurred: {str(opex)}. Returning None to caller.")
                 return None
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             self.get_resource_context().log.error(f"An unexpected error occurred:: {str(e)}. Returning None to caller.")
 #            print(f"An unexpected error occurred: {str(e)}")
 
@@ -138,7 +139,7 @@ class PostgreSQLResource(ConfigurableResource):
                 cursor.execute(query)
                 connection.commit()
                 
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             # Add proper logging here
             self.get_resource_context().log.error(f"Error executing and committing query: {str(e.args)}.")
 
@@ -170,7 +171,7 @@ db_analitica_etl = PostgreSQLResource(
 #         self.db_name = context.resource_config['db_name']
 
 #     def connect(self):
-#         return psycopg2.connect(
+#         return psycopg.connect(
 #             host=self.host,
 #             user=self.user,
 #             password=self.password,

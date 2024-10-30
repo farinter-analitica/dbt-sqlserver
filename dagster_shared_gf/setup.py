@@ -27,7 +27,8 @@ setup(
         "pymongoarrow",
         "arrow-odbc",
         "deep-translator",
-        "ydata-profiling"
+        "ydata-profiling",
+        "psycopg[binary,pool]",
     ],
     extras_require={"dev": [ "pytest", "pytest-mock", "mypy", "ruff", "pre-commit"]},
 )
