@@ -661,7 +661,7 @@ if __name__ == "__main__":
 
     unittest.main()
 
-all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
+all_assets = load_assets_from_current_module()
 
 # all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
 #     assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
