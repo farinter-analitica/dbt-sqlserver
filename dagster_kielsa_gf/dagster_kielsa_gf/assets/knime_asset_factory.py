@@ -34,7 +34,7 @@ from dagster_shared_gf.shared_functions import (
     get_for_current_env,
     search_for_word_in_text,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF, env_str
+from dagster_shared_gf.shared_variables import TagsRepositoryGF, env_str, Tags
 
 tags_repo = TagsRepositoryGF
 
@@ -52,21 +52,25 @@ class Workflow(NamedTuple):
     knime_bin: str
     ambiente: str
     knime_workflow: str
-    #cron_text: str
     workflow_directory: str
+    tags: Optional[Tags]
     automation_condition: Optional[AutomationCondition]
+
 
 WorkflowsTuple = DagsterType(
     name="WorkflowsTuple",
-    type_check_fn=lambda _, value: isinstance(value, tuple) and all(isinstance(x, Workflow) for x in value),
+    type_check_fn=lambda _, value: isinstance(value, tuple)
+    and all(isinstance(x, Workflow) for x in value),
     typing_type=tuple[Workflow, ...],
 )
 
 AssetsTuple = DagsterType(
     name="AssetsTuple",
-    type_check_fn=lambda _, value: isinstance(value, tuple) and all(isinstance(x, AssetsDefinition) for x in value),
+    type_check_fn=lambda _, value: isinstance(value, tuple)
+    and all(isinstance(x, AssetsDefinition) for x in value),
     typing_type=tuple[AssetsDefinition, ...],
 )
+
 
 def filter_logs_std(logs):
     exclude_patterns = [
@@ -110,6 +114,7 @@ def filter_logs_std(logs):
             filtered_lines.append(" ".join(line.split()))
     return "\n".join(filtered_lines)
 
+
 # ##define place holder asset to use if not found f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel"
 # @asset(  # name=f"knime_wf_{env_str.upper()}_DWHFP_SalidaExportarAExcel"
 #     key=AssetKey(["knime_wf", env_str, "DWHFP_SalidaExportarAExcel"]),
@@ -118,6 +123,7 @@ def filter_logs_std(logs):
 # )
 # def knime_wf_DWHFP_SalidaExportarAExcel() -> None:
 #     return None
+
 
 # Operation to fetch workflows from the database
 @op(out=Out(WorkflowsTuple))
@@ -128,34 +134,48 @@ def fetch_knime_workflows(
     SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
     FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"DEV", "prd":"PRD"})}';"""
     results = db_analitica_etl.query(query)
+
+    tags: dict[str, Tags] = {
+        "MDBCRM_ETL_LlamadasConsolidado": tags_repo.Hourly.tag
+        | tags_repo.Daily.tag,
+        "DWHFP_SalidaExportarAExcel": tags_repo.Monthly.tag,
+        "Knime_Workflows_Placeholder": tags_repo.Monthly.tag # Para prevenir error en el job
+    }
+    automation_conditions = {
+        "MDBCRM_ETL_LlamadasConsolidado": automation_hourly_cron_prd
+    }
+    wf_ph=Workflow(
+                knime_bin="",
+                ambiente=get_for_current_env({"dev": "DEV", "prd": "PRD"}),
+                knime_workflow="Knime_Workflows_Placeholder",
+                # cron_text="",
+                workflow_directory="",
+                tags=tags.get("Knime_Workflows_Placeholder", None),
+                automation_condition=None,
+            ) # Para prevenir error en el job
+    
     if not results:
         context.log.error("No workflows found in the database.")
         return tuple(
-            Workflow(
-                knime_bin="",
-                ambiente=get_for_current_env({"dev": "DEV", "prd": "PRD"}),
-                knime_workflow="No_Knime_Workflows_Found",
-                #cron_text="",
-                workflow_directory="",
-                automation_condition=None,
-            )
-            for _ in range(1)        
+            wf_ph
+            for _ in range(1)
         )
     else:
         context.log.info(f"Found {len(results)} workflows in the database.")
-        return tuple(
+        wf_tuple = tuple(
             Workflow(
                 knime_bin=row[0],
                 ambiente=row[1],
                 knime_workflow=row[2],
-                #cron_text=row[3],
+                # cron_text=row[3],
                 workflow_directory=row[4],
-                automation_condition=automation_hourly_cron_prd
-                if row[2] in ("MDBCRM_ETL_LlamadasConsolidado",)
-                else None,
+                tags=tags.get(row[2], None),
+                automation_condition=automation_conditions.get(row[2], None),
             )
             for row in results
         )
+        wf_tuple += (wf_ph,)
+        return wf_tuple
 
 
 def execute_knime_workflow(
@@ -210,54 +230,50 @@ def execute_knime_workflow(
 
 # Function to create a knime workflow asset
 def create_knime_workflow_asset(
-    knime_bin: str,
-    ambiente: str,
-    knime_workflow: str,
-    workflow_directory: str,
-    automation_condition: Optional[AutomationCondition],
+    wf: Workflow,
 ) -> AssetsDefinition:
     @asset(
-        key=AssetKey(["knime_wf", ambiente, knime_workflow]),
-        description=f"Executes the {knime_workflow} workflow in {ambiente} target environment, dir: {workflow_directory}",
+        key=AssetKey(["knime_wf", wf.ambiente, wf.knime_workflow]),
+        description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
         group_name="knime_workflows",
-        automation_condition=automation_condition,
+        automation_condition=wf.automation_condition,
+        tags=wf.tags,
     )
     def knime_workflow_asset(context: OpExecutionContext) -> None:
         supported_envs = ["dev", "prd"]
-        if ambiente in supported_envs and knime_workflow != "No_Knime_Workflows_Found":
+        if (
+            wf.ambiente in supported_envs
+            and wf.knime_workflow != "Knime_Workflows_Placeholder"
+        ):
             execute_knime_workflow(
-                knime_bin=knime_bin,
-                workflow_directory=workflow_directory,
+                knime_bin=wf.knime_bin,
+                workflow_directory=wf.workflow_directory,
                 current_context=context,
             )
-            context.log.info(f"Executed {knime_workflow} in {ambiente} target environment")
+            context.log.info(
+                f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
+            )
         else:
             context.log.info(
                 f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
             )
-        
+
     return knime_workflow_asset
 
 
 # Dynamically create assets based on the fetched workflows
 @op(ins={"workflows": In(WorkflowsTuple)}, out=Out(AssetsTuple))
-def create_knime_assets(
-    context: OpExecutionContext, workflows
-):
+def create_knime_assets(context: OpExecutionContext, workflows):
     asset_definitions = deque()
     # print("Starting create_knime_assets")
     if len(workflows) > 0:
         for workflow in workflows:
-            if workflow.ambiente.lower() not in get_for_current_env({"dev": "dev", "prd": "prd"}):
+            if workflow.ambiente.lower() not in get_for_current_env(
+                {"dev": "dev", "prd": "prd"}
+            ):
                 continue
 
-            workflow_asset = create_knime_workflow_asset(
-                knime_bin=workflow.knime_bin,
-                ambiente=workflow.ambiente.lower(),
-                knime_workflow=workflow.knime_workflow,
-                workflow_directory=workflow.workflow_directory,
-                automation_condition=workflow.automation_condition,
-            )
+            workflow_asset = create_knime_workflow_asset(wf=workflow)
             asset_definitions.append(workflow_asset)
         context.log.info(f"Created {len(asset_definitions)} knime assets.")
         return tuple(asset_definitions)
@@ -276,7 +292,7 @@ def knime_asset_creation_graph():  # first = first_op()     second = second_op(s
 # builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
 builded_resources = {"db_analitica_etl": db_analitica_etl}
 
-all_assets = list(
+all_assets: list[AssetsDefinition] = list(
     knime_asset_creation_graph.to_job()
     .execute_in_process(resources=builded_resources)
     .output_value()
@@ -312,3 +328,7 @@ all_asset_checks: Sequence[AssetChecksDefinition] = (
 all_asset_freshness_checks = (
     all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
 )
+
+if __name__ == "__main__":
+    for asset in all_assets:
+        print(asset, asset.tags_by_key)

@@ -1,20 +1,19 @@
+
 from dagster import (
-    define_asset_job,
-    AssetSelection,
-    asset,
-    job,
     AssetKey,
-    JobDefinition,
-    ConfigMapping,
+    AssetSelection,
     ConfigSchema,
+    JobDefinition,
+    define_asset_job,
 )
+
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
-    env_str,
-    UnresolvedAssetJobDefinition,
     TagsRepositoryGF as tags_repo,
 )
-from typing import List, Any, Mapping
+from dagster_shared_gf.shared_variables import (
+    UnresolvedAssetJobDefinition,
+)
 
 ExecutorConfig = ConfigSchema
 workflows_run_config_secuential: ExecutorConfig = {
@@ -161,8 +160,9 @@ dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(
     tags=tags_repo.Daily.tag,
 )
 
-knime_workflows_start_of_month_assets: AssetSelection = AssetSelection.assets(
-    AssetKey(["knime_wf", env_str, "DWHFP_SalidaExportarAExcel"])
+knime_workflows_start_of_month_assets: AssetSelection = (
+    AssetSelection.groups("knime_workflows")
+    & AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
 ).downstream()  ##Schedule differently
 knime_workflows_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="knime_workflows_start_of_month_job",
@@ -173,7 +173,7 @@ knime_workflows_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_
 
 knime_workflows_all_downstream_assets: AssetSelection = (
     AssetSelection.groups("knime_workflows").downstream()
-    - knime_workflows_start_of_month_assets
+     - knime_workflows_start_of_month_assets
 )
 knime_workflows_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="knime_workflows_all_downstream_job",

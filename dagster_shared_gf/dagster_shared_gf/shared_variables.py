@@ -1,17 +1,20 @@
-from dagster_shared_gf.shared_functions import dagster_instance_current_env
-from dagster._core.definitions.unresolved_asset_job_definition import UnresolvedAssetJobDefinition #to use shared
-from dagster._core.definitions.asset_spec import AssetExecutionType #to use shared
-from pydantic import Field
-from typing import Any, Mapping, Annotated, Union, Dict, Optional
 from dataclasses import dataclass, field
-import types
+from typing import Mapping
+
+from dagster._core.definitions.asset_spec import AssetExecutionType  #to use shared
+from dagster._core.definitions.unresolved_asset_job_definition import (
+    UnresolvedAssetJobDefinition,  #to use shared
+)
 from dlt.common.normalizers.naming.snake_case import NamingConvention
+
+from dagster_shared_gf.shared_functions import dagster_instance_current_env
 
 dlt_snake_case_normalizer = NamingConvention()
 
 env_str:str = dagster_instance_current_env.env
 shared_class_holder = [UnresolvedAssetJobDefinition, AssetExecutionType]
 default_timezone_teg: str = "America/Tegucigalpa"
+Tags = Mapping[str, str]
 
 @dataclass
 class TagsRepositoryGF:
@@ -39,7 +42,7 @@ class TagsRepositoryGF:
         """Base class for all tags"""
         key: str
         value: str
-        tag: Mapping[str, str] = field(init=False, default=None)
+        tag: Tags = field(init=False, default=None)
 
         def __post_init__(self):
             self.tag = {self.key: self.value}

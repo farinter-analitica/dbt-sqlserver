@@ -1,16 +1,31 @@
 
-import inspect, os, requests, re, itertools
-from typing import Dict, Any, Mapping, Literal, TypeVar, get_args, get_origin, List, Type, Callable, Iterable, Sequence
 import hashlib
-from types import ModuleType
-from pydantic import Field
+import inspect
+import itertools
+import os
+import re
 from datetime import timedelta
 from pathlib import Path, PurePath
-from dagster import config_from_files, AssetsDefinition
+from types import ModuleType
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Sequence,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+)
+
+import requests
+from dagster import AssetsDefinition, config_from_files
 from dagster_graphql import DagsterGraphQLClient
-from dotenv import load_dotenv
-from trycast import isassignable, eval_type
 from dlt.common.normalizers.naming.snake_case import NamingConvention
+from trycast import isassignable
 
 normalize_str_to_snake_case = NamingConvention().normalize_identifier
 
@@ -135,7 +150,7 @@ def search_for_word_in_text(text: str, word: str) -> re.Match:
 
 
 # Function to filter assets by tags
-from typing import List, Mapping, Any, Literal, Union
+
 
 def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]],
                           tags_to_match: Mapping[str, str],
@@ -179,7 +194,6 @@ def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]]
     
     return filtered_assets
 
-import importlib
 
 def get_full_type_info(obj: Any) -> str:
     """
@@ -286,7 +300,7 @@ def get_mock_args(func: Callable) -> dict:
         else:
             try:
                 mock_args[param.name] = get_mock_value(param.annotation)
-            except:
+            except Exception:
                 mock_args[param.name] = 'mnd'
     
     return mock_args
