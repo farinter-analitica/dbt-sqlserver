@@ -62,6 +62,12 @@ WorkflowsTuple = DagsterType(
     typing_type=tuple[Workflow, ...],
 )
 
+AssetsTuple = DagsterType(
+    name="AssetsTuple",
+    type_check_fn=lambda _, value: isinstance(value, tuple) and all(isinstance(x, AssetsDefinition) for x in value),
+    typing_type=tuple[AssetsDefinition, ...],
+)
+
 def filter_logs_std(logs):
     exclude_patterns = [
         re.compile(
@@ -234,10 +240,10 @@ def create_knime_workflow_asset(
 
 
 # Dynamically create assets based on the fetched workflows
-@op(ins={"workflows": In(WorkflowsTuple)})
+@op(ins={"workflows": In(WorkflowsTuple)}, out=Out(AssetsTuple))
 def create_knime_assets(
     context: OpExecutionContext, workflows
-) -> tuple[AssetsDefinition]:
+):
     asset_definitions = deque()
     # print("Starting create_knime_assets")
     if len(workflows) > 0:

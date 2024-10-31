@@ -7,6 +7,7 @@ from dagster import ConfigurableResource, EnvVar
 
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
+import psycopg.conninfo
 
 Connection = Any
 Row_Tuple = tuple[Any, ...]
@@ -41,12 +42,13 @@ class PostgreSQLResource(ConfigurableResource):
         
         connection_dict = {
             "host":self.server,
-            "database":database,
+            "dbname":database,
             "user":self.user,
             }
         if self.password:
             connection_dict["password"] = self.password
-        conn = psycopg.connect(**connection_dict)
+        conninfo=psycopg.conninfo.make_conninfo(conninfo='', **connection_dict)
+        conn = psycopg.connect(conninfo=conninfo)
         
         try:
             yield conn
