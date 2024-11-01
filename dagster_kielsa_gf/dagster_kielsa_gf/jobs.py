@@ -78,7 +78,7 @@ kielsa_hourly_assets = kielsa_hourly_assets | (
         key=tags_repo.UniquePeriod.key,
         value=tags_repo.UniquePeriod.value,
     )
-)
+) - seleccion_no_programar
 kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_hourly_job",
     selection=kielsa_hourly_assets,
