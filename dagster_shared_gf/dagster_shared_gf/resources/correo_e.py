@@ -1,8 +1,17 @@
-from dagster import ConfigurableResource, resource, Field, StringSource, InitResourceContext, sensor, SensorEvaluationContext, DagsterInstance, EnvVar
+import os
+import smtplib
+import ssl
+
 ##from dagster._utils.alert import send_email_via_ssl, send_email_via_starttls
 from datetime import datetime
-from typing import Sequence, Callable, Optional
-import os, html, ssl, smtplib
+from typing import Optional, Sequence
+
+from dagster import (
+    ConfigurableResource,
+    EnvVar,
+    SensorEvaluationContext,
+    sensor,
+)
 
 EMAIL_MESSAGE = """From: {email_from}
 To: {email_to}
@@ -147,8 +156,7 @@ def custom_job_failure_email_body(context: SensorEvaluationContext):
     failure_event = context.failure_event
 
     # Retrieve the stats snapshot for the current run_id
-    instance = DagsterInstance.get()
-    stats_snapshot = instance.get_run_stats(dagster_run.run_id)
+    stats_snapshot = context.instance.get_run_stats(dagster_run.run_id)
 
     # Convert UNIX timestamps to datetime objects
     start_time = datetime.fromtimestamp(stats_snapshot.start_time) if stats_snapshot.start_time else None

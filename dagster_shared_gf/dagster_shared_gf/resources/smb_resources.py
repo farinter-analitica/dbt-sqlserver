@@ -1,17 +1,23 @@
+import os
 from collections.abc import Iterator
 from pathlib import PureWindowsPath
-from dagster import ConfigurableResource, EnvVar, InitResourceContext, asset, Definitions
-from pydantic import Field, dataclasses, PrivateAttr
-from typing import ClassVar, List, Literal, Generator, Any, Dict
+from typing import ClassVar, Dict, Literal
 
-import os, base64, contextlib, pyodbc, smbclient
+import smbclient
 import smbclient.path as smb_path
-from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf.shared_functions import get_for_current_env
-from dagster_shared_gf.load_env_run import load_env_vars
+from dagster import ConfigurableResource, EnvVar, InitResourceContext
+from pydantic import dataclasses
 
-if not EnvVar("DAGSTER_ANALITICA_FARINTERNET_USERNAME").get_value():
+from dagster_shared_gf.load_env_run import load_env_vars
+from dagster_shared_gf.shared_functions import get_for_current_env
+
+if not os.environ.get("DAGSTER_DEV_DWH_FARINTER_IP") or EnvVar("DAGSTER_ANALITICA_FARINTERNET_USERNAME").get_value():
     load_env_vars()
+
+p_server_ip_dwh = get_for_current_env(
+    {"dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_IP")
+    , "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_IP")}
+)
 
 @dataclasses.dataclass(config={"arbitrary_types_allowed": True})
 class SMBClientConfigCredentials:
@@ -30,7 +36,7 @@ all_credentials: Dict[str, SMBClientConfigCredentials] = \
         )
     }
 
-all_servers: dict[str, str] = {"NASGFTGU02": "10.0.4.157"}
+all_servers: dict[str, str] = {"NASGFTGU02": "10.0.4.157", "DWH": p_server_ip_dwh}
 
 
 
@@ -143,7 +149,8 @@ class SMBResource(ConfigurableResource):
         self.renames(file_path.as_posix(),new_path.as_posix())
     
     def open_server_file(self, file_path: PureWindowsPath
-                , mode: str="rb"):
+                , mode: str="rb",
+                encoding: str="utf-8"):
         """
         A function to open a file using the provided file path, SMB resource, and mode.
         
@@ -162,7 +169,7 @@ class SMBResource(ConfigurableResource):
             The opened file using the specified mode.
         """
         file_path = self.get_full_server_path(file_path)
-        return self.open_file(path=file_path, mode=mode)
+        return self.open_file(path=file_path, mode=mode, encoding=encoding)
 
 
     # Direct pass-through for smbclient functions using staticmethod
@@ -217,6 +224,14 @@ smb_resource_analitica_nasgftgu02 = SMBResource(
     username= all_credentials["analitica"].username,
     password= all_credentials["analitica"].password,
     server_ip= all_servers["NASGFTGU02"],
+)
+
+smb_resource_staging_dagster_dwh = SMBResource(
+    credentials= "analitica",
+    server="DWH",
+    username= all_credentials["analitica"].username,
+    password= all_credentials["analitica"].password,
+    server_ip= all_servers["DWH"],
 )
 
 if __name__ == "__main__":

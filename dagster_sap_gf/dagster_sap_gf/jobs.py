@@ -1,8 +1,9 @@
-from dagster import define_asset_job
-from dagster import asset, AssetSelection, RunConfig, AssetKey, JobDefinition
+from dagster import AssetSelection, JobDefinition, RunConfig, define_asset_job
+
+from dagster_sap_gf.assets.dbt_dwh_sap import MyDbtConfig
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
-from dagster_shared_gf.shared_variables import UnresolvedAssetJobDefinition, TagsRepositoryGF as tags_repo
-from .assets.dbt_dwh_sap import MyDbtConfig
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import UnresolvedAssetJobDefinition
 
 # Define the job and add to definitions on main __init__.py
 
@@ -70,6 +71,11 @@ dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = AssetSelection.groups("dbt
 dbt_dwh_sap_marts_all_orphan_job: UnresolvedAssetJobDefinition = define_asset_job(name="dbt_dwh_sap_marts_all_orphan_job"
                                                             , selection=dbt_dwh_sap_marts_all_orphan_assets)                                                                         
 
-all_jobs = get_all_instances_of_class(class_type_list=[JobDefinition, UnresolvedAssetJobDefinition])
+all_jobs = get_all_instances_of_class(class_type_list=[JobDefinition, UnresolvedAssetJobDefinition], namespace=globals())
 
 __all__ = list(map(lambda x: x.name, all_jobs) )
+
+if __name__ == "__main__":
+    print(globals())
+    for job in all_jobs:
+        print(job.name)

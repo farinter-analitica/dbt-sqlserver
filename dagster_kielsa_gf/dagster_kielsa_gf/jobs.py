@@ -9,10 +9,7 @@ from dagster import (
 
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
-    TagsRepositoryGF as tags_repo,
-)
-from dagster_shared_gf.shared_variables import (
-    UnresolvedAssetJobDefinition,
+    TagsRepositoryGF as tags_repo, UnresolvedAssetJobDefinition,
 )
 
 ExecutorConfig = ConfigSchema
@@ -22,6 +19,10 @@ workflows_run_config_secuential: ExecutorConfig = {
 # Define the job and add to definitions on main __init__.py
 ldcom_etl_dwh_job = define_asset_job(
     name="ldcom_etl_dwh_job", selection=AssetSelection.groups("ldcom_etl_dwh")
+)
+
+seleccion_no_programar: AssetSelection = AssetSelection.tag(
+    key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
 )
 
 examples_assets_job = define_asset_job(
@@ -39,7 +40,7 @@ dbt_dwh_kielsa_marts_assets: AssetSelection = AssetSelection.groups(
     "dbt_dwh_kielsa_mart_kpp",
     "dbt_dwh_kielsa_mart_existencias",
     "dbt_dwh_kielsa_mart_ventas",
-)
+) - seleccion_no_programar
 dbt_dwh_kielsa_marts_job = define_asset_job(
     name="dbt_dwh_kielsa_marts_job", selection=dbt_dwh_kielsa_marts_assets,
     tags=tags_repo.Daily.tag,
@@ -49,7 +50,7 @@ kielsa_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups(
     "ldcom_etl_dwh", "recetas_libros_etl_dwh"
 ).downstream() - AssetSelection.tag(
     key=tags_repo.Partitioned.key, value=tags_repo.Partitioned.value
-)
+) - seleccion_no_programar
 kielsa_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_etl_dwh_all_downstream_job",
     selection=kielsa_etl_dwh_all_downstream_assets,
@@ -58,7 +59,7 @@ kielsa_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_j
 
 dlt_dwh_kielsa_assets: AssetSelection = AssetSelection.groups(
     "dlt_mongo_db_crm_hn_etl_dwh"
-)
+) - seleccion_no_programar
 dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="dlt_dwh_kielsa_job",
     selection=dlt_dwh_kielsa_assets,
@@ -70,7 +71,7 @@ dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(
 # Definir assets que tengan la etiqueta por_hora y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_hourly_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
-)
+) - seleccion_no_programar
 kielsa_hourly_assets = kielsa_hourly_assets | (
     kielsa_hourly_assets.upstream().required_multi_asset_neighbors()
     - AssetSelection.tag(
@@ -97,7 +98,7 @@ kielsa_start_of_month_assets = kielsa_start_of_month_assets | (
         key=tags_repo.UniquePeriod.key,
         value=tags_repo.UniquePeriod.value,
     )
-)
+) - seleccion_no_programar
 kielsa_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_start_of_month_job",
     selection=kielsa_start_of_month_assets,
@@ -110,14 +111,14 @@ kielsa_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
 # Definir assets que tengan la etiqueta por_hora adicional (para ejecutar en medio del otro job) y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_hourly_additional_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.HourlyAdditional.key, value=tags_repo.HourlyAdditional.value
-)
+) 
 kielsa_hourly_additional_assets = kielsa_hourly_additional_assets | (
     kielsa_hourly_additional_assets.upstream().required_multi_asset_neighbors()
     - AssetSelection.tag(
         key=tags_repo.UniquePeriod.key,
         value=tags_repo.UniquePeriod.value,
     )
-)
+)  - seleccion_no_programar
 kielsa_hourly_additional_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_hourly_additional_job",
     selection=kielsa_hourly_additional_assets,
@@ -141,7 +142,7 @@ kielsa_olap_kielsa_general_temp_dev_job: UnresolvedAssetJobDefinition = define_a
 
 dlt_dwh_kielsa_all_downstream_assets: AssetSelection = AssetSelection.groups(
     "dlt_mongo_db_crm_hn_etl_dwh"
-).downstream()
+).downstream()  - seleccion_no_programar
 dlt_dwh_kielsa_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="dlt_dwh_kielsa_all_downstream_job",
     selection=dlt_dwh_kielsa_all_downstream_assets,
@@ -153,7 +154,7 @@ dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = (
     dbt_dwh_kielsa_marts_assets
     - kielsa_etl_dwh_all_downstream_assets
     - dlt_dwh_kielsa_all_downstream_assets
-)
+)  - seleccion_no_programar
 dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(
     name="dbt_dwh_kielsa_marts_orphan_assets_job",
     selection=dbt_dwh_kielsa_marts_assets_not_in_downstream,
@@ -163,7 +164,7 @@ dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(
 knime_workflows_start_of_month_assets: AssetSelection = (
     AssetSelection.groups("knime_workflows")
     & AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
-).downstream()  ##Schedule differently
+).downstream()  - seleccion_no_programar  ##Schedule differently
 knime_workflows_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="knime_workflows_start_of_month_job",
     selection=knime_workflows_start_of_month_assets,
@@ -174,7 +175,7 @@ knime_workflows_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_
 knime_workflows_all_downstream_assets: AssetSelection = (
     AssetSelection.groups("knime_workflows").downstream()
      - knime_workflows_start_of_month_assets
-)
+)  - seleccion_no_programar
 knime_workflows_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="knime_workflows_all_downstream_job",
     selection=knime_workflows_all_downstream_assets,
@@ -190,7 +191,8 @@ smb_etl_dwh_kielsa_all_downstream_job: UnresolvedAssetJobDefinition = define_ass
 
 
 all_jobs = get_all_instances_of_class(
-    class_type_list=[JobDefinition, UnresolvedAssetJobDefinition]
+    class_type_list=[JobDefinition, UnresolvedAssetJobDefinition],
+    namespace=globals(),
 )
 
 __all__ = list(map(lambda x: x.name, all_jobs))

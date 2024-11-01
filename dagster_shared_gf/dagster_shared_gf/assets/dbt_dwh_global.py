@@ -1,11 +1,23 @@
-from dagster import AssetExecutionContext, load_assets_from_current_module, load_asset_checks_from_current_module, build_last_update_freshness_checks, AssetChecksDefinition, Config
-from dagster_dbt import DbtCliResource, dbt_assets, DagsterDbtTranslator
-from typing import Sequence, List, Mapping, Dict, Any
 from datetime import timedelta
+from typing import Sequence
+
+from dagster import (
+    AssetChecksDefinition,
+    AssetExecutionContext,
+    Config,
+    build_last_update_freshness_checks,
+    load_asset_checks_from_current_module,
+    load_assets_from_current_module,
+)
+from dagster_dbt import DbtCliResource, dbt_assets
 from pydantic import Field
-from dagster_shared_gf.shared_variables import TagsRepositoryGF
+
+from dagster_shared_gf.resources.dbt_resources import (
+    MyDbtSourceTranslator,
+    dbt_manifest,
+)
 from dagster_shared_gf.shared_functions import filter_assets_by_tags
-from dagster_shared_gf.resources.dbt_resources import dbt_manifest, MyDbtSourceTranslator
+from dagster_shared_gf.shared_variables import TagsRepositoryGF
 
 tags_repo = TagsRepositoryGF
 

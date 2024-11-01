@@ -5,11 +5,11 @@ from dagster._core.definitions.asset_spec import AssetExecutionType  #to use sha
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  #to use shared
 )
-from dlt.common.normalizers.naming.snake_case import NamingConvention
+#from dlt.common.normalizers.naming.snake_case import NamingConvention
 
 from dagster_shared_gf.shared_functions import dagster_instance_current_env
 
-dlt_snake_case_normalizer = NamingConvention()
+#dlt_snake_case_normalizer = NamingConvention()
 
 env_str:str = dagster_instance_current_env.env
 shared_class_holder = [UnresolvedAssetJobDefinition, AssetExecutionType]
@@ -38,14 +38,11 @@ class TagsRepositoryGF:
     The `tags` dictionary should be defined in the TagsRepositoryGF class.
     """
     @dataclass
-    class _base_tag_class:
+    class _base_tag_class(Tags):
         """Base class for all tags"""
         key: str
         value: str
         tag: Tags = field(init=False, default=None)
-
-        def __post_init__(self):
-            self.tag = {self.key: self.value}
 
         def __new__(cls, *args, **kwargs):
             instance = super().__new__(cls)
@@ -54,11 +51,21 @@ class TagsRepositoryGF:
             instance.tag = {cls.key: cls.value}
             return instance.tag
 
-        # def __init__(self, *args, **kwargs):
-        #     pass
+        def __post_init__(self):
+            self.tag = {**self, self.key: self.value}
+
+        def __getitem__(self, key: str) -> str:
+            return self.tag[key]
+
+        def __len__(self) -> int:
+            return len(self.tag)
+
+        def __iter__(self) -> iter:
+            return iter(self.tag)
 
         def __call__(self):
             return self.tag
+
 
         @classmethod
         def __init_subclass__(cls, key: str, value: str, **kwargs):
@@ -90,6 +97,9 @@ class TagsRepositoryGF:
 
     class Partitioned(_base_tag_class, key="particionado/si", value=""):
         """{"particionado/si": ""}"""
+
+    class DetenerCarga(_base_tag_class, key="detener_carga/si", value=""):
+        """{"detener_carga/si": ""}"""
 
 if __name__ == "__main__":
     print(TagsRepositoryGF.Hourly())

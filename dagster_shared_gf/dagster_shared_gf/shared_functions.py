@@ -19,15 +19,85 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    Optional
 )
 
 import requests
+from collections import deque
 from dagster import AssetsDefinition, config_from_files
 from dagster_graphql import DagsterGraphQLClient
-from dlt.common.normalizers.naming.snake_case import NamingConvention
+#from dlt.common.normalizers.naming.snake_case import NamingConvention as SnakeCase
 from trycast import isassignable
+from functools import lru_cache
 
-normalize_str_to_snake_case = NamingConvention().normalize_identifier
+RE_UNDERSCORES = re.compile("__+")
+RE_LEADING_DIGITS = re.compile(r"^\d+")
+RE_ENDING_UNDERSCORES = re.compile(r"_+$")
+RE_NON_ALPHANUMERIC = re.compile(r"[^a-zA-Z\d_]+")
+class SnakeCase():
+    """Case insensitive naming convention, converting source identifiers into lower case snake case with reduced alphabet.
+
+    - Spaces around identifier are trimmed
+    - Removes all ascii characters except ascii alphanumerics and underscores
+    - Prepends `_` if name starts with number.
+    - Multiples of `_` are converted into single `_`.
+    - Replaces all trailing `_` with `x`
+    - Replaces `+` and `*` with `x`, `-` with `_`, `@` with `a` and `|` with `l`
+
+    Uses __ as parent-child separator for tables and flattened column names.
+    """
+
+    RE_UNDERSCORES  = RE_UNDERSCORES
+    RE_LEADING_DIGITS = RE_LEADING_DIGITS
+    RE_NON_ALPHANUMERIC = RE_NON_ALPHANUMERIC
+
+    _SNAKE_CASE_BREAK_1 = re.compile("([^_])([A-Z][a-z]+)")
+    _SNAKE_CASE_BREAK_2 = re.compile("([a-z0-9])([A-Z])")
+    _REDUCE_ALPHABET = ("+-*@|", "x_xal")
+    _TR_REDUCE_ALPHABET = str.maketrans(_REDUCE_ALPHABET[0], _REDUCE_ALPHABET[1])
+
+    @property
+    def is_case_sensitive(self) -> bool:
+        return False
+
+    def normalize_identifier(self, identifier: str) -> str:
+        identifier = super().normalize_identifier(identifier)
+        # print(f"{identifier} -> {self.shorten_identifier(identifier, self.max_length)} ({self.max_length})")
+        return self._normalize_identifier(identifier, self.max_length)
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _normalize_identifier(identifier: str, max_length: int) -> str:
+        """Normalizes the identifier according to naming convention represented by this function"""
+        # all characters that are not letters digits or a few special chars are replaced with underscore
+        normalized_ident = identifier.translate(SnakeCase._TR_REDUCE_ALPHABET)
+        normalized_ident = SnakeCase.RE_NON_ALPHANUMERIC.sub("_", normalized_ident)
+
+        # shorten identifier
+        return SnakeCase.shorten_identifier(
+            SnakeCase._to_snake_case(normalized_ident), identifier, max_length
+        )
+
+    @classmethod
+    def _to_snake_case(cls, identifier: str) -> str:
+        # then convert to snake case
+        identifier = cls._SNAKE_CASE_BREAK_1.sub(r"\1_\2", identifier)
+        identifier = cls._SNAKE_CASE_BREAK_2.sub(r"\1_\2", identifier).lower()
+
+        # leading digits will be prefixed (if regex is defined)
+        if cls.RE_LEADING_DIGITS and cls.RE_LEADING_DIGITS.match(identifier):
+            identifier = "_" + identifier
+
+        # replace trailing _ with x
+        stripped_ident = identifier.rstrip("_")
+        strip_count = len(identifier) - len(stripped_ident)
+        stripped_ident += "x" * strip_count
+
+        # identifier = cls._RE_ENDING_UNDERSCORES.sub("x", identifier)
+        # replace consecutive underscores with single one to prevent name collisions with PATH_SEPARATOR
+        return cls.RE_UNDERSCORES.sub("_", stripped_ident)
+
+normalize_str_to_snake_case = SnakeCase().normalize_identifier
 
 def get_job_status(job_name: str) -> str:
     # Define the GraphQL query to get the status of a specific job
@@ -251,7 +321,7 @@ def check_instance(obj: Any, class_type: Type[Any]) -> bool:
         return True
     return False
 
-def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: ModuleType = None) -> List[Any]:
+def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Optional[ModuleType] = None, namespace: Optional[dict] = None   ) -> List[Any]:
     """
     Returns a list of all instances of the specified class types in the given module or the caller's module if no module is provided.
 
@@ -262,17 +332,23 @@ def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Mod
     Returns:
         List[Any]: A list of all instances of the specified class types.
     """
-    if module is None:
-        caller_frame = inspect.currentframe().f_back
-        module_to_use = inspect.getmodule(caller_frame)
+    all_instances_list = deque()
+    if namespace:
+        for class_type in class_type_list:
+            variables = {name: obj for name, obj in namespace.items() if isinstance(obj, class_type)}
+            all_instances_list.extend(variables.values())
     else:
-        module_to_use = module
+        if module is None:
+            caller_frame = inspect.currentframe().f_back
+            module_to_use = inspect.getmodule(caller_frame)
+        else:
+            module_to_use = module
 
-    all_instances_list = []
-    for class_type in class_type_list:
-        variables = {name: obj for name, obj in module_to_use.__dict__.items() if isassignable(obj, class_type)}
-        all_instances_list.extend(variables.values())
+        for class_type in class_type_list:
+            variables = {name: obj for name, obj in module_to_use.__dict__.items() if isassignable(obj, class_type)}
+            all_instances_list.extend(variables.values())
     return list(itertools.chain(all_instances_list))
+
 # Function to get mock arguments for a function
 def get_mock_args(func: Callable) -> dict:
     def get_mock_value(annotation: Any) -> Any:

@@ -1,20 +1,43 @@
-from datetime import datetime
 import unittest
+from datetime import datetime
+
 import polars as pl
 import polars.testing as pltest
-from dagster_shared_gf.resources.sql_server_resources import (
-    dwh_farinter_dl,
-    dwh_farinter_bi,
-    SQLServerResource,
+from dagster import (
+    AssetChecksDefinition,
+    In,
+    OpExecutionContext,
+    Out,
+    asset,
+    graph_asset,
+    instance_for_test,
+    load_asset_checks_from_current_module,
+    load_assets_from_current_module,
+    materialize,
+    op,
 )
-from dagster import  AssetChecksDefinition, load_asset_checks_from_current_module, load_assets_from_current_module, materialize, asset, op, graph_asset, OpExecutionContext, MaterializeResult, instance_for_test
 
+from dagster_shared_gf.resources.smb_resources import (
+    SMBResource,
+    smb_resource_staging_dagster_dwh,
+)
+from dagster_shared_gf.resources.sql_server_resources import (
+    SQLServerResource,
+    dwh_farinter_bi,
+    dwh_farinter_dl,
+)
+from dagster_shared_gf.shared_functions import (
+    get_for_current_env,
+)
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+
+top_clause = get_for_current_env({"local": "TOP 1000", "dev": "--TOP 100", "prd": "--TOP 100"})
 @op
 def get_df_ecommerce(
     dwh_farinter_dl: SQLServerResource
 ) -> pl.DataFrame:
     # Define the SQL query to select data from the database
-    sql_query = """
+    sql_query = f"""
     SELECT 
         profile_idnumber,
         1 as Emp_Id,
@@ -25,7 +48,8 @@ def get_df_ecommerce(
         email_principal,
         profile_gender
     FROM (
-        SELECT [_id]
+        SELECT {top_clause}
+            [_id]
             ,1 as Emp_Id
             ,[created_at_date]
             ,[profile_fullname]
@@ -84,8 +108,8 @@ def get_df_monederos(
     dwh_farinter_dl: SQLServerResource
 ) -> pl.DataFrame:
     # Define the SQL query to select data from the database
-    sql_query = """
-        SELECT --top 100 
+    sql_query = f"""
+        SELECT {top_clause}
             M.[Monedero_Id] 
             , M.[Emp_Id]
             , M.[Monedero_Nombre] 
@@ -129,8 +153,8 @@ def get_df_libros_cliente(
     dwh_farinter_dl: SQLServerResource
 ) -> pl.DataFrame:
     # Define the SQL query to select data from the database
-    sql_query = """
-        SELECT --top 100 
+    sql_query = f"""
+        SELECT {top_clause} 
             Identidad_Limpia,
             Pais_Id,
             Nombre,
@@ -160,8 +184,8 @@ def get_df_libros_tipo(
     dwh_farinter_dl: SQLServerResource
 ) -> pl.DataFrame:
     # Define the SQL query to select data from the database
-    sql_query = """
-        SELECT --top 100
+    sql_query = f"""
+        SELECT {top_clause}
                 * 
         FROM [DL_FARINTER].[dbo].[DL_Kielsa_Libros_Tipo]
     """
@@ -179,8 +203,8 @@ def get_df_clientes(
     dwh_farinter_dl: SQLServerResource
 ) -> pl.DataFrame:
     # Define the SQL query to select data from the database
-    sql_query = """
-        SELECT --top 100
+    sql_query = f"""
+        SELECT {top_clause}
             Cedula,
             Emp_Id,
             Cliente_Nombre,
@@ -204,8 +228,8 @@ def get_df_clientes(
 def get_df_empresas(
     dwh_farinter_bi: SQLServerResource
 ) -> pl.DataFrame:
-    sql_query = """
-        SELECT --TOP (1000) 
+    sql_query = f"""
+        SELECT {top_clause} 
             E.[Empresa_Id] AS [Emp_Id]
             --,E.[Empresa_Nombre]
             , E.[Pais_Id]
@@ -533,6 +557,8 @@ def correciones_clientes(df_clientes: pl.DataFrame, df_paises_patterns: pl.DataF
 
     df_clientes = (
         df_clientes
+        .unique(subset=["Identidad_Limpia", "Emp_Id"])
+        .drop_nulls(subset=["Identidad_Limpia", "Emp_Id"])
         .join(df_pv_pattern, on="Pais_Id", how="left")
         .with_columns(
             pl.lit(datetime.now()).alias("Fecha_Actualizado"),
@@ -552,25 +578,142 @@ def correciones_clientes(df_clientes: pl.DataFrame, df_paises_patterns: pl.DataF
         )
         .drop(["pattern"])
     )
-
+    print(df_clientes.schema)
     return df_clientes
     #return  df_clientes, len(df_clientes)
 
-@op
-def escribir_clientes(context: OpExecutionContext, df_clientes: pl.DataFrame, dwh_farinter_dl: SQLServerResource) -> int:
-    # Write the result to a table
-    with pl.Config() as cfg:
-        cfg.set_tbl_cols(20)
-        context.log.debug(df_clientes.head(15))
+# @op
+# def escribir_clientes(context: OpExecutionContext, df_clientes: pl.DataFrame, dwh_farinter_dl: SQLServerResource) -> int:
+#     # Write the result to a table
+#     with pl.Config() as cfg:
+#         cfg.set_tbl_cols(20)
+#         context.log.debug(df_clientes.head(15))
 
-    with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
-        df_clientes.write_database(table_name="DL_Kielsa_ClienteGeneral", connection=conn, if_table_exists='replace')
+#     with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
+#         df_clientes.write_database(table_name="DL_Kielsa_ClienteGeneral", connection=conn, if_table_exists='replace')
 
-    return len(df_clientes)
+#     return len(df_clientes)
+
+@op(
+    out={"file_path": Out(str)},
+)
+def create_file_on_smb(smb_resource_staging_dagster_dwh: SMBResource, df_clientes: pl.DataFrame) -> str: # tuple[str, str]:
+    smbr = smb_resource_staging_dagster_dwh
+    file_path = smbr.get_full_server_path("\\staging_dagster\\kielsa_clientes.csv")
+    #format_file_path = smbr.get_full_server_path("\\staging_dagster\\kielsa_clientes.fmt")
+
+    # Write the CSV file
+    with smbr.open_server_file(file_path, mode="w") as f:
+        df_clientes.cast({pl.Boolean: pl.Int8}).write_csv(
+            f,
+            include_bom=False,
+            include_header=False,
+            separator=",",
+            line_terminator="\r\n",  # SQL Server requires CRLF line endings
+            quote_char='"',
+            quote_style="necessary",
+        )
+
+    # Create the format file for SQL Server BULK INSERT
+    # format_file_content = f"13.0\n{len(df_clientes.columns)}\n"
+
+    # for index, column in enumerate(df_clientes.columns, start=1):
+    #     terminator = "," if index < len(df_clientes.columns) else "\\r\\n"
+    #     format_file_content += f"{index}       SQLNCHAR             0       0       \"{terminator}\"       {index}       {column}       \"\"\n"
+
+    # with smbr.open_server_file(format_file_path, mode="w") as f:
+    #     f.write(format_file_content)
+
+    return str(file_path) #, str(format_file_path)
+
+@op(
+    ins={"file_path": In(str)},
+)
+def bulk_load_to_sql_server(dwh_farinter_dl: SQLServerResource, file_path: str, df_clientes: pl.DataFrame) -> None:
+    table_name = "DL_Kielsa_ClienteGeneral"
+    #row_terminator = "\r\n"
+    format_file_path = ''
+        # Print the first few lines of the CSV file for debugging
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for _ in range(5):
+            print(f.readline().strip()[:1000])
+
+    sql_script = f"""
+        SET XACT_ABORT ON;
+        SET NOCOUNT ON;
+        BEGIN TRANSACTION;
+
+        BEGIN TRY
+            -- Drop the NEW table if it exists
+            DROP TABLE IF EXISTS dbo.{table_name}_NEW;
+
+            -- Create a new table with the same structure as the existing one
+            SELECT TOP 0 * INTO {table_name}_NEW
+            FROM {table_name}_dagster_temp_base WITH (NOLOCK);
+            
+            -- Bulk load the data into the new table
+            BULK INSERT {table_name}_NEW
+            FROM '{file_path}'
+            WITH (
+                CODEPAGE = '65001', -- UTF-8
+                FORMAT = 'CSV',
+                --DATAFILETYPE = 'char',
+                --FIRSTROW = 2,
+                TABLOCK,
+                --ROWTERMINATOR = '\\r\\n',
+                --FIELDTERMINATOR = ',',
+                --FIELDQUOTE = '"',
+                --BATCHSIZE = 1048576, -- 1MB
+                --ROWS_PER_BATCH = 1048576, -- 1MB
+                MAXERRORS = 0 --,
+                --ORDER (key_column_1, key_column_2) -- Replace with actual key columns
+                --FORMATFILE = '{format_file_path}'
+                --ERRORFILE = '{file_path.replace('.csv', '_error.csv') }'
+            );
+
+            -- Convert the new table to columnstore
+            CREATE CLUSTERED COLUMNSTORE INDEX cci_dl_kielsa_clientegeneral ON {table_name}_NEW;
+
+            -- Swap the tables
+            --EXEC sp_rename '{table_name}', '{table_name}_OLD';
+            --EXEC sp_rename '{table_name}_NEW', '{table_name}';
+            SELECT TOP 0 * INTO {table_name}_OLD
+            FROM {table_name} WITH (NOLOCK);
+
+            -- Convert the OLD table to columnstore
+            CREATE CLUSTERED COLUMNSTORE INDEX cci_dl_kielsa_clientegeneral_OLD ON {table_name}_OLD;
+
+            ALTER TABLE {table_name} SWITCH TO {table_name}_OLD 
+                WITH ( WAIT_AT_LOW_PRIORITY ( MAX_DURATION = 1 MINUTES, ABORT_AFTER_WAIT = BLOCKERS )); 
+            ALTER TABLE {table_name}_NEW SWITCH TO {table_name};
+
+            -- Drop the old table
+            DROP TABLE {table_name}_OLD;
+
+            -- Drop the NEW table
+            DROP TABLE {table_name}_NEW;
+
+            -- Drop the temporary base table
+            DROP TABLE {table_name}_dagster_temp_base;
+
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            ROLLBACK TRANSACTION;
+            THROW;
+        END CATCH;
+    """    
+    #print(sql_script)
+    with dwh_farinter_dl.get_sqlalchemy_conn(autocommit=True) as conn:
+        df_clientes.limit(100).write_database(table_name=f"{table_name}_dagster_temp_base", connection=conn, if_table_exists='replace')
+        dwh_farinter_dl.execute_and_commit(sql_script, connection=conn)
+    #dwh_farinter_dl.execute_and_commit(sql_script, engine="pyodbc") #Allows to execute the query without service account delegation
 
 
-@graph_asset
-def BI_Kielsa_Dim_ClienteGeneral() -> MaterializeResult:
+@graph_asset(kinds=("sql_server", "polars", "smb"), 
+             key_prefix=("DL_FARINTER", "dbo"),
+             tags=tags_repo.DetenerCarga.tag | tags_repo.UniquePeriod.tag)
+def BI_Kielsa_Dim_ClienteGeneral():
     df_ecommerce = get_df_ecommerce()
     df_clientes = get_df_clientes()
     df_monederos = get_df_monederos()
@@ -590,9 +733,9 @@ def BI_Kielsa_Dim_ClienteGeneral() -> MaterializeResult:
     df_clientes_corregidos = correciones_clientes(
         df_clientes=df_clientes_unidos, df_paises_patterns=df_paises_patterns
     )
-    filas = escribir_clientes(df_clientes_corregidos)
+    filepath = create_file_on_smb(df_clientes=df_clientes_corregidos)
 
-    return {"result":  filas}
+    return bulk_load_to_sql_server(file_path=filepath, df_clientes=df_clientes_corregidos)
 
 
 if __name__ == "__main__":
@@ -653,8 +796,8 @@ if __name__ == "__main__":
         @asset(name="between_asset")
         def mock_between_asset() -> int:
             return 1
-        result = materialize(assets=[mock_between_asset, BI_Kielsa_Dim_ClienteGeneral], instance=instance, resources={"dwh_farinter_dl": dwh_farinter_dl, "dwh_farinter_bi": dwh_farinter_bi})
-        print(result.output_for_node("BI_Kielsa_Dim_ClienteGeneral"))
+        result = materialize(assets=[mock_between_asset, BI_Kielsa_Dim_ClienteGeneral], instance=instance, resources={"dwh_farinter_dl": dwh_farinter_dl, "dwh_farinter_bi": dwh_farinter_bi, "smb_resource_staging_dagster_dwh": smb_resource_staging_dagster_dwh})
+        print(result.output_for_node(BI_Kielsa_Dim_ClienteGeneral.node_def.name))
 
     end_time = datetime.now()
     print(f"Tiempo de ejecución: {end_time - start_time}, desde {start_time}, hasta {end_time}")
