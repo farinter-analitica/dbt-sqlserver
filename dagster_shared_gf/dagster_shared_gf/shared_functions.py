@@ -513,21 +513,29 @@ class SQLScriptGenerator:
         self.schema_table_relation = f"[{db_schema}].[{table_name}]"
         self.schema_temp_table_relation = f"[{db_schema}].[{temp_table_name or table_name}]"
         self.primary_keys = primary_keys    
-        self._formated_primary_keys = self._validate_and_format_fields(columns=primary_keys)
+        self._formated_primary_keys = self._validate_and_format_pks(columns=primary_keys)
         
 
-    def _validate_and_format_fields(self, columns: tuple[str, ... ] = tuple()) -> tuple[str, ... ]:
+    def _validate_and_format_pks(self, columns: tuple[str, ... ] = tuple()) -> tuple[str, ... ]:
         # Get the schema of the DataFrame
         schema = self._df_schema
         # Check correct primary keys
         def run_check_and_yield():
+            seen = set()
             for pk in columns:
                 if pk not in schema:
                     raise ValueError(f"Primary key {pk} not in schema, available keys: {str(schema.names())}")
+                # Check for duplicates
+                if pk in seen:
+                    raise ValueError(f"Duplicate primary key: {pk}")
                 # Validate not nulls
-                if self.df.get_column(pk).null_count() > 0:
+                column_data = self.df.get_column(pk)
+                if column_data.null_count() > 0:
                     raise ValueError(f"Primary key {pk} cannot be null")
-                
+                # Check for data duplicates
+                if self.df.get_column(pk).unique_count() != self.df.height:
+                    raise ValueError(f"Primary key {pk} cannot have duplicates")
+                seen.add(pk)
                 yield f"[{pk}]"
         
         return tuple(run_check_and_yield())
