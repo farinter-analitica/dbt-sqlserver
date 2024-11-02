@@ -533,7 +533,7 @@ class SQLScriptGenerator:
                 if column_data.null_count() > 0:
                     raise ValueError(f"Primary key {pk} cannot be null")
                 # Check for data duplicates
-                if self.df.get_column(pk).unique_count() != self.df.height:
+                if self.df.get_column(pk).n_unique() != self.df.height:
                     raise ValueError(f"Primary key {pk} cannot have duplicates")
                 seen.add(pk)
                 yield f"[{pk}]"
