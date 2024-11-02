@@ -13,10 +13,10 @@ from dlt.extract import DltResource
 
 new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
-connection_url_dest: str = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url()
+dlt.secrets["dwh_farinter_dl"] = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url().render_as_string(hide_password=False)
 
-mssql_destination = dlt.destinations.mssql(
-    credentials=connection_url_dest.render_as_string(hide_password=False),
+mssql_dwh_destination = dlt.destinations.mssql(
+    credentials=dlt.secrets["dwh_farinter_dl"],
     create_indexes=True,
 )
 fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
@@ -97,12 +97,12 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         )
 
 
-class DltPipelineDestMssql(BaseDltPipeline):
+class DltPipelineDestMssqlDwh(BaseDltPipeline):
     def _get_destination(self) -> Destination:
-        return mssql_destination
+        return mssql_dwh_destination
 
 
-dlt_pipeline_dest_mssql = DltPipelineDestMssql()
+dlt_pipeline_dest_mssql_dwh = DltPipelineDestMssqlDwh()
 
 if __name__ == "__main__":
-    assert dlt_pipeline_dest_mssql.get_pipeline("test_pipeline", "test_dataset")
+    assert dlt_pipeline_dest_mssql_dwh.get_pipeline("test_pipeline", "test_dataset")

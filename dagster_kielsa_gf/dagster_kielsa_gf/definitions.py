@@ -3,7 +3,7 @@ import os
 from dagster import Definitions, load_assets_from_modules
 from dagster_dbt import DbtCliResource
 
-from dagster_kielsa_gf.assets import (examples
+from dagster_kielsa_gf.assets import (cliente_general, examples
                                    , dbt_example
                                    , dbt_dwh_kielsa
                                    , dbt_sources
@@ -12,12 +12,11 @@ from dagster_kielsa_gf.assets import (examples
                                    , ldcom_etl_dwh_sp
                                    , ldcom_etl_dwh
                                    , recetas_libros_etl_dwh
-                                   , analysis_services
-                                   , kielsa_clientes_general)
+                                   , analysis_services)
 
 all_assets = examples.all_assets + dbt_example.all_assets  + dbt_dwh_kielsa.all_assets \
     + ldcom_etl_dwh_sp.all_assets + knime_asset_factory.all_assets + recetas_libros_etl_dwh.all_assets + analysis_services.all_assets + ldcom_etl_dwh.all_assets \
-    + smb_etl_dwh.all_assets + kielsa_clientes_general.all_assets
+    + smb_etl_dwh.all_assets + cliente_general.all_assets
 all_asset_checks = dbt_example.all_asset_checks + dbt_dwh_kielsa.all_asset_checks \
     + ldcom_etl_dwh_sp.all_asset_checks + knime_asset_factory.all_asset_checks + recetas_libros_etl_dwh.all_asset_checks + analysis_services.all_asset_checks + ldcom_etl_dwh.all_asset_checks \
     + smb_etl_dwh.all_asset_checks

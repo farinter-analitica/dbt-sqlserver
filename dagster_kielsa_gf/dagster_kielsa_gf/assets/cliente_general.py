@@ -1,24 +1,29 @@
 import unittest
-from datetime import datetime, timedelta
 import warnings
+from datetime import datetime, timedelta
+from typing import Sequence
+
 import polars as pl
 import polars.testing as pltest
 from dagster import (
     AssetChecksDefinition,
+    AssetKey,
+    AssetsDefinition,
     In,
+    Nothing,
     OpExecutionContext,
     Out,
     asset,
-    graph_asset,
+    build_last_update_freshness_checks,
+    graph,
     instance_for_test,
     load_asset_checks_from_current_module,
     load_assets_from_current_module,
     materialize,
     op,
-    build_last_update_freshness_checks
 )
-from typing import Sequence
 
+from dagster_shared_gf.automation import automation_daily_cron
 from dagster_shared_gf.resources.smb_resources import (
     SMBResource,
     smb_resource_staging_dagster_dwh,
@@ -30,11 +35,11 @@ from dagster_shared_gf.resources.sql_server_resources import (
 )
 from dagster_shared_gf.shared_functions import (
     SQLScriptGenerator,
-    get_for_current_env,
     filter_assets_by_tags,
+    get_for_current_env,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
-from dagster_shared_gf.automation import automation_daily_cron_prd
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import env_str
 
 top_clause = get_for_current_env(
     {"local": "TOP 1000", "dev": "--TOP 100", "prd": "--TOP 100"}
@@ -42,9 +47,18 @@ top_clause = get_for_current_env(
 if env_str == "local":
     warnings.warn("Running in local mode, using top 1000 rows")
 
-@op
+DL_MDBECOMM_Usuarios = AssetKey(["DL_FARINTER", "dbo", "DL_MDBECOMM_Usuarios"])
+DL_Kielsa_Monedero = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero"])
+DL_Kielsa_Libros_Cliente = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Libros_Cliente"])
+DL_Kielsa_Libros_Tipo = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Libros_Tipo"])
+DL_Kielsa_Cliente = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Cliente"])
+BI_Kielsa_Dim_Empresa = AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empresa"])
+BI_Kielsa_Dim_Pais = AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Pais"])
+
+@op(ins={DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing)})
 def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
+    
     sql_query = f"""
     SELECT 
         profile_idnumber,
@@ -111,7 +125,7 @@ def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_ecommerce
 
 
-@op
+@op(ins={DL_Kielsa_Monedero.to_python_identifier(): In(Nothing)})
 def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -154,9 +168,9 @@ def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_monedero
 
 
-@op
+@op(ins={DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing)})
 def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
-    # Define the SQL query to select data from the database
+    # Define the SQL query to select data from the database 
     sql_query = f"""
         SELECT {top_clause} 
             Identidad_Limpia,
@@ -183,7 +197,7 @@ def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_libros_cliente
 
 
-@op
+@op(ins={DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing)})
 def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -200,7 +214,7 @@ def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_libros_tipo
 
 
-@op
+@op(ins={DL_Kielsa_Cliente.to_python_identifier(): In(Nothing)})
 def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -224,7 +238,7 @@ def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_cliente
 
 
-@op
+@op(ins={BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing)})
 def get_df_empresas(dwh_farinter_bi: SQLServerResource) -> pl.DataFrame:
     sql_query = f"""
         SELECT {top_clause} 
@@ -497,7 +511,7 @@ def process_dfs_clientes(
     # Adding final transformations 'Fecha_Actualizado' and a column to indicate if the phone number is valid
 
 
-@op
+@op(ins={BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing)})
 def get_phone_number_valid_df_pattern(
     dwh_farinter_bi: SQLServerResource,
 ) -> pl.DataFrame:
@@ -738,20 +752,23 @@ def bulk_load_to_sql_server(
     # dwh_farinter_dl.execute_and_commit(sql_script, engine="pyodbc") #Allows to execute the query without service account delegation
 
 
-@graph_asset(
-    kinds=("sql_server", "polars", "smb"),
-    key_prefix=("BI_FARINTER", "dbo"),
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-    automation_condition=automation_daily_cron_prd,
-)
-def BI_Kielsa_Dim_ClienteGeneral():
-    df_ecommerce = get_df_ecommerce()
-    df_clientes = get_df_clientes()
-    df_monederos = get_df_monederos()
-    df_libros_cliente = get_df_libros_cliente()
-    df_libros_tipo = get_df_libros_tipo()
-    df_empresas = get_df_empresas()
-    df_paises_patterns = get_phone_number_valid_df_pattern()
+@graph(ins={DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing),
+                        DL_Kielsa_Monedero.to_python_identifier(): In(Nothing),
+                        DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing),
+                        DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing),
+                        DL_Kielsa_Cliente.to_python_identifier(): In(Nothing),
+                        BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing),
+                        BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing),
+                        })
+def BI_Kielsa_Dim_ClienteGeneral_graph(**kwargs):
+    
+    df_ecommerce = get_df_ecommerce(kwargs[DL_MDBECOMM_Usuarios.to_python_identifier()])
+    df_clientes = get_df_clientes(kwargs[DL_Kielsa_Cliente.to_python_identifier()])
+    df_monederos = get_df_monederos(kwargs[DL_Kielsa_Monedero.to_python_identifier()])
+    df_libros_cliente = get_df_libros_cliente(kwargs[DL_Kielsa_Libros_Cliente.to_python_identifier()])
+    df_libros_tipo = get_df_libros_tipo(kwargs[DL_Kielsa_Libros_Tipo.to_python_identifier()])
+    df_empresas = get_df_empresas(kwargs[BI_Kielsa_Dim_Empresa.to_python_identifier()])
+    df_paises_patterns = get_phone_number_valid_df_pattern(kwargs[BI_Kielsa_Dim_Pais.to_python_identifier()])
 
     df_clientes_unidos = process_dfs_clientes(
         df_ecommerce=df_ecommerce,
@@ -768,6 +785,23 @@ def BI_Kielsa_Dim_ClienteGeneral():
 
     return bulk_load_to_sql_server(
         file_path=filepath, df_clientes=df_clientes_corregidos
+    )
+
+BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
+    graph_def=BI_Kielsa_Dim_ClienteGeneral_graph, 
+    #kinds=("sql_server", "polars", "smb"),
+    keys_by_output_name={"result":AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_ClienteGeneral"])},	
+    tags_by_output_name={"result":tags_repo.Daily.tag | tags_repo.UniquePeriod.tag
+                         | {f"dagster/kind/{kind}": "" for kind in ("sql_server", "polars", "smb")}},
+    automation_conditions_by_output_name={"result":automation_daily_cron},
+    keys_by_input_name={DL_MDBECOMM_Usuarios.to_python_identifier(): DL_MDBECOMM_Usuarios,
+                        DL_Kielsa_Monedero.to_python_identifier(): DL_Kielsa_Monedero,
+                        DL_Kielsa_Libros_Cliente.to_python_identifier(): DL_Kielsa_Libros_Cliente,
+                        DL_Kielsa_Libros_Tipo.to_python_identifier(): DL_Kielsa_Libros_Tipo,
+                        DL_Kielsa_Cliente.to_python_identifier(): DL_Kielsa_Cliente,
+                        BI_Kielsa_Dim_Empresa.to_python_identifier(): BI_Kielsa_Dim_Empresa,
+                        BI_Kielsa_Dim_Pais.to_python_identifier(): BI_Kielsa_Dim_Pais,
+                        },
     )
 
 

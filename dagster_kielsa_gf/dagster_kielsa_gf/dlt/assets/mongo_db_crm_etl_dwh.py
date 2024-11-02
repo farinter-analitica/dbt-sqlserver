@@ -399,9 +399,9 @@ def create_dlt_asset(
         automation_condition=dlt_t.collection.automation_condition,
     )
     def created_dlt_assets(
-        context: AssetExecutionContext, dlt_pipeline_dest_mssql: BaseDltPipeline
+        context: AssetExecutionContext, dlt_pipeline_dest_mssql_dwh: BaseDltPipeline
     ):
-        new_pipeline = dlt_pipeline_dest_mssql.get_pipeline(
+        new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
             pipeline_name=target_pipeline_name, dataset_name=dataset_name
         )
         context.log.info(
@@ -409,19 +409,19 @@ def create_dlt_asset(
                 "Running dlt pipeline": target_pipeline_name,
                 "resource": dlt_t.get_asset_key(dlt_resource),
                 "dataset": dataset_name,
-                "write_disposition": dlt_pipeline_dest_mssql.write_disposition,
+                "write_disposition": dlt_pipeline_dest_mssql_dwh.write_disposition,
                 "directory": new_pipeline.pipelines_dir,
             }
         )
         # is_first_run = new_pipeline.first_run
-        load_info: LoadInfo = dlt_pipeline_dest_mssql.run_pipeline(
+        load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
             dlt_resource, new_pipeline
         )
         load_info.raise_on_failed_jobs()
 
         extracted_resource_metadata = {"error": "LoadInfo vacía."}
         if load_info:
-            extracted_resource_metadata = dlt_pipeline_dest_mssql.extract_resource_metadata(
+            extracted_resource_metadata = dlt_pipeline_dest_mssql_dwh.extract_resource_metadata(
                 context, dlt_resource, load_info, new_pipeline
             )
 
