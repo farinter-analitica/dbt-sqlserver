@@ -120,7 +120,8 @@ def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_ecommerce = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32))
+    ).with_columns(pl.col("Emp_Id").cast(pl.Int32),
+                   pl.col("profile_idnumber").cast(pl.String).str.to_uppercase())
 
     return df_ecommerce
 
@@ -163,7 +164,9 @@ def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_monedero = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32))
+    ).with_columns(pl.col("Emp_Id").cast(pl.Int32),
+                   pl.col("Monedero_Id").str.to_uppercase(),
+                   )
 
     return df_monedero
 
@@ -191,7 +194,9 @@ def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     df_libros_cliente = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
     ).with_columns(
-        pl.col("Tipo_Cliente").cast(pl.Int32), pl.col("Pais_Id").cast(pl.Int32)
+        pl.col("Tipo_Cliente").cast(pl.Int32), 
+        pl.col("Pais_Id").cast(pl.Int32),
+        pl.col("Identidad_Limpia").str.to_uppercase(),
     )
 
     return df_libros_cliente
@@ -232,7 +237,8 @@ def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_cliente = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32))
+    ).with_columns(pl.col("Emp_Id").cast(pl.Int32),
+                   pl.col("Cedula").str.to_uppercase())
     print(df_cliente.columns)
 
     return df_cliente
