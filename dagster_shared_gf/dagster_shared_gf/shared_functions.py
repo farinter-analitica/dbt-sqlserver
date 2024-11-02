@@ -8,7 +8,7 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path, PurePath
-from types import ModuleType
+from types import ModuleType, MappingProxyType
 from typing import (
     Any,
     Callable,
@@ -178,7 +178,7 @@ def verify_location_name(location_name: str) -> bool:
         return False
 def get_current_env():
   dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV")
-  assert dagster_instance_current_env != None, "Expected DAGSTER_INSTANCE_CURRENT_ENV, got None"  # env var must be set
+  assert dagster_instance_current_env is not None, "Expected DAGSTER_INSTANCE_CURRENT_ENV, got None"  # env var must be set
   return dagster_instance_current_env
 
 class DagsterInstanceCurrentEnv():
@@ -519,26 +519,32 @@ class SQLScriptGenerator:
     def _validate_and_format_pks(self, columns: tuple[str, ... ] = tuple()) -> tuple[str, ... ]:
         # Get the schema of the DataFrame
         schema = self._df_schema
+
         # Check correct primary keys
-        def run_check_and_yield():
-            seen = set()
-            for pk in columns:
-                if pk not in schema:
-                    raise ValueError(f"Primary key {pk} not in schema, available keys: {str(schema.names())}")
-                # Check for duplicates
-                if pk in seen:
-                    raise ValueError(f"Duplicate primary key: {pk}")
-                # Validate not nulls
-                column_data = self.df.get_column(pk)
-                if column_data.null_count() > 0:
-                    raise ValueError(f"Primary key {pk} cannot be null")
-                # Check for data duplicates
-                if self.df.get_column(pk).n_unique() != self.df.height:
-                    raise ValueError(f"Primary key {pk} cannot have duplicates")
-                seen.add(pk)
-                yield f"[{pk}]"
+        verified_columns = deque() 
+        formatted_columns = deque()
+
+        for pk in columns:
+            if pk not in schema:
+                raise ValueError(f"Primary key {pk} not in schema, available keys: {str(schema.names())}")
+            # Check for duplicates
+            if pk in verified_columns:
+                raise ValueError(f"Duplicate primary key: {pk}")
+            # Validate not nulls
+            column_data = self.df.get_column(pk)
+            if column_data.has_nulls():
+                raise ValueError(f"Primary key {pk} cannot be null")
+            
+            verified_columns.append(pk)
+            formatted_columns.append(f"[{pk}]")
+
+        # Check for data duplicates
+        column_data = self.df.select(verified_columns).to_struct("primary_key")
+        duplicates = column_data.filter(column_data.is_duplicated())
+        if duplicates.len() > 0:
+            raise ValueError(f"Primary key {str(verified_columns)} cannot have duplicates, found {str(duplicates.limit(10))}")
         
-        return tuple(run_check_and_yield())
+        return formatted_columns
 
     def create_table_sql_script(self) -> str:
         """

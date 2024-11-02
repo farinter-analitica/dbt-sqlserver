@@ -224,7 +224,7 @@ class TestSQLScriptGenerator:
         ), f"The generated SQL script:\n {columnstore} does not match the expected output."
 
     def test_raises_error(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError): # missing primary keys
             sg = sf.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1]}),
                 db_schema="dbo",
@@ -233,14 +233,43 @@ class TestSQLScriptGenerator:
             )
             sg.create_table_sql_script()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError): # missing keys
             sg = sf.SQLScriptGenerator(
-                df=pl.DataFrame({"id": [1]}),
+                df=pl.DataFrame({"id": [1, None]}),
                 db_schema="dbo",
                 table_name="people",
-                primary_keys=("id", "name", "age"),
+                primary_keys=("id"),
             )
             sg.primary_key_table_sql_script()
+            
+        with pytest.raises(ValueError): # duplicate keys
+            sg = sf.SQLScriptGenerator(
+                df=pl.DataFrame({"id": [1,1,1]}),
+                db_schema="dbo",
+                table_name="people",
+                primary_keys=("id",),
+            )
+            sg.primary_key_table_sql_script()
+
+        with pytest.raises(ValueError): # duplicate composed keys
+            sg = sf.SQLScriptGenerator(
+                df=pl.DataFrame({"id": [1,1,5], "name": ["a", "a", "c"]}),
+                db_schema="dbo",
+                table_name="people",
+                primary_keys=("id","name"),
+            )
+            sg.primary_key_table_sql_script()
+
+        with pytest.raises(ValueError): # missing composed primary keys
+            sg = sf.SQLScriptGenerator(
+                df=pl.DataFrame({"id": [1,None,3], "name": ["a", "b", "c"]}),
+                db_schema="dbo",
+                table_name="people",
+                primary_keys=("id","name"),
+            )
+            sg.primary_key_table_sql_script()
+
+
 
     def test_temp_table_name(self):
         sg = sf.SQLScriptGenerator(
