@@ -34,6 +34,7 @@ from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
 )
 from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
+from dagster_shared_gf.automation import automation_daily_cron_prd
 
 top_clause = get_for_current_env(
     {"local": "TOP 1000", "dev": "--TOP 100", "prd": "--TOP 100"}
@@ -740,7 +741,8 @@ def bulk_load_to_sql_server(
 @graph_asset(
     kinds=("sql_server", "polars", "smb"),
     key_prefix=("BI_FARINTER", "dbo"),
-    tags=tags_repo.DetenerCarga.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    automation_condition=automation_daily_cron_prd,
 )
 def BI_Kielsa_Dim_ClienteGeneral():
     df_ecommerce = get_df_ecommerce()

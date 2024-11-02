@@ -79,7 +79,6 @@ def my_automation_condition() -> AutomationCondition:
         ).with_label(f"all parents updated since {cron_label}")
         return (
             AutomationCondition.in_latest_time_window()
-            & cron_tick_passed
             & all_deps_updated_since_cron
         ).with_label(f"on cron {cron_label}")
 
