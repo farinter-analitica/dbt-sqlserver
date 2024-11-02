@@ -4,7 +4,9 @@ import inspect
 import itertools
 import os
 import re
-from datetime import timedelta
+from collections import deque
+from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path, PurePath
 from types import ModuleType
 from typing import (
@@ -14,21 +16,21 @@ from typing import (
     List,
     Literal,
     Mapping,
+    Optional,
     Sequence,
     Type,
     Union,
     get_args,
     get_origin,
-    Optional
 )
 
+import polars as pl
 import requests
-from collections import deque
 from dagster import AssetsDefinition, config_from_files
 from dagster_graphql import DagsterGraphQLClient
+
 #from dlt.common.normalizers.naming.snake_case import NamingConvention as SnakeCase
 from trycast import isassignable
-from functools import lru_cache
 
 RE_UNDERSCORES = re.compile("__+")
 RE_LEADING_DIGITS = re.compile(r"^\d+")
@@ -484,3 +486,141 @@ def clean_string_to_key(string: str) -> str:
         clean_string = 'file'
 
     return clean_string
+
+def get_function_path(func):
+    return f"{func.__module__}.{func.__qualname__}"
+
+def get_now_datetime() -> datetime:
+    return datetime.now()
+
+class SQLScriptGenerator:
+    df: pl.DataFrame
+    db_schema: str
+    table_name: str
+    primary_keys: tuple[str, ... ] = tuple()
+    temp_table_name: Optional[str]
+    schema_table_relation: str
+    schema_temp_table_relation: str
+    _df_schema: pl.Schema
+    _formated_primary_keys: tuple[str, ... ]
+
+    def __init__(self, df: pl.DataFrame, db_schema: str, table_name: str, primary_keys: tuple[str, ... ] = tuple(), temp_table_name: Optional[str] = None):
+        self.df = df
+        self._df_schema = df.collect_schema()
+        self.db_schema = db_schema
+        self.table_name = table_name
+        self.temp_table_name = temp_table_name
+        self.schema_table_relation = f"[{db_schema}].[{table_name}]"
+        self.schema_temp_table_relation = f"[{db_schema}].[{temp_table_name or table_name}]"
+        self.primary_keys = primary_keys    
+        self._formated_primary_keys = self._validate_and_format_fields(columns=primary_keys)
+        
+
+    def _validate_and_format_fields(self, columns: tuple[str, ... ] = tuple()) -> tuple[str, ... ]:
+        # Get the schema of the DataFrame
+        schema = self._df_schema
+        # Check correct primary keys
+        def run_check_and_yield():
+            for pk in columns:
+                if pk not in schema:
+                    raise ValueError(f"Primary key {pk} not in schema, available keys: {str(schema.names())}")
+                # Validate not nulls
+                if self.df.get_column(pk).null_count() > 0:
+                    raise ValueError(f"Primary key {pk} cannot be null")
+                
+                yield f"[{pk}]"
+        
+        return tuple(run_check_and_yield())
+
+    def create_table_sql_script(self) -> str:
+        """
+        Generate a SQL script to create a table based on a Polars DataFrame schema.
+
+        Returns:
+        - str: The SQL script to create the table.
+        """
+        schema = self._df_schema
+        primary_keys = self.primary_keys
+        df =self.df
+
+        # Initialize the SQL script
+        sql_script = f"CREATE TABLE {self.schema_temp_table_relation} (\n"
+
+        # Iterate over the columns in the schema
+        for col_name, col_type in schema.items():
+            
+            # Map the Polars data type to a SQL Server data type
+            if col_type == pl.Int8:
+                sql_type = "TINYINT"
+            elif col_type == pl.Int16:
+                sql_type = "SMALLINT"
+            elif col_type == pl.Int32:
+                sql_type = "INT"
+            elif col_type == pl.Int64:
+                sql_type = "BIGINT"
+            elif col_type == pl.Float32:
+                sql_type = "FLOAT(24)"
+            elif col_type == pl.Float64:
+                sql_type = "FLOAT(53)"
+            elif col_type == pl.Utf8:
+                string_lenght = df.get_column(col_name).str.len_chars().max()
+
+                if col_name in primary_keys and not string_lenght > 50:
+                    sql_type = "NVARCHAR(50)"
+                elif string_lenght <= 100:
+                    sql_type = "NVARCHAR(100)"
+                elif string_lenght <= 255:
+                # Use NVARCHAR for string columns with a maximum length of 255
+                    sql_type = "NVARCHAR(255)"
+                elif col_name in primary_keys:
+                    raise ValueError(f"Primary key {col_name} shouldn't be longer than 255 characters")
+                else:
+                    sql_type = "NVARCHAR(MAX)"
+            elif col_type == pl.Boolean:
+                sql_type = "BIT"
+            elif col_type == pl.Datetime:
+                if col_type.time_zone is not None:
+                    sql_type = "DATETIMEOFFSET(0)"
+                else:
+                    sql_type = "DATETIME2(0)"
+            elif col_type == pl.Date:
+                sql_type = "DATE"
+            elif col_type == pl.Decimal:
+                # Use DECIMAL with precision and scale
+                precision = col_type.precision
+                scale = col_type.scale
+                sql_type = f"DECIMAL({precision}, {scale})"
+            else:
+                raise ValueError(f"Unsupported data type: {col_type}")
+
+
+            # Add the column definition to the SQL script
+            sql_script += f"    [{col_name}] {sql_type}"
+
+            # Check if the column is a primary key
+            if col_name in primary_keys:
+                sql_script += " NOT NULL"
+
+            sql_script += ",\n"
+
+        # Remove the trailing comma and newline
+        sql_script = sql_script[:-2] + "\n);\n"
+
+        return sql_script
+
+    def primary_key_table_sql_script(self) -> str:
+        pk=self.primary_keys
+        tn=self.table_name
+        # Add the nonclustered primary key with randon name
+        dynamic_part = get_now_datetime().strftime("%Y%m%dT%H%M%S%f")
+        if len(pk) > 0:
+            sql_script = f"ALTER TABLE {self.schema_temp_table_relation} ADD CONSTRAINT [pk_{tn}_{dynamic_part}] PRIMARY KEY NONCLUSTERED ({', '.join(pk)});\n"
+        return sql_script
+
+    def columnstore_table_sql_script(self) -> str:
+        dynamic_part = get_now_datetime().strftime("%Y%m%dT%H%M%S%f")
+        tn=self.table_name
+        return f"CREATE CLUSTERED COLUMNSTORE INDEX [idx_{tn}_{dynamic_part}] ON {self.schema_temp_table_relation};\n"
+
+if __name__ == "__main__":
+    pass

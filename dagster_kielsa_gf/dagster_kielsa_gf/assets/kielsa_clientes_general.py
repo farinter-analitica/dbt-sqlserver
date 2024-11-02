@@ -1,6 +1,6 @@
 import unittest
-from datetime import datetime
-
+from datetime import datetime, timedelta
+import warnings
 import polars as pl
 import polars.testing as pltest
 from dagster import (
@@ -15,7 +15,9 @@ from dagster import (
     load_assets_from_current_module,
     materialize,
     op,
+    build_last_update_freshness_checks
 )
+from typing import Sequence
 
 from dagster_shared_gf.resources.smb_resources import (
     SMBResource,
@@ -27,15 +29,20 @@ from dagster_shared_gf.resources.sql_server_resources import (
     dwh_farinter_dl,
 )
 from dagster_shared_gf.shared_functions import (
+    SQLScriptGenerator,
     get_for_current_env,
+    filter_assets_by_tags,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
 
-top_clause = get_for_current_env({"local": "TOP 1000", "dev": "--TOP 100", "prd": "--TOP 100"})
+top_clause = get_for_current_env(
+    {"local": "TOP 1000", "dev": "--TOP 100", "prd": "--TOP 100"}
+)
+if env_str == "local":
+    warnings.warn("Running in local mode, using top 1000 rows")
+
 @op
-def get_df_ecommerce(
-    dwh_farinter_dl: SQLServerResource
-) -> pl.DataFrame:
+def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
     SELECT 
@@ -104,9 +111,7 @@ def get_df_ecommerce(
 
 
 @op
-def get_df_monederos(
-    dwh_farinter_dl: SQLServerResource
-) -> pl.DataFrame:
+def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
         SELECT {top_clause}
@@ -149,9 +154,7 @@ def get_df_monederos(
 
 
 @op
-def get_df_libros_cliente(
-    dwh_farinter_dl: SQLServerResource
-) -> pl.DataFrame:
+def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
         SELECT {top_clause} 
@@ -180,9 +183,7 @@ def get_df_libros_cliente(
 
 
 @op
-def get_df_libros_tipo(
-    dwh_farinter_dl: SQLServerResource
-) -> pl.DataFrame:
+def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
         SELECT {top_clause}
@@ -199,9 +200,7 @@ def get_df_libros_tipo(
 
 
 @op
-def get_df_clientes(
-    dwh_farinter_dl: SQLServerResource
-) -> pl.DataFrame:
+def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
         SELECT {top_clause}
@@ -225,9 +224,7 @@ def get_df_clientes(
 
 
 @op
-def get_df_empresas(
-    dwh_farinter_bi: SQLServerResource
-) -> pl.DataFrame:
+def get_df_empresas(dwh_farinter_bi: SQLServerResource) -> pl.DataFrame:
     sql_query = f"""
         SELECT {top_clause} 
             E.[Empresa_Id] AS [Emp_Id]
@@ -499,9 +496,10 @@ def process_dfs_clientes(
     # Adding final transformations 'Fecha_Actualizado' and a column to indicate if the phone number is valid
 
 
-
 @op
-def get_phone_number_valid_df_pattern(dwh_farinter_bi: SQLServerResource) -> pl.DataFrame:
+def get_phone_number_valid_df_pattern(
+    dwh_farinter_bi: SQLServerResource,
+) -> pl.DataFrame:
     """
     Returns True if the given phone number matches the pattern for the specified country.
 
@@ -529,7 +527,9 @@ def get_phone_number_valid_df_pattern(dwh_farinter_bi: SQLServerResource) -> pl.
     """
 
     # Execute the SQL query and store the result in a Polars DataFrame
-    df_paises = pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
+    df_paises = pl.read_database(
+        sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string()
+    )
 
     patterns = {
         "HN": r"^(?:\+?504[-\s]?[23789]\d{7}|[23789]\d{7})$",
@@ -551,13 +551,15 @@ def get_phone_number_valid_df_pattern(dwh_farinter_bi: SQLServerResource) -> pl.
         pl.col("pattern"),
     )
 
-@op #(out={"df_clientes": Out(pl.DataFrame), "filas": Out(int)})
-def correciones_clientes(df_clientes: pl.DataFrame, df_paises_patterns: pl.DataFrame) -> pl.DataFrame: #tuple[pl.DataFrame, int]:
+
+@op  # (out={"df_clientes": Out(pl.DataFrame), "filas": Out(int)})
+def correciones_clientes(
+    df_clientes: pl.DataFrame, df_paises_patterns: pl.DataFrame
+) -> pl.DataFrame:  # tuple[pl.DataFrame, int]:
     df_pv_pattern = df_paises_patterns
 
     df_clientes = (
-        df_clientes
-        .unique(subset=["Identidad_Limpia", "Emp_Id"])
+        df_clientes.unique(subset=["Identidad_Limpia", "Emp_Id"])
         .drop_nulls(subset=["Identidad_Limpia", "Emp_Id"])
         .join(df_pv_pattern, on="Pais_Id", how="left")
         .with_columns(
@@ -578,9 +580,10 @@ def correciones_clientes(df_clientes: pl.DataFrame, df_paises_patterns: pl.DataF
         )
         .drop(["pattern"])
     )
-    print(df_clientes.schema)
+    #print(df_clientes.schema)
     return df_clientes
-    #return  df_clientes, len(df_clientes)
+    # return  df_clientes, len(df_clientes)
+
 
 # @op
 # def escribir_clientes(context: OpExecutionContext, df_clientes: pl.DataFrame, dwh_farinter_dl: SQLServerResource) -> int:
@@ -594,13 +597,16 @@ def correciones_clientes(df_clientes: pl.DataFrame, df_paises_patterns: pl.DataF
 
 #     return len(df_clientes)
 
+
 @op(
     out={"file_path": Out(str)},
 )
-def create_file_on_smb(smb_resource_staging_dagster_dwh: SMBResource, df_clientes: pl.DataFrame) -> str: # tuple[str, str]:
+def create_file_on_smb(
+    smb_resource_staging_dagster_dwh: SMBResource, df_clientes: pl.DataFrame
+) -> str:  # tuple[str, str]:
     smbr = smb_resource_staging_dagster_dwh
     file_path = smbr.get_full_server_path("\\staging_dagster\\kielsa_clientes.csv")
-    #format_file_path = smbr.get_full_server_path("\\staging_dagster\\kielsa_clientes.fmt")
+    # format_file_path = smbr.get_full_server_path("\\staging_dagster\\kielsa_clientes.fmt")
 
     # Write the CSV file
     with smbr.open_server_file(file_path, mode="w") as f:
@@ -624,35 +630,53 @@ def create_file_on_smb(smb_resource_staging_dagster_dwh: SMBResource, df_cliente
     # with smbr.open_server_file(format_file_path, mode="w") as f:
     #     f.write(format_file_content)
 
-    return str(file_path) #, str(format_file_path)
+    return str(file_path)  # , str(format_file_path)
+
 
 @op(
     ins={"file_path": In(str)},
 )
-def bulk_load_to_sql_server(dwh_farinter_dl: SQLServerResource, file_path: str, df_clientes: pl.DataFrame) -> None:
-    table_name = "DL_Kielsa_ClienteGeneral"
-    #row_terminator = "\r\n"
-    format_file_path = ''
-        # Print the first few lines of the CSV file for debugging
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for _ in range(5):
-            print(f.readline().strip()[:1000])
+def bulk_load_to_sql_server(
+    dwh_farinter_bi: SQLServerResource, file_path: str, df_clientes: pl.DataFrame
+) -> None:
+    sg = SQLScriptGenerator(
+        primary_keys=("Identidad_Limpia", "Emp_Id"),
+        db_schema="dbo",
+        table_name="BI_Kielsa_Dim_ClienteGeneral",
+        temp_table_name="BI_Kielsa_Dim_ClienteGeneral_NEW",
+        df=df_clientes,
+    )    
+    # row_terminator = "\r\n"
+    format_file_path = ""
+    # # Print the first few lines of the CSV file for debugging
+    # with open(file_path, "r", encoding="utf-8") as f:
+    #     for _ in range(5):
+    #         print(f.readline().strip()[:1000])
+
 
     sql_script = f"""
         SET XACT_ABORT ON;
         SET NOCOUNT ON;
-        BEGIN TRANSACTION;
 
         BEGIN TRY
+
+            -- Drop the view if it exists
+            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES t
+                WHERE t.TABLE_NAME = '{sg.table_name}' and t.TABLE_SCHEMA = '{sg.db_schema}' 
+                and t.TABLE_TYPE = 'VIEW')
+                DROP VIEW [{sg.db_schema}].[{sg.table_name}];
+
             -- Drop the NEW table if it exists
-            DROP TABLE IF EXISTS dbo.{table_name}_NEW;
+            DROP TABLE IF EXISTS {sg.schema_temp_table_relation};
+
+            -- Drop the old table
+            DROP TABLE IF EXISTS [{sg.db_schema}].[{sg.table_name}_OLD];
 
             -- Create a new table with the same structure as the existing one
-            SELECT TOP 0 * INTO {table_name}_NEW
-            FROM {table_name}_dagster_temp_base WITH (NOLOCK);
+            {sg.create_table_sql_script()}
             
             -- Bulk load the data into the new table
-            BULK INSERT {table_name}_NEW
+            BULK INSERT {sg.schema_temp_table_relation}
             FROM '{file_path}'
             WITH (
                 CODEPAGE = '65001', -- UTF-8
@@ -672,47 +696,52 @@ def bulk_load_to_sql_server(dwh_farinter_dl: SQLServerResource, file_path: str, 
             );
 
             -- Convert the new table to columnstore
-            CREATE CLUSTERED COLUMNSTORE INDEX cci_dl_kielsa_clientegeneral ON {table_name}_NEW;
+            {sg.columnstore_table_sql_script()}
 
+            -- Add primary key
+            {sg.primary_key_table_sql_script()}
+            
             -- Swap the tables
-            --EXEC sp_rename '{table_name}', '{table_name}_OLD';
-            --EXEC sp_rename '{table_name}_NEW', '{table_name}';
-            SELECT TOP 0 * INTO {table_name}_OLD
-            FROM {table_name} WITH (NOLOCK);
+            BEGIN TRANSACTION;
+            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES t
+                WHERE t.TABLE_NAME = '{sg.table_name}' and t.TABLE_SCHEMA = '{sg.db_schema}')
+                EXEC sp_rename '{sg.db_schema}.{sg.table_name}', '{sg.table_name}_OLD';
+            EXEC sp_rename '{sg.schema_temp_table_relation}', '{sg.table_name}';
+            COMMIT TRANSACTION;
+            --SELECT TOP 0 * INTO [{sg.db_schema}].[{sg.table_name}_OLD]
+            --FROM [{sg.db_schema}].[{sg.table_name}] WITH (NOLOCK);
 
             -- Convert the OLD table to columnstore
-            CREATE CLUSTERED COLUMNSTORE INDEX cci_dl_kielsa_clientegeneral_OLD ON {table_name}_OLD;
+            --CREATE CLUSTERED COLUMNSTORE INDEX cci_dl_kielsa_clientegeneral_OLD ON {sg.table_name}_OLD;
 
-            ALTER TABLE {table_name} SWITCH TO {table_name}_OLD 
-                WITH ( WAIT_AT_LOW_PRIORITY ( MAX_DURATION = 1 MINUTES, ABORT_AFTER_WAIT = BLOCKERS )); 
-            ALTER TABLE {table_name}_NEW SWITCH TO {table_name};
+            --ALTER TABLE [{sg.db_schema}].[{sg.table_name}] SWITCH TO [{sg.db_schema}].[{sg.table_name}]_OLD 
+            --    WITH ( WAIT_AT_LOW_PRIORITY ( MAX_DURATION = 1 MINUTES, ABORT_AFTER_WAIT = BLOCKERS )); 
+            --ALTER TABLE {sg.schema_temp_table_relation} SWITCH TO [{sg.db_schema}].[{sg.table_name}];
 
             -- Drop the old table
-            DROP TABLE {table_name}_OLD;
+            DROP TABLE IF EXISTS [{sg.db_schema}].[{sg.table_name}_OLD];
 
             -- Drop the NEW table
-            DROP TABLE {table_name}_NEW;
+            DROP TABLE IF EXISTS {sg.schema_temp_table_relation};
 
-            -- Drop the temporary base table
-            DROP TABLE {table_name}_dagster_temp_base;
-
-            COMMIT TRANSACTION;
         END TRY
         BEGIN CATCH
-            ROLLBACK TRANSACTION;
+            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
             THROW;
         END CATCH;
-    """    
-    #print(sql_script)
-    with dwh_farinter_dl.get_sqlalchemy_conn(autocommit=True) as conn:
-        df_clientes.limit(100).write_database(table_name=f"{table_name}_dagster_temp_base", connection=conn, if_table_exists='replace')
-        dwh_farinter_dl.execute_and_commit(sql_script, connection=conn)
-    #dwh_farinter_dl.execute_and_commit(sql_script, engine="pyodbc") #Allows to execute the query without service account delegation
+    """
+    # print(sql_script)
+    with dwh_farinter_bi.get_sqlalchemy_conn(autocommit=True) as conn:
+        # df_clientes.limit(100).write_database(table_name=f"{table_name}_dagster_temp_base", connection=conn, if_table_exists='replace')
+        dwh_farinter_bi.execute_and_commit(sql_script, connection=conn)
+    # dwh_farinter_dl.execute_and_commit(sql_script, engine="pyodbc") #Allows to execute the query without service account delegation
 
 
-@graph_asset(kinds=("sql_server", "polars", "smb"), 
-             key_prefix=("DL_FARINTER", "dbo"),
-             tags=tags_repo.DetenerCarga.tag | tags_repo.UniquePeriod.tag)
+@graph_asset(
+    kinds=("sql_server", "polars", "smb"),
+    key_prefix=("BI_FARINTER", "dbo"),
+    tags=tags_repo.DetenerCarga.tag | tags_repo.UniquePeriod.tag,
+)
 def BI_Kielsa_Dim_ClienteGeneral():
     df_ecommerce = get_df_ecommerce()
     df_clientes = get_df_clientes()
@@ -735,10 +764,13 @@ def BI_Kielsa_Dim_ClienteGeneral():
     )
     filepath = create_file_on_smb(df_clientes=df_clientes_corregidos)
 
-    return bulk_load_to_sql_server(file_path=filepath, df_clientes=df_clientes_corregidos)
+    return bulk_load_to_sql_server(
+        file_path=filepath, df_clientes=df_clientes_corregidos
+    )
 
 
 if __name__ == "__main__":
+
     class TestPhoneNumberValidation(unittest.TestCase):
         def test_honduras_phone_numbers(self):
             # Get the validation pattern for Honduras
@@ -790,33 +822,45 @@ if __name__ == "__main__":
                 invalid_df["is_valid"],
                 pl.Series([False] * len(invalid_numbers)).alias("is_valid"),
             )
- 
+
     start_time = datetime.now()
     with instance_for_test() as instance:
+
         @asset(name="between_asset")
         def mock_between_asset() -> int:
             return 1
-        result = materialize(assets=[mock_between_asset, BI_Kielsa_Dim_ClienteGeneral], instance=instance, resources={"dwh_farinter_dl": dwh_farinter_dl, "dwh_farinter_bi": dwh_farinter_bi, "smb_resource_staging_dagster_dwh": smb_resource_staging_dagster_dwh})
+
+        result = materialize(
+            assets=[mock_between_asset, BI_Kielsa_Dim_ClienteGeneral],
+            instance=instance,
+            resources={
+                "dwh_farinter_dl": dwh_farinter_dl,
+                "dwh_farinter_bi": dwh_farinter_bi,
+                "smb_resource_staging_dagster_dwh": smb_resource_staging_dagster_dwh,
+            },
+        )
         print(result.output_for_node(BI_Kielsa_Dim_ClienteGeneral.node_def.name))
 
     end_time = datetime.now()
-    print(f"Tiempo de ejecución: {end_time - start_time}, desde {start_time}, hasta {end_time}")
+    print(
+        f"Tiempo de ejecución: {end_time - start_time}, desde {start_time}, hasta {end_time}"
+    )
 
     unittest.main()
 
 all_assets = load_assets_from_current_module()
 
-# all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-#     assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
-#     lower_bound_delta=timedelta(hours=26),
-#     deadline_cron="0 9 * * 1-6",
-# )
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-# all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-#     assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-#     lower_bound_delta=timedelta(hours=13),
-#     deadline_cron="0 10-16 * * 1-6",
-# )
+all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+    lower_bound_delta=timedelta(hours=26),
+    deadline_cron="0 9 * * 1-6",
+)
+
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+    lower_bound_delta=timedelta(hours=13),
+    deadline_cron="0 10-16 * * 1-6",
+)
 
 all_asset_checks: list[AssetChecksDefinition] = load_asset_checks_from_current_module()
-#all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+# all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks

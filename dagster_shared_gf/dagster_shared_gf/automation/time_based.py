@@ -1,9 +1,12 @@
-from dagster import AssetSelection, AutomationCondition
+from dagster import AssetSelection, AutomationCondition, ExperimentalWarning
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import (
     default_timezone_teg,
     TagsRepositoryGF as tags_repo,
 )
+import warnings
+
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 # https://docs.dagster.io/concepts/automation/declarative-automation
 # https://docs.dagster.io/concepts/automation/declarative-automation/customizing-automation-conditions
