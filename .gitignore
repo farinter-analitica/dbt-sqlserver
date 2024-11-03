@@ -142,3 +142,5 @@ dagster_sap_gf/dagster_sap_gf/dlt/.dlt/secrets.toml
 
 # vscode
 #.vscode/
+
+secrets.toml

@@ -40,9 +40,11 @@ from dagster_shared_gf.shared_functions import (
 )
 from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
 from dagster_shared_gf.shared_variables import env_str
+if __name__ == "__main__":
+    from dagster_polars import PolarsParquetIOManager
 
 top_clause = get_for_current_env(
-    {"local": "TOP 1000", "dev": "--TOP 100", "prd": "--TOP 100"}
+    {"local": "TOP 100", "dev": "--TOP 100", "prd": "--TOP 100"}
 )
 if env_str == "local":
     warnings.warn("Running in local mode, using top 1000 rows")
@@ -55,7 +57,8 @@ DL_Kielsa_Cliente = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Cliente"])
 BI_Kielsa_Dim_Empresa = AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empresa"])
 BI_Kielsa_Dim_Pais = AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Pais"])
 
-@op(ins={DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing)})
+@op(ins={DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     
@@ -126,7 +129,8 @@ def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_ecommerce
 
 
-@op(ins={DL_Kielsa_Monedero.to_python_identifier(): In(Nothing)})
+@op(ins={DL_Kielsa_Monedero.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -171,7 +175,8 @@ def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_monedero
 
 
-@op(ins={DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing)})
+@op(ins={DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database 
     sql_query = f"""
@@ -202,7 +207,8 @@ def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_libros_cliente
 
 
-@op(ins={DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing)})
+@op(ins={DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -219,7 +225,8 @@ def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_libros_tipo
 
 
-@op(ins={DL_Kielsa_Cliente.to_python_identifier(): In(Nothing)})
+@op(ins={DL_Kielsa_Cliente.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -244,7 +251,8 @@ def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_cliente
 
 
-@op(ins={BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing)})
+@op(ins={BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_df_empresas(dwh_farinter_bi: SQLServerResource) -> pl.DataFrame:
     sql_query = f"""
         SELECT {top_clause} 
@@ -262,7 +270,7 @@ def get_df_empresas(dwh_farinter_bi: SQLServerResource) -> pl.DataFrame:
     return df_empresas
 
 
-@op
+@op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def process_dfs_clientes(
     context: OpExecutionContext,
     df_monedero: pl.DataFrame,
@@ -517,7 +525,8 @@ def process_dfs_clientes(
     # Adding final transformations 'Fecha_Actualizado' and a column to indicate if the phone number is valid
 
 
-@op(ins={BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing)})
+@op(ins={BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_phone_number_valid_df_pattern(
     dwh_farinter_bi: SQLServerResource,
 ) -> pl.DataFrame:
@@ -573,7 +582,7 @@ def get_phone_number_valid_df_pattern(
     )
 
 
-@op  # (out={"df_clientes": Out(pl.DataFrame), "filas": Out(int)})
+@op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def correciones_clientes(
     df_clientes: pl.DataFrame, df_paises_patterns: pl.DataFrame
 ) -> pl.DataFrame:  # tuple[pl.DataFrame, int]:
@@ -879,6 +888,7 @@ if __name__ == "__main__":
                 "dwh_farinter_dl": dwh_farinter_dl,
                 "dwh_farinter_bi": dwh_farinter_bi,
                 "smb_resource_staging_dagster_dwh": smb_resource_staging_dagster_dwh,
+                "polars_parquet_io_manager": PolarsParquetIOManager(),
             },
         )
         print(result.output_for_node(BI_Kielsa_Dim_ClienteGeneral.node_def.name))
