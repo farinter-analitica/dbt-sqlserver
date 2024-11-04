@@ -33,6 +33,10 @@ from dagster_shared_gf.resources.sql_server_resources import (
     dwh_farinter_bi,
     dwh_farinter_dl,
 )
+from dagster_shared_gf.shared_constants import (
+    EMAIL_REGEX_PATTERN_RUST_CRATES,
+    EMAIL_REGEX_INVALID_DOTS_PATTERN,
+)
 from dagster_shared_gf.shared_functions import (
     SQLScriptGenerator,
     filter_assets_by_tags,
@@ -40,6 +44,7 @@ from dagster_shared_gf.shared_functions import (
 )
 from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
 from dagster_shared_gf.shared_variables import env_str
+
 if __name__ == "__main__":
     from dagster_polars import PolarsParquetIOManager
 
@@ -49,6 +54,8 @@ top_clause = get_for_current_env(
 if env_str == "local":
     warnings.warn("Running in local mode, using top 1000 rows")
 
+warnings.filterwarnings("ignore", message="PolarsParquetIOManager")
+
 DL_MDBECOMM_Usuarios = AssetKey(["DL_FARINTER", "dbo", "DL_MDBECOMM_Usuarios"])
 DL_Kielsa_Monedero = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero"])
 DL_Kielsa_Libros_Cliente = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Libros_Cliente"])
@@ -57,17 +64,19 @@ DL_Kielsa_Cliente = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Cliente"])
 BI_Kielsa_Dim_Empresa = AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empresa"])
 BI_Kielsa_Dim_Pais = AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Pais"])
 
-@op(ins={DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing)},
-    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+
+@op(
+    ins={DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
+)
 def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
-    
+
     sql_query = f"""
     SELECT 
         profile_idnumber,
         1 as Emp_Id,
         profile_fullname,
-        profile_telephone,
         profile_telephone,
         profile_birthday_date,
         email_principal,
@@ -123,14 +132,18 @@ def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_ecommerce = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32),
-                   pl.col("profile_idnumber").cast(pl.String).str.to_uppercase())
+    ).with_columns(
+        pl.col("Emp_Id").cast(pl.Int32),
+        pl.col("profile_idnumber").cast(pl.String).str.to_uppercase(),
+    )
 
     return df_ecommerce
 
 
-@op(ins={DL_Kielsa_Monedero.to_python_identifier(): In(Nothing)},
-    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+@op(
+    ins={DL_Kielsa_Monedero.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
+)
 def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -168,17 +181,21 @@ def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_monedero = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32),
-                   pl.col("Monedero_Id").str.to_uppercase(),
-                   )
+    ).with_columns(
+        pl.col("Emp_Id").cast(pl.Int32),
+        pl.col("Monedero_Id").str.to_uppercase(),
+        #pl.col("Monedero_Id").str.to_uppercase().alias("Identidad_Limpia"),
+    )
 
     return df_monedero
 
 
-@op(ins={DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing)},
-    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+@op(
+    ins={DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
+)
 def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
-    # Define the SQL query to select data from the database 
+    # Define the SQL query to select data from the database
     sql_query = f"""
         SELECT {top_clause} 
             Identidad_Limpia,
@@ -199,16 +216,19 @@ def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     df_libros_cliente = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
     ).with_columns(
-        pl.col("Tipo_Cliente").cast(pl.Int32), 
+        pl.col("Tipo_Cliente").cast(pl.Int32),
         pl.col("Pais_Id").cast(pl.Int32),
+        pl.col("Pais_Id").cast(pl.Int32).alias("Emp_Id"),
         pl.col("Identidad_Limpia").str.to_uppercase(),
     )
 
     return df_libros_cliente
 
 
-@op(ins={DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing)},
-    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+@op(
+    ins={DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
+)
 def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -225,8 +245,10 @@ def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     return df_libros_tipo
 
 
-@op(ins={DL_Kielsa_Cliente.to_python_identifier(): In(Nothing)},
-    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+@op(
+    ins={DL_Kielsa_Cliente.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
+)
 def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
@@ -244,15 +266,16 @@ def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_cliente = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32),
-                   pl.col("Cedula").str.to_uppercase())
+    ).with_columns(pl.col("Emp_Id").cast(pl.Int32), pl.col("Cedula").str.to_uppercase())
     print(df_cliente.columns)
 
     return df_cliente
 
 
-@op(ins={BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing)},
-    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+@op(
+    ins={BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
+)
 def get_df_empresas(dwh_farinter_bi: SQLServerResource) -> pl.DataFrame:
     sql_query = f"""
         SELECT {top_clause} 
@@ -279,39 +302,160 @@ def process_dfs_clientes(
     df_ecommerce: pl.DataFrame,
     df_cliente: pl.DataFrame,
     df_empresas: pl.DataFrame,
+    df_paises_patterns: pl.DataFrame,
 ) -> pl.DataFrame:
+    # Get phone patterns by Emp_Id on df_empresas
+    df_empresas = df_empresas.join(df_paises_patterns, on="Pais_Id", how="left").select(
+        ["Emp_Id", "Pais_Id", "Pais_ISO2", "pattern"]
+    )
+
+    # Preprocess the dataframes
+    df_monedero = (
+        df_monedero.join(df_empresas, on="Emp_Id", how="left")
+        .with_columns(
+            pl.col("Telefono")
+            .str.contains(pl.col("pattern"))
+            .alias("Telefono_Valido")
+            .cast(pl.Boolean),
+            pl.col("Celular")
+            .str.contains(pl.col("pattern"))
+            .alias("Celular_Valido")
+            .cast(pl.Boolean),
+            pl.col("Correo").alias("Correo"),
+            (
+                pl.col("Correo").str.contains(EMAIL_REGEX_PATTERN_RUST_CRATES)
+                & pl.col("Correo").str.contains(EMAIL_REGEX_INVALID_DOTS_PATTERN).not_()
+            )
+            .cast(pl.Boolean)
+            .alias("Correo_Valido"),
+        )
+        .drop(["pattern"])
+    )
+
+    df_libros_cliente = (
+        df_libros_cliente.join(df_empresas, on="Emp_Id", how="left")
+        .with_columns(
+            pl.col("Telefono")
+            .str.contains(pl.col("pattern"))
+            .alias("Telefono_Valido")
+            .cast(pl.Boolean),
+            pl.col("Telefono").alias("Celular"),
+            pl.col("Telefono")
+            .str.contains(pl.col("pattern"))
+            .alias("Celular_Valido")
+            .cast(pl.Boolean),
+        )
+        .drop(["pattern"])
+    )
+
+    df_ecommerce = (
+        df_ecommerce.join(df_empresas, on="Emp_Id", how="left")
+        .with_columns(
+            pl.col("profile_telephone").alias("Celular"),
+            pl.col("profile_telephone").alias("Telefono"),
+            pl.col("profile_telephone")
+            .str.contains(pl.col("pattern"))
+            .cast(pl.Boolean)
+            .alias("Telefono_Valido"),
+            pl.col("profile_telephone")
+            .str.contains(pl.col("pattern"))
+            .cast(pl.Boolean)
+            .alias("Celular_Valido"),
+            pl.col("email_principal").alias("Correo"),
+            (
+                pl.col("email_principal").str.contains(EMAIL_REGEX_PATTERN_RUST_CRATES)
+                & pl.col("email_principal").str.contains(EMAIL_REGEX_INVALID_DOTS_PATTERN).not_()
+            )
+            .cast(pl.Boolean)
+            .alias("Correo_Valido"),
+            pl.when(pl.col("profile_gender") == "mujer")
+            .then(pl.lit("M"))
+            .when(pl.col("profile_gender") == "hombre")
+            .then(pl.lit("H"))
+            .otherwise(pl.lit("N"))
+            .alias("Genero"),
+        )
+        .drop(["pattern"])
+    )
+
+    df_cliente = df_cliente.join(df_empresas, on="Emp_Id", how="left").with_columns(
+        pl.lit(None).alias("Telefono"),
+        pl.lit(0).cast(pl.Boolean).alias("Telefono_Valido"),
+        pl.lit(None).alias("Celular"),
+        pl.lit(0).cast(pl.Boolean).alias("Celular_Valido"),
+        pl.col("Correo").alias("Correo"),
+        (
+            pl.col("Correo").str.contains(EMAIL_REGEX_PATTERN_RUST_CRATES)
+            & pl.col("Correo").str.contains(EMAIL_REGEX_INVALID_DOTS_PATTERN).not_()
+        )
+        .cast(pl.Boolean)
+        .alias("Correo_Valido"),
+    )
+
     # Process the dataframes
     df_clientes1 = (
-        df_monedero.with_columns(pl.col("Emp_Id").cast(pl.Int32))
-        .join(
+        df_monedero.join(
             df_libros_cliente,
             left_on=["Monedero_Id", "Emp_Id"],
-            right_on=["Identidad_Limpia", "Pais_Id"],
+            right_on=["Identidad_Limpia", "Emp_Id"],
             how="left",
+            suffix="_Libros",
         )
         .join(df_libros_tipo, left_on="Tipo_Cliente", right_on="Tipo_Id", how="left")
+        .join(
+            df_cliente,
+            left_on="Monedero_Id",
+            right_on="Cedula",
+            how="left",
+            suffix="_Cliente",
+        )
         .join(
             df_ecommerce,
             left_on=["Monedero_Id", "Emp_Id"],
             right_on=["profile_idnumber", "Emp_Id"],
             how="left",
+            suffix="_Ecommerce",
         )
         .select(
             pl.col("Monedero_Id"),
             pl.col("Monedero_Id").alias("Identidad_Limpia"),
             pl.col("Emp_Id"),
-            pl.col("Monedero_Nombre").alias("Nombre_Completo"),
+            pl.col("Monedero_Nombre").str.to_titlecase().alias("Nombre_Completo"),
             pl.col("Tipo_Plan"),
             pl.col("Identificacion"),
             pl.col("Identificacion_Formato"),
-            pl.coalesce(
-                [pl.col("Telefono"), pl.col("profile_telephone"), pl.lit("")]
-            ).alias("Telefono"),
-            pl.col("Celular"),
+            pl.when(pl.col("Celular_Valido"))
+            .then(pl.col("Celular"))
+            .when(pl.col("Celular_Valido_Libros"))
+            .then(pl.col("Celular_Libros"))
+            .when(pl.col("Celular_Valido_Ecommerce"))
+            .then(pl.col("Celular_Ecommerce"))
+            .otherwise(pl.col("Celular"))
+            .alias("Celular"),
+            pl.when(pl.col("Telefono_Valido"))
+            .then(pl.col("Telefono"))
+            .when(pl.col("Telefono_Valido_Cliente"))
+            .then(pl.col("Telefono_Cliente"))
+            .when(pl.col("Telefono_Valido_Ecommerce"))
+            .then(pl.col("Telefono_Ecommerce"))
+            .otherwise(pl.col("Telefono")),
             pl.col("Nacimiento").alias("Fecha_Nacimiento"),
-            pl.coalesce(
-                [pl.col("Correo"), pl.col("email_principal"), pl.lit("")]
-            ).alias("Correo"),
+            pl.when(pl.col("Correo_Valido"))
+            .then(pl.col("Correo"))
+            .when(pl.col("Correo_Valido_Cliente"))
+            .then(pl.col("Correo_Cliente"))
+            .when(pl.col("Correo_Valido_Ecommerce"))
+            .then(pl.col("Correo_Ecommerce"))
+            .otherwise(pl.col("Correo")),
+            pl.when(
+                pl.col("Correo_Valido")
+                | pl.col("Correo_Valido_Cliente")
+                | pl.col("Correo_Valido_Ecommerce")
+            )
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .cast(pl.Boolean)
+            .alias("Correo_Valido"),
             pl.col("Activo_Indicador").cast(pl.Boolean),
             pl.col("Acumula_Indicador").cast(pl.Boolean),
             pl.col("Principal_Indicador").cast(pl.Boolean),
@@ -335,53 +479,32 @@ def process_dfs_clientes(
             pl.col("Municipio_Id").cast(pl.Int32),
             pl.col("Ciudad_Id").cast(pl.Int32),
             pl.col("Barrio_Id").cast(pl.Int32),
-            pl.col("email_principal").alias("Correo_Ecommerce"),
+            pl.col("Correo_Ecommerce"),
+            pl.col("Correo_Valido_Ecommerce"),
+            pl.when(
+                pl.col("Celular_Valido")
+                | pl.col("Celular_Valido_Libros")
+                | pl.col("Celular_Valido_Ecommerce")
+            )
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Celular_Valido"),
+            pl.when(
+                pl.col("Telefono_Valido")
+                | pl.col("Telefono_Valido_Libros")
+                | pl.col("Telefono_Valido_Ecommerce")
+            )
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Telefono_Valido"),
+            pl.col("Pais_Id"),
+            pl.col("Pais_ISO2"),
         )
     )
 
     df_clientes2 = (
-        df_cliente.with_columns(pl.col("Emp_Id").cast(pl.Int32))
-        .join(
-            df_clientes1.select(["Identidad_Limpia", "Emp_Id"]),
-            left_on=["Cedula", "Emp_Id"],
-            right_on=["Identidad_Limpia", "Emp_Id"],
-            how="anti",
-        )
-        .join(
-            df_libros_cliente,
-            left_on=["Cedula", "Emp_Id"],
-            right_on=["Identidad_Limpia", "Pais_Id"],
-            how="left",
-        )
-        .select(
-            pl.lit(None).alias("Monedero_Id"),
-            pl.col("Cedula").alias("Identidad_Limpia"),
-            pl.col("Emp_Id"),
-            pl.col("Cliente_Nombre").alias("Nombre_Completo"),
-            pl.lit(None).alias("Tipo_Plan"),
-            pl.col("Cedula").alias("Identificacion"),
-            pl.lit(None).alias("Identificacion_Formato"),
-            pl.col("Telefono"),
-            pl.col("Telefono").alias("Celular"),
-            pl.col("Fecha_Nacimiento"),
-            pl.col("Correo"),
-            pl.when(pl.col("Estado") == "ACTIVO")
-            .then(pl.lit(1))
-            .otherwise(pl.lit(0))
-            .alias("Activo_Indicador")
-            .cast(pl.Boolean),
-            pl.lit(0).alias("Acumula_Indicador").cast(pl.Boolean),
-            pl.lit(None).alias("Principal_Indicador").cast(pl.Boolean),
-            pl.lit(None).alias("Genero"),
-            pl.lit(None).alias("Saldo_Puntos"),
-            pl.lit(None).alias("Fecha_Ingreso"),
-            pl.lit(None).alias("MonederoTarj_Id_Original"),
-            pl.lit(None).alias("Fecha_UltimaCompra"),
-            pl.col("Fecha_Creacion").alias("Fecha_Libro"),
-            pl.col("Tipo_Cliente"),
-            pl.col("Medipack"),
-            # pl.col("Hash_ClienteEmp").alias("Hash_IdentidadEmp"),
-            pl.lit("Cliente").alias("OrigenRegistro"),
+        df_cliente.with_columns(
+            pl.col("Emp_Id").cast(pl.Int32),
             pl.col("Cliente_Nombre")
             .str.split_exact(" ", 4)
             .struct.rename_fields(
@@ -393,49 +516,112 @@ def process_dfs_clientes(
                 ]
             )
             .alias("Nombre_Struct"),
-            pl.lit(0).alias("Departamento_Id").cast(pl.Int32),
-            pl.lit(0).alias("Municipio_Id").cast(pl.Int32),
-            pl.lit(0).alias("Ciudad_Id").cast(pl.Int32),
-            pl.lit(0).alias("Barrio_Id").cast(pl.Int32),
-            pl.lit(None).alias("Correo_Ecommerce"),
         )
         .unnest("Nombre_Struct")
-    )
-
-    df_clientes3 = (
-        df_libros_cliente.with_columns(pl.col("Pais_Id").cast(pl.Int32))
         .join(
-            df_clientes2.select(["Identidad_Limpia", "Emp_Id"]),
-            left_on=["Identidad_Limpia", "Pais_Id"],
+            df_clientes1.select(["Identidad_Limpia", "Emp_Id"]),
+            left_on=["Cedula", "Emp_Id"],
             right_on=["Identidad_Limpia", "Emp_Id"],
             how="anti",
         )
-        .join(df_libros_tipo, left_on="Tipo_Cliente", right_on="Tipo_Id", how="left")
+        .join(
+            df_libros_cliente,
+            left_on=["Cedula", "Emp_Id"],
+            right_on=["Identidad_Limpia", "Emp_Id"],
+            how="left",
+            suffix="_Libros",
+        )
+        .join(
+            df_ecommerce,
+            left_on=["Cedula", "Emp_Id"],
+            right_on=["profile_idnumber", "Emp_Id"],
+            how="left",
+            suffix="_Ecommerce",
+        )
         .select(
             pl.lit(None).alias("Monedero_Id"),
-            pl.col("Identidad_Limpia"),
-            pl.col("Pais_Id").alias("Emp_Id"),
-            pl.col("Nombre").alias("Nombre_Completo"),
+            pl.col("Cedula").alias("Identidad_Limpia"),
+            pl.col("Emp_Id"),
+            pl.col("Cliente_Nombre").alias("Nombre_Completo"),
             pl.lit(None).alias("Tipo_Plan"),
-            pl.col("Identidad").alias("Identificacion"),
+            pl.col("Cedula").alias("Identificacion"),
             pl.lit(None).alias("Identificacion_Formato"),
-            pl.col("Telefono"),
-            pl.col("Telefono").alias("Celular"),
+            pl.when(pl.col("Celular_Valido"))
+            .then(pl.col("Celular"))
+            .when(pl.col("Celular_Valido_Libros"))
+            .then(pl.col("Celular_Libros"))
+            .when(pl.col("Celular_Valido_Ecommerce"))
+            .then(pl.col("Celular_Ecommerce"))
+            .otherwise(pl.col("Celular"))
+            .alias("Celular"),
+            pl.when(pl.col("Telefono_Valido"))
+            .then(pl.col("Telefono"))
+            .when(pl.col("Telefono_Valido_Libros"))
+            .then(pl.col("Telefono_Libros"))
+            .when(pl.col("Telefono_Valido_Ecommerce"))
+            .then(pl.col("Telefono_Ecommerce"))
+            .otherwise(pl.col("Telefono"))
+            .alias("Telefono"),
             pl.col("Fecha_Nacimiento"),
-            pl.lit(None).alias("Correo"),
-            pl.lit(None).alias("Activo_Indicador").cast(pl.Boolean),
+            pl.when(pl.col("Correo_Valido"))
+            .then(pl.col("Correo"))
+            .when(pl.col("Correo_Valido_Ecommerce"))
+            .then(pl.col("Correo_Ecommerce"))
+            .otherwise(pl.col("Correo")),
+            pl.when(pl.col("Correo_Valido") | pl.col("Correo_Valido_Ecommerce"))
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Correo_Valido"),
+            pl.when(pl.col("Estado") == "ACTIVO")
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Activo_Indicador")
+            .cast(pl.Boolean),
             pl.lit(0).alias("Acumula_Indicador").cast(pl.Boolean),
             pl.lit(None).alias("Principal_Indicador").cast(pl.Boolean),
-            pl.lit(None).alias("Genero"),
+            pl.col("Genero"),
             pl.lit(None).alias("Saldo_Puntos"),
             pl.lit(None).alias("Fecha_Ingreso"),
             pl.lit(None).alias("MonederoTarj_Id_Original"),
             pl.lit(None).alias("Fecha_UltimaCompra"),
             pl.col("Fecha_Creacion").alias("Fecha_Libro"),
-            pl.col("Tipo_Nombre").alias("Tipo_Cliente"),
+            pl.col("Tipo_Cliente"),
             pl.col("Medipack"),
-            # pl.hash(pl.concat_str(["Identidad_Limpia", "Pais_Id"])).alias("Hash_IdentidadEmp"),
-            pl.lit("Libros").alias("OrigenRegistro"),
+            # pl.col("Hash_ClienteEmp").alias("Hash_IdentidadEmp"),
+            pl.lit("Cliente").alias("OrigenRegistro"),
+            pl.col("Primer_Nombre"),
+            pl.col("Segundo_Nombre"),
+            pl.col("Primer_Apellido"),
+            pl.col("Segundo_Apellido"),
+            pl.lit(0).alias("Departamento_Id").cast(pl.Int32),
+            pl.lit(0).alias("Municipio_Id").cast(pl.Int32),
+            pl.lit(0).alias("Ciudad_Id").cast(pl.Int32),
+            pl.lit(0).alias("Barrio_Id").cast(pl.Int32),
+            pl.col("Correo_Ecommerce").alias("Correo_Ecommerce"),
+            pl.col("Correo_Valido_Ecommerce"),
+            pl.when(
+                pl.col("Celular_Valido")
+                | pl.col("Celular_Valido_Libros")
+                | pl.col("Celular_Valido_Ecommerce")
+            )
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Celular_Valido"),
+            pl.when(
+                pl.col("Telefono_Valido")
+                | pl.col("Telefono_Valido_Libros")
+                | pl.col("Telefono_Valido_Ecommerce")
+            )
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Telefono_Valido"),
+            pl.col("Pais_Id"),
+            pl.col("Pais_ISO2"),
+        )
+    )
+
+    df_clientes3 = (
+        df_libros_cliente.with_columns(
             pl.col("Nombre")
             .str.split_exact(" ", 4)
             .struct.rename_fields(
@@ -447,17 +633,97 @@ def process_dfs_clientes(
                 ]
             )
             .alias("Nombre_Struct"),
+        )
+        .unnest("Nombre_Struct")
+        .join(
+            df_clientes2.select(["Identidad_Limpia", "Emp_Id"]),
+            left_on=["Identidad_Limpia", "Emp_Id"],
+            right_on=["Identidad_Limpia", "Emp_Id"],
+            how="anti",
+        )
+        .join(df_libros_tipo, left_on="Tipo_Cliente", right_on="Tipo_Id", how="left")
+        .join(
+            df_ecommerce,
+            left_on=["Identidad_Limpia", "Emp_Id"],
+            right_on=["profile_idnumber", "Emp_Id"],
+            how="left",
+            suffix="_Ecommerce",
+        )
+        .select(
+            pl.lit(None).alias("Monedero_Id"),
+            pl.col("Identidad_Limpia"),
+            pl.col("Pais_Id").alias("Emp_Id"),
+            pl.col("Nombre").alias("Nombre_Completo"),
+            pl.lit(None).alias("Tipo_Plan"),
+            pl.col("Identidad").alias("Identificacion"),
+            pl.lit(None).alias("Identificacion_Formato"),
+            pl.when(pl.col("Celular_Valido"))
+            .then(pl.col("Celular"))
+            .when(pl.col("Celular_Valido_Ecommerce"))
+            .then(pl.col("Celular_Ecommerce"))
+            .otherwise(pl.col("Celular"))
+            .alias("Celular"),
+            pl.when(pl.col("Telefono_Valido"))
+            .then(pl.col("Telefono"))
+            .when(pl.col("Telefono_Valido_Ecommerce"))
+            .then(pl.col("Telefono_Ecommerce"))
+            .otherwise(pl.col("Telefono"))
+            .alias("Telefono"),
+            pl.col("Fecha_Nacimiento"),
+            pl.col("Correo").alias("Correo"),
+            pl.col("Correo_Valido").alias("Correo_Valido"),
+            pl.lit(None).alias("Activo_Indicador").cast(pl.Boolean),
+            pl.lit(0).alias("Acumula_Indicador").cast(pl.Boolean),
+            pl.lit(None).alias("Principal_Indicador").cast(pl.Boolean),
+            pl.col("Genero"),
+            pl.lit(None).alias("Saldo_Puntos"),
+            pl.lit(None).alias("Fecha_Ingreso"),
+            pl.lit(None).alias("MonederoTarj_Id_Original"),
+            pl.lit(None).alias("Fecha_UltimaCompra"),
+            pl.col("Fecha_Creacion").alias("Fecha_Libro"),
+            pl.col("Tipo_Nombre").alias("Tipo_Cliente"),
+            pl.col("Medipack"),
+            # pl.hash(pl.concat_str(["Identidad_Limpia", "Pais_Id"])).alias("Hash_IdentidadEmp"),
+            pl.lit("Libros").alias("OrigenRegistro"),
+            pl.col("Primer_Nombre"),
+            pl.col("Segundo_Nombre"),
+            pl.col("Primer_Apellido"),
+            pl.col("Segundo_Apellido"),
             pl.col("Departamento_Id"),
             pl.col("Municipio_Id"),
             pl.lit(0).alias("Ciudad_Id").cast(pl.Int32),
             pl.lit(0).alias("Barrio_Id").cast(pl.Int32),
-            pl.lit(None).alias("Correo_Ecommerce"),
+            pl.col("Correo").alias("Correo_Ecommerce"),
+            pl.col("Correo_Valido").alias("Correo_Valido_Ecommerce"),
+            pl.when(pl.col("Celular_Valido") | pl.col("Celular_Valido_Ecommerce"))
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Celular_Valido"),
+            pl.when(pl.col("Telefono_Valido") | pl.col("Telefono_Valido_Ecommerce"))
+            .then(pl.lit(True))
+            .otherwise(pl.lit(False))
+            .alias("Telefono_Valido"),
+            pl.col("Pais_Id"),
+            pl.col("Pais_ISO2"),
         )
-        .unnest("Nombre_Struct")
     )
 
     df_clientes4 = (
-        df_ecommerce.with_columns(pl.col("Emp_Id").cast(pl.Int32))
+        df_ecommerce.with_columns(
+            pl.col("Emp_Id").cast(pl.Int32),
+            pl.col("profile_fullname")
+            .str.split_exact(" ", 4)
+            .struct.rename_fields(
+                [
+                    "Primer_Nombre",
+                    "Segundo_Nombre",
+                    "Primer_Apellido",
+                    "Segundo_Apellido",
+                ]
+            )
+            .alias("Nombre_Struct"),
+        )
+        .unnest("Nombre_Struct")
         .join(
             df_clientes3.select(["Identidad_Limpia", "Emp_Id"]),
             left_on=["profile_idnumber", "Emp_Id"],
@@ -472,19 +738,15 @@ def process_dfs_clientes(
             pl.lit(None).alias("Tipo_Plan"),
             pl.col("profile_idnumber").alias("Identificacion"),
             pl.lit(None).alias("Identificacion_Formato"),
-            pl.col("profile_telephone").alias("Telefono"),
             pl.col("profile_telephone").alias("Celular"),
+            pl.col("profile_telephone").alias("Telefono"),
             pl.col("profile_birthday_date").alias("Fecha_Nacimiento"),
-            pl.col("email_principal").alias("Correo"),
+            pl.col("Correo"),
+            pl.col("Correo_Valido"),
             pl.lit(None).alias("Activo_Indicador").cast(pl.Boolean),
             pl.lit(0).alias("Acumula_Indicador").cast(pl.Boolean),
             pl.lit(None).alias("Principal_Indicador").cast(pl.Boolean),
-            pl.when(pl.col("profile_gender") == "mujer")
-            .then(pl.lit("M"))
-            .when(pl.col("profile_gender") == "hombre")
-            .then(pl.lit("H"))
-            .otherwise(pl.lit("N"))
-            .alias("Genero"),
+            pl.col("Genero"),
             pl.lit(None).alias("Saldo_Puntos"),
             pl.lit(None).alias("Fecha_Ingreso"),
             pl.lit(None).alias("MonederoTarj_Id_Original"),
@@ -494,39 +756,45 @@ def process_dfs_clientes(
             pl.lit(None).alias("Medipack"),
             # pl.(pl.concat_str(["profile_idnumber", "Emp_Id"])).alias("Hash_IdentidadEmp"),
             pl.lit("Ecommerce").alias("OrigenRegistro"),
-            pl.col("profile_fullname")
-            .str.split_exact(" ", 4)
-            .struct.rename_fields(
-                [
-                    "Primer_Nombre",
-                    "Segundo_Nombre",
-                    "Primer_Apellido",
-                    "Segundo_Apellido",
-                ]
-            )
-            .alias("Nombre_Struct"),
+            pl.col("Primer_Nombre"),
+            pl.col("Segundo_Nombre"),
+            pl.col("Primer_Apellido"),
+            pl.col("Segundo_Apellido"),
             pl.lit(0).alias("Departamento_Id").cast(pl.Int32),
             pl.lit(0).alias("Municipio_Id").cast(pl.Int32),
             pl.lit(0).alias("Ciudad_Id").cast(pl.Int32),
             pl.lit(0).alias("Barrio_Id").cast(pl.Int32),
-            pl.col("email_principal").alias("Correo_Ecommerce"),
+            pl.col("Correo").alias("Correo_Ecommerce"),
+            pl.col("Correo_Valido").alias("Correo_Valido_Ecommerce"),
+            pl.col("Celular_Valido"),
+            pl.col("Telefono_Valido"),
+            pl.col("Pais_Id"),
+            pl.col("Pais_ISO2"),
         )
-        .unnest("Nombre_Struct")
     )
 
     # Union the DataFrames
-    return (
-        df_clientes1.vstack(df_clientes2)
-        .vstack(df_clientes3)
-        .vstack(df_clientes4)
-        .join(df_empresas, left_on="Emp_Id", right_on="Emp_Id", how="inner")
+    df_clientes_final = df_clientes1.vstack(df_clientes2).vstack(df_clientes3).vstack(df_clientes4)
+    df_clientes_final = (
+        df_clientes_final.unique(subset=["Identidad_Limpia", "Emp_Id"])
+        .drop_nulls(subset=["Identidad_Limpia", "Emp_Id"])
+        .with_columns(
+            pl.lit(datetime.now()).alias("Fecha_Actualizado"),
+            pl.col("Primer_Nombre").str.to_titlecase(),
+            pl.col("Segundo_Nombre").str.to_titlecase(),
+            pl.col("Primer_Apellido").str.to_titlecase(),
+            pl.col("Segundo_Apellido").str.to_titlecase(),
+            pl.col("Nombre_Completo").str.to_titlecase(),
+        )
     )
+    
+    return df_clientes_final
 
-    # Adding final transformations 'Fecha_Actualizado' and a column to indicate if the phone number is valid
 
-
-@op(ins={BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing)},
-    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+@op(
+    ins={BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing)},
+    out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
+)
 def get_phone_number_valid_df_pattern(
     dwh_farinter_bi: SQLServerResource,
 ) -> pl.DataFrame:
@@ -581,53 +849,6 @@ def get_phone_number_valid_df_pattern(
         pl.col("pattern"),
     )
 
-
-@op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
-def correciones_clientes(
-    df_clientes: pl.DataFrame, df_paises_patterns: pl.DataFrame
-) -> pl.DataFrame:  # tuple[pl.DataFrame, int]:
-    df_pv_pattern = df_paises_patterns
-
-    df_clientes = (
-        df_clientes.unique(subset=["Identidad_Limpia", "Emp_Id"])
-        .drop_nulls(subset=["Identidad_Limpia", "Emp_Id"])
-        .join(df_pv_pattern, on="Pais_Id", how="left")
-        .with_columns(
-            pl.lit(datetime.now()).alias("Fecha_Actualizado"),
-            pl.col("Primer_Nombre").str.to_titlecase(),
-            pl.col("Segundo_Nombre").str.to_titlecase(),
-            pl.col("Primer_Apellido").str.to_titlecase(),
-            pl.col("Segundo_Apellido").str.to_titlecase(),
-            pl.col("Nombre_Completo").str.to_titlecase(),
-            pl.col("Telefono")
-            .str.contains(pl.col("pattern"))
-            .alias("Telefono_Valido")
-            .cast(pl.Boolean),
-            pl.col("Celular")
-            .str.contains(pl.col("pattern"))
-            .alias("Celular_Valido")
-            .cast(pl.Boolean),
-        )
-        .drop(["pattern"])
-    )
-    #print(df_clientes.schema)
-    return df_clientes
-    # return  df_clientes, len(df_clientes)
-
-
-# @op
-# def escribir_clientes(context: OpExecutionContext, df_clientes: pl.DataFrame, dwh_farinter_dl: SQLServerResource) -> int:
-#     # Write the result to a table
-#     with pl.Config() as cfg:
-#         cfg.set_tbl_cols(20)
-#         context.log.debug(df_clientes.head(15))
-
-#     with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
-#         df_clientes.write_database(table_name="DL_Kielsa_ClienteGeneral", connection=conn, if_table_exists='replace')
-
-#     return len(df_clientes)
-
-
 @op(
     out={"file_path": Out(str)},
 )
@@ -675,14 +896,13 @@ def bulk_load_to_sql_server(
         table_name="BI_Kielsa_Dim_ClienteGeneral",
         temp_table_name="BI_Kielsa_Dim_ClienteGeneral_NEW",
         df=df_clientes,
-    )    
+    )
     # row_terminator = "\r\n"
     format_file_path = ""
     # # Print the first few lines of the CSV file for debugging
     # with open(file_path, "r", encoding="utf-8") as f:
     #     for _ in range(5):
     #         print(f.readline().strip()[:1000])
-
 
     sql_script = f"""
         SET XACT_ABORT ON;
@@ -767,57 +987,70 @@ def bulk_load_to_sql_server(
     # dwh_farinter_dl.execute_and_commit(sql_script, engine="pyodbc") #Allows to execute the query without service account delegation
 
 
-@graph(ins={DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing),
-                        DL_Kielsa_Monedero.to_python_identifier(): In(Nothing),
-                        DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing),
-                        DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing),
-                        DL_Kielsa_Cliente.to_python_identifier(): In(Nothing),
-                        BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing),
-                        BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing),
-                        })
+@graph(
+    ins={
+        DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing),
+        DL_Kielsa_Monedero.to_python_identifier(): In(Nothing),
+        DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing),
+        DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing),
+        DL_Kielsa_Cliente.to_python_identifier(): In(Nothing),
+        BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing),
+        BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing),
+    }
+)
 def BI_Kielsa_Dim_ClienteGeneral_graph(**kwargs):
-    
     df_ecommerce = get_df_ecommerce(kwargs[DL_MDBECOMM_Usuarios.to_python_identifier()])
     df_clientes = get_df_clientes(kwargs[DL_Kielsa_Cliente.to_python_identifier()])
     df_monederos = get_df_monederos(kwargs[DL_Kielsa_Monedero.to_python_identifier()])
-    df_libros_cliente = get_df_libros_cliente(kwargs[DL_Kielsa_Libros_Cliente.to_python_identifier()])
-    df_libros_tipo = get_df_libros_tipo(kwargs[DL_Kielsa_Libros_Tipo.to_python_identifier()])
+    df_libros_cliente = get_df_libros_cliente(
+        kwargs[DL_Kielsa_Libros_Cliente.to_python_identifier()]
+    )
+    df_libros_tipo = get_df_libros_tipo(
+        kwargs[DL_Kielsa_Libros_Tipo.to_python_identifier()]
+    )
     df_empresas = get_df_empresas(kwargs[BI_Kielsa_Dim_Empresa.to_python_identifier()])
-    df_paises_patterns = get_phone_number_valid_df_pattern(kwargs[BI_Kielsa_Dim_Pais.to_python_identifier()])
+    df_paises_patterns = get_phone_number_valid_df_pattern(
+        kwargs[BI_Kielsa_Dim_Pais.to_python_identifier()]
+    )
 
-    df_clientes_unidos = process_dfs_clientes(
+    df_clientes_finales = process_dfs_clientes(
         df_ecommerce=df_ecommerce,
         df_cliente=df_clientes,
         df_monedero=df_monederos,
         df_libros_cliente=df_libros_cliente,
         df_libros_tipo=df_libros_tipo,
         df_empresas=df_empresas,
+        df_paises_patterns=df_paises_patterns,
     )
-    df_clientes_corregidos = correciones_clientes(
-        df_clientes=df_clientes_unidos, df_paises_patterns=df_paises_patterns
-    )
-    filepath = create_file_on_smb(df_clientes=df_clientes_corregidos)
+    filepath = create_file_on_smb(df_clientes=df_clientes_finales)
 
     return bulk_load_to_sql_server(
-        file_path=filepath, df_clientes=df_clientes_corregidos
+        file_path=filepath, df_clientes=df_clientes_finales
     )
 
+
 BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
-    graph_def=BI_Kielsa_Dim_ClienteGeneral_graph, 
-    #kinds=("sql_server", "polars", "smb"),
-    keys_by_output_name={"result":AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_ClienteGeneral"])},	
-    tags_by_output_name={"result":tags_repo.Daily.tag | tags_repo.UniquePeriod.tag
-                         | {f"dagster/kind/{kind}": "" for kind in ("sql_server", "polars", "smb")}},
-    automation_conditions_by_output_name={"result":automation_daily_cron},
-    keys_by_input_name={DL_MDBECOMM_Usuarios.to_python_identifier(): DL_MDBECOMM_Usuarios,
-                        DL_Kielsa_Monedero.to_python_identifier(): DL_Kielsa_Monedero,
-                        DL_Kielsa_Libros_Cliente.to_python_identifier(): DL_Kielsa_Libros_Cliente,
-                        DL_Kielsa_Libros_Tipo.to_python_identifier(): DL_Kielsa_Libros_Tipo,
-                        DL_Kielsa_Cliente.to_python_identifier(): DL_Kielsa_Cliente,
-                        BI_Kielsa_Dim_Empresa.to_python_identifier(): BI_Kielsa_Dim_Empresa,
-                        BI_Kielsa_Dim_Pais.to_python_identifier(): BI_Kielsa_Dim_Pais,
-                        },
-    )
+    graph_def=BI_Kielsa_Dim_ClienteGeneral_graph,
+    # kinds=("sql_server", "polars", "smb"),
+    keys_by_output_name={
+        "result": AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_ClienteGeneral"])
+    },
+    tags_by_output_name={
+        "result": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | {f"dagster/kind/{kind}": "" for kind in ("sql_server", "polars", "smb")}
+    },
+    automation_conditions_by_output_name={"result": automation_daily_cron},
+    keys_by_input_name={
+        DL_MDBECOMM_Usuarios.to_python_identifier(): DL_MDBECOMM_Usuarios,
+        DL_Kielsa_Monedero.to_python_identifier(): DL_Kielsa_Monedero,
+        DL_Kielsa_Libros_Cliente.to_python_identifier(): DL_Kielsa_Libros_Cliente,
+        DL_Kielsa_Libros_Tipo.to_python_identifier(): DL_Kielsa_Libros_Tipo,
+        DL_Kielsa_Cliente.to_python_identifier(): DL_Kielsa_Cliente,
+        BI_Kielsa_Dim_Empresa.to_python_identifier(): BI_Kielsa_Dim_Empresa,
+        BI_Kielsa_Dim_Pais.to_python_identifier(): BI_Kielsa_Dim_Pais,
+    },
+)
 
 
 if __name__ == "__main__":
@@ -903,15 +1136,23 @@ if __name__ == "__main__":
 all_assets = load_assets_from_current_module()
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+    assets=filter_assets_by_tags(
+        all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"
+    ),
     lower_bound_delta=timedelta(hours=26),
     deadline_cron="0 9 * * 1-6",
 )
 
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-    lower_bound_delta=timedelta(hours=13),
-    deadline_cron="0 10-16 * * 1-6",
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
+    build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(
+            all_assets,
+            tags_to_match=tags_repo.Hourly.tag,
+            filter_type="any_tag_matches",
+        ),
+        lower_bound_delta=timedelta(hours=13),
+        deadline_cron="0 10-16 * * 1-6",
+    )
 )
 
 all_asset_checks: list[AssetChecksDefinition] = load_asset_checks_from_current_module()
