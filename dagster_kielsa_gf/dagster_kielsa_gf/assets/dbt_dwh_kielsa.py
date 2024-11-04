@@ -5,23 +5,22 @@ from dagster import (
     build_last_update_freshness_checks,
     AssetChecksDefinition,
     Config,
-    DailyPartitionsDefinition,
     BackfillPolicy,
 )
-from dagster_dbt import DbtCliResource, dbt_assets, DagsterDbtTranslator
-from typing import Sequence, List, Mapping, Dict, Any
+from dagster_dbt import DbtCliResource, dbt_assets
+from typing import Sequence, List
 from datetime import timedelta
-from datetime import datetime, tzinfo
+from datetime import datetime
 from pydantic import Field
-from dagster_shared_gf.shared_variables import TagsRepositoryGF, default_timezone_teg
+from dagster_shared_gf.shared_variables import TagsRepositoryGF
 from dagster_shared_gf.shared_functions import filter_assets_by_tags
 from dagster_shared_gf.resources.dbt_resources import (
     dbt_manifest,
     MyDbtSourceTranslator,
 )
+from dagster_shared_gf.partitions.time_based import diario_desde_360_dias_atras_hasta_hoy
 
 import json
-import pytz
 
 tags_repo = TagsRepositoryGF
 
@@ -46,21 +45,11 @@ def dbt_dwh_kielsa_mart_datos_maestros_assets(
         dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
     )
 
-
-p_start_date = datetime.combine((datetime.now() - timedelta(days=360)).date(), datetime.min.time()).astimezone(pytz.timezone(default_timezone_teg))
-p_end_date = datetime.combine((datetime.now() + timedelta(days=30)).date(), datetime.min.time()).astimezone(pytz.timezone(default_timezone_teg))
-
-particionado_contactar_hist = DailyPartitionsDefinition(
-        start_date=p_start_date,
-        end_date=p_end_date,
-        timezone=default_timezone_teg,
-        end_offset=1,
-    )
 @dbt_assets(
     manifest=dbt_manifest,
     select="tag:dagster_kielsa_gf/dbt,tag:particionado/si",
     dagster_dbt_translator=MyDbtSourceTranslator(),
-    partitions_def=particionado_contactar_hist,
+    partitions_def=diario_desde_360_dias_atras_hasta_hoy,
     backfill_policy=BackfillPolicy.single_run(),
 )
 def CRM_Kielsa_RecetasContactarHist(
@@ -86,7 +75,6 @@ def CRM_Kielsa_RecetasContactarHist(
     yield from (
         dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
     )
-
 
 all_assets = load_assets_from_current_module()
 
@@ -114,5 +102,5 @@ all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
 all_asset_freshness_checks = (
-    all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+    [*all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks]
 )

@@ -11,7 +11,7 @@ from dagster_shared_gf.automation.time_based import automation_hourly_cron_prd, 
 # AutomationCondition.all_deps_match(A)	Condition A is true for at least one partition of each upstream asset. Can be used with .allow() and .ignore() to target specific upstream assets. Refer to the Targeting dependencies section for an example.
 # AutomationCondition.any_downstream_condition()	Any AutomationCondition on a downstream asset evaluates to true
 
-__all__ = [
-    automation_hourly_cron_prd,
-    automation_daily_cron,
-]
+__all__ = (
+    "automation_hourly_cron_prd",
+    "automation_daily_cron",
+)
