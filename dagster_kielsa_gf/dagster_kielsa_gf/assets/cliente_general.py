@@ -54,7 +54,7 @@ top_clause = get_for_current_env(
 if env_str == "local":
     warnings.warn("Running in local mode, using top 1000 rows")
 
-warnings.filterwarnings("ignore", message="PolarsParquetIOManager")
+warnings.filterwarnings("ignore", message="PolarsParquetIOManager", append=True)
 
 DL_MDBECOMM_Usuarios = AssetKey(["DL_FARINTER", "dbo", "DL_MDBECOMM_Usuarios"])
 DL_Kielsa_Monedero = AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero"])
@@ -134,7 +134,7 @@ def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
     ).with_columns(
         pl.col("Emp_Id").cast(pl.Int32),
-        pl.col("profile_idnumber").cast(pl.String).str.to_uppercase(),
+        pl.col("profile_idnumber").cast(pl.String).str.to_uppercase().str.strip_chars(),
     )
 
     return df_ecommerce
@@ -183,7 +183,7 @@ def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
     ).with_columns(
         pl.col("Emp_Id").cast(pl.Int32),
-        pl.col("Monedero_Id").str.to_uppercase(),
+        pl.col("Monedero_Id").str.to_uppercase().str.strip_chars(),
         #pl.col("Monedero_Id").str.to_uppercase().alias("Identidad_Limpia"),
     )
 
@@ -219,7 +219,7 @@ def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
         pl.col("Tipo_Cliente").cast(pl.Int32),
         pl.col("Pais_Id").cast(pl.Int32),
         pl.col("Pais_Id").cast(pl.Int32).alias("Emp_Id"),
-        pl.col("Identidad_Limpia").str.to_uppercase(),
+        pl.col("Identidad_Limpia").str.to_uppercase().str.strip_chars(),
     )
 
     return df_libros_cliente
@@ -266,7 +266,7 @@ def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_cliente = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32), pl.col("Cedula").str.to_uppercase())
+    ).with_columns(pl.col("Emp_Id").cast(pl.Int32), pl.col("Cedula").str.to_uppercase().str.strip_chars())
     print(df_cliente.columns)
 
     return df_cliente
