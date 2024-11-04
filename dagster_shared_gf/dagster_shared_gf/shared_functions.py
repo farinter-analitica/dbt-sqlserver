@@ -5,10 +5,9 @@ import itertools
 import os
 import re
 from collections import deque
-from datetime import datetime, timedelta, timezone
-from functools import lru_cache
+from datetime import datetime, timedelta
 from pathlib import Path, PurePath
-from types import ModuleType, MappingProxyType
+from types import ModuleType
 from typing import (
     Any,
     Callable,
@@ -28,76 +27,9 @@ import polars as pl
 import requests
 from dagster import AssetsDefinition, config_from_files
 from dagster_graphql import DagsterGraphQLClient
+from dagster_shared_gf.utils.snake_case_normalizer import SnakeCase
 
-#from dlt.common.normalizers.naming.snake_case import NamingConvention as SnakeCase
 from trycast import isassignable
-
-RE_UNDERSCORES = re.compile("__+")
-RE_LEADING_DIGITS = re.compile(r"^\d+")
-RE_ENDING_UNDERSCORES = re.compile(r"_+$")
-RE_NON_ALPHANUMERIC = re.compile(r"[^a-zA-Z\d_]+")
-class SnakeCase():
-    """Case insensitive naming convention, converting source identifiers into lower case snake case with reduced alphabet.
-
-    - Spaces around identifier are trimmed
-    - Removes all ascii characters except ascii alphanumerics and underscores
-    - Prepends `_` if name starts with number.
-    - Multiples of `_` are converted into single `_`.
-    - Replaces all trailing `_` with `x`
-    - Replaces `+` and `*` with `x`, `-` with `_`, `@` with `a` and `|` with `l`
-
-    Uses __ as parent-child separator for tables and flattened column names.
-    """
-
-    RE_UNDERSCORES  = RE_UNDERSCORES
-    RE_LEADING_DIGITS = RE_LEADING_DIGITS
-    RE_NON_ALPHANUMERIC = RE_NON_ALPHANUMERIC
-
-    _SNAKE_CASE_BREAK_1 = re.compile("([^_])([A-Z][a-z]+)")
-    _SNAKE_CASE_BREAK_2 = re.compile("([a-z0-9])([A-Z])")
-    _REDUCE_ALPHABET = ("+-*@|", "x_xal")
-    _TR_REDUCE_ALPHABET = str.maketrans(_REDUCE_ALPHABET[0], _REDUCE_ALPHABET[1])
-
-    @property
-    def is_case_sensitive(self) -> bool:
-        return False
-
-    def normalize_identifier(self, identifier: str) -> str:
-        identifier = super().normalize_identifier(identifier)
-        # print(f"{identifier} -> {self.shorten_identifier(identifier, self.max_length)} ({self.max_length})")
-        return self._normalize_identifier(identifier, self.max_length)
-
-    @staticmethod
-    @lru_cache(maxsize=None)
-    def _normalize_identifier(identifier: str, max_length: int) -> str:
-        """Normalizes the identifier according to naming convention represented by this function"""
-        # all characters that are not letters digits or a few special chars are replaced with underscore
-        normalized_ident = identifier.translate(SnakeCase._TR_REDUCE_ALPHABET)
-        normalized_ident = SnakeCase.RE_NON_ALPHANUMERIC.sub("_", normalized_ident)
-
-        # shorten identifier
-        return SnakeCase.shorten_identifier(
-            SnakeCase._to_snake_case(normalized_ident), identifier, max_length
-        )
-
-    @classmethod
-    def _to_snake_case(cls, identifier: str) -> str:
-        # then convert to snake case
-        identifier = cls._SNAKE_CASE_BREAK_1.sub(r"\1_\2", identifier)
-        identifier = cls._SNAKE_CASE_BREAK_2.sub(r"\1_\2", identifier).lower()
-
-        # leading digits will be prefixed (if regex is defined)
-        if cls.RE_LEADING_DIGITS and cls.RE_LEADING_DIGITS.match(identifier):
-            identifier = "_" + identifier
-
-        # replace trailing _ with x
-        stripped_ident = identifier.rstrip("_")
-        strip_count = len(identifier) - len(stripped_ident)
-        stripped_ident += "x" * strip_count
-
-        # identifier = cls._RE_ENDING_UNDERSCORES.sub("x", identifier)
-        # replace consecutive underscores with single one to prevent name collisions with PATH_SEPARATOR
-        return cls.RE_UNDERSCORES.sub("_", stripped_ident)
 
 normalize_str_to_snake_case = SnakeCase().normalize_identifier
 
@@ -155,7 +87,9 @@ def start_job_by_name(job_name: str, location_name: str) -> None:
     client.submit_job_execution(job_name=job_name, repository_location_name=location_name, run_config={}, tags={})
 
 def get_all_locations_name() -> list:
-    home_dir = Path(os.getenv('DAGSTER_HOME')).resolve()
+    dagster_home_env = os.getenv('DAGSTER_HOME')
+    if dagster_home_env:
+        home_dir = Path(dagster_home_env).resolve()
     workspace_yaml_path = os.path.join(home_dir, 'workspace.yaml')
     locations_data = config_from_files([workspace_yaml_path]).get('load_from')
     #example_data = [{'python_module': {'module_name': 'dagster_kielsa_gf', 'working_directory': 'dagster_kielsa_gf', 'location_name': 'dagster_kielsa_gf'}}, {'python_module': {'module_name': 'dagster_sap_gf', 'working_directory': 'dagster_sap_gf', 'location_name': 'dagster_sap_gf'}}, {'another': {'location_name': 'xyz'}}]
@@ -204,7 +138,7 @@ if __name__ == "__main__":
     print(get_all_locations_name())
     print(dagster_instance_current_env, type(dagster_instance_current_env))
 
-def get_for_current_env(dict: dict[str:any] = {"dev" : "any_return_for_dev", "prd" : "any_return_for_prd"}, env:str = dagster_instance_current_env.env) -> Any:
+def get_for_current_env(dict: dict[str , Any] = {"dev" : "any_return_for_dev", "prd" : "any_return_for_prd"}, env:str = dagster_instance_current_env.env) -> Any:
     """
     Returns the value for the current env, defaults to dev when not found
     
@@ -217,27 +151,27 @@ def get_for_current_env(dict: dict[str:any] = {"dev" : "any_return_for_dev", "pr
     """	
     return dict.get(env, dict.get("dev"))
     
-def search_for_word_in_text(text: str, word: str) -> re.Match:
+def search_for_word_in_text(text: str, word: str) -> re.Match | None:
     return re.search(rf'\b{word}\b', text, re.IGNORECASE)
 
 
 # Function to filter assets by tags
 
 
-def filter_assets_by_tags(assets_definitions: List[Union[Any, AssetsDefinition]],
+def filter_assets_by_tags(assets_definitions: Sequence[Union[Any, AssetsDefinition]],
                           tags_to_match: Mapping[str, str],
                           filter_type: Literal["all_tags_match", "any_tag_matches", "exclude_if_all_tags", "exclude_if_any_tag"] = "all_tags_match"
-                          ) -> List[AssetsDefinition]:
+                          ) -> Sequence[AssetsDefinition]:
     """
     Filters a list of assets based on the specified tags and filter type, only returns AssetsDefinition (not sources).
 
     Args:
-        assets_definitions (List[Union[Any, AssetsDefinition]]): The list of assets to filter.
+        assets_definitions (Sequence[Union[Any, AssetsDefinition]]): The list of assets to filter.
         tags (Mapping[str, str]): The tags to filter the assets by.
         filter_type (Literal["all_tags_match", "any_tag_matches", "exclude_if_all_tags", "exclude_if_any_tag"], optional): The filter type to use. Defaults to "all_tags_match".
 
     Returns:
-        List[Union[Any, AssetsDefinition]]: The filtered list of assets.
+        Sequence[AssetsDefinition]: The filtered list of assets.
     """
     def match_all(asset_tags: Mapping[str, str], tags: Mapping[str, str]) -> bool:
         return all(item in asset_tags.items() for item in tags.items())
@@ -334,22 +268,24 @@ def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Opt
     Returns:
         List[Any]: A list of all instances of the specified class types.
     """
-    all_instances_list = deque()
+    all_instances_dq = deque()
     if namespace:
         for class_type in class_type_list:
             variables = {name: obj for name, obj in namespace.items() if isinstance(obj, class_type)}
-            all_instances_list.extend(variables.values())
+            all_instances_dq.extend(variables.values())
     else:
         if module is None:
-            caller_frame = inspect.currentframe().f_back
-            module_to_use = inspect.getmodule(caller_frame)
+            caller_frame = inspect.currentframe()
+            caller_frame = caller_frame.f_back if caller_frame else None
+            module_to_use = inspect.getmodule(caller_frame) if caller_frame else None
         else:
             module_to_use = module
-
-        for class_type in class_type_list:
-            variables = {name: obj for name, obj in module_to_use.__dict__.items() if isassignable(obj, class_type)}
-            all_instances_list.extend(variables.values())
-    return list(itertools.chain(all_instances_list))
+        
+        if module_to_use:
+            for class_type in class_type_list:
+                variables = {name: obj for name, obj in module_to_use.__dict__.items() if isassignable(obj, class_type)}
+                all_instances_dq.extend(variables.values())
+    return list(itertools.chain(all_instances_dq))
 
 # Function to get mock arguments for a function
 def get_mock_args(func: Callable) -> dict:
@@ -384,21 +320,22 @@ def get_mock_args(func: Callable) -> dict:
     return mock_args
 
 # Function to filter variables created by a specific function
-def get_all_parent_instances_created_by_function(creation_function: Callable, module:ModuleType = None) -> List:
+def get_all_parent_instances_created_by_function(creation_function: Callable, module:ModuleType|None = None) -> List:
     # Create an instance using the provided function to determine its type
     mock_args = get_mock_args(creation_function)
     example_instance = creation_function(**mock_args)
     instance_type = type(example_instance)
     if module is None:
-        caller_frame = inspect.currentframe().f_back
-        module_to_use = inspect.getmodule(caller_frame)
+        caller_frame = inspect.currentframe()
+        caller_frame = caller_frame.f_back if caller_frame else None
+        module_to_use = inspect.getmodule(caller_frame) if caller_frame else None
     else:
         module_to_use = module
 
     # Collect all variables that are instances of the determined type
     return get_all_instances_of_class([instance_type], module_to_use)
 
-def import_variable_from_module(variable_name: str, module: ModuleType = None) -> Any:
+def import_variable_from_module(variable_name: str, module: ModuleType|None = None) -> Any:
     """
     Imports a specified variable from a given module.
 
@@ -413,8 +350,9 @@ def import_variable_from_module(variable_name: str, module: ModuleType = None) -
         AttributeError: If the specified variable is not found in the module.
     """
     if module is None:
-        caller_frame = inspect.currentframe().f_back
-        module_to_use = inspect.getmodule(caller_frame)
+        caller_frame = inspect.currentframe()
+        caller_frame = caller_frame.f_back if caller_frame else None
+        module_to_use = inspect.getmodule(caller_frame) if caller_frame else None
     else:
         module_to_use = module
 
@@ -544,7 +482,7 @@ class SQLScriptGenerator:
         if duplicates.len() > 0:
             raise ValueError(f"Primary key {str(verified_columns)} cannot have duplicates, found {str(duplicates.limit(10))}")
         
-        return formatted_columns
+        return tuple(formatted_columns)
 
     def create_table_sql_script(self) -> str:
         """
@@ -577,8 +515,8 @@ class SQLScriptGenerator:
             elif col_type == pl.Float64:
                 sql_type = "FLOAT(53)"
             elif col_type == pl.Utf8:
-                string_lenght = df.get_column(col_name).str.len_chars().max()
-
+                string_lenght = df.get_column(col_name).str.len_chars().max() # type: ignore
+                string_lenght: int = string_lenght if string_lenght else 0
                 if col_name in primary_keys and not string_lenght > 50:
                     sql_type = "NVARCHAR(50)"
                 elif string_lenght <= 100:
@@ -593,7 +531,7 @@ class SQLScriptGenerator:
             elif col_type == pl.Boolean:
                 sql_type = "BIT"
             elif col_type == pl.Datetime:
-                if col_type.time_zone is not None:
+                if col_type.time_zone is not None: # type: ignore
                     sql_type = "DATETIMEOFFSET(0)"
                 else:
                     sql_type = "DATETIME2(0)"
@@ -601,8 +539,8 @@ class SQLScriptGenerator:
                 sql_type = "DATE"
             elif col_type == pl.Decimal:
                 # Use DECIMAL with precision and scale
-                precision = col_type.precision
-                scale = col_type.scale
+                precision = col_type.precision # type: ignore
+                scale = col_type.scale # type: ignore
                 sql_type = f"DECIMAL({precision}, {scale})"
             else:
                 raise ValueError(f"Unsupported data type: {col_type}")
