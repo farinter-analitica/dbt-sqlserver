@@ -21,7 +21,7 @@ from dagster import (
 )
 from dagster_embedded_elt.dlt import (
     DagsterDltTranslator,
-    dlt_assets,
+
 )
 from dlt.common import pendulum
 from dlt.common.normalizers.naming.snake_case import NamingConvention
@@ -122,7 +122,7 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
             ),
             DLTRCol(
                 collection_name="campaignsRecetas",
-                columns_to_remove=["created_at"],
+                columns_to_remove=("created_at",),
                 cursor_path="updatedAt",
                 automation_condition=automation_hourly_cron_prd,
             ),
@@ -304,16 +304,16 @@ all_mongo_db_source_configs: DltPipelineSourceConfigResourceTuple = (
 )
 
 
-def get_config_filtered(
-    dlt_source_config_resource_list: DltPipelineSourceConfigResourceTuple,
-    dlt_source_config: DltPipelineSourceConfig,
-) -> list[str]:
-    return list(chain(dlt_source_config_resource_list[dlt_source_config]))
+# def get_config_filtered(
+#     dlt_source_config_resource_list: DltPipelineSourceConfigResourceTuple,
+#     dlt_source_config: DltPipelineSourceConfig,
+# ) -> list[str]:
+#     return list(chain(dlt_source_config_resource_list[dlt_source_config]))
 
 
 @dataclasses.dataclass
 class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
-    config: DltPipelineSourceConfig
+    config: DltPipelineSourceConfig 
     collection: DLTRCol
 
     def get_asset_key(self, resource: DltResource) -> AssetKey:
@@ -336,7 +336,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
             collection_meta = {key: MetadataValue.text(str(value)) for key, value in collection_dict.items()}
         return (
             collection_meta
-            | resource.explicit_args
+            | resource.explicit_args # type: ignore
             | {"columns_schema": resource.columns}
         )
 
@@ -349,7 +349,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
     def get_pipeline_name(self, resource: DltResource) -> str:
         return f"{self.config.pipeline_base_name}_{self.get_normalized_table_identifier(resource)}"
 
-    def remove_columns(doc: Dict, remove_columns: Optional[list[str]] = None) -> Dict:
+    def remove_columns(self, doc: Dict, remove_columns: Optional[Sequence[str]] = None) -> Dict:
         """
         Removes the specified columns from the given document.
 
@@ -377,13 +377,13 @@ def create_dlt_asset(
     tags: Mapping[str, str],
     dataset_name: str,
     dep_asset_pipeline: str | None = None,
-) -> dlt_assets:
+) -> AssetsDefinition:
     if dep_asset_pipeline is not None:
-        dep_asset_pipeline = [
+        dep_asset_pipeline_ak = [
             AssetKey([f"dlt_{dep_asset_pipeline}", f"{dlt_resource.name}"])
         ]
     else:
-        dep_asset_pipeline = []
+        dep_asset_pipeline_ak = []
 
     #target_table_identifier = dlt_t.get_normalized_table_identifier(dlt_resource)
     target_pipeline_name = dlt_t.get_pipeline_name(dlt_resource)
@@ -393,7 +393,7 @@ def create_dlt_asset(
         group_name=group_name,
         description=f"cursor {dlt_t.collection.cursor_path} resource {dlt_t.get_asset_key(dlt_resource)}",
         metadata=dlt_t.get_collection_metadata(dlt_resource),
-        deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_asset_pipeline,
+        deps=list(dlt_t.get_deps_asset_keys(dlt_resource)) + dep_asset_pipeline_ak,
         compute_kind="dlt",
         tags=tags,
         automation_condition=dlt_t.collection.automation_condition,
@@ -432,6 +432,20 @@ def create_dlt_asset(
 
     return created_dlt_assets
 
+def lookback(event):
+    last_value = None
+    if len(event) == 1:
+        item, = event
+    else:
+        item, last_value = event
+
+    if last_value is None:
+        last_value = {}
+    else:
+        last_value = dict(last_value)
+
+    last_value["created_at"] = pendulum.from_timestamp(item["created_at"]).subtract(days=1)
+    return last_value
 
 def dlt_mongo_db_crm_hn_asset_factory(
     mongo_db_source_configs: DltPipelineSourceConfigResourceTuple,
@@ -447,14 +461,17 @@ def dlt_mongo_db_crm_hn_asset_factory(
                 collection=collection.collection_name,
                 limit=collection.limit,
                 incremental=dlt.sources.incremental(
-                    cursor_path=collection.cursor_path,
+                    cursor_path=collection.cursor_path, # type: ignore
                     primary_key=collection.primary_key,
                     initial_value=collection.initial_value,
+                    last_value_func=lookback
                 ),
                 parallel=True,
                 # data_item_format="arrow", #aparentemente no con esta combinacion de source / destino
             )
-
+            dlt_t=DagsterDltTranslatorMongodbCRMHN(
+                    config=dlt_source_config, collection=collection
+                )
             if collection.table_new_name:
                 resource = resource.apply_hints(table_name=collection.table_new_name)
 
@@ -464,8 +481,8 @@ def dlt_mongo_db_crm_hn_asset_factory(
             if collection.columns_to_remove:
                 resource = resource.add_map(
                     lambda doc,
-                    columns=collection.columns_to_remove: DagsterDltTranslatorMongodbCRMHN.remove_columns(
-                        doc, remove_columns=columns
+                    columns=collection.columns_to_remove: dlt_t.remove_columns(
+                        doc=doc, remove_columns=columns
                     )
                 )
 
@@ -508,7 +525,7 @@ all_mongo_db_hn_source_assets = list(
     )
     for key in set(
         chain.from_iterable(
-            dlt_assets.dependency_keys for dlt_assets in all_mongo_db_hn_assets
+            dlt_assets_.dependency_keys for dlt_assets_ in all_mongo_db_hn_assets
         )
     )
     if key not in set(asset.key for asset in all_mongo_db_hn_assets)
@@ -541,7 +558,7 @@ all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
 all_asset_freshness_checks = (
-    all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+    *all_assets_non_hourly_freshness_checks , *all_assets_hourly_freshness_checks
 )
 
 if __name__ == "__main__":

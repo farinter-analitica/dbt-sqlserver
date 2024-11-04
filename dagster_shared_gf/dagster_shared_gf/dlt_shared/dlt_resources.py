@@ -1,15 +1,26 @@
-from dagster import ConfigurableResource
-from dagster_shared_gf.resources import sql_server_resources
-from dagster_shared_gf.shared_variables import env_str
-from dagster_embedded_elt.dlt import DagsterDltResource
-from typing import Literal, Any, Dict
-import dlt
 import os
+from typing import Any, Dict, Iterable, Literal, Mapping, Optional
+from dlt.common.normalizers.naming.snake_case import NamingConvention as snake_case_normalizer
 
-from pydantic import Field
+import dlt
+import dlt.extract
+from dagster import (
+    AssetKey,
+    AutomationCondition,
+    ConfigurableResource,
+    MetadataValue,
+)
+from dagster_embedded_elt.dlt import (
+    DagsterDltResource,
+    DagsterDltTranslator,
+)
 from dlt.common.destination.reference import Destination
 from dlt.common.pipeline import LoadInfo, get_dlt_pipelines_dir
 from dlt.extract import DltResource
+from dlt.extract.resource import DltResource
+from pydantic import Field, dataclasses
+from dagster_shared_gf.resources import sql_server_resources
+from dagster_shared_gf.shared_variables import env_str
 
 new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
@@ -21,6 +32,52 @@ mssql_dwh_destination = dlt.destinations.mssql(
 )
 fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
 ExtractedResourceMetadata = Dict[str, Any]
+
+@dataclasses.dataclass(config={"arbitrary_types_allowed": True})
+class MyDagsterDltTranslator(DagsterDltTranslator):
+    automation_condition: AutomationCondition | None = None
+
+    def get_automation_condition(self, resource: DltResource) -> AutomationCondition | None:
+        default_automation_condition = super().get_automation_condition(resource)
+        if self.automation_condition and default_automation_condition:
+            return self.automation_condition | default_automation_condition
+        elif self.automation_condition:
+            return self.automation_condition
+        else:
+            return default_automation_condition
+        
+    def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
+        """
+        Origen
+
+        """
+        return [AssetKey(["mongo_db_crm_hn", f"{resource.name}"])]
+
+    def get_normalized_table_identifier(self, resource: DltResource) -> str:
+        return snake_case_normalizer().normalize_table_identifier(resource.name)
+
+    def get_normalized_column_identifier(self, column_identifier: str) -> str:
+        return snake_case_normalizer().normalize_identifier(column_identifier)
+
+    def remove_columns(self, doc: dict, remove_columns: Optional[list[str]] = None) -> Dict:
+        """
+        Removes the specified columns from the given document.
+
+        Args:
+            doc (Dict): The document from which columns are to be removed.
+            remove_columns (Optional[list[str]], optional): The list of column names to be removed. Defaults to None.
+
+        Returns:
+            Dict: The modified document with the specified columns removed.
+        """
+        if remove_columns is None:
+            remove_columns = []
+
+        for column_name in remove_columns:
+            if column_name in doc:
+                del doc[column_name]
+
+        return doc    
 
 
 class BaseDltPipeline(ConfigurableResource):
