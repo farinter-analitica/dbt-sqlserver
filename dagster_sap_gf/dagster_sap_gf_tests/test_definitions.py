@@ -2,7 +2,7 @@
 from dagster_shared_gf.shared_functions import get_all_instances_of_class, import_variable_from_module
 from dagster_sap_gf import defs
 from dagster import (AssetsDefinition, SourceAsset, AssetKey)
-from typing import List, TypeVar, Iterator, Iterable, Any
+from typing import List, Sequence, TypeVar, Iterator, Iterable, Any
 from types import FunctionType
 from sys import path
 from itertools import chain
@@ -13,7 +13,7 @@ import pkgutil
 #     assert all_assets.__len__()==load_assets_from_package_module(assets).__len__() , "All assets should be loaded"
 
 
-def apply_function_to_submodules(function_to_apply:FunctionType,module_name: str, *args, **kwargs) -> List:
+def apply_function_to_submodules(function_to_apply,module_name: str, *args, **kwargs) -> List:
     # List to store all instances from all submodules
     all_instances = []
 
@@ -35,16 +35,16 @@ def apply_function_to_submodules(function_to_apply:FunctionType,module_name: str
 
     return all_instances
 
-def flatten_elements(data: Any) -> List[AssetKey]:
+def flatten_elements(data: Any) -> set[AssetKey]:
     """Recursively flatten elements, retaining only AssetKey instances."""
     if isinstance(data, AssetKey):
-        return [data]
+        return {data}
     elif isinstance(data, (list, tuple, set)):
-        flattened = []
+        flattened = set()
         for item in data:
-            flattened.extend(flatten_elements(item))
+            flattened.update(flatten_elements(item))
         return flattened
-    return []
+    return set()
 
 def count_assetkeys(data: Any) -> int:
     """Recursively count AssetKey instances."""
@@ -57,7 +57,8 @@ def count_assetkeys(data: Any) -> int:
         return count
     return 0
 
-all_assets: List[AssetsDefinition | SourceAsset] = apply_function_to_submodules(import_variable_from_module, module_name= "dagster_sap_gf.assets", variable_name="all_assets")
+all_assets: Sequence[AssetsDefinition | SourceAsset] = apply_function_to_submodules(import_variable_from_module, module_name= "dagster_sap_gf.assets", variable_name="all_assets")
+all_assets = all_assets + apply_function_to_submodules(import_variable_from_module, module_name= "dagster_sap_gf.dlt.hontrack_assets", variable_name="all_assets")
 all_sources_assets_keys = [{asset.key} for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)]
 #print("sources:" + str(all_sources_assets_keys))
 all_assets_keys = flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), all_assets)])
@@ -67,8 +68,8 @@ all_defs_assets_keys = set(flatten_elements([asset.keys for asset in filter(lamb
 all_assets_keys_deduplicated = set(all_assets_keys)
 all_assets_deduplicated = set(flatten_elements(list(all_assets_keys_deduplicated) + list(filter(lambda x: x not in all_assets_keys_deduplicated, all_sources_assets_keys))))
 #print("assets_deduplicated:" + str(all_assets_deduplicated))
-all_duplicated_assets = set(filter(lambda x: x in all_assets_keys_deduplicated, all_assets_keys))
-all_not_in_definitions = set(filter(lambda x: x not in all_defs_assets_keys, all_assets_deduplicated))
+all_duplicated_assets = all_assets_keys - all_assets_keys_deduplicated
+all_not_in_definitions = all_assets_deduplicated - all_defs_assets_keys
 
 def test_all_assets_loaded():
     assert count_assetkeys(all_defs_assets_keys)==count_assetkeys(all_assets_deduplicated) , f"""Loaded assets expected = all_assets variables accumulated on assets module: 

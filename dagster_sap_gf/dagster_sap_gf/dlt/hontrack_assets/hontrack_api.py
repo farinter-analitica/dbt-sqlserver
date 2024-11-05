@@ -221,6 +221,8 @@ hontrack_api_assets_per_day = hontrack_api_assets_per_day.with_attributes(
     backfill_policy=BackfillPolicy.single_run(),
 )
 
+all_assets = (hontrack_api_assets_per_day,)
+
 if __name__ == "__main__":
     from dagster import (
         PartitionKeyRange,
