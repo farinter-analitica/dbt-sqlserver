@@ -165,7 +165,7 @@ def fetch_knime_workflows(
         wf_tuple = tuple(
             Workflow(
                 knime_bin=row[0],
-                ambiente=row[1],
+                ambiente=row[1].lower(),
                 knime_workflow=row[2],
                 # cron_text=row[3],
                 workflow_directory=row[4],
@@ -202,7 +202,7 @@ def execute_knime_workflow(
 
     if not EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value():
         load_env_vars()
-
+    
     password = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value() + "\n"
 
     try:
@@ -232,6 +232,7 @@ def execute_knime_workflow(
 def create_knime_workflow_asset(
     wf: Workflow,
 ) -> AssetsDefinition:
+    
     @asset(
         key=AssetKey(["knime_wf", wf.ambiente, wf.knime_workflow]),
         description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
@@ -239,10 +240,10 @@ def create_knime_workflow_asset(
         automation_condition=wf.automation_condition,
         tags=wf.tags,
     )
-    def knime_workflow_asset(context: OpExecutionContext) -> None:
-        supported_envs = ["dev", "prd"]
+    def knime_workflow_asset(context: AssetExecutionContext) -> None:
+        supported_envs = ("dev", "prd")
         if (
-            wf.ambiente in supported_envs
+            wf.ambiente.lower() in supported_envs
             and wf.knime_workflow != "Knime_Workflows_Placeholder"
         ):
             execute_knime_workflow(
