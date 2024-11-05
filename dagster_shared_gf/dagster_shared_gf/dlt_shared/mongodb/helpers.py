@@ -1,24 +1,26 @@
 """Mongo database source helpers"""
 
+from datetime import datetime
 from itertools import islice
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Sequence
 
 import dlt
 from bson.decimal128 import Decimal128
 from bson.objectid import ObjectId
 from bson.regex import Regex
 from bson.timestamp import Timestamp
-from dlt.common import logger
+from dlt.common import logger, pendulum
+import dlt.common
 from dlt.common.configuration.specs import BaseConfiguration, configspec
 from dlt.common.data_writers import TDataItemFormat
 from dlt.common.time import ensure_pendulum_datetime
 from dlt.common.typing import TDataItem
 from dlt.common.utils import map_nested_in_place
-from pendulum import _datetime
+from pendulum import DateTime as p_datetime
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.collection import Collection
 from pymongo.cursor import Cursor
-
+from importlib.util import find_spec
 
 if TYPE_CHECKING:
     TMongoClient = MongoClient[Any]
@@ -29,12 +31,32 @@ else:
     TCollection = Any
     TCursor = Any
 
-try:
-    import pymongoarrow  # type: ignore
+PYMONGOARROW_AVAILABLE = find_spec('pymongoarrow') is not None
 
-    PYMONGOARROW_AVAILABLE = True
-except ImportError:
-    PYMONGOARROW_AVAILABLE = False
+def max_dt_with_lag_last_value_func(event, lag_days: int = 1) -> p_datetime:
+    last_value = pendulum.instance(datetime.fromtimestamp(0, tz=pendulum.UTC))
+    item: p_datetime
+    # print("Items received in this event: "+str(len(event)))
+
+    if len(event) == 1:
+        (item,) = event
+    else:
+        item, last_value = event
+
+    print(
+        "item: "
+        + str(item)
+        + " last value: "
+        + str("None" if last_value is None else last_value)
+    )
+    # setting the last value
+    last_value = max(item.subtract(days=lag_days), last_value)
+    last_value_tz = last_value.timezone_name
+    last_value = min(pendulum.now(tz=last_value_tz).subtract(days=1), last_value)
+    last_value = last_value
+    # print("Final chosen last value: "+str(last_value)+"\n")
+
+    return last_value
 
 
 class CollectionLoader:
@@ -57,30 +79,47 @@ class CollectionLoader:
             self.cursor_column = None
             self.last_value = None
 
+    def __post_init__(self):
+        if self.incremental and self.incremental.last_value_func not in (
+            max,
+            min,
+            max_dt_with_lag_last_value_func,
+        ):
+            raise ValueError(
+                "Last value function must be one of max, min or max_dt_with_lag_last_value_func"
+            )
+
+        if self.incremental and self.incremental.row_order not in ("asc", "desc"):
+            raise ValueError("Row order must be one of asc or desc")
+
     @property
-    def _sort_op(self) -> List[Optional[Tuple[str, int]]]:
+    def _sort_op(self) -> Optional[Sequence[tuple[str, int]]]:
         if not self.incremental or not self.last_value:
-            return []
+            return None
+
+        sort = None
 
         if (
             self.incremental.row_order == "asc"
-            and self.incremental.last_value_func is max
+            and self.incremental.last_value_func
+            in (max, max_dt_with_lag_last_value_func)
         ) or (
             self.incremental.row_order == "desc"
             and self.incremental.last_value_func is min
         ):
-            return [(self.cursor_field, ASCENDING)]
+            sort = [(self.cursor_field, ASCENDING)]
 
         elif (
             self.incremental.row_order == "asc"
             and self.incremental.last_value_func is min
         ) or (
             self.incremental.row_order == "desc"
-            and self.incremental.last_value_func is max
+            and self.incremental.last_value_func
+            in (max, max_dt_with_lag_last_value_func)
         ):
-            return [(self.cursor_field, DESCENDING)]
+            sort = [(self.cursor_field, DESCENDING)]
 
-        return []
+        return sort
 
     @property
     def _filter_op(self) -> Dict[str, Any]:
@@ -95,7 +134,7 @@ class CollectionLoader:
             return {}
 
         filt = {}
-        if self.incremental.last_value_func is max:
+        if self.incremental.last_value_func in (max, max_dt_with_lag_last_value_func):
             filt = {self.cursor_field: {"$gte": self.last_value}}
             if self.incremental.end_value:
                 filt[self.cursor_field]["$lt"] = self.incremental.end_value
@@ -266,9 +305,9 @@ class CollectionArrowLoader(CollectionLoader):
 
         cursor = self.collection.find_raw_batches(filter_, batch_size=self.chunk_size)
         if self._sort_op:
-            cursor = cursor.sort(self._sort_op)  # type: ignore
+            cursor = cursor.sort(self._sort_op)
 
-        cursor = self._limit(cursor, limit)  # type: ignore
+        cursor = self._limit(cursor, limit)
 
         for batch in cursor:
             process_bson_stream(batch, context)
@@ -300,7 +339,7 @@ class CollectionArrowLoaderParallel(CollectionLoaderParallel):
             filter=filter_op, batch_size=self.chunk_size
         )
         if self._sort_op:
-            cursor = cursor.sort(self._sort_op)  # type: ignore
+            cursor = cursor.sort(self._sort_op)
 
         return cursor
 
@@ -329,7 +368,7 @@ def collection_documents(
     incremental: Optional[dlt.sources.incremental[Any]] = None,
     parallel: bool = False,
     limit: Optional[int] = None,
-    chunk_size: Optional[int] = 10000,
+    chunk_size: int = 10000,
     data_item_format: Optional[TDataItemFormat] = "object",
 ) -> Iterator[TDataItem]:
     """
@@ -379,7 +418,7 @@ def collection_documents(
 def convert_mongo_objs(value: Any) -> Any:
     if isinstance(value, (ObjectId, Decimal128)):
         return str(value)
-    if isinstance(value, _datetime.datetime):
+    if isinstance(value, datetime):
         return ensure_pendulum_datetime(value)
     if isinstance(value, Regex):
         return value.try_compile().pattern
@@ -400,7 +439,7 @@ def convert_arrow_columns(table: Any) -> Any:
         pyarrow.lib.Table: The table with the columns converted.
     """
     from pymongoarrow.types import _is_binary, _is_code, _is_decimal128, _is_objectid  # type: ignore
-    from dlt.common.libs.pyarrow import pyarrow
+    from dlt.common.libs.pyarrow import pyarrow  # type: ignore
 
     for i, field in enumerate(table.schema):
         if _is_objectid(field.type) or _is_decimal128(field.type):

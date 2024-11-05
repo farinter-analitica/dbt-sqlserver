@@ -1,8 +1,9 @@
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import timedelta
 from itertools import chain
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
+from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
 import dlt
 import dlt.extract
 from dagster import (
@@ -36,7 +37,6 @@ from dagster_shared_gf.dlt_shared.mongodb import mongodb_collection
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
     get_for_current_env,
-    pendulum_dt_to_datetime,
 )
 from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
 
@@ -45,6 +45,7 @@ dlt.secrets["connection_str_source"] = EnvVar(
 ).get_value()
 snake_case_normalizer = NamingConvention()
 
+
 def default_date_fn():
     pendulum_dt = get_for_current_env(
         {
@@ -52,7 +53,7 @@ def default_date_fn():
             "prd": pendulum.now().subtract(years=5),
         }
     )
-    return pendulum_dt_to_datetime(pendulum_dt)
+    return pendulum_dt
 
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
@@ -64,7 +65,7 @@ class DltResourceCollection:
     columns_to_remove: Optional[tuple[str, ...]] = None
     limit: Optional[int] = None
     cursor_path: Optional[str] = None
-    initial_value: Optional[datetime] = None
+    initial_value: Optional[pendulum.DateTime] = None
     automation_condition: Optional[AutomationCondition] = None
 
     def get_all_configs_dict(self) -> Mapping[str, Any]:
@@ -76,7 +77,7 @@ class DltPipelineSourceConfig:
     pipeline_base_name: str
     primary_key: str | tuple
     cursor_path: Optional[str] = None
-    initial_value: datetime = Field(default_factory=default_date_fn)
+    initial_value: pendulum.DateTime = Field(default_factory=default_date_fn)
     collections: tuple[DltResourceCollection, ...] = Field(default_factory=tuple)
     dep_pipeline_base_name: Optional[str] = None
 
@@ -133,7 +134,7 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
                 collection_name="clientToCall",
                 cursor_path="updatedAt",
                 automation_condition=automation_hourly_cron_prd,
-            )
+            ),
         ),
     ),
     DltPipelineSourceConfig(
@@ -208,7 +209,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="updated_at",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updated_at",
-        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
+        initial_value=pendulum.now().subtract(months=1),
         collections=(
             dltrccol_crm_person,
             DLTRCol(collection_name="crm_message"),
@@ -230,7 +231,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="EndDate",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_enddate",
-        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
+        initial_value=pendulum.now().subtract(months=1),
         collections=(DLTRCol(collection_name="campaignSchedule"),),
     ),
     DltPipelineSourceConfig(
@@ -244,7 +245,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="updatedAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
+        initial_value=pendulum.now().subtract(months=1),
         collections=(DLTRCol(collection_name="dataViewList"),),
     ),
     DltPipelineSourceConfig(
@@ -258,7 +259,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="UpdatedAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
+        initial_value=pendulum.now().subtract(months=1),
         collections=(
             DLTRCol(
                 collection_name="crmCall",
@@ -316,7 +317,7 @@ all_mongo_db_source_configs: DltPipelineSourceConfigResourceTuple = (
 
 @dataclasses.dataclass
 class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
-    config: DltPipelineSourceConfig 
+    config: DltPipelineSourceConfig
     collection: DLTRCol
 
     def get_asset_key(self, resource: DltResource) -> AssetKey:
@@ -336,10 +337,13 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
         collection_dict = self.collection.get_all_configs_dict()
         collection_meta = {}
         if collection_dict:
-            collection_meta = {key: MetadataValue.text(str(value)) for key, value in collection_dict.items()}
+            collection_meta = {
+                key: MetadataValue.text(str(value))
+                for key, value in collection_dict.items()
+            }
         return (
             collection_meta
-            | resource.explicit_args # type: ignore
+            | resource.explicit_args  # type: ignore
             | {"columns_schema": resource.columns}
         )
 
@@ -352,7 +356,9 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
     def get_pipeline_name(self, resource: DltResource) -> str:
         return f"{self.config.pipeline_base_name}_{self.get_normalized_table_identifier(resource)}"
 
-    def remove_columns(self, doc: Dict, remove_columns: Optional[Sequence[str]] = None) -> Dict:
+    def remove_columns(
+        self, doc: Dict, remove_columns: Optional[Sequence[str]] = None
+    ) -> Dict:
         """
         Removes the specified columns from the given document.
 
@@ -388,7 +394,7 @@ def create_dlt_asset(
     else:
         dep_asset_pipeline_ak = []
 
-    #target_table_identifier = dlt_t.get_normalized_table_identifier(dlt_resource)
+    # target_table_identifier = dlt_t.get_normalized_table_identifier(dlt_resource)
     target_pipeline_name = dlt_t.get_pipeline_name(dlt_resource)
 
     @asset(
@@ -424,8 +430,10 @@ def create_dlt_asset(
 
         extracted_resource_metadata = {"error": "LoadInfo vacía."}
         if load_info:
-            extracted_resource_metadata = dlt_pipeline_dest_mssql_dwh.extract_resource_metadata(
-                context, dlt_resource, load_info, new_pipeline
+            extracted_resource_metadata = (
+                dlt_pipeline_dest_mssql_dwh.extract_resource_metadata(
+                    context, dlt_resource, load_info, new_pipeline
+                )
             )
 
         return MaterializeResult(
@@ -435,25 +443,6 @@ def create_dlt_asset(
 
     return created_dlt_assets
 
-def custom_last_value_func(event):
-    last_value = pendulum.instance(datetime.fromtimestamp(0, tz=pendulum.UTC))
-    item : pendulum.DateTime
-    #print("Items received in this event: "+str(len(event)))
-
-    if len(event) == 1:
-        item, = event
-    else:
-        item, last_value = event
-
-    #print("item: "+str(item)+" last value: "+str('None' if last_value is None else last_value))
-    # setting the last value
-    last_value = max(item.subtract(days=1), last_value)
-    last_value_tz = last_value.timezone_name
-    last_value = min(pendulum.now(tz=last_value_tz).subtract(days=1), last_value)
-    last_value = last_value
-    #print("Final chosen last value: "+str(last_value)+"\n")
-
-    return last_value
 
 def dlt_mongo_db_crm_hn_asset_factory(
     mongo_db_source_configs: DltPipelineSourceConfigResourceTuple,
@@ -461,7 +450,7 @@ def dlt_mongo_db_crm_hn_asset_factory(
     dlt_assets_list: deque[AssetsDefinition] = deque()
     for dlt_source_config in mongo_db_source_configs:
         for collection in dlt_source_config.collections:
-            # if env_str == "local": 
+            # if env_str == "local":
             #     print(f"Processing collection: {collection.collection_name}")
             resource: DltResource = mongodb_collection(
                 connection_url=dlt.secrets["connection_str_source"],
@@ -469,17 +458,17 @@ def dlt_mongo_db_crm_hn_asset_factory(
                 collection=collection.collection_name,
                 limit=collection.limit,
                 incremental=dlt.sources.incremental(
-                    cursor_path=collection.cursor_path, # type: ignore
+                    cursor_path=collection.cursor_path,  # type: ignore
                     primary_key=collection.primary_key,
                     initial_value=collection.initial_value,
-                    last_value_func=custom_last_value_func
+                    last_value_func=max_dt_with_lag_last_value_func,
                 ),
                 parallel=True,
                 # data_item_format="arrow", #aparentemente no con esta combinacion de source / destino
             )
-            dlt_t=DagsterDltTranslatorMongodbCRMHN(
-                    config=dlt_source_config, collection=collection
-                )
+            dlt_t = DagsterDltTranslatorMongodbCRMHN(
+                config=dlt_source_config, collection=collection
+            )
             if collection.table_new_name:
                 resource = resource.apply_hints(table_name=collection.table_new_name)
 
@@ -511,9 +500,7 @@ def dlt_mongo_db_crm_hn_asset_factory(
             new_assets = create_dlt_asset(
                 dlt_resource=resource,
                 group_name="dlt_mongo_db_crm_hn_etl_dwh",
-                dlt_t=DagsterDltTranslatorMongodbCRMHN(
-                    config=dlt_source_config, collection=collection
-                ),
+                dlt_t=dlt_t,
                 dataset_name="mongo_db_crm_hn",
                 tags={"dagster/storage_kind": "sqlserver"},
                 dep_asset_pipeline=dlt_source_config.dep_pipeline_base_name,
@@ -566,119 +553,37 @@ all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
 all_asset_freshness_checks = (
-    *all_assets_non_hourly_freshness_checks , *all_assets_hourly_freshness_checks
+    *all_assets_non_hourly_freshness_checks,
+    *all_assets_hourly_freshness_checks,
 )
 
 if __name__ == "__main__":
+
     def test_all_assets_loaded():
         configured_total = 0
         for Source in all_mongo_db_source_configs:
             configured_total += len(Source.collections)
 
         loaded_total = len(all_assets)
-        assert configured_total == loaded_total, f"Expected {configured_total} assets, but loaded {loaded_total} assets"
+        assert (
+            configured_total == loaded_total
+        ), f"Expected {configured_total} assets, but loaded {loaded_total} assets"
 
     from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
 
     with instance_for_test() as instance:
-        asset_to_test = tuple(asset for asset in all_assets if asset.key == AssetKey(("dlt_mongo_crm_hn_updated_at","clientToCall")))
-        materialize(asset_to_test, instance=instance, resources={"dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh})
+        asset_to_test = tuple(
+            asset
+            for asset in all_assets
+            if asset.key == AssetKey(("dlt_mongo_crm_hn_updated_at", "clientToCall"))
+        )
+        result = materialize(
+            asset_to_test,
+            instance=instance,
+            resources={"dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh},
+        )
 
-   # from dagster import materialize, instance_for_test
-    # with instance_for_test() as instance:
-    #     materialize(all_assets)
+        # print(
+        #     [mat.step_materialization_data for mat in result.get_asset_materialization_events()]
+        # )
 
-    pass
-    # def load_select_collection_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
-    #     """Use the mongodb source to reflect an entire database schema and load select tables from it.
-
-    #     This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
-    #     """
-    #     dlt_source_config = DltSourceConfig(cursor_path="updated_at", primary_key="_id")
-    #     if pipeline is None:
-    #         # Create a pipeline
-    #         pipeline = dlt.pipeline(
-    #             pipeline_name="mongo_crm_hn_updated_at",
-    #             destination=mssql_destination,
-    #             dataset_name="mongo_crm_hn",
-    #         )
-    #     collections: list[str] = get_config_filtered(read_source_config_updated_at
-    #                                                 ,dlt_source_config)
-    #     # Configure the source to load a few select collections incrementally
-    #     sources = mongodb(connection_url=connection_str_source
-    #         ,database="pro01"
-    #         ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
-    #                                             ,primary_key=dlt_source_config.primary_key
-    #                                             , initial_value=pendulum.now().subtract(years=2))
-    #         ).with_resources(
-    #         *collections
-    #     )
-
-    #     info = pipeline.run(sources, write_disposition="merge")
-
-    #     return info
-
-    # def load_select_collections_multi_updated_at(pipeline: Pipeline|None = None) -> LoadInfo:
-    #     """Use the mongodb source to reflect an entire database schema and load select tables from it.
-
-    #     This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
-    #     """
-    #     dlt_source_config = DltSourceConfig(cursor_path="updated_at", primary_key="_id")
-    #     if pipeline is None:
-    #         # Create a pipeline
-    #         pipeline = dlt.pipeline(
-    #             pipeline_name="mongo_crm_hn_multi_updated_at",
-    #             destination=mssql_destination,
-    #             dataset_name="mongo_crm_hn",
-    #         )
-    #     collections: list[str] = get_config_filtered(read_source_config_multi_column
-    #                                                 ,dlt_source_config)
-
-    #     # Configure the source to load a few select collections incrementally
-    #     sources = mongodb(connection_url=connection_str_source
-    #         ,database="pro01"
-    #         ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
-    #                                             ,primary_key=dlt_source_config.primary_key
-    #                                             , initial_value=pendulum.now().subtract(months=2))
-    #         ).with_resources(
-    #         *collections
-    #     )
-
-    #     info = pipeline.run(sources, write_disposition="merge")
-
-    #     return info
-
-    # def load_select_collections_multi_created_at(pipeline: Pipeline|None = None) -> LoadInfo:
-    #     """Use the mongodb source to reflect an entire database schema and load select tables from it.
-
-    #     This example sources data from a sample mongo database data from [mongodb-sample-dataset](https://github.com/neelabalan/mongodb-sample-dataset).
-    #     """
-    #     dlt_source_config = DltSourceConfig(cursor_path="created_at", primary_key="_id")
-    #     if pipeline is None:
-    #         # Create a pipeline
-    #         pipeline = dlt.pipeline(
-    #             pipeline_name="mongo_crm_hn_multi_created_at",
-    #             destination=mssql_destination,
-    #             dataset_name="mongo_crm_hn",
-    #             progress=dlt.progress.log(log_period=1,)
-    #         )
-    #     collections: list[str] = get_config_filtered(read_source_config_multi_column
-    #                                                 ,dlt_source_config)
-
-    #     # Configure the source to load a few select collections incrementally
-    #     sources = mongodb(connection_url=connection_str_source
-    #         ,database="pro01"
-    #         ,incremental=dlt.sources.incremental(dlt_source_config.cursor_path
-    #                                             ,primary_key=dlt_source_config.primary_key
-    #                                             , initial_value=pendulum.now().subtract(months=2)
-
-    #                                             )
-    #         ).with_resources(
-    #         *collections
-    #     )
-
-    #     info = pipeline.run(sources, write_disposition="merge")
-
-    #     return info
-
-    # print(load_select_collections_multi_created_at())

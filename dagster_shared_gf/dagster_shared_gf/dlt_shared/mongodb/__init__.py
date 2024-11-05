@@ -1,9 +1,12 @@
 """Source that loads collections form any a mongo database, supports incremental loads."""
 
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Literal, Optional
 
 import dlt
+import dlt.common
+import dlt.common.configuration
 from dlt.common.data_writers import TDataItemFormat
+from dlt.common.schema.typing import TWriteDisposition
 from dlt.sources import DltResource
 
 from .helpers import (
@@ -20,7 +23,7 @@ def mongodb(
     database: Optional[str] = dlt.config.value,
     collection_names: Optional[List[str]] = dlt.config.value,
     incremental: Optional[dlt.sources.incremental] = None,  # type: ignore[type-arg]
-    write_disposition: Optional[str] = dlt.config.value,
+    write_disposition: Literal[TWriteDisposition] = dlt.config.value,
     parallel: Optional[bool] = dlt.config.value,
     limit: Optional[int] = None,
     filter_: Optional[Dict[str, Any]] = None,
@@ -35,7 +38,7 @@ def mongodb(
         collection_names (Optional[List[str]]): The list of collections `pymongo.collection.Collection` to load.
         incremental (Optional[dlt.sources.incremental]): Option to enable incremental loading for the collection.
             E.g., `incremental=dlt.sources.incremental('updated_at', pendulum.parse('2022-01-01T00:00:00Z'))`
-        write_disposition (str): Write disposition of the resource.
+        write_disposition (TWriteDisposition): Write disposition of the resource, Literal["replace", "append", "merge", "skip"].
         parallel (Optional[bool]): Option to enable parallel loading for the collection. Default is False.
         limit (Optional[int]):
             The maximum number of documents to load. The limit is
@@ -84,7 +87,7 @@ def mongodb_collection(
     database: Optional[str] = dlt.config.value,
     collection: str = dlt.config.value,
     incremental: Optional[dlt.sources.incremental] = None,  # type: ignore[type-arg]
-    write_disposition: Optional[str] = dlt.config.value,
+    write_disposition: Literal[TWriteDisposition] = dlt.config.value,
     parallel: Optional[bool] = False,
     limit: Optional[int] = None,
     chunk_size: Optional[int] = 10000,
@@ -100,7 +103,7 @@ def mongodb_collection(
         collection (str): The collection name to load.
         incremental (Optional[dlt.sources.incremental]): Option to enable incremental loading for the collection.
             E.g., `incremental=dlt.sources.incremental('updated_at', pendulum.parse('2022-01-01T00:00:00Z'))`
-        write_disposition (str): Write disposition of the resource.
+        write_disposition (TWriteDisposition): Write disposition of the resource, Literal["replace", "append", "merge", "skip"].
         parallel (Optional[bool]): Option to enable parallel loading for the collection. Default is False.
         limit (Optional[int]): The number of documents load.
         chunk_size (Optional[int]): The number of documents load in each batch.
