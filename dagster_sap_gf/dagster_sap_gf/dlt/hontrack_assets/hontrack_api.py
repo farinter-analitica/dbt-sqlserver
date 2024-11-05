@@ -1,31 +1,28 @@
 from collections import deque
+from datetime import datetime, timedelta
+from itertools import chain
+from typing import Iterator, Optional
+
 import dlt
-from dlt.sources.rest_api import rest_api_source
-from dlt.sources.rest_api.typing import RESTAPIConfig
-from dagster_shared_gf.dlt_shared.dlt_resources import (
-    dlt_pipeline_dest_mssql_dwh,
-    MyDagsterDltTranslator,
-    BaseDltPipeline,
-)
-from dagster_shared_gf.automation import automation_daily_cron
-from dagster_shared_gf.partitions.time_based import get_daily_partition_def_to_today
-from dagster_embedded_elt.dlt import dlt_assets, DagsterDltResource
-from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dagster import (
+    AssetExecutionContext,
     BackfillPolicy,
     instance_for_test,
-    materialize,
-    AssetExecutionContext,
-    build_asset_context,
-    job,
-    TimeWindowPartitionMapping,
-    asset,
+    MetadataValue,
+    MaterializeResult,
+    AssetMaterialization,
 )
-from datetime import datetime, timedelta
-from typing import Optional
-from dlt.common.pipeline import LoadInfo
-from itertools import chain
-from pendulum import DateTime as p_datetime
+from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
+from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
+from dlt.sources.rest_api import rest_api_source
+from dlt.sources.rest_api.typing import RESTAPIConfig
+
+from dagster_shared_gf.automation import automation_daily_cron
+from dagster_shared_gf.dlt_shared.dlt_resources import (
+    MyDagsterDltTranslator,
+    dlt_pipeline_dest_mssql_dwh,
+)
+from dagster_shared_gf.partitions.time_based import get_daily_partition_def_to_today
 
 # def add_and_remove_fields(response: Response, *args, **kwargs) -> Response:
 #     payload = response.json()
@@ -124,7 +121,7 @@ def hontrack_api_source(
     return source
 
 
-pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
+hontrack_api_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
     "hontrack_api_pipeline", "hontrack_api"
 )
 # pipeline.dev_mode = True
@@ -134,17 +131,21 @@ daily_partitions_def = get_daily_partition_def_to_today(
     start_date=datetime(2024, 1, 1, 0, 0, 0),
 )
 
+
 def _daily_partition_iter(start, end):
     start = datetime.fromisoformat(start)
     end = datetime.fromisoformat(end)
     daily_diffs = int((end - start) / timedelta(days=1))
-    
-    return [str(start + timedelta(days=i)) for i in range(daily_diffs)]
+    for i in range(daily_diffs):
+        yield (
+            (start + timedelta(days=i)),
+            (start + timedelta(days=i + 1) - timedelta(seconds=1)),
+        )
 
 
 @dlt_assets(
     dlt_source=hontrack_api_source().with_resources("vehicles_resumen"),
-    dlt_pipeline=pipeline,
+    dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
     group_name="hontrack_api",
     dagster_dlt_translator=MyDagsterDltTranslator(
@@ -153,81 +154,105 @@ def _daily_partition_iter(start, end):
     ),
     partitions_def=daily_partitions_def,
 )
-def hontrack_api_assets_7_days(context: AssetExecutionContext, dlt: DagsterDltResource):
-    if context.has_partition_key_range or context.has_partition_key:
-        v_date_from = datetime.fromisoformat(context.partition_key_range.start)
-        v_date_to = (
-            datetime.fromisoformat(context.partition_key_range.end)
-            + timedelta(days=1)
-            - timedelta(seconds=1)
-        )
-    else:
-        part_def = context.assets_def.partitions_def
-        first_partition_key = part_def.get_first_partition_key() if part_def else None
-        last_partition_key = part_def.get_last_partition_key() if part_def else None
-        def_date_from = first_partition_key or datetime(2024, 1, 1, 0, 0, 0).isoformat()
-        def_date_to = (
-            last_partition_key
-            or (
-                datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                + timedelta(days=1)
-                - timedelta(seconds=1)
-            ).isoformat()
-        )
-        v_date_from = datetime.fromisoformat(def_date_from)
-        v_date_to = datetime.fromisoformat(def_date_to)
+def hontrack_api_assets_per_day(
+    context: AssetExecutionContext, dlt: DagsterDltResource
+):
+    first_partition, last_partition = context.partition_key_range
+    partition_iter = _daily_partition_iter(first_partition, last_partition)
+    context.log.debug(f"date_from: {first_partition}, date_to: {last_partition}")
 
-    context.log.debug(f"v_date_from: {v_date_from}, v_date_to: {v_date_to}")
-    if v_date_from <= (v_date_to - timedelta(days=7)):  # rompe el limite del API
-        results: deque[DltEventIterator[DltEventType]] = deque()
-        for day in range(0, (v_date_to - v_date_from).days, 1):
-            results.append(
-                dlt.run(
-                    context=context,
-                    dlt_source=hontrack_api_source(
-                        start_date=v_date_from + timedelta(days=day),
-                        end_date=v_date_from
-                        + timedelta(days=day + 1)
-                        - timedelta(seconds=1),
-                    ),
-                    dlt_pipeline=pipeline,
-                )
+    def consolidar_resultados():
+        for start_of_day, end_of_day in partition_iter:
+            result = dlt.run(
+                context=context,
+                dlt_source=hontrack_api_source(
+                    start_date=start_of_day,
+                    end_date=end_of_day,
+                ),
+                dlt_pipeline=hontrack_api_pipeline,
             )
-        # Consolidar resultados
-        yield from chain.from_iterable(results)  # ignore empty results
+            for event in result:
+                yield event
 
-    else:
-        yield from dlt.run(
-            context=context,
-            dlt_source=hontrack_api_source(start_date=v_date_from, end_date=v_date_to),
-            dlt_pipeline=pipeline,
-        )
+    def integrar_resultados() -> Iterator[DltEventType]:
+        unique_events: dict[str, DltEventType] = {}
+        lost_events: deque[DltEventType] = deque()
+        for event in consolidar_resultados():
+            askey = event.asset_key
+            if askey:
+                key = askey.to_python_identifier()
+                if key in unique_events:
+                    lost_events.append(event)
+                else:
+                    unique_events[key] = event
 
-hontrack_api_assets_7_days=hontrack_api_assets_7_days.with_attributes(
+        for event in lost_events:
+            askey = event.asset_key
+            key = askey.to_python_identifier() if askey else ""
+            final = unique_events[key]
+            meta_1 = final.metadata
+            meta_2 = event.metadata
+            rows_loaded_1 = meta_1.get("rows_loaded", 0) if meta_1 else 0
+            rows_loaded_2 = meta_2.get("rows_loaded", 0) if meta_2 else 0
+            jobs_1 = meta_1.get("jobs", []) if meta_1 else []
+            jobs_2 = meta_2.get("jobs", []) if meta_2 else []
+            new_meta = {
+                "rows_loaded": MetadataValue.int(sum(rows_loaded_1 + rows_loaded_2)),  # type: ignore
+                "jobs": [*jobs_1, *jobs_2],  # type: ignore
+            }
+            final_meta = {**meta_1, **meta_2, **new_meta}  # type: ignore
+            unique_events[key] = (
+                final.with_metadata(final_meta)
+                if type(final) is AssetMaterialization
+                else MaterializeResult(asset_key=askey, metadata=final_meta)
+            )  # type: ignore
+
+        yield from unique_events.values()
+
+    results = DltEventIterator(
+        integrar_resultados(), context=context, dlt_pipeline=hontrack_api_pipeline
+    )
+
+    # Consolidar resultados
+    yield from results
+
+
+hontrack_api_assets_per_day = hontrack_api_assets_per_day.with_attributes(
     backfill_policy=BackfillPolicy.single_run(),
 )
 
 if __name__ == "__main__":
-    from dagster import PartitionKeyRange, job
-
+    from dagster import (
+        PartitionKeyRange,
+        build_op_context,
+        materialize,
+        define_asset_job,
+        Definitions,
+    )
 
     with instance_for_test() as instance:
-        context = build_asset_context(
-            partition_key_range=PartitionKeyRange("2024-10-01", "2024-11-06"),
-            resources={"dlt": DagsterDltResource()},
-            instance=instance,
+        #test job parti
+        test_job = define_asset_job("test_job", selection=[hontrack_api_assets_per_day])
+        test_resources = {"dlt": DagsterDltResource()}
+        defs = Definitions(
+            assets=[hontrack_api_assets_per_day],
+            jobs=[test_job],
+            resources=test_resources,
         )
 
-        hontrack_api_assets_7_days(context=context)
-
-        # @job( partitions_def=daily_partitions_def)
-        # def hontrack_api_job():
-        #     hontrack_api_assets_7_days()
-
-        # hontrack_api_job.execute_in_process(instance=instance)
-        # materialize(
-        #     [hontrack_api_assets_7_days],
-        #     instance=instance,
-        #     resources={"dlt": DagsterDltResource()},
-        #     #partition_key="2024-10-25",
-        # )
+        test_job_def = defs.get_job_def("test_job")
+        test_job_def.execute_in_process(
+            tags={
+                "dagster/asset_partition_range_start": "2024-11-02",
+                "dagster/asset_partition_range_end": "2024-11-05",
+            },
+            resources=test_resources,
+            instance=instance,
+        )
+        #test single
+        materialize(
+            [hontrack_api_assets_per_day],
+            instance=instance,
+            resources={"dlt": DagsterDltResource()},
+            partition_key="2024-10-25",
+        )

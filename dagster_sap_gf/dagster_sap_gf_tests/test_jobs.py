@@ -1,19 +1,33 @@
+
+import warnings
+
+from dagster import (
+    AssetSpec,
+    Definitions,
+    JobDefinition,
+)
+
 from dagster_sap_gf import defs
-from dagster import asset, define_asset_job, Definitions, AssetSelection, AssetSpec, JobDefinition
-from dagster_shared_gf.shared_variables import AssetExecutionType, UnresolvedAssetJobDefinition
-from typing import Sequence
+from dagster_shared_gf.shared_variables import (
+    AssetExecutionType,
+    UnresolvedAssetJobDefinition,
+)
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
 
 defs: Definitions = defs ##import your defs
 asset_spec: AssetSpec 
-
+warnings.filterwarnings("ignore", message="validators are deprecated")
 
 def test_all_assets_assigned_to_a_job():
     # Inspect the Definitions object to find assets without jobs
     all_assets_specs = set()
+    all_auto_stop_assets_specs = set()
     #all_assets = list(asset_spec.key for asset_spec in defs.get_all_asset_specs())
     for asset_spec in defs.get_all_asset_specs():
         if defs.get_assets_def(asset_spec.key).execution_type == AssetExecutionType.MATERIALIZATION:
-            all_assets_specs.add(asset_spec.key) 
+            all_assets_specs.add(asset_spec.key)
+            if asset_spec.automation_condition or tags_repo.DetenerCarga.key in asset_spec.tags:
+                all_auto_stop_assets_specs.add(asset_spec.key)
         #print(defs.get_assets_def(asset_spec.key).execution_type)
     print("All assets: ", str(len(all_assets_specs)))
 
@@ -21,25 +35,32 @@ def test_all_assets_assigned_to_a_job():
 
     #print(all_assets)
     #print(defs.get_implicit_job_def_for_assets(all_assets))
-
-    job_assigned_assets = set()
-    all_jobs:  Sequence[JobDefinition | UnresolvedAssetJobDefinition] = defs.jobs
+    job_auto_stop_assigned_assets = set()
+    all_jobs = defs.jobs or []
+    all_assets = defs.assets
     for job_def in all_jobs:
-        if hasattr(job_def, 'asset_selection'):
+        if isinstance(job_def, JobDefinition):
             if job_def.asset_selection:
-                for asset_key in job_def.asset_selection:
-                    if defs.get_assets_def(asset_key).execution_type == AssetExecutionType.MATERIALIZATION:
-                        job_assigned_assets.update(asset_key)
-        elif hasattr(job_def, 'selection'):
-            if job_assigned_assets.update(job_def.selection.resolve(defs.assets)):
-                for asset_key in job_assigned_assets.update(job_def.selection.resolve(defs.assets)):
-                    if defs.get_assets_def(asset_key).execution_type == AssetExecutionType.MATERIALIZATION:
-                        job_assigned_assets.update(asset_key)
-        
-    print("Job assigned assets: ", str(len(job_assigned_assets)))
+                materialized_assets = {
+                    asset_key
+                    for asset_key in job_def.asset_selection
+                    if defs.get_assets_def(asset_key).execution_type == AssetExecutionType.MATERIALIZATION
+                }
+                job_auto_stop_assigned_assets.update(materialized_assets)
+        elif isinstance(job_def, UnresolvedAssetJobDefinition):
+            resolved_assets = job_def.selection.resolve(all_assets) # type: ignore
+            materialized_assets = {
+                asset_key
+                for asset_key in resolved_assets
+                if defs.get_assets_def(asset_key).execution_type == AssetExecutionType.MATERIALIZATION
+            }
+            job_auto_stop_assigned_assets.update(materialized_assets)
 
-    non_job_assigned_assets = all_assets_specs - job_assigned_assets
-    print("Non-job assigned assets: ", str(len(non_job_assigned_assets)))
+    job_auto_stop_assigned_assets.update(all_auto_stop_assets_specs)    
+    print("Job, auto or stopped assigned assets: ", str(len(job_auto_stop_assigned_assets)))
+
+    non_job_assigned_assets = all_assets_specs - job_auto_stop_assigned_assets
+    print("Non-job, auto or stopped assigned assets: ", str(len(non_job_assigned_assets)))
 
     assert_message =f"""Non-job assigned assets: {str(len(non_job_assigned_assets))}
         List of non-job assigned assets: {non_job_assigned_assets}
