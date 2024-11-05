@@ -1,6 +1,5 @@
 import os
-from typing import Any, Dict, Iterable, Literal, Mapping, Optional
-from dlt.common.normalizers.naming.snake_case import NamingConvention as snake_case_normalizer
+from typing import Any, Dict, Literal, Optional, Sequence
 
 import dlt
 import dlt.extract
@@ -8,23 +7,27 @@ from dagster import (
     AssetKey,
     AutomationCondition,
     ConfigurableResource,
-    MetadataValue,
 )
 from dagster_embedded_elt.dlt import (
     DagsterDltResource,
     DagsterDltTranslator,
 )
 from dlt.common.destination.reference import Destination
+from dlt.common.normalizers.naming.snake_case import (
+    NamingConvention as snake_case_normalizer,
+)
 from dlt.common.pipeline import LoadInfo, get_dlt_pipelines_dir
 from dlt.extract import DltResource
-from dlt.extract.resource import DltResource
 from pydantic import Field, dataclasses
+
 from dagster_shared_gf.resources import sql_server_resources
 from dagster_shared_gf.shared_variables import env_str
 
 new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
-dlt.secrets["dwh_farinter_dl"] = sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url().render_as_string(hide_password=False)
+dlt.secrets["dwh_farinter_dl"] = (
+    sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url().render_as_string(hide_password=False)
+)
 
 mssql_dwh_destination = dlt.destinations.mssql(
     credentials=dlt.secrets["dwh_farinter_dl"],
@@ -33,11 +36,34 @@ mssql_dwh_destination = dlt.destinations.mssql(
 fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
 ExtractedResourceMetadata = Dict[str, Any]
 
+
 @dataclasses.dataclass(config={"arbitrary_types_allowed": True})
 class MyDagsterDltTranslator(DagsterDltTranslator):
     automation_condition: AutomationCondition | None = None
+    prefix_key: Optional[Sequence[str]] = None
 
-    def get_automation_condition(self, resource: DltResource) -> AutomationCondition | None:
+    def get_asset_key(self, resource: DltResource) -> AssetKey:
+        """Defines asset key for a given dlt resource key and dataset name.
+
+        By default, the asset key is a concatenation of the source name and the resource name.
+        If `prefix_key` is provided, the asset key is extended with the components of `prefix_key`
+        followed by the resource name.
+
+        Args:
+            resource (DltResource): dlt resource
+
+        Returns:
+            AssetKey of Dagster asset derived from dlt resource
+
+        """
+        if self.prefix_key:
+            return AssetKey([*self.prefix_key, resource.name])
+        else:
+            return AssetKey([resource.source_name, resource.name])
+
+    def get_automation_condition(
+        self, resource: DltResource
+    ) -> AutomationCondition | None:
         default_automation_condition = super().get_automation_condition(resource)
         if self.automation_condition and default_automation_condition:
             return self.automation_condition | default_automation_condition
@@ -45,13 +71,6 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
             return self.automation_condition
         else:
             return default_automation_condition
-        
-    def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
-        """
-        Origen
-
-        """
-        return [AssetKey(["mongo_db_crm_hn", f"{resource.name}"])]
 
     def get_normalized_table_identifier(self, resource: DltResource) -> str:
         return snake_case_normalizer().normalize_table_identifier(resource.name)
@@ -59,7 +78,9 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
     def get_normalized_column_identifier(self, column_identifier: str) -> str:
         return snake_case_normalizer().normalize_identifier(column_identifier)
 
-    def remove_columns(self, doc: dict, remove_columns: Optional[list[str]] = None) -> Dict:
+    def remove_columns(
+        self, doc: dict, remove_columns: Optional[list[str]] = None
+    ) -> Dict:
         """
         Removes the specified columns from the given document.
 
@@ -77,7 +98,7 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
             if column_name in doc:
                 del doc[column_name]
 
-        return doc    
+        return doc
 
 
 class BaseDltPipeline(ConfigurableResource):
