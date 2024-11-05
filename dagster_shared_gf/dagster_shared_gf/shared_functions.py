@@ -23,6 +23,7 @@ from typing import (
     get_origin,
 )
 
+from dlt.common import pendulum
 import polars as pl
 import requests
 from dagster import AssetsDefinition, config_from_files
@@ -576,3 +577,12 @@ class SQLScriptGenerator:
 
 if __name__ == "__main__":
     pass
+
+
+def pendulum_dt_to_datetime(dt: pendulum.DateTime) -> datetime:
+    tz_info = dt.tzinfo
+
+    if tz_info is None:
+        return datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond)
+
+    return datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, tz_info)

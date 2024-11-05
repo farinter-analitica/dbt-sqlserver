@@ -1,5 +1,5 @@
 from collections import deque
-from datetime import timedelta
+from datetime import datetime, timedelta
 from itertools import chain
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
@@ -10,18 +10,19 @@ from dagster import (
     AssetExecutionContext,
     AssetKey,
     AssetsDefinition,
+    AutomationCondition,
     EnvVar,
     MaterializeResult,
     MetadataValue,
     SourceAsset,
     asset,
     build_last_update_freshness_checks,
+    instance_for_test,
     load_asset_checks_from_current_module,
-    AutomationCondition,
+    materialize,
 )
 from dagster_embedded_elt.dlt import (
     DagsterDltTranslator,
-
 )
 from dlt.common import pendulum
 from dlt.common.normalizers.naming.snake_case import NamingConvention
@@ -29,14 +30,15 @@ from dlt.common.pipeline import LoadInfo
 from dlt.extract.resource import DltResource
 from pydantic import Field, dataclasses
 
+from dagster_shared_gf.automation import automation_hourly_cron_prd
 from dagster_shared_gf.dlt_shared.dlt_resources import BaseDltPipeline
 from dagster_shared_gf.dlt_shared.mongodb import mongodb_collection
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
     get_for_current_env,
+    pendulum_dt_to_datetime,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
-from dagster_shared_gf.automation import automation_hourly_cron_prd
+from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
 
 dlt.secrets["connection_str_source"] = EnvVar(
     "DAGSTER_SECRET_MONGODB_CRM_HN_CONN_URL"
@@ -44,12 +46,13 @@ dlt.secrets["connection_str_source"] = EnvVar(
 snake_case_normalizer = NamingConvention()
 
 def default_date_fn():
-    return get_for_current_env(
+    pendulum_dt = get_for_current_env(
         {
             "dev": pendulum.now().subtract(years=2),
             "prd": pendulum.now().subtract(years=5),
         }
     )
+    return pendulum_dt_to_datetime(pendulum_dt)
 
 
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
@@ -61,7 +64,7 @@ class DltResourceCollection:
     columns_to_remove: Optional[tuple[str, ...]] = None
     limit: Optional[int] = None
     cursor_path: Optional[str] = None
-    initial_value: Optional[pendulum.DateTime] = None
+    initial_value: Optional[datetime] = None
     automation_condition: Optional[AutomationCondition] = None
 
     def get_all_configs_dict(self) -> Mapping[str, Any]:
@@ -73,7 +76,7 @@ class DltPipelineSourceConfig:
     pipeline_base_name: str
     primary_key: str | tuple
     cursor_path: Optional[str] = None
-    initial_value: pendulum.DateTime = Field(default_factory=default_date_fn)
+    initial_value: datetime = Field(default_factory=default_date_fn)
     collections: tuple[DltResourceCollection, ...] = Field(default_factory=tuple)
     dep_pipeline_base_name: Optional[str] = None
 
@@ -205,7 +208,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="updated_at",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updated_at",
-        initial_value=pendulum.now().subtract(months=1),
+        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
         collections=(
             dltrccol_crm_person,
             DLTRCol(collection_name="crm_message"),
@@ -227,7 +230,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="EndDate",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_enddate",
-        initial_value=pendulum.now().subtract(months=1),
+        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
         collections=(DLTRCol(collection_name="campaignSchedule"),),
     ),
     DltPipelineSourceConfig(
@@ -241,7 +244,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="updatedAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        initial_value=pendulum.now().subtract(months=1),
+        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
         collections=(DLTRCol(collection_name="dataViewList"),),
     ),
     DltPipelineSourceConfig(
@@ -255,7 +258,7 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
         cursor_path="UpdatedAt",
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        initial_value=pendulum.now().subtract(months=1),
+        initial_value=pendulum_dt_to_datetime(pendulum.now().subtract(months=1)),
         collections=(
             DLTRCol(
                 collection_name="crmCall",
@@ -432,19 +435,24 @@ def create_dlt_asset(
 
     return created_dlt_assets
 
-def lookback(event):
-    last_value = None
+def custom_last_value_func(event):
+    last_value = pendulum.instance(datetime.fromtimestamp(0, tz=pendulum.UTC))
+    item : pendulum.DateTime
+    #print("Items received in this event: "+str(len(event)))
+
     if len(event) == 1:
         item, = event
     else:
         item, last_value = event
 
-    if last_value is None:
-        last_value = {}
-    else:
-        last_value = dict(last_value)
+    #print("item: "+str(item)+" last value: "+str('None' if last_value is None else last_value))
+    # setting the last value
+    last_value = max(item.subtract(days=1), last_value)
+    last_value_tz = last_value.timezone_name
+    last_value = min(pendulum.now(tz=last_value_tz).subtract(days=1), last_value)
+    last_value = last_value
+    #print("Final chosen last value: "+str(last_value)+"\n")
 
-    last_value["created_at"] = pendulum.from_timestamp(item["created_at"]).subtract(days=1)
     return last_value
 
 def dlt_mongo_db_crm_hn_asset_factory(
@@ -453,8 +461,8 @@ def dlt_mongo_db_crm_hn_asset_factory(
     dlt_assets_list: deque[AssetsDefinition] = deque()
     for dlt_source_config in mongo_db_source_configs:
         for collection in dlt_source_config.collections:
-            if env_str == "local": 
-                print(f"Processing collection: {collection.collection_name}")
+            # if env_str == "local": 
+            #     print(f"Processing collection: {collection.collection_name}")
             resource: DltResource = mongodb_collection(
                 connection_url=dlt.secrets["connection_str_source"],
                 database="pro01",
@@ -464,7 +472,7 @@ def dlt_mongo_db_crm_hn_asset_factory(
                     cursor_path=collection.cursor_path, # type: ignore
                     primary_key=collection.primary_key,
                     initial_value=collection.initial_value,
-                    last_value_func=lookback
+                    last_value_func=custom_last_value_func
                 ),
                 parallel=True,
                 # data_item_format="arrow", #aparentemente no con esta combinacion de source / destino
@@ -569,7 +577,12 @@ if __name__ == "__main__":
 
         loaded_total = len(all_assets)
         assert configured_total == loaded_total, f"Expected {configured_total} assets, but loaded {loaded_total} assets"
-                
+
+    from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
+
+    with instance_for_test() as instance:
+        asset_to_test = tuple(asset for asset in all_assets if asset.key == AssetKey(("dlt_mongo_crm_hn_updated_at","clientToCall")))
+        materialize(asset_to_test, instance=instance, resources={"dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh})
 
    # from dagster import materialize, instance_for_test
     # with instance_for_test() as instance:
