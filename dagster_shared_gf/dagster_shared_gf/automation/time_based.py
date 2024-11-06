@@ -5,6 +5,7 @@ from dagster_shared_gf.shared_variables import (
     tags_repo,
 )
 import warnings
+from dagster_shared_gf.automation.custom_conditions import HasDependencies
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
@@ -81,7 +82,7 @@ def my_daily_automation_condition() -> AutomationCondition:
         return (
             AutomationCondition.in_latest_time_window()
             & cron_tick_passed_since_last_handle
-            & all_deps_updated_since_cron
+            & (all_deps_updated_since_cron | ~HasDependencies())
             & ~AutomationCondition.in_progress()
             & ~AutomationCondition.any_deps_in_progress()
         ).with_label(f"on cron {cron_label}")
