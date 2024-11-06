@@ -40,7 +40,7 @@ def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
-        from_date = (datetime.now().date() - timedelta(days=30)).replace(day=1)
+        from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(day=1)
     
     if from_date:
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
@@ -74,7 +74,7 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
-        from_date = (datetime.now().date() - timedelta(days=30)).replace(day=1)
+        from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(day=1)
     
     if from_date:
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
@@ -106,7 +106,7 @@ def DL_Kielsa_FacturaPosicionDescuento(context: AssetExecutionContext
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
-        from_date = (datetime.now().date() - timedelta(days=30)).replace(day=1)
+        from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(day=1)
     
     if from_date:
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
