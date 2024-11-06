@@ -10,6 +10,7 @@ from dagster import (
     AssetKey,
     AssetsDefinition,
     In,
+    GraphIn,
     Nothing,
     OpExecutionContext,
     Out,
@@ -51,8 +52,6 @@ if __name__ == "__main__":
 top_clause = get_for_current_env(
     {"local": "TOP 100", "dev": "--TOP 100", "prd": "--TOP 100"}
 )
-if env_str == "local":
-    warnings.warn("Running in local mode, using top 1000 rows")
 
 warnings.filterwarnings("ignore", message="PolarsParquetIOManager", append=True)
 
@@ -989,13 +988,13 @@ def bulk_load_to_sql_server(
 
 @graph(
     ins={
-        DL_MDBECOMM_Usuarios.to_python_identifier(): In(Nothing),
-        DL_Kielsa_Monedero.to_python_identifier(): In(Nothing),
-        DL_Kielsa_Libros_Cliente.to_python_identifier(): In(Nothing),
-        DL_Kielsa_Libros_Tipo.to_python_identifier(): In(Nothing),
-        DL_Kielsa_Cliente.to_python_identifier(): In(Nothing),
-        BI_Kielsa_Dim_Empresa.to_python_identifier(): In(Nothing),
-        BI_Kielsa_Dim_Pais.to_python_identifier(): In(Nothing),
+        DL_MDBECOMM_Usuarios.to_python_identifier(): GraphIn(None),
+        DL_Kielsa_Monedero.to_python_identifier(): GraphIn(None),
+        DL_Kielsa_Libros_Cliente.to_python_identifier(): GraphIn(None),
+        DL_Kielsa_Libros_Tipo.to_python_identifier(): GraphIn(None),
+        DL_Kielsa_Cliente.to_python_identifier(): GraphIn(None),
+        BI_Kielsa_Dim_Empresa.to_python_identifier(): GraphIn(None),
+        BI_Kielsa_Dim_Pais.to_python_identifier(): GraphIn(None),
     }
 )
 def BI_Kielsa_Dim_ClienteGeneral_graph(**kwargs):
@@ -1109,17 +1108,21 @@ if __name__ == "__main__":
 
     start_time = datetime.now()
     with instance_for_test() as instance:
-
+        from dagster import ResourceDefinition
+        if env_str == "local":
+            warnings.warn("Running in local mode, using top 1000 rows")
         @asset(name="between_asset")
         def mock_between_asset() -> int:
             return 1
+
+        mock_dwh_farinter_bi = ResourceDefinition.mock_resource()
 
         result = materialize(
             assets=[mock_between_asset, BI_Kielsa_Dim_ClienteGeneral],
             instance=instance,
             resources={
                 "dwh_farinter_dl": dwh_farinter_dl,
-                "dwh_farinter_bi": dwh_farinter_bi,
+                "dwh_farinter_bi": mock_dwh_farinter_bi,
                 "smb_resource_staging_dagster_dwh": smb_resource_staging_dagster_dwh,
                 "polars_parquet_io_manager": PolarsParquetIOManager(),
             },

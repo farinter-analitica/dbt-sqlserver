@@ -27,7 +27,7 @@ from dagster_shared_gf.automation import automation_hourly_cron_prd
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.resources.postgresql_resources import (
     PostgreSQLResource,
-    db_analitica_etl,
+    db_independent_analitica_etl as db_analitica_etl,
 )
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
@@ -153,13 +153,13 @@ def fetch_knime_workflows(
             ) # Para prevenir error en el job
     
     if not results:
-        context.log.error("No workflows found in the database.")
+        context.error("No workflows found in the database.")
         return tuple(
             wf_ph
             for _ in range(1)
         )
     else:
-        context.log.info(f"Found {len(results)} workflows in the database.")
+        context.info(f"Found {len(results)} workflows in the database.")
         wf_tuple = tuple(
             Workflow(
                 knime_bin=row[0],
@@ -212,22 +212,22 @@ def execute_knime_workflow(
         raise exception
 
     try:
-        current_context.log.info(
+        current_context.info(
             f"Executing in {env_str} environment command: {command}"
         )
         result = subprocess.check_output(
             command, input=password.encode("utf-8"), stderr=subprocess.STDOUT
         )
-        current_context.log.info(filter_logs_std(result.decode("utf-8")))
+        current_context.info(filter_logs_std(result.decode("utf-8")))
     except subprocess.CalledProcessError as e:
         filtered_logs: str = filter_logs_std(e.output.decode("utf-8"))
         # check if it really contains error on the message
         if search_for_word_in_text(text=filtered_logs, word="ERROR"):
-            current_context.log.error(f"Workflow execution failed: {filtered_logs}")
+            current_context.error(f"Workflow execution failed: {filtered_logs}")
             e.__traceback__ = None
             raise Failure("Workflow execution failed.")
         else:
-            current_context.log.warning(
+            current_context.warning(
                 f"Workflow execution aparently succeeded even with this response: {filtered_logs}"
             )
 
@@ -256,11 +256,11 @@ def create_knime_workflow_asset(
                 workflow_directory=wf.workflow_directory,
                 current_context=context,
             )
-            context.log.info(
+            context.info(
                 f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
             )
         else:
-            context.log.warning(
+            context.warning(
                 f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
             )
             
@@ -281,10 +281,10 @@ def create_knime_assets(context: Logger, workflows) -> tuple[AssetsDefinition, .
 
             workflow_asset = create_knime_workflow_asset(wf=workflow)
             asset_definitions.append(workflow_asset)
-        context.log.info(f"Created {len(asset_definitions)} knime assets.")
+        context.info(f"Created {len(asset_definitions)} knime assets.")
         return tuple(asset_definitions)
     else:
-        context.log.error("No workflows found in the database.")
+        context.error("No workflows found in the database.")
         return tuple()
 
 
@@ -296,8 +296,9 @@ def knime_asset_creation_graph(context,db_analitica_etl) -> tuple[AssetsDefiniti
 all_assets: tuple[AssetsDefinition, ...]
 # Build the context with the resourcesc
 resources={"db_analitica_etl":db_analitica_etl}
-context=build_op_context(resources=resources)
-all_assets = knime_asset_creation_graph(context=context,db_analitica_etl=context.resources.db_analitica_etl)
+#context=build_op_context(resources=resources)
+context = get_dagster_logger(name="Independent")
+all_assets = knime_asset_creation_graph(context=context,db_analitica_etl=db_analitica_etl)
 
 # Check for placeholders
 # if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:

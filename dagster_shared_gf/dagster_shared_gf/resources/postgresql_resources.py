@@ -3,7 +3,7 @@ import os
 from typing import Any, List
 
 import psycopg
-from dagster import ConfigurableResource, EnvVar
+from dagster import ConfigurableResource, EnvVar, get_dagster_logger
 
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
@@ -11,6 +11,7 @@ import psycopg.conninfo
 
 Connection = Any
 Row_Tuple = tuple[Any, ...]
+dagster_logger = get_dagster_logger(name='Independent')
 
 if not os.environ.get("DAGSTER_PG_USERNAME"):
     load_env_vars()
@@ -26,6 +27,9 @@ class PostgreSQLResource(ConfigurableResource):
     user: str
     password: str | None 
     default_database: str   # Default database
+    independent_instance: bool = False
+    """Allow to run without a dagster instance"""
+
 
     def __post_init__(self):
         if not self.databases:
@@ -63,7 +67,7 @@ class PostgreSQLResource(ConfigurableResource):
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
         
-    def query(self, query: str, connection: Connection = None, database: str = "") -> List[Row_Tuple]:
+    def query(self, query: str, connection: Connection = None, database: str = "") -> List[Row_Tuple] | None:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows.
 
@@ -99,16 +103,17 @@ class PostgreSQLResource(ConfigurableResource):
                 return cursor.fetchall()
         except psycopg.DatabaseError as opex:           
             if opex.args[0] == '42S02':
-                #print("Table does not exist error handling")
-                self.get_resource_context().log.info("Table does not exist error handling. Returning None to caller.")
+                msg = "Table does not exist error handling. Returning None to caller."
+                self.custom_logging.error(msg)
                 return None
                 # Handle the error specific to table not existing
             else:
-                #print(f"An unexpected database error occurred: {str(opex)}")
-                self.get_resource_context().log.info(f"An unexpected database error occurred: {str(opex)}. Returning None to caller.")
+                msg = f"An unexpected database error occurred: {str(opex)}. Returning None to caller."
+                self.custom_logging.error(msg)
                 return None
         except psycopg.Error as e:
-            self.get_resource_context().log.error(f"An unexpected error occurred:: {str(e)}. Returning None to caller.")
+            msg=f"An unexpected error occurred:: {str(e)}. Returning None to caller."
+            self.custom_logging.error(msg)
 #            print(f"An unexpected error occurred: {str(e)}")
 
     def execute_and_commit(self, query: str, connection: Connection = None, database: str = ""):
@@ -143,7 +148,17 @@ class PostgreSQLResource(ConfigurableResource):
                 
         except psycopg.Error as e:
             # Add proper logging here
-            self.get_resource_context().log.error(f"Error executing and committing query: {str(e.args)}.")
+            msg=f"Error executing and committing query: {str(e.args)}."
+            self.custom_logging.error(msg)
+
+
+    @property
+    def custom_logging(self):
+        if self.independent_instance:
+            return dagster_logger
+        else:
+            return get_dagster_logger().log
+       
 
 db_analitica_etl = PostgreSQLResource(
     server= p_server,
@@ -153,11 +168,14 @@ db_analitica_etl = PostgreSQLResource(
     default_database="analitica"
 )
 
-
-
-
-
-
+db_independent_analitica_etl = PostgreSQLResource(
+    server= p_server,
+    databases= ["analitica"],
+    user=p_user,
+    password=p_password.get_value(),
+    default_database="analitica",
+    independent_instance=True
+)
 
 # Another way:
 # class PostgresResource(ConfigurableResource):
