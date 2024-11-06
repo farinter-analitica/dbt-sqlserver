@@ -17,8 +17,6 @@ from datetime import timedelta, datetime, date
 from typing import Sequence
 import polars as pl
 import re
-from functools import partial
-
 
 @asset(key_prefix= ["DL_FARINTER", "dbo"]
         , tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag
@@ -31,7 +29,7 @@ def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaEncabezado"
-    from_date: date = None
+    from_date: date
     if context.op_execution_context.op_config.get("p_fecha_desde") != "" and context.op_execution_context.op_config.get("p_fecha_desde") :
         from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
@@ -42,7 +40,7 @@ def DL_Kielsa_FacturaEncabezado(context: AssetExecutionContext
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
-        from_date = (datetime.now().date() - timedelta(months=1)).replace(day=1)
+        from_date = (datetime.now().date() - timedelta(days=30)).replace(day=1)
     
     if from_date:
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
@@ -65,7 +63,7 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturasPosiciones"
-    from_date: date = None
+    from_date: date
     if context.op_execution_context.op_config.get("p_fecha_desde") != "" and context.op_execution_context.op_config.get("p_fecha_desde") :
         from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
@@ -76,7 +74,7 @@ def DL_Kielsa_FacturasPosiciones(context: AssetExecutionContext
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
-        from_date = (datetime.now().date() - timedelta(months=1)).replace(day=1)
+        from_date = (datetime.now().date() - timedelta(days=30)).replace(day=1)
     
     if from_date:
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
@@ -97,7 +95,7 @@ def DL_Kielsa_FacturaPosicionDescuento(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaPosicionDescuento"
-    from_date: date = None
+    from_date: date
     if context.op_execution_context.op_config.get("p_fecha_desde") != "" and context.op_execution_context.op_config.get("p_fecha_desde") :
         from_date = datetime.fromisoformat(context.op_execution_context.op_config.get("p_fecha_desde")).date()
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
@@ -108,7 +106,7 @@ def DL_Kielsa_FacturaPosicionDescuento(context: AssetExecutionContext
     elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
     elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
-        from_date = (datetime.now().date() - timedelta(months=1)).replace(day=1)
+        from_date = (datetime.now().date() - timedelta(days=30)).replace(day=1)
     
     if from_date:
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
@@ -131,7 +129,7 @@ def DL_Kielsa_Monedero_Tarjetas_Replica(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_Monedero_Tarjetas_Replica"
-    actualizar_todo: int = None
+    actualizar_todo: int
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
@@ -159,7 +157,7 @@ def DL_Kielsa_Articulo(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo"
-    actualizar_todo: int = None
+    actualizar_todo: int
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
@@ -187,7 +185,7 @@ def DL_Kielsa_Articulo_x_Bodega(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo_x_Bodega"
-    actualizar_todo: int = None
+    actualizar_todo: int
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
@@ -214,7 +212,7 @@ def DL_Kielsa_Articulo_x_Sucursal(context: AssetExecutionContext
                 , dwh_farinter_dl: SQLServerResource
                 ) -> None: 
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo_x_Sucursal"
-    actualizar_todo: int = None
+    actualizar_todo: int
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.job_def.tags.get(tags_repo.Monthly.key) is not None:
@@ -362,6 +360,22 @@ def BI_Dim_MecanicaCanje_Kielsa(context: AssetExecutionContext
         exec(f"DROP TABLE {staging_table_name}",connection=conn)
         exec(extra_sql,connection=conn)
 
+all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
+
+all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+    lower_bound_delta=timedelta(hours=26),
+    deadline_cron="0 9 * * 1-6",
+)
+# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+    lower_bound_delta=timedelta(hours=13),
+    deadline_cron="0 10-16 * * 1-6",
+)
+
+all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_freshness_checks = (*all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks)
 
 if __name__ == "__main__":
     from unittest.mock import MagicMock, patch
@@ -407,8 +421,8 @@ if __name__ == "__main__":
             # mock_conn.execute = MagicMock()
             
             materialize_to_memory([BI_Dim_MecanicaCanje_Kielsa], resources={"dwh_farinter_bi": MagicMock()})
-            # assert mock_write_database.call_count > 0
-            # assert mock_read_database.call_count > 0
+            assert mock_write_database.call_count > 0
+            assert mock_read_database.call_count > 0
 
     #prueba funcional
     def test_BI_Dim_MecanicaCanje_Kielsa_funcional():
@@ -418,21 +432,3 @@ if __name__ == "__main__":
     # run tests
     test_BI_Dim_MecanicaCanje_Kielsa() if 0==1 else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa")
     test_BI_Dim_MecanicaCanje_Kielsa_funcional() if 1==1 and env_str in ["local", "dev"] else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa_funcional")       
-
-else:
-    all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
-
-    all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
-        lower_bound_delta=timedelta(hours=26),
-        deadline_cron="0 9 * * 1-6",
-    )
-    # print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-
-    all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
-    all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
