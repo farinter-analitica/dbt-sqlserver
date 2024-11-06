@@ -3,7 +3,7 @@ import dagster as dg
 class HasDependencies(dg.AutomationCondition):
     @property
     def name(self) -> str:
-        return "code_version_changed"
+        return "has_dependencies"
     
     def evaluate(self, context: dg.AutomationContext) -> dg.AutomationResult:
         asset_graph = context.asset_graph
