@@ -1,16 +1,16 @@
 from collections import deque
 from datetime import datetime, timedelta
-from itertools import chain
 from typing import Iterator, Optional
 
 import dlt
 from dagster import (
     AssetExecutionContext,
-    BackfillPolicy,
-    instance_for_test,
-    MetadataValue,
-    MaterializeResult,
     AssetMaterialization,
+    BackfillPolicy,
+    IntMetadataValue,
+    MaterializeResult,
+    MetadataValue,
+    instance_for_test,
 )
 from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
 from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
@@ -161,7 +161,7 @@ def hontrack_api_assets_per_day(
     partition_iter = _daily_partition_iter(first_partition, last_partition)
     context.log.debug(f"date_from: {first_partition}, date_to: {last_partition}")
 
-    def consolidar_resultados():
+    def consolidar_resultados() -> Iterator[DltEventType]:
         for start_of_day, end_of_day in partition_iter:
             result = dlt.run(
                 context=context,
@@ -192,14 +192,26 @@ def hontrack_api_assets_per_day(
             final = unique_events[key]
             meta_1 = final.metadata
             meta_2 = event.metadata
-            rows_loaded_1 = meta_1.get("rows_loaded", 0) if meta_1 else 0
-            rows_loaded_2 = meta_2.get("rows_loaded", 0) if meta_2 else 0
+            rows_loaded_1 = meta_1.get("rows_loaded", None) if meta_1 else None
+            rows_loaded_2 = meta_2.get("rows_loaded", None) if meta_2 else None
+            rows_loaded_int_1: int = (
+                rows_loaded_1.value
+                if isinstance(rows_loaded_1, IntMetadataValue) and rows_loaded_1.value
+                else 0
+            )
+            rows_loaded_int_2: int = (
+                rows_loaded_2.value
+                if isinstance(rows_loaded_2, IntMetadataValue) and rows_loaded_2.value
+                else 0
+            )
             jobs_1 = meta_1.get("jobs", []) if meta_1 else []
             jobs_2 = meta_2.get("jobs", []) if meta_2 else []
-            new_meta = {
-                "rows_loaded": MetadataValue.int(sum(rows_loaded_1 + rows_loaded_2)),  # type: ignore
-                "jobs": [*jobs_1, *jobs_2],  # type: ignore
-            }
+            new_meta = {}
+            if rows_loaded_1 is not None or rows_loaded_2 is not None:
+                new_meta["rows_loaded"] = MetadataValue.int(
+                    rows_loaded_int_1 + rows_loaded_int_2
+                )  # type: ignore
+            new_meta["jobs"] = list([*jobs_1, *jobs_2])  # type: ignore
             final_meta = {**meta_1, **meta_2, **new_meta}  # type: ignore
             unique_events[key] = (
                 final.with_metadata(final_meta)
@@ -225,15 +237,13 @@ all_assets = (hontrack_api_assets_per_day,)
 
 if __name__ == "__main__":
     from dagster import (
-        PartitionKeyRange,
-        build_op_context,
-        materialize,
-        define_asset_job,
         Definitions,
+        define_asset_job,
+        materialize,
     )
 
     with instance_for_test() as instance:
-        #test job parti
+        # test job parti
         test_job = define_asset_job("test_job", selection=[hontrack_api_assets_per_day])
         test_resources = {"dlt": DagsterDltResource()}
         defs = Definitions(
@@ -245,13 +255,13 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2024-11-02",
+                "dagster/asset_partition_range_start": "2024-11-01",
                 "dagster/asset_partition_range_end": "2024-11-05",
             },
             resources=test_resources,
             instance=instance,
         )
-        #test single
+        # test single
         materialize(
             [hontrack_api_assets_per_day],
             instance=instance,
