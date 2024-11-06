@@ -12,7 +12,7 @@ from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
+from dagster_shared_gf.shared_variables import tags_repo, env_str
 from datetime import timedelta, datetime, date
 from typing import Sequence
 import polars as pl

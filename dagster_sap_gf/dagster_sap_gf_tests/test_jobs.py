@@ -12,7 +12,7 @@ from dagster_shared_gf.shared_variables import (
     AssetExecutionType,
     UnresolvedAssetJobDefinition,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import tags_repo
 
 defs: Definitions = defs ##import your defs
 asset_spec: AssetSpec 

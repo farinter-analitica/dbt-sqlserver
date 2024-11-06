@@ -42,7 +42,7 @@ from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
     get_for_current_env,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.shared_variables import env_str
 
 if __name__ == "__main__":

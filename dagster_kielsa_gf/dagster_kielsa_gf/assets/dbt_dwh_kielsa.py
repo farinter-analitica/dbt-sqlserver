@@ -12,7 +12,7 @@ from typing import Sequence, List
 from datetime import timedelta
 from datetime import datetime
 from pydantic import Field
-from dagster_shared_gf.shared_variables import TagsRepositoryGF
+from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.shared_functions import filter_assets_by_tags
 from dagster_shared_gf.resources.dbt_resources import (
     dbt_manifest,
@@ -22,7 +22,7 @@ from dagster_shared_gf.partitions.time_based import diario_desde_360_dias_atras_
 
 import json
 
-tags_repo = TagsRepositoryGF
+
 
 
 class MyDbtConfig(Config):

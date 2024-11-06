@@ -3,11 +3,11 @@ from dagster import (asset, AssetKey , load_assets_from_current_module,
                      AssetChecksDefinition, AssetsDefinition, multi_asset, AssetSpec, Output, AssetOut)
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
-from dagster_shared_gf.shared_variables import TagsRepositoryGF, env_str
+from dagster_shared_gf.shared_variables import tags_repo, env_str
 from datetime import timedelta
 from typing import Sequence, List, Mapping, Dict, Any
 
-tags_repo = TagsRepositoryGF()
+()
 dl_farinter_db = "DL_FARINTER"
 dl_farinter_assets_prefix = [dl_farinter_db]
 # @asset(key_prefix= dl_farinter_assets_prefix)

@@ -18,7 +18,7 @@ from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
     get_all_instances_of_class,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo, env_str
+from dagster_shared_gf.shared_variables import tags_repo, env_str
 from datetime import timedelta
 from typing import Sequence, List, Mapping, Dict, Any
 

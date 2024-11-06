@@ -34,9 +34,9 @@ from dagster_shared_gf.shared_functions import (
     get_for_current_env,
     search_for_word_in_text,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF, env_str, Tags
+from dagster_shared_gf.shared_variables import tags_repo, env_str, Tags
 
-tags_repo = TagsRepositoryGF
+
 
 """
 #Add privileges to analitica for 
@@ -53,7 +53,7 @@ class Workflow(NamedTuple):
     ambiente: str
     knime_workflow: str
     workflow_directory: str
-    tags: Optional[Tags]
+    tags: Optional[dict]
     automation_condition: Optional[AutomationCondition]
 
 
@@ -135,11 +135,10 @@ def fetch_knime_workflows(
     FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"DEV", "prd":"PRD"})}';"""
     results = db_analitica_etl.query(query)
 
-    tags: dict[str, Tags] = {
-        "MDBCRM_ETL_LlamadasConsolidado": tags_repo.Hourly.tag
-        | tags_repo.Daily.tag,
-        "DWHFP_SalidaExportarAExcel": tags_repo.Monthly.tag,
-        "Knime_Workflows_Placeholder": tags_repo.Monthly.tag # Para prevenir error en el job
+    tags: dict[str, Tags | dict] = {
+        "MDBCRM_ETL_LlamadasConsolidado": {**tags_repo.Hourly.tag, **tags_repo.Daily.tag},
+        "DWHFP_SalidaExportarAExcel": tags_repo.Monthly,
+        "Knime_Workflows_Placeholder": tags_repo.Monthly # Para prevenir error en el job
     }
     automation_conditions = {
         "MDBCRM_ETL_LlamadasConsolidado": automation_hourly_cron_prd
@@ -200,10 +199,18 @@ def execute_knime_workflow(
         "-workflowDir=" + workflow_directory,
     ]
 
-    if not EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value():
+    password = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value()
+    if not password:
         load_env_vars()
     
-    password = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value() + "\n"
+    if password:
+        password = password + "\n"
+    else:
+        exception = Exception(
+            "DAGSTER_SECRET_ANALITICA_SU_PASSWORD environment variable not found."
+        )
+        exception.__traceback__ = None
+        raise exception
 
     try:
         current_context.log.info(
@@ -221,7 +228,7 @@ def execute_knime_workflow(
             e.__traceback__ = None
             raise Failure("Workflow execution failed.")
         else:
-            current_context.log.warn(
+            current_context.log.warning(
                 f"Workflow execution aparently succeeded even with this response: {filtered_logs}"
             )
 
@@ -232,7 +239,6 @@ def execute_knime_workflow(
 def create_knime_workflow_asset(
     wf: Workflow,
 ) -> AssetsDefinition:
-    
     @asset(
         key=AssetKey(["knime_wf", wf.ambiente, wf.knime_workflow]),
         description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
@@ -255,9 +261,10 @@ def create_knime_workflow_asset(
                 f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
             )
         else:
-            context.log.info(
+            context.log.warning(
                 f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
             )
+            
 
     return knime_workflow_asset
 
@@ -327,9 +334,9 @@ all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
 all_asset_freshness_checks = (
-    all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+    *all_assets_non_hourly_freshness_checks , *all_assets_hourly_freshness_checks
 )
 
 if __name__ == "__main__":
-    for asset in all_assets:
-        print(asset, asset.tags_by_key)
+    for asset_def in all_assets:
+        print(asset_def, asset_def.tags_by_key)

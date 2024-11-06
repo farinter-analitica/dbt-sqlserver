@@ -43,7 +43,7 @@ def upstream_completion_sensor(context):
 # shared sensors
 failed_asset_notification_sensor = shared_failed_sensors.failed_asset_notification_sensor
 
-all_asset_freshness_checks = dbt_dwh_kielsa.all_asset_freshness_checks + ldcom_etl_dwh_sp.all_asset_freshness_checks + recetas_libros_etl_dwh.all_asset_freshness_checks + knime_asset_factory.all_asset_freshness_checks
+all_asset_freshness_checks = (*dbt_dwh_kielsa.all_asset_freshness_checks, *ldcom_etl_dwh_sp.all_asset_freshness_checks, *recetas_libros_etl_dwh.all_asset_freshness_checks , *knime_asset_factory.all_asset_freshness_checks)
 freshness_checks_sensor = build_sensor_for_freshness_checks(
     freshness_checks=all_asset_freshness_checks,
     default_status=running_default_sensor_status,
@@ -52,4 +52,3 @@ freshness_checks_sensor = build_sensor_for_freshness_checks(
 
 all_sensors = get_all_instances_of_class([SensorDefinition]) 
 
-__all__ = list(map(lambda x: x.name, all_sensors) )

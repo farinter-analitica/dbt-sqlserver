@@ -1,105 +1,135 @@
-from dataclasses import dataclass, field
-from typing import Mapping
+from typing import Optional
+from threading import Lock
 
-from dagster._core.definitions.asset_spec import AssetExecutionType  #to use shared
+from dagster._core.definitions.asset_spec import AssetExecutionType  # to use shared
 from dagster._core.definitions.unresolved_asset_job_definition import (
-    UnresolvedAssetJobDefinition,  #to use shared
+    UnresolvedAssetJobDefinition,  # to use shared
 )
-#from dlt.common.normalizers.naming.snake_case import NamingConvention
+# from dlt.common.normalizers.naming.snake_case import NamingConvention
 
 from dagster_shared_gf.shared_functions import dagster_instance_current_env
 
-#dlt_snake_case_normalizer = NamingConvention()
+# dlt_snake_case_normalizer = NamingConvention()
 
-env_str:str = dagster_instance_current_env.env
+env_str: str = dagster_instance_current_env.env
 shared_class_holder = [UnresolvedAssetJobDefinition, AssetExecutionType]
 default_timezone_teg: str = "America/Tegucigalpa"
-Tags = Mapping[str, str]
 
-@dataclass
-class TagsRepositoryGF:
+class SingletonMeta(type):
     """
-    Repository for tags.
-
-    This class provides a way to define and retrieve tags for different purposes.
-    Each tag is represented by a class that inherits from the _base_tag_class.
-    These classes are dynamically generated based on the tags defined in the `tags` dictionary.
-
-    To get a tag mapping, you can either call the tag class directly, or access the `tag` attribute.
-    For example:
-
-    ```python
-    tags_repo = TagsRepositoryGF()
-    hourly_tag = tags_repo.Hourly()
-    print(hourly_tag.tag)  # prints {"periodo": "por_hora"}
-    print(tags_repo.Hourly.tag)  # also prints {"periodo": "por_hora"}
-    ```
-
-    The `tags` dictionary should be defined in the TagsRepositoryGF class.
+    This is a thread-safe implementation of Singleton.
     """
-    @dataclass
-    class _base_tag_class(Tags):
-        """Base class for all tags"""
-        key: str
-        value: str
-        tag: Tags = field(init=False, default=None)
 
-        def __new__(cls, *args, **kwargs):
-            instance = super().__new__(cls)
-            instance.key = cls.key
-            instance.value = cls.value
-            instance.tag = {cls.key: cls.value}
-            return instance.tag
+    _instances = {}
 
-        def __post_init__(self):
-            self.tag = {**self, self.key: self.value}
+    _lock: Lock = Lock()
+    """
+    We now have a lock object that will be used to synchronize threads during
+    first access to the Singleton.
+    """
 
-        def __getitem__(self, key: str) -> str:
-            return self.tag[key]
+    def __call__(cls, *args, **kwargs):
+        """
+        Possible changes to the value of the `__init__` argument do not affect
+        the returned instance.
+        """
+        # Now, imagine that the program has just been launched. Since there's no
+        # Singleton instance yet, multiple threads can simultaneously pass the
+        # previous conditional and reach this point almost at the same time. The
+        # first of them will acquire lock and will proceed further, while the
+        # rest will wait here.
+        with cls._lock:
+            # The first thread to acquire the lock, reaches this conditional,
+            # goes inside and creates the Singleton instance. Once it leaves the
+            # lock block, a thread that might have been waiting for the lock
+            # release may then enter this section. But since the Singleton field
+            # is already initialized, the thread won't create a new object.
+            if cls not in cls._instances:
+                instance = super().__call__(*args, **kwargs)
+                cls._instances[cls] = instance
+        return cls._instances[cls]
 
-        def __len__(self) -> int:
-            return len(self.tag)
 
-        def __iter__(self) -> iter:
-            return iter(self.tag)
+class Tags(dict[str, str]):
+    """
+    A class that represents a single tag, inheriting from dict.
+    """
 
-        def __call__(self):
-            return self.tag
+    def __init__(
+        self, key: Optional[str] = None, value: Optional[str] = None, **kwargs
+    ):
+        if key is not None and value is not None:
+            super().__init__({key: value})
+        elif kwargs:
+            super().__init__(kwargs)
+        else:
+            raise ValueError(
+                "Tag must be initialized with either a key-value pair or kwargs"
+            )
+        self._frozen = True
+
+    def __setattr__(self, key, value):
+        if hasattr(self, "_frozen"):
+            raise AttributeError(f"Cannot modify frozen tag {self}")
+        super().__setattr__(key, value)
+
+    @property
+    def key(self) -> str:
+        """
+        Returns the single key if there's only one item.
+        """
+        if len(self) == 1:
+            return next(iter(self.keys()))
+        raise ValueError("Tag contains more than one item.")
+
+    @property
+    def value(self) -> str:
+        """
+        Returns the single value if there's only one item.
+        """
+        if len(self) == 1:
+            return next(iter(self.values()))
+        raise ValueError("Tag contains more than one item.")
+
+    @property
+    def tag(self) -> dict[str, str]:
+        """
+        Returns the tag dictionary if there's only one item.
+        """
+        if len(self) == 1:
+            return dict(self)
+        raise ValueError("Tag contains more than one item.")
 
 
-        @classmethod
-        def __init_subclass__(cls, key: str, value: str, **kwargs):
-            super().__init_subclass__(**kwargs)
-            cls.key = key
-            cls.value = value
-            cls.tag = {cls.key: cls.value}
+class TagsRepositoryGF(metaclass=SingletonMeta):
+    Hourly: Tags = Tags(key="periodo/por_hora", value="")
+    """{"periodo/por_hora": ""}"""
 
-    class Hourly(_base_tag_class, key="periodo/por_hora", value=""):
-        """{"periodo/por_hora": ""}"""
+    Replicas: Tags = Tags(key="replicas_sap", value="")
+    """{"replicas_sap": ""}"""
 
-    class Replicas(_base_tag_class, key="replicas_sap", value=""):
-        """{"replicas_sap": ""}"""
+    UniquePeriod: Tags = Tags(key="periodo_unico/si", value="")
+    """{"periodo_unico/si": ""}"""
 
-    class UniquePeriod(_base_tag_class, key="periodo_unico/si", value=""):
-        """{"periodo_unico/si": ""}"""
+    Daily: Tags = Tags(key="periodo/diario", value="")
+    """{"periodo/diario": ""}"""
 
-    class Daily(_base_tag_class, key="periodo/diario", value=""):
-        """{"periodo/diario": ""}"""
+    SmbDataRepository: Tags = Tags(key="smb_data_repository/data_repo", value="")
+    """{"smb_data_repository/data_repo": ""}"""
 
-    class SmbDataRepository(_base_tag_class, key="smb_data_repository/data_repo", value=""):
-        """{"smb_data_repository/data_repo": ""}"""
+    Monthly: Tags = Tags(key="periodo/mensual", value="")
+    """{"periodo/mensual": ""}"""
+    HourlyAdditional: Tags = Tags(key="periodo/por_hora_adicional", value="")
+    """{"periodo/por_hora_adicional": ""}"""
 
-    class Monthly(_base_tag_class, key="periodo/mensual", value=""):
-        """{"periodo/mensual": ""}"""
+    Partitioned: Tags = Tags(key="particionado/si", value="")
+    """{"particionado/si": ""}"""
 
-    class HourlyAdditional(_base_tag_class, key="periodo/por_hora_adicional", value=""):
-        """{"periodo/por_hora_adicional": ""}"""
+    DetenerCarga: Tags = Tags(key="detener_carga/si", value="")
+    """{"detener_carga/si": ""}"""
 
-    class Partitioned(_base_tag_class, key="particionado/si", value=""):
-        """{"particionado/si": ""}"""
 
-    class DetenerCarga(_base_tag_class, key="detener_carga/si", value=""):
-        """{"detener_carga/si": ""}"""
+tags_repo = TagsRepositoryGF()
 
 if __name__ == "__main__":
-    print(TagsRepositoryGF.Hourly())
+    print(tags_repo.Hourly.key)

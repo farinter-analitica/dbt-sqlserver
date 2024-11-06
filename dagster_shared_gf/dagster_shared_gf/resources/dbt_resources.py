@@ -129,8 +129,8 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
     ) -> Optional[AutomationCondition]:
         tags = self.get_tags(dbt_resource_props)
         daily_auto_tags = (
-            shared_vars.TagsRepositoryGF.Daily.tag
-            | shared_vars.TagsRepositoryGF.Partitioned.tag
+            shared_vars.tags_repo.Daily.tag
+            | shared_vars.tags_repo.Partitioned.tag
         )
         all_automations = super().get_automation_condition(dbt_resource_props)
         if all(item in tags.items() for item in daily_auto_tags.items()):

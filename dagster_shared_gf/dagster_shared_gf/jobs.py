@@ -12,7 +12,7 @@ from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
     env_str,
     UnresolvedAssetJobDefinition,
-    TagsRepositoryGF as tags_repo,
+    tags_repo,
 )
 from typing import List, Any, Mapping
 

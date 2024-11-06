@@ -12,7 +12,7 @@ from dagster import (asset
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource 
 from dagster_shared_gf.resources.smb_resources import SMBResource
-from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import env_str, tags_repo
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, clean_filename, clean_string_to_key
 from pathlib import PureWindowsPath
 from pydantic import Field

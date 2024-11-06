@@ -1,11 +1,11 @@
 from dagster import asset, multi_asset, AssetSpec , AssetKey, load_assets_from_current_module, load_asset_checks_from_current_module, build_last_update_freshness_checks, AssetChecksDefinition
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
-from dagster_shared_gf.shared_variables import TagsRepositoryGF
+from dagster_shared_gf.shared_variables import tags_repo
 from datetime import timedelta
 from typing import Sequence
 
-tags_repo = TagsRepositoryGF
+
 dl_farinter_assets_prefix = ["DL_FARINTER","dbo"]
 #DL_Kielsa_RecetasCabecera, DL_Kielsa_RecetasDetalle, DL_Kielsa_RecetasMedicos
 @multi_asset(specs= [AssetSpec(key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_RecetasCabecera"]))

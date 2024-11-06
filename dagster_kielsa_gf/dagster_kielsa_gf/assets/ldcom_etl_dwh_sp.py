@@ -14,7 +14,7 @@ from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
 )
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import tags_repo
 from datetime import timedelta
 from typing import Sequence, List, Dict, Any
 

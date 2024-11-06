@@ -2,7 +2,7 @@ from dagster import AssetSelection, AutomationCondition, ExperimentalWarning
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import (
     default_timezone_teg,
-    TagsRepositoryGF as tags_repo,
+    tags_repo,
 )
 import warnings
 

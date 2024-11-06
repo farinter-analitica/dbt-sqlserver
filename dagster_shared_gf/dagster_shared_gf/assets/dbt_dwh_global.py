@@ -17,9 +17,9 @@ from dagster_shared_gf.resources.dbt_resources import (
     dbt_manifest,
 )
 from dagster_shared_gf.shared_functions import filter_assets_by_tags
-from dagster_shared_gf.shared_variables import TagsRepositoryGF
+from dagster_shared_gf.shared_variables import tags_repo
 
-tags_repo = TagsRepositoryGF
+
 
 
 class MyDbtConfig(Config):

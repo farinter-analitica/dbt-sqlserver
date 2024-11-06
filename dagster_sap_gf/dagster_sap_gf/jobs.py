@@ -2,7 +2,7 @@ from dagster import AssetSelection, JobDefinition, RunConfig, define_asset_job
 
 from dagster_sap_gf.assets.dbt_dwh_sap import MyDbtConfig
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
-from dagster_shared_gf.shared_variables import TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.shared_variables import UnresolvedAssetJobDefinition
 
 # Define the job and add to definitions on main __init__.py

@@ -7,7 +7,7 @@ from dagster import (asset
                      , load_asset_checks_from_current_module
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource 
-from dagster_shared_gf.shared_variables import env_str, TagsRepositoryGF as tags_repo
+from dagster_shared_gf.shared_variables import env_str, tags_repo
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
 import dagster_sap_gf.assets.dbt_dwh_sap as dbt_dwh_sap
 from pathlib import Path
