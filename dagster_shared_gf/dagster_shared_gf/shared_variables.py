@@ -1,6 +1,7 @@
 from typing import Optional
 from threading import Lock
 
+from dagster import RunConfig
 from dagster._core.definitions.asset_spec import AssetExecutionType  # to use shared
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  # to use shared
@@ -129,7 +130,17 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     """{"detener_carga/si": ""}"""
 
 
+def get_execution_config(max_concurrent: int) -> dict:
+    return {
+        "config": {
+            "multiprocess": {
+                "max_concurrent": max_concurrent
+            }
+        }
+    }
+
 tags_repo = TagsRepositoryGF()
 
 if __name__ == "__main__":
     print(tags_repo.Hourly.key)
+

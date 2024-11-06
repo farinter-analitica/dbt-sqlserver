@@ -16,6 +16,7 @@ run_monitoring:
   cancel_timeout_seconds: 180
   max_resume_run_attempts: 0 # experimental if above 0
   poll_interval_seconds: 120
+  free_slots_after_run_end_seconds: 300 # free any hanging concurrency slots after 5 minutes from the end of a run
 
 # for higher dequeue throughput, threading can be enabled:
 run_coordinator:
@@ -24,3 +25,22 @@ run_coordinator:
   config:
     dequeue_use_threads: true
     dequeue_num_workers: 8
+
+run_queue:
+  max_concurrent_runs: 8
+  tag_concurrency_limits:
+    # - key: "database"
+    #   value: "dwh" # applies when the `database` tag has a value of `redshift`
+    #   limit: 8
+    - key: "dagster/backfill" # applies when the `dagster/backfill` tag is present, regardless of value
+      limit: 8
+    # - key: "use-case"
+    #   value:
+    #     applyLimitPerUniqueValue: true
+    #   limit: 3
+  block_op_concurrency_limited_runs:
+    enabled: true
+    op_concurrency_slot_buffer: 1 # buffer of 1 means 1 run might be started even though there are no slots available
+
+concurrency:
+  default_op_concurrency_limit: 1
