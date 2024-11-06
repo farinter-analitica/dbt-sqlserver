@@ -138,7 +138,7 @@ WITH Facturas AS
 (
 	SELECT --TOP 1000
 		ISNULL(CAST(FE.[Factura_Fecha] AS DATE), '19000101') Factura_Fecha
-		, ISNULL(FE.[Emp_Id], 0) [Emp_Id]
+		, ISNULL(444, 0) [Emp_Id]
 		, ISNULL(FE.[Suc_Id], 0) [Suc_Id] --, FE.[Suc_Id]
 		, ISNULL(FE.[Bodega_Id], 0) [Bodega_Id] --, FE.[Bodega_Id]
 		, ISNULL(FE.[Caja_Id], 0) [Caja_Id] --, FE.[Caja_Id]
