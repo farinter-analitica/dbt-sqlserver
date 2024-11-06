@@ -13,15 +13,15 @@ from dagster import (
     EnvVar,
     Failure,
     OpExecutionContext,
-    Out,
-    In,
+    build_op_context,
+    build_resources,
     asset,
     build_last_update_freshness_checks,
-    graph,
     load_asset_checks_from_current_module,
-    op,
+    get_dagster_logger,
     DagsterType,
 )
+from logging import Logger
 
 from dagster_shared_gf.automation import automation_hourly_cron_prd
 from dagster_shared_gf.load_env_run import load_env_vars
@@ -126,10 +126,9 @@ def filter_logs_std(logs):
 
 
 # Operation to fetch workflows from the database
-@op(out=Out(WorkflowsTuple))
 def fetch_knime_workflows(
-    context: OpExecutionContext, db_analitica_etl: PostgreSQLResource
-):
+    context: Logger, db_analitica_etl: PostgreSQLResource
+) -> tuple[Workflow, ...]:
     query = f"""
     SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
     FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"DEV", "prd":"PRD"})}';"""
@@ -270,8 +269,7 @@ def create_knime_workflow_asset(
 
 
 # Dynamically create assets based on the fetched workflows
-@op(ins={"workflows": In(WorkflowsTuple)}, out=Out(AssetsTuple))
-def create_knime_assets(context: OpExecutionContext, workflows):
+def create_knime_assets(context: Logger, workflows) -> tuple[AssetsDefinition, ...]:
     asset_definitions = deque()
     # print("Starting create_knime_assets")
     if len(workflows) > 0:
@@ -290,21 +288,16 @@ def create_knime_assets(context: OpExecutionContext, workflows):
         return tuple()
 
 
-@graph()
-def knime_asset_creation_graph():  # first = first_op()     second = second_op(start=first)     third = third_op(start_first=first, start_second=second)
-    fetched_workflows = fetch_knime_workflows()
-    return create_knime_assets(workflows=fetched_workflows)
+def knime_asset_creation_graph(context,db_analitica_etl) -> tuple[AssetsDefinition, ...]: 
+    
+    fetched_workflows = fetch_knime_workflows(context=context, db_analitica_etl=db_analitica_etl)
+    return create_knime_assets(context=context, workflows=fetched_workflows)
 
-
-# Build the context with the resources
-# builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
-builded_resources = {"db_analitica_etl": db_analitica_etl}
-
-all_assets: list[AssetsDefinition] = list(
-    knime_asset_creation_graph.to_job()
-    .execute_in_process(resources=builded_resources)
-    .output_value()
-)
+all_assets: tuple[AssetsDefinition, ...]
+# Build the context with the resourcesc
+resources={"db_analitica_etl":db_analitica_etl}
+context=build_op_context(resources=resources)
+all_assets = knime_asset_creation_graph(context=context,db_analitica_etl=context.resources.db_analitica_etl)
 
 # Check for placeholders
 # if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:

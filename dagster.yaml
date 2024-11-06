@@ -1,3 +1,4 @@
+# dagster\_core\instance\config.py
 storage:
   postgres:
     postgres_db:
@@ -18,15 +19,11 @@ run_monitoring:
   poll_interval_seconds: 120
   free_slots_after_run_end_seconds: 300 # free any hanging concurrency slots after 5 minutes from the end of a run
 
-# for higher dequeue throughput, threading can be enabled:
-run_coordinator:
-  module: dagster.core.run_coordinator
-  class: QueuedRunCoordinator
-  config:
-    dequeue_use_threads: true
-    dequeue_num_workers: 8
-
-run_queue:
+# run_coordinator: # for custom coordinators
+#   module: dagster.core.run_coordinator
+#   class: QueuedRunCoordinator
+#   config:
+run_queue: #dagster\_core\run_coordinator\queued_run_coordinator.py
   max_concurrent_runs: 8
   tag_concurrency_limits:
     # - key: "database"
@@ -41,6 +38,8 @@ run_queue:
   block_op_concurrency_limited_runs:
     enabled: true
     op_concurrency_slot_buffer: 1 # buffer of 1 means 1 run might be started even though there are no slots available
+  dequeue_use_threads: true
+  dequeue_num_workers: 8
 
 concurrency:
   default_op_concurrency_limit: 1

@@ -159,11 +159,6 @@ db_analitica_etl = PostgreSQLResource(
 
 
 
-
-
-
-
-
 # Another way:
 # class PostgresResource(ConfigurableResource):
 #     def __init__(self, context: InitResourceContext):
