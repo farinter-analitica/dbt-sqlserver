@@ -6,7 +6,7 @@
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="ignore",
+		on_schema_change="fail",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[

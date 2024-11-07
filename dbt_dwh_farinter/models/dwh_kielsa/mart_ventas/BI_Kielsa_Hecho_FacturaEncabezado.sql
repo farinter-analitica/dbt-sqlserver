@@ -24,7 +24,7 @@
 		materialized="incremental",
         incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="ignore",
+		on_schema_change="fail",
 		on_clause_filegroup = on_clause,
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
@@ -58,7 +58,7 @@ WITH Facturas AS
 (
 	SELECT --TOP 1000
 		ISNULL(CAST(FE.[Factura_Fecha] AS DATE), '19000101') Factura_Fecha
-		, ISNULL(FE.[Emp_Id], 0) [Emp_Id]
+		, ISNULL(CAST(FE.[Emp_Id] AS SMALLINT), 0) [Emp_Id]
 		, ISNULL(FE.[Suc_Id], 0) [Suc_Id] --, FE.[Suc_Id]
 		, ISNULL(FE.[Bodega_Id], 0) [Bodega_Id] --, FE.[Bodega_Id]
 		, ISNULL(FE.[Caja_Id], 0) [Caja_Id] --, FE.[Caja_Id]
@@ -138,7 +138,7 @@ WITH Facturas AS
 (
 	SELECT --TOP 1000
 		ISNULL(CAST(FE.[Factura_Fecha] AS DATE), '19000101') Factura_Fecha
-		, ISNULL(444, 0) [Emp_Id]
+		, ISNULL(CAST(444 AS SMALLINT), 0) [Emp_Id]
 		, ISNULL(FE.[Suc_Id], 0) [Suc_Id] --, FE.[Suc_Id]
 		, ISNULL(FE.[Bodega_Id], 0) [Bodega_Id] --, FE.[Bodega_Id]
 		, ISNULL(FE.[Caja_Id], 0) [Caja_Id] --, FE.[Caja_Id]
