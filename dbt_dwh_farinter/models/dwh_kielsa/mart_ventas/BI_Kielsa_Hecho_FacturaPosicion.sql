@@ -302,7 +302,7 @@ SELECT
 	FE.[Factura_Fecha] Factura_Fecha
 	, DATEPART(HOUR,FE.[Factura_FechaHora]) Hora_Id
 	, FP.[Detalle_Fecha]
-	, 444 AS [Emp_Id] --Nuevo ID
+	, CAST(444 AS SMALLINT) AS [Emp_Id] --Nuevo ID
 	, FE.[Suc_Id]
 	, FE.[Bodega_Id]
 	, FE.[Caja_Id]
