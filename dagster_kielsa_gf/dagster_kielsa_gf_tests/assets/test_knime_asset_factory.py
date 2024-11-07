@@ -1,15 +1,13 @@
 
 from dagster_shared_gf.load_env_run import load_env_vars
-from dagster_kielsa_gf.assets.knime_asset_factory import knime_asset_creation_graph, filter_logs_std
+from dagster_kielsa_gf.assets.knime_asset_factory import all_assets, filter_logs_std
 
 def test_knime_asset_factory():
     load_env_vars(joinpath_str=["..",".."])
-    from dagster_shared_gf.resources.postgresql_resources import db_analitica_etl
     # Build the context with the resources
     #builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
-    builded_resources = {"db_analitica_etl":db_analitica_etl}
     # Fetch workflows and create assets
-    asset_definitions = knime_asset_creation_graph.to_job().execute_in_process(resources=builded_resources).output_value()
+    asset_definitions = all_assets
     print([asset.key for asset in asset_definitions])
     assert len(asset_definitions) > 0, "No assets were created for the knnime workflows."
 
