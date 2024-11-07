@@ -6,15 +6,11 @@ from collections import deque
 
 from dagster import (
     AssetChecksDefinition,
-    AssetExecutionContext,
     AssetKey,
     AssetsDefinition,
     AutomationCondition,
     EnvVar,
     Failure,
-    OpExecutionContext,
-    build_op_context,
-    build_resources,
     asset,
     build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
@@ -127,7 +123,7 @@ def filter_logs_std(logs):
 
 # Operation to fetch workflows from the database
 def fetch_knime_workflows(
-    context: Logger, db_analitica_etl: PostgreSQLResource
+    dagster_logger: Logger, db_analitica_etl: PostgreSQLResource
 ) -> tuple[Workflow, ...]:
     query = f"""
     SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
@@ -153,13 +149,13 @@ def fetch_knime_workflows(
             ) # Para prevenir error en el job
     
     if not results:
-        context.error("No workflows found in the database.")
+        dagster_logger.error("No workflows found in the database.")
         return tuple(
             wf_ph
             for _ in range(1)
         )
     else:
-        context.info(f"Found {len(results)} workflows in the database.")
+        dagster_logger.info(f"Found {len(results)} workflows in the database.")
         wf_tuple = tuple(
             Workflow(
                 knime_bin=row[0],
@@ -177,11 +173,9 @@ def fetch_knime_workflows(
 
 
 def execute_knime_workflow(
-    knime_bin: str, workflow_directory: str, current_context: AssetExecutionContext
+    knime_bin: str, workflow_directory: str, dagster_logger: Logger
 ) -> None:
-    if not current_context:
-        current_context = AssetExecutionContext.get()
-
+    
     command = [
         "sudo",
         "-S",
@@ -212,22 +206,22 @@ def execute_knime_workflow(
         raise exception
 
     try:
-        current_context.info(
+        dagster_logger.info(
             f"Executing in {env_str} environment command: {command}"
         )
         result = subprocess.check_output(
             command, input=password.encode("utf-8"), stderr=subprocess.STDOUT
         )
-        current_context.info(filter_logs_std(result.decode("utf-8")))
+        dagster_logger.info(filter_logs_std(result.decode("utf-8")))
     except subprocess.CalledProcessError as e:
         filtered_logs: str = filter_logs_std(e.output.decode("utf-8"))
         # check if it really contains error on the message
         if search_for_word_in_text(text=filtered_logs, word="ERROR"):
-            current_context.error(f"Workflow execution failed: {filtered_logs}")
+            dagster_logger.error(f"Workflow execution failed: {filtered_logs}")
             e.__traceback__ = None
             raise Failure("Workflow execution failed.")
         else:
-            current_context.warning(
+            dagster_logger.warning(
                 f"Workflow execution aparently succeeded even with this response: {filtered_logs}"
             )
 
@@ -245,7 +239,7 @@ def create_knime_workflow_asset(
         automation_condition=wf.automation_condition,
         tags=wf.tags,
     )
-    def knime_workflow_asset(context: AssetExecutionContext) -> None:
+    def knime_workflow_asset(dagster_logger: Logger) -> None:
         supported_envs = ("dev", "prd")
         if (
             wf.ambiente.lower() in supported_envs
@@ -254,13 +248,13 @@ def create_knime_workflow_asset(
             execute_knime_workflow(
                 knime_bin=wf.knime_bin,
                 workflow_directory=wf.workflow_directory,
-                current_context=context,
+                dagster_logger=dagster_logger,
             )
-            context.info(
+            dagster_logger.info(
                 f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
             )
         else:
-            context.warning(
+            dagster_logger.warning(
                 f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
             )
             
@@ -269,7 +263,7 @@ def create_knime_workflow_asset(
 
 
 # Dynamically create assets based on the fetched workflows
-def create_knime_assets(context: Logger, workflows) -> tuple[AssetsDefinition, ...]:
+def create_knime_assets(dagster_logger: Logger, workflows) -> tuple[AssetsDefinition, ...]:
     asset_definitions = deque()
     # print("Starting create_knime_assets")
     if len(workflows) > 0:
@@ -281,24 +275,24 @@ def create_knime_assets(context: Logger, workflows) -> tuple[AssetsDefinition, .
 
             workflow_asset = create_knime_workflow_asset(wf=workflow)
             asset_definitions.append(workflow_asset)
-        context.info(f"Created {len(asset_definitions)} knime assets.")
+        dagster_logger.info(f"Created {len(asset_definitions)} knime assets.")
         return tuple(asset_definitions)
     else:
-        context.error("No workflows found in the database.")
+        dagster_logger.error("No workflows found in the database.")
         return tuple()
 
 
-def knime_asset_creation_graph(context,db_analitica_etl) -> tuple[AssetsDefinition, ...]: 
+def knime_asset_creation_graph(dagster_logger,db_analitica_etl) -> tuple[AssetsDefinition, ...]: 
     
-    fetched_workflows = fetch_knime_workflows(context=context, db_analitica_etl=db_analitica_etl)
-    return create_knime_assets(context=context, workflows=fetched_workflows)
+    fetched_workflows = fetch_knime_workflows(dagster_logger=dagster_logger, db_analitica_etl=db_analitica_etl)
+    return create_knime_assets(dagster_logger=dagster_logger, workflows=fetched_workflows)
 
 all_assets: tuple[AssetsDefinition, ...]
 # Build the context with the resourcesc
 resources={"db_analitica_etl":db_analitica_etl}
 #context=build_op_context(resources=resources)
-context = get_dagster_logger(name="Independent")
-all_assets = knime_asset_creation_graph(context=context,db_analitica_etl=db_analitica_etl)
+dagster_logger = get_dagster_logger(name="Independent")
+all_assets = knime_asset_creation_graph(dagster_logger=dagster_logger,db_analitica_etl=db_analitica_etl)
 
 # Check for placeholders
 # if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:
