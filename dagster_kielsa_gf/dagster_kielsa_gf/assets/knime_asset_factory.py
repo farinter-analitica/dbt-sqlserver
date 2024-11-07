@@ -6,6 +6,7 @@ from collections import deque
 
 from dagster import (
     AssetChecksDefinition,
+    AssetExecutionContext,
     AssetKey,
     AssetsDefinition,
     AutomationCondition,
@@ -173,7 +174,7 @@ def fetch_knime_workflows(
 
 
 def execute_knime_workflow(
-    knime_bin: str, workflow_directory: str, dagster_logger: Logger
+    knime_bin: str, workflow_directory: str, context: AssetExecutionContext
 ) -> None:
     
     command = [
@@ -206,22 +207,22 @@ def execute_knime_workflow(
         raise exception
 
     try:
-        dagster_logger.info(
+        context.log.info(
             f"Executing in {env_str} environment command: {command}"
         )
         result = subprocess.check_output(
             command, input=password.encode("utf-8"), stderr=subprocess.STDOUT
         )
-        dagster_logger.info(filter_logs_std(result.decode("utf-8")))
+        context.log.info(filter_logs_std(result.decode("utf-8")))
     except subprocess.CalledProcessError as e:
         filtered_logs: str = filter_logs_std(e.output.decode("utf-8"))
         # check if it really contains error on the message
         if search_for_word_in_text(text=filtered_logs, word="ERROR"):
-            dagster_logger.error(f"Workflow execution failed: {filtered_logs}")
+            context.log.error(f"Workflow execution failed: {filtered_logs}")
             e.__traceback__ = None
             raise Failure("Workflow execution failed.")
         else:
-            dagster_logger.warning(
+            context.log.warning(
                 f"Workflow execution aparently succeeded even with this response: {filtered_logs}"
             )
 
@@ -239,7 +240,7 @@ def create_knime_workflow_asset(
         automation_condition=wf.automation_condition,
         tags=wf.tags,
     )
-    def knime_workflow_asset(dagster_logger: Logger) -> None:
+    def knime_workflow_asset(context: AssetExecutionContext) -> None:
         supported_envs = ("dev", "prd")
         if (
             wf.ambiente.lower() in supported_envs
@@ -248,13 +249,13 @@ def create_knime_workflow_asset(
             execute_knime_workflow(
                 knime_bin=wf.knime_bin,
                 workflow_directory=wf.workflow_directory,
-                dagster_logger=dagster_logger,
+                context=context,
             )
-            dagster_logger.info(
+            context.log.info(
                 f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
             )
         else:
-            dagster_logger.warning(
+            context.log.warning(
                 f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
             )
             
@@ -291,8 +292,8 @@ all_assets: tuple[AssetsDefinition, ...]
 # Build the context with the resourcesc
 resources={"db_analitica_etl":db_analitica_etl}
 #context=build_op_context(resources=resources)
-dagster_logger = get_dagster_logger(name="Independent")
-all_assets = knime_asset_creation_graph(dagster_logger=dagster_logger,db_analitica_etl=db_analitica_etl)
+dagster_logger_instance = get_dagster_logger(name="Independent")
+all_assets = knime_asset_creation_graph(dagster_logger=dagster_logger_instance,db_analitica_etl=db_analitica_etl)
 
 # Check for placeholders
 # if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:
