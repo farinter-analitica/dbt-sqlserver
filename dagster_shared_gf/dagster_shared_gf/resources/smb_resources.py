@@ -11,7 +11,7 @@ from pydantic import dataclasses
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
 
-if not os.environ.get("DAGSTER_DEV_DWH_FARINTER_IP") or EnvVar("DAGSTER_ANALITICA_FARINTERNET_USERNAME").get_value():
+if not os.environ.get("DAGSTER_DEV_DWH_FARINTER_IP") or not EnvVar("DAGSTER_ANALITICA_FARINTERNET_USERNAME").get_value():
     load_env_vars()
 
 p_server_ip_dwh = get_for_current_env(
