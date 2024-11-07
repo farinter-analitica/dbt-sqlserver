@@ -24,7 +24,7 @@ from dagster import (
     op,
 )
 
-from dagster_shared_gf.automation import automation_daily_cron
+from dagster_shared_gf.automation import automation_daily_delta_1_cron
 from dagster_shared_gf.resources.smb_resources import (
     SMBResource,
     smb_resource_staging_dagster_dwh,
@@ -1039,7 +1039,7 @@ BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
         | tags_repo.UniquePeriod.tag
         | {f"dagster/kind/{kind}": "" for kind in ("sql_server", "polars", "smb")}
     },
-    automation_conditions_by_output_name={"result": automation_daily_cron},
+    automation_conditions_by_output_name={"result": automation_daily_delta_1_cron},
     keys_by_input_name={
         DL_MDBECOMM_Usuarios.to_python_identifier(): DL_MDBECOMM_Usuarios,
         DL_Kielsa_Monedero.to_python_identifier(): DL_Kielsa_Monedero,

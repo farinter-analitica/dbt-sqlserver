@@ -1,6 +1,6 @@
 from typing import Any, Sequence
 
-from dagster import AssetsDefinition, Definitions
+from dagster import AssetsDefinition, Definitions, AutomationConditionSensorDefinition as ACS, AssetSelection
 
 from dagster_sap_gf.jobs import all_jobs
 from dagster_sap_gf.schedules import all_schedules
@@ -52,6 +52,6 @@ defs = Definitions(
     asset_checks=all_asset_checks,
     resources=dagster_sap_gf_resources,
     jobs=all_jobs,
-    sensors=all_sensors,
+    sensors=(*all_sensors,ACS("automation_condition_sensor", target=AssetSelection.all(), use_user_code_server=True)),
     schedules=all_schedules,
 )

@@ -17,7 +17,7 @@ from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEve
 from dlt.sources.rest_api import rest_api_source
 from dlt.sources.rest_api.typing import RESTAPIConfig
 
-from dagster_shared_gf.automation import automation_daily_cron
+from dagster_shared_gf.automation import automation_daily_delta_1_cron
 from dagster_shared_gf.dlt_shared.dlt_resources import (
     MyDagsterDltTranslator,
     dlt_pipeline_dest_mssql_dwh,
@@ -149,7 +149,7 @@ def _daily_partition_iter(start, end):
     name="hontrack_api",
     group_name="hontrack_api",
     dagster_dlt_translator=MyDagsterDltTranslator(
-        automation_condition=automation_daily_cron,
+        automation_condition=automation_daily_delta_1_cron,
         prefix_key=["DL_FARINTER", "hontrack_api"],
     ),
     partitions_def=daily_partitions_def,

@@ -5,7 +5,8 @@ from dagster_shared_gf.shared_variables import (
     tags_repo,
 )
 import warnings
-from dagster_shared_gf.automation.custom_conditions import HasDependencies
+from dagster_shared_gf.automation.custom_conditions import IsRootExecutable
+from datetime import timedelta
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
@@ -61,31 +62,58 @@ automation_hourly_cron_prd = get_for_current_env(
     }
 )
 
-def my_daily_automation_condition() -> AutomationCondition:
-        cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "0 0 * * *"})
-        cron_timezone=default_timezone_teg
-        cron_label = f"'{cron_schedule}' ({cron_timezone})"
-        cron_tick_passed_since_last_handle = (AutomationCondition.cron_tick_passed(
-                    cron_schedule, cron_timezone
-                ).since_last_handled() | AutomationCondition.missing()).with_label(f"tick of {cron_label} passed")
-        all_deps_updated_since_cron = AutomationCondition.all_deps_match(
-            AutomationCondition.newly_updated().since(
-                    AutomationCondition.cron_tick_passed(cron_schedule, cron_timezone)
-                )
-            | AutomationCondition.will_be_requested()
-        ).ignore(
-        selection=(
-            AssetSelection.all()
-            - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+
+def my_cron_automation_condition(
+    cron_schedule: str,
+    ignored_deps_updated_selection: AssetSelection | None = None,
+    lookback_delta: timedelta | None = None,
+) -> AutomationCondition:
+    """
+    Returns an automation condition that checks if the cron schedule has passed and all dependencies are updated.
+
+    The condition is met if:
+    - The cron schedule has passed since the last handle.
+    - The asset is not in progress and none of its dependencies are in progress.
+    - All non ignored dependencies are updated since the last cron tick or will be requested.
+    - The asset is a root executable or has updated dependencies.
+
+    Args:
+        cron_schedule (str): The cron schedule to use for the automation condition.
+        ignored_deps_updated_selection (AssetSelection | None, optional): The dependencies to ignore. Defaults to None.
+        lookback_delta (timedelta | None, optional): The time window to look back for updates. Defaults to None.
+
+    Returns:
+        AutomationCondition: The automation condition based on the provided cron schedule.
+    """
+    cron_timezone = default_timezone_teg
+    cron_schedule_label = f"'{cron_schedule}' ({cron_timezone})"
+    cron_tick_passed_since_last_handle = (
+        AutomationCondition.cron_tick_passed(cron_schedule, cron_timezone)
+        .since_last_handled()
+        .with_label(f"cron_tick_passed: {cron_schedule_label}")
+        | AutomationCondition.on_missing()
+    )
+    deps_updated_since_cron = AutomationCondition.all_deps_match(
+        AutomationCondition.newly_updated().since(
+            AutomationCondition.cron_tick_passed(cron_schedule, cron_timezone)
+        )
+        | AutomationCondition.will_be_requested()
+    )
+    if ignored_deps_updated_selection:
+        deps_updated_since_cron = deps_updated_since_cron.ignore(ignored_deps_updated_selection)
+    return (
+        AutomationCondition.in_latest_time_window(lookback_delta=lookback_delta)
+        & cron_tick_passed_since_last_handle
+        & ~AutomationCondition.in_progress()
+        & ~AutomationCondition.any_deps_in_progress()
+        & (
+            IsRootExecutable()
+            | deps_updated_since_cron.with_label(
+                f"dependencies_updated_since: {cron_schedule_label}"
             )
-        ).with_label(f"all same period parents updated since {cron_label}")
-        return (
-            AutomationCondition.in_latest_time_window()
-            & cron_tick_passed_since_last_handle
-            & all_deps_updated_since_cron #(all_deps_updated_since_cron | ~HasDependencies()) #??????????
-            & ~AutomationCondition.in_progress()
-            & ~AutomationCondition.any_deps_in_progress()
-        ).with_label(f"on cron {cron_label}")
+        )
+    ).with_label(f"cron_schedule_passed_and_complied: {cron_schedule_label}")
+
 
 # all_daily_deps_updated = (
 #     AutomationCondition.all_deps_match(
@@ -111,4 +139,12 @@ def my_daily_automation_condition() -> AutomationCondition:
 #     & all_daily_deps_updated.since_last_handled()
 # ).with_label("Cron diario condicional.")
 
-automation_daily_cron = my_daily_automation_condition() 
+daily_cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "0 0 * * *"})
+automation_daily_delta_1_cron = my_cron_automation_condition(
+    cron_schedule=daily_cron_schedule,
+    ignored_deps_updated_selection=(
+        AssetSelection.all()
+        - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+    ),
+    lookback_delta=timedelta(days=1),
+)

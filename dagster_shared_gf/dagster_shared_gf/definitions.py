@@ -48,16 +48,20 @@ all_shared_resources = {
     #
     "in_memory_io_manager": InMemoryIOManager(),
     "filesystem_io_manager": FilesystemIOManager(),
-    "polars_parquet_io_manager": PolarsParquetIOManager(),	
+    "polars_parquet_io_manager": PolarsParquetIOManager(),
 }
 
 defs = Definitions(
-    assets=dias_festivos.all_assets
-    + dbt_dwh_global.all_assets
-    + dbt_sources.all_assets,
+    assets=(
+        *dias_festivos.all_assets,
+        *dbt_dwh_global.all_assets,
+        *dbt_sources.all_assets,
+    ),
     jobs=all_jobs,
     schedules=all_schedules,
-    asset_checks=dias_festivos.all_asset_checks
-    + dias_festivos.all_asset_freshness_checks,
+    asset_checks=(
+        *dias_festivos.all_asset_checks,
+        *dias_festivos.all_asset_freshness_checks,
+    ),
     resources=all_shared_resources,
 )

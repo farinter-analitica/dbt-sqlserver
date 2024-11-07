@@ -1,25 +1,19 @@
-from dataclasses import dataclass
-import timeit
+import dagster as dg
+# from dagster._serdes.serdes import whitelist_for_serdes
 
-class NormalClass:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+# @whitelist_for_serdes
+class HasDependencies(dg.AutomationCondition):
+    @property
+    def name(self) -> str:
+        return "has_dependencies"
+    
+    def evaluate(self, context: dg.AutomationContext) -> dg.AutomationResult:
+        asset_graph = context.asset_graph
+        key = context.key
+        dep_keys = asset_graph.get(key).parent_entity_keys & asset_graph.executable_asset_keys
+        if dep_keys:
+            true_subset = context.candidate_subset
+        else:
+            true_subset = context.get_empty_subset()
+        return dg.AutomationResult(true_subset=true_subset, context=context)
 
-@dataclass(frozen=True)
-class FrozenDataclass:
-    x: int
-    y: int
-
-@dataclass
-class Dataclass:
-    x: int
-    y: int
-
-normal_class_time = timeit.timeit(lambda: NormalClass(1, 2), number=1000000)
-frozen_dataclass_time = timeit.timeit(lambda: FrozenDataclass(1, 2), number=1000000)
-dataclass_time = timeit.timeit(lambda: Dataclass(1, 2), number=1000000)
-
-print(f"Normal class: {normal_class_time:.2f} sec")
-print(f"Frozen dataclass: {frozen_dataclass_time:.2f} sec")
-print(f"Dataclass: {dataclass_time:.2f} sec")
