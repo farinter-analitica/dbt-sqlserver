@@ -9,7 +9,7 @@
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="sync_all_columns",
+		on_schema_change="ignore",
 		pre_hook=[],
 		post_hook=[
             "{{ dwh_farinter_remove_incremental_temp_table() }}",

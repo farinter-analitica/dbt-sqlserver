@@ -21,7 +21,7 @@
 		materialized="table",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="sync_all_columns",
+		on_schema_change="ignore",
 		on_clause_filegroup = on_clause,
 		pre_hook=[sql_inicializar_particion],
 		post_hook=[

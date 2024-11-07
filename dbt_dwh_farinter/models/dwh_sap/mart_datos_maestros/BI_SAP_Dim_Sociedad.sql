@@ -9,7 +9,7 @@
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="sync_all_columns",
+		on_schema_change="ignore",
 		post_hook=[
             "{{ dwh_farinter_remove_incremental_temp_table() }}",
             "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=true, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",

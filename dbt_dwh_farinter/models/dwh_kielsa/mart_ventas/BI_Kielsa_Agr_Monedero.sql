@@ -20,7 +20,7 @@
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="sync_all_columns",
+		on_schema_change="ignore",
 		merge_exclude_columns= v_merge_exclude_columns,
 		merge_check_diff_exclude_columns= v_merge_check_diff_exclude_columns,
 		post_hook=[
