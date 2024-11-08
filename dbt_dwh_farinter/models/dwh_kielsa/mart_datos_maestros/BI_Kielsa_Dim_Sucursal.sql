@@ -21,19 +21,15 @@
       "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}"
 		]
 		
-) }}
+) -}}
 
-/*{{ dwh_farinter_create_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=False)   }}
 
-{{dwh_farinter_union_all_dummy_data(unique_key=unique_key_list, is_incremental=0, show_info=False) }}
-
-*/
-
-SELECT ISNULL([Sucursal_Id],0) AS [Sucursal_Id]
-        ,ISNULL([Emp_Id],0) AS [Emp_Id]
+SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
+        ,ISNULL(S.[Emp_Id],0) AS [Emp_Id]
         ,[Version_Id]
         ,[Version_Fecha]
-        ,[Sucursal_Nombre]
+        ,S.[Sucursal_Nombre]
+        ,ISNULL(SN.[Sucursal_Numero],0) AS [Sucursal_Numero]
         ,[Marca]
         ,[Zona_Id]
         ,CAST([Zona_Nombre] AS VARCHAR(100)) AS [Zona_Nombre]
@@ -61,14 +57,41 @@ SELECT ISNULL([Sucursal_Id],0) AS [Sucursal_Id]
                         CONCAT([JOB],'')) AS bigint)) AS [Hash_JOP]
         ,ABS(CAST(HASHBYTES('SHA1', 
                         CONCAT([Supervisor],'')) AS bigint)) AS [Hash_Supervisor]
-        ,ISNULL({{ dwh_farinter_hash_column(["JOB"]) }},'') AS [HashStr_JOP]
-        ,ISNULL({{ dwh_farinter_hash_column(["Supervisor"]) }},'') AS [HashStr_Supervisor]
-        ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_SucEmp]
-        ,ISNULL({{ dwh_farinter_hash_column(unique_key_list+["Version_Id"]) }},'') AS [HashStr_SucEmpVersion]
-        ,LEFT(CONVERT(VARCHAR(32), HASHBYTES('MD5', CAST(CONCAT(Emp_Id,'-', Sucursal_Id) AS NVARCHAR(50))), 2), 32) as HashMD5_EmpSuc
+        ,ISNULL({{ dwh_farinter_hash_column(["JOB"], table_alias='S' ) }},'') AS [HashStr_JOP]
+        ,ISNULL({{ dwh_farinter_hash_column(["Supervisor"], table_alias='S') }},'') AS [HashStr_Supervisor]
+        ,ISNULL({{ dwh_farinter_hash_column(unique_key_list, table_alias='S') }},'') AS [HashStr_SucEmp]
+        ,ISNULL({{ dwh_farinter_hash_column(unique_key_list+["Version_Id"], table_alias='S') }},'') AS [HashStr_SucEmpVersion]
+        ,LEFT(CONVERT(VARCHAR(32), HASHBYTES('MD5', CAST(CONCAT(S.Emp_Id,'-', S.Sucursal_Id) AS NVARCHAR(50))), 2), 32) as HashMD5_EmpSuc
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
-FROM {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }} S
+FROM DL_FARINTER.dbo.DL_Kielsa_Sucursal S -- {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }} S
+LEFT JOIN (SELECT
+	*, CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS INT) AS [Sucursal_Numero]
+FROM
+	(SELECT
+		*
+		, (LEN(Sucursal_Nombre) + 2 - Posicion_Inicial_Derecha) - Posicion_Inicial AS Longitud_Numero
+		, LEN(Sucursal_Nombre) Longitud_Nombre
+	FROM
+		(SELECT
+			*
+			, PATINDEX('%[0-9]%', [Sucursal_Nombre]) AS Posicion_Inicial
+			, PATINDEX('%[A-Z]%', SUBSTRING([Sucursal_Nombre], PATINDEX('%[0-9]%', [Sucursal_Nombre]) + 1, 50)) AS Posicion_Final
+			, PATINDEX('%[0-9]%', REVERSE([Sucursal_Nombre])) AS Posicion_Inicial_Derecha
+			, PATINDEX(
+				'%[A-Z]%'
+				, SUBSTRING(REVERSE([Sucursal_Nombre]), PATINDEX('%[0-9]%', REVERSE([Sucursal_Nombre])) + 1, 50)) AS Posicion_Final_Derecha
+		FROM
+			(SELECT
+				[Sucursal_Id]
+				, [Emp_Id]
+				, 'A' + REPLACE(REPLACE(UPPER([Sucursal_Nombre]), ' ', ''), '-', '') + 'Z' AS [Sucursal_Nombre]
+			FROM	DL_FARINTER.dbo.DL_Kielsa_Sucursal -- {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }}
+      ) SN ) SNP
+	WHERE Posicion_Inicial > 0) SNP2) SN
+ON S.Sucursal_Id = SN.Sucursal_Id
+AND S.Emp_Id = SN.Emp_Id
+
 {% if is_incremental() %}
   --WHERE S.Fecha_Actualizado >= coalesce((select max(Fecha_Actualizado) from {{ this }}), '19000101')
 {% else %}
