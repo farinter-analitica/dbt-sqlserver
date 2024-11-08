@@ -8,3 +8,13 @@ sources:
             group: "kpp_etl_dwh"
     tables:
       - name: LogMovimientoSuscripcion
+  - name: SITEPLUS
+    description: "APPS VARIAS"
+    database: SITEPLUS
+    schema: dbo
+    meta:
+        dagster:
+            group: "siteplus_etl_dwh"
+    tables:
+      - name: Kielsa_Reloj_Marcador_Autorizador
+      - name: Kielsa_Reloj_Marcador
