@@ -91,7 +91,7 @@ def my_cron_automation_condition(
         AutomationCondition.cron_tick_passed(cron_schedule, cron_timezone)
         .since_last_handled()
         .with_label(f"cron_tick_passed: {cron_schedule_label}")
-        | AutomationCondition.on_missing()
+        | AutomationCondition.newly_missing().since_last_handled()
     )
     deps_updated_since_cron = AutomationCondition.all_deps_match(
         AutomationCondition.newly_updated().since(
