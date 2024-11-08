@@ -1,15 +1,23 @@
-from dagster import (ScheduleDefinition, 
-                     DefaultScheduleStatus, 
-                     ScheduleEvaluationContext, 
-                     build_schedule_context,
-                     RunsFilter,
-                     DagsterRunStatus)
-from dagster_kielsa_gf.jobs import *
-from dagster_kielsa_gf.job_control_replicas import *
-from dagster_shared_gf.shared_functions import (get_all_instances_of_class, get_for_current_env)
-from dagster_shared_gf import shared_variables as shared_vars
 from datetime import datetime, timedelta
+
 import pytz
+from dagster import (
+    DagsterRunStatus,
+    DefaultScheduleStatus,
+    RunsFilter,
+    ScheduleDefinition,
+    ScheduleEvaluationContext,
+    build_schedule_context,
+)
+
+from dagster_kielsa_gf.job_control_replicas import *
+from dagster_kielsa_gf.jobs import *
+from dagster_shared_gf import shared_variables as shared_vars
+from dagster_shared_gf.shared_functions import (
+    get_all_instances_of_class,
+    get_for_current_env,
+)
+
 # cron: minute hour day month day_of_week, example daily at midnight: 0 0 * * *
 # cron example daily at midnight mon-fri with numbers: 0 0 * * 1-5
 env_str:str=shared_vars.env_str
@@ -199,8 +207,6 @@ kielsa_olap_kielsa_general_temp_dev_job_schedule = ScheduleDefinition(
 
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
-
-__all__ = list(map(lambda x: x.name, all_schedules) )
 
 
 if __name__ == "__main__":

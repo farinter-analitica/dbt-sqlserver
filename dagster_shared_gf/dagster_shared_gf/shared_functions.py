@@ -258,7 +258,7 @@ def check_instance(obj: Any, class_type: Type[Any]) -> bool:
         return True
     return False
 
-def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Optional[ModuleType] = None, namespace: Optional[dict] = None   ) -> List[Any]:
+def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Optional[ModuleType] = None, namespace: Optional[dict] = None   ) -> tuple[Any]:
     """
     Returns a list of all instances of the specified class types in the given module or the caller's module if no module is provided.
 
@@ -276,9 +276,11 @@ def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Opt
             all_instances_dq.extend(variables.values())
     else:
         if module is None:
-            caller_frame = inspect.currentframe()
-            caller_frame = caller_frame.f_back if caller_frame else None
-            module_to_use = inspect.getmodule(caller_frame) if caller_frame else None
+            caller = inspect.stack()[1]
+            module_to_use = inspect.getmodule(caller[0])
+            if module_to_use is None: # ERROR
+                raise ModuleNotFoundError(f"Could not find module for {caller[3]}")
+                
         else:
             module_to_use = module
         
@@ -286,7 +288,7 @@ def get_all_instances_of_class(class_type_list: Iterable[Type[Any]], module: Opt
             for class_type in class_type_list:
                 variables = {name: obj for name, obj in module_to_use.__dict__.items() if isassignable(obj, class_type)}
                 all_instances_dq.extend(variables.values())
-    return list(itertools.chain(all_instances_dq))
+    return tuple(itertools.chain(all_instances_dq))
 
 # Function to get mock arguments for a function
 def get_mock_args(func: Callable) -> dict:
@@ -321,15 +323,16 @@ def get_mock_args(func: Callable) -> dict:
     return mock_args
 
 # Function to filter variables created by a specific function
-def get_all_parent_instances_created_by_function(creation_function: Callable, module:ModuleType|None = None) -> List:
+def get_all_parent_instances_created_by_function(creation_function: Callable, module:ModuleType|None = None) -> tuple:
     # Create an instance using the provided function to determine its type
     mock_args = get_mock_args(creation_function)
     example_instance = creation_function(**mock_args)
     instance_type = type(example_instance)
     if module is None:
-        caller_frame = inspect.currentframe()
-        caller_frame = caller_frame.f_back if caller_frame else None
-        module_to_use = inspect.getmodule(caller_frame) if caller_frame else None
+        caller = inspect.stack()[1]
+        module_to_use = inspect.getmodule(caller[0])
+        if module_to_use is None: 
+            raise ModuleNotFoundError(f"Could not find module for {caller[3]}")
     else:
         module_to_use = module
 
@@ -351,9 +354,10 @@ def import_variable_from_module(variable_name: str, module: ModuleType|None = No
         AttributeError: If the specified variable is not found in the module.
     """
     if module is None:
-        caller_frame = inspect.currentframe()
-        caller_frame = caller_frame.f_back if caller_frame else None
-        module_to_use = inspect.getmodule(caller_frame) if caller_frame else None
+        caller = inspect.stack()[1]
+        module_to_use = inspect.getmodule(caller[0])
+        if module_to_use is None: 
+            raise ModuleNotFoundError(f"Could not find module for {caller[3]}")
     else:
         module_to_use = module
 

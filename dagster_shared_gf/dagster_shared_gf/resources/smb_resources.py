@@ -5,6 +5,8 @@ from typing import ClassVar, Dict, Literal
 
 import smbclient
 import smbclient.path as smb_path
+from smbclient import _os as smb_os
+from smbclient import _pool as smb_poll
 from dagster import ConfigurableResource, EnvVar, InitResourceContext
 from pydantic import dataclasses
 
@@ -33,7 +35,7 @@ all_credentials: Dict[str, SMBClientConfigCredentials] = \
             password=get_for_current_env(
                 {"dev": EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD")}
             ),
-        )
+        ),
     }
 
 all_servers: dict[str, str] = {"NASGFTGU02": "10.0.4.157", "DWH": p_server_ip_dwh}
@@ -59,21 +61,22 @@ class SMBResource(ConfigurableResource):
         if not hasattr(self, '_context') or self._context is None:
             raise ValueError("Context has not been set. Call setup_for_execution first.")
         cl = self._context.log
-        cl.info(message) if type == "info" else cl.warning(message) if type == "warning" else cl.error(message)
+        if cl:
+            cl.info(message) if type == "info" else cl.warning(message) if type == "warning" else cl.error(message)
 
-    def register_session(self) -> None: # returns smbclient:
+    def register_session(self) -> smb_poll.Session: # returns smbclient:
         """
         A function that creates and returns an smbclient using the already set username, password and server attributes.
         """
 
         if self.password is None or self.username is None:
             raise ValueError("Username and password must be set")
-        smbclient.register_session(server=self.server_ip
-                                                   , username=self.username
+        return smbclient.register_session(server=self.server_ip
+                                                   , username=self.username 
                                                    , password=self.password
                                                    )
         
-    def get_full_server_path(self, directory: str) -> PureWindowsPath:
+    def get_full_server_path(self, directory: str | PureWindowsPath) -> PureWindowsPath:
         return PureWindowsPath(f"//{self.server_ip}").joinpath(directory)
     def get_server_dirs(self, directory: PureWindowsPath, recursive_depth: int | None = None, extension: str = ".xlsx", exclude: list[str] | None = None) -> Iterator[smbclient.SMBDirEntry]:
         """
@@ -89,7 +92,7 @@ class SMBResource(ConfigurableResource):
             Iterator[smbclient.SMBDirEntry]: A generator of SMB directory entries.
         """
         exclude = [x.lower() for x in exclude] if exclude else []
-        def _scan_dir(current_dir: PureWindowsPath, current_depth: int) -> Iterator[SMBResource.SMBDirEntry]:
+        def _scan_dir(current_dir: PureWindowsPath, current_depth: int) -> Iterator[smb_os.SMBDirEntry]:
             """
             Recursively scans a directory and its subdirectories for files and directories on current server share, no server needed on path.
 
@@ -98,7 +101,7 @@ class SMBResource(ConfigurableResource):
                 current_depth (int): The current depth of the directory scan.
 
             Yields:
-                Iterator[SMBResource.SMBDirEntry]: A generator of SMB directory entries.
+                Iterator[SMBDirEntry]: A generator of SMB directory entries.
             """
             # Generate the full path for the SMB directory
             directory_path = self.get_full_server_path(current_dir)
@@ -199,9 +202,9 @@ class SMBResource(ConfigurableResource):
     unlink = staticmethod(smbclient.unlink)
     utime = staticmethod(smbclient.utime)
     walk = staticmethod(smbclient.walk)
-    class SMBDirEntry(smbclient.SMBDirEntry):
+    class SMBDirEntry(smb_os.SMBDirEntry):
         pass
-    class SMBDirEntryInformation(smbclient.SMBDirEntryInformation):
+    class SMBDirEntryInformation(smb_os.SMBDirEntryInformation):
         pass
     class path:
         exists = staticmethod(smb_path.exists)
@@ -234,7 +237,17 @@ smb_resource_staging_dagster_dwh = SMBResource(
     server_ip= all_servers["DWH"],
 )
 
+smb_resource_independent_dagster_dwh = SMBResource(
+    credentials= "analitica",
+    server="DWH",
+    username= all_credentials["analitica"].username,
+    password= all_credentials["analitica"].password.get_value(),
+    server_ip= all_servers["DWH"],
+)
+
 if __name__ == "__main__":
     load_env_vars()
     print(smb_resource_analitica_nasgftgu02.username)	
-    print(smb_resource_analitica_nasgftgu02.register_session().listdir(r"\\10.0.4.157\data_repo\grupo_farinter\presupuesto_ventas_finanzas"))
+    smb_resource_independent_dagster_dwh.register_session()
+
+    print(smb_resource_independent_dagster_dwh.listdir(f"\\{all_servers["DWH"]}\staging_dagster"))

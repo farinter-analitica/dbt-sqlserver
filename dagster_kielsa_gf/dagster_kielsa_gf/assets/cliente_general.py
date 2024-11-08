@@ -1158,5 +1158,5 @@ all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
     )
 )
 
-all_asset_checks: list[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
 # all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks

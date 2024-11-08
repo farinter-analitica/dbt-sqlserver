@@ -95,8 +95,6 @@ shared_hourly_job_schedule = ScheduleDefinition(
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
 
-__all__ = list(map(lambda x: x.name, all_schedules) )
-
 if __name__ == "__main__":
     ##tests
     context = build_schedule_context(scheduled_execution_time=datetime.now())

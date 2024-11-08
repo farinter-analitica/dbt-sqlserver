@@ -88,4 +88,3 @@ dbt_dwh_sap_marts_all_orphan_job_schedule = ScheduleDefinition(
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
 
-__all__ = list(map(lambda x: x.name, all_schedules) )

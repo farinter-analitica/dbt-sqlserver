@@ -38,4 +38,3 @@ defs = Definitions(
 )
 #print(ControlDefs.get_all_job_defs())
 
-__all__ = list(map(lambda x: x.name, all_schedules) ) + list(map(lambda x: x.name, all_jobs) ) + list(map(lambda x: x.name, all_ops) ) 

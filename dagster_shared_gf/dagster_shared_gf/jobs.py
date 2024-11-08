@@ -64,7 +64,6 @@ all_jobs = get_all_instances_of_class(
     class_type_list=[JobDefinition, UnresolvedAssetJobDefinition]
 )
 
-__all__ = list(map(lambda x: x.name, all_jobs))
 
 if __name__ == "__main__":
     print(shared_assets_not_scheduled)

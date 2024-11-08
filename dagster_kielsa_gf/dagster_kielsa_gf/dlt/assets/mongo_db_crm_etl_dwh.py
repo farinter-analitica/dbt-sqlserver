@@ -311,8 +311,8 @@ all_mongo_db_source_configs: DltPipelineSourceConfigResourceTuple = (
 # def get_config_filtered(
 #     dlt_source_config_resource_list: DltPipelineSourceConfigResourceTuple,
 #     dlt_source_config: DltPipelineSourceConfig,
-# ) -> list[str]:
-#     return list(chain(dlt_source_config_resource_list[dlt_source_config]))
+# ) -> tuple[str]:
+#     return list(chain(dlt_source_config_resource_tuple[dlt_source_config]))
 
 
 @dataclasses.dataclass
@@ -364,7 +364,7 @@ class DagsterDltTranslatorMongodbCRMHN(DagsterDltTranslator):
 
         Args:
             doc (Dict): The document from which columns are to be removed.
-            remove_columns (Optional[list[str]], optional): The list of column names to be removed. Defaults to None.
+            remove_columns (Optional[tuple[str]], optional): The list of column names to be removed. Defaults to None.
 
         Returns:
             Dict: The modified document with the specified columns removed.
@@ -446,7 +446,7 @@ def create_dlt_asset(
 
 def dlt_mongo_db_crm_hn_asset_factory(
     mongo_db_source_configs: DltPipelineSourceConfigResourceTuple,
-) -> list[AssetsDefinition]:
+) -> tuple[AssetsDefinition, ...]:
     dlt_assets_list: deque[AssetsDefinition] = deque()
     for dlt_source_config in mongo_db_source_configs:
         for collection in dlt_source_config.collections:
@@ -507,7 +507,7 @@ def dlt_mongo_db_crm_hn_asset_factory(
             )
             dlt_assets_list.append(new_assets)
 
-    return list(chain(dlt_assets_list))
+    return tuple(chain(dlt_assets_list))
 
 
 all_mongo_db_hn_assets = dlt_mongo_db_crm_hn_asset_factory(all_mongo_db_source_configs)
@@ -548,7 +548,7 @@ all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
     )
 )
 
-all_assets = all_assets + all_mongo_db_hn_source_assets
+all_assets = (*all_assets, *all_mongo_db_hn_source_assets) 
 all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
