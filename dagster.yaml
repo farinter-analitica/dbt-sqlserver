@@ -24,7 +24,7 @@ run_monitoring:
 #   class: QueuedRunCoordinator
 #   config:
 run_queue: #dagster\_core\run_coordinator\queued_run_coordinator.py
-  max_concurrent_runs: 8
+  max_concurrent_runs: 8 #  10 default, -1 unlimited, 0 no runs
   tag_concurrency_limits:
     # - key: "database"
     #   value: "dwh" # applies when the `database` tag has a value of `redshift`
