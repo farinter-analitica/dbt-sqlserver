@@ -4,7 +4,7 @@
     {{
         config(
             as_columnstore=false,
-            tags=["periodo/diario"],
+            tags=["periodo/diario", "detener_Carga/si"],
             target_schema='dbt_snapshot',
             strategy='check',
             unique_key="id" ,
