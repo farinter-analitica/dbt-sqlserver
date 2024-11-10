@@ -1,12 +1,14 @@
 from collections import deque
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from itertools import chain
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
 from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
+from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 import dlt
 import dlt.extract
 from dagster import (
+    AssetCheckExecutionContext,
     AssetChecksDefinition,
     AssetExecutionContext,
     AssetKey,
@@ -17,6 +19,8 @@ from dagster import (
     MetadataValue,
     SourceAsset,
     asset,
+    asset_check,
+    AssetCheckResult,
     build_last_update_freshness_checks,
     instance_for_test,
     load_asset_checks_from_current_module,
@@ -526,6 +530,28 @@ all_mongo_db_hn_source_assets = list(
     if key not in set(asset.key for asset in all_mongo_db_hn_assets)
 )
 
+@asset_check(asset=AssetKey(("dlt_mongo_crm_hn_updated_at","campaignsRecetas")), blocking=True)
+def campaigns_recetas_check(dwh_farinter_dl: SQLServerResource) -> AssetCheckResult:
+    dwh= dwh_farinter_dl
+    last_date: datetime | None
+    with dwh.get_sqlalchemy_conn() as conn:
+        last_date_result = conn.execute(dwh.text
+            ("""SELECT TOP 1 created_at FROM mongo_db_crm_hn.campaigns_recetas ORDER BY created_at DESC"""),
+        )
+        last_date = last_date_result.scalar() if last_date_result.returns_rows else None
+    if last_date and last_date >= datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0):
+        return AssetCheckResult(
+            passed=True,
+            description=f"Última fecha en mongo_db_crm_hn.campaigns_recetas: {str(last_date)}",
+
+        )
+    else:  
+        return AssetCheckResult(
+            passed=False,
+            description=f"Última fecha en mongo_db_crm_hn.campaigns_recetas: {str(last_date)}",
+        )
+
+
 all_assets = all_mongo_db_hn_assets
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
@@ -570,18 +596,32 @@ if __name__ == "__main__":
         ), f"Expected {configured_total} assets, but loaded {loaded_total} assets"
 
     from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
+    from dagster import build_resources
+    from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
 
     with instance_for_test() as instance:
-        asset_to_test = tuple(
-            asset
-            for asset in all_assets
-            if asset.key == AssetKey(("dlt_mongo_crm_hn_updated_at", "clientToCall"))
-        )
-        result = materialize(
-            asset_to_test,
-            instance=instance,
-            resources={"dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh},
-        )
+        with build_resources(instance=instance,resources=
+            {
+                "dwh_farinter_dl": dwh_farinter_dl,
+                "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
+            }
+        ) as resources_init:
+        # asset_to_test = tuple(
+        #     asset
+        #     for asset in all_assets
+        #     if asset.key == AssetKey(("dlt_mongo_crm_hn_updated_at", "campaignsRecetas"))
+        # )
+        
+        # result = materialize(
+        #     asset_to_test,
+        #     instance=instance,
+        #     resources=resources_init.kwds,
+        # )
+
+
+            check_result=campaigns_recetas_check(dwh_farinter_dl = resources_init.dwh_farinter_dl)
+            print(check_result)
+        
 
         # print(
         #     [mat.step_materialization_data for mat in result.get_asset_materialization_events()]
