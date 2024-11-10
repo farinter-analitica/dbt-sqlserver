@@ -132,9 +132,9 @@ daily_partitions_def = get_daily_partition_def_to_today(
 )
 
 
-def _daily_partition_iter(start, end):
-    start = datetime.fromisoformat(start)
-    end = datetime.fromisoformat(end)
+def _daily_partition_iter(start_isodt: str, end_isodt: str) -> Iterator[tuple[datetime, datetime]]:
+    start = datetime.fromisoformat(start_isodt)
+    end = datetime.fromisoformat(end_isodt)+timedelta(days=1)
     daily_diffs = int((end - start) / timedelta(days=1))
     for i in range(daily_diffs):
         yield (
@@ -159,10 +159,11 @@ def hontrack_api_assets_per_day(
 ):
     first_partition, last_partition = context.partition_key_range
     partition_iter = _daily_partition_iter(first_partition, last_partition)
-    context.log.debug(f"date_from: {first_partition}, date_to: {last_partition}")
+    context.log.info(f"date_from: {first_partition}, date_to: {last_partition}")
 
     def consolidar_resultados() -> Iterator[DltEventType]:
         for start_of_day, end_of_day in partition_iter:
+            context.log.info(f"run_date_from: {start_of_day.isoformat()}, run_date_to: {end_of_day.isoformat()}, date_from: {first_partition}, date_to: {last_partition}")
             result = dlt.run(
                 context=context,
                 dlt_source=hontrack_api_source(
@@ -244,27 +245,27 @@ if __name__ == "__main__":
 
     with instance_for_test() as instance:
         # test job parti
-        test_job = define_asset_job("test_job", selection=[hontrack_api_assets_per_day])
-        test_resources = {"dlt": DagsterDltResource()}
-        defs = Definitions(
-            assets=[hontrack_api_assets_per_day],
-            jobs=[test_job],
-            resources=test_resources,
-        )
+        # test_job = define_asset_job("test_job", selection=[hontrack_api_assets_per_day])
+        # test_resources = {"dlt": DagsterDltResource()}
+        # defs = Definitions(
+        #     assets=[hontrack_api_assets_per_day],
+        #     jobs=[test_job],
+        #     resources=test_resources,
+        # )
 
-        test_job_def = defs.get_job_def("test_job")
-        test_job_def.execute_in_process(
-            tags={
-                "dagster/asset_partition_range_start": "2024-11-01",
-                "dagster/asset_partition_range_end": "2024-11-05",
-            },
-            resources=test_resources,
-            instance=instance,
-        )
+        # test_job_def = defs.get_job_def("test_job")
+        # test_job_def.execute_in_process(
+        #     tags={
+        #         "dagster/asset_partition_range_start": "2024-11-01",
+        #         "dagster/asset_partition_range_end": "2024-11-05",
+        #     },
+        #     resources=test_resources,
+        #     instance=instance,
+        # )
         # test single
         materialize(
             [hontrack_api_assets_per_day],
             instance=instance,
             resources={"dlt": DagsterDltResource()},
-            partition_key="2024-10-25",
+            partition_key="2024-11-07",
         )
