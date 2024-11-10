@@ -539,7 +539,7 @@ def campaigns_recetas_check(dwh_farinter_dl: SQLServerResource) -> AssetCheckRes
             ("""SELECT TOP 1 created_at FROM mongo_db_crm_hn.campaigns_recetas ORDER BY created_at DESC"""),
         )
         last_date = last_date_result.scalar() if last_date_result.returns_rows else None
-    if last_date and last_date >= datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0):
+    if last_date and last_date >= datetime.now(tz=timezone.utc) - timedelta(days=1):
         return AssetCheckResult(
             passed=True,
             description=f"Última fecha en mongo_db_crm_hn.campaigns_recetas: {str(last_date)}",
