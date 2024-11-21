@@ -453,6 +453,11 @@ store_procedures: Dict[str, Dict[str, Any]] = {
                  AssetKey(["AN_FARINTER", "dbo", "VDWH_TC_CasaXProveedor2_Kielsa"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_TC_CasaXProveedor_Kielsa"])],
     },
+    "DL_paCargarTE_CDR_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_TE_CDR_Kielsa",
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    },
     "BI_paCargarHecho_RegaliasHist_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_RegaliasHist_Kielsa",
