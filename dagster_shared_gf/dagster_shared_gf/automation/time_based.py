@@ -146,5 +146,5 @@ automation_daily_delta_1_cron = my_cron_automation_condition(
         AssetSelection.all()
         - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
     ),
-    lookback_delta=timedelta(days=1),
+    lookback_delta=timedelta(days=2),
 )
