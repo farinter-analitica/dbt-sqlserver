@@ -7,6 +7,8 @@ from dagster import (
     AssetKey,
     AutomationCondition,
     ConfigurableResource,
+    IntMetadataValue,
+    MetadataValue,
 )
 from dagster_embedded_elt.dlt import (
     DagsterDltResource,
@@ -184,3 +186,27 @@ dlt_pipeline_dest_mssql_dwh = DltPipelineDestMssqlDwh()
 
 if __name__ == "__main__":
     assert dlt_pipeline_dest_mssql_dwh.get_pipeline("test_pipeline", "test_dataset")
+
+
+def merge_dlt_dagster_metadata(metdadata_1: dict, metadata_2: dict) -> dict:
+    rows_loaded_1 = metdadata_1.get("rows_loaded", None) if metdadata_1 else None
+    rows_loaded_2 = metadata_2.get("rows_loaded", None) if metadata_2 else None
+    rows_loaded_int_1: int = (
+        rows_loaded_1.value
+        if isinstance(rows_loaded_1, IntMetadataValue) and rows_loaded_1.value
+        else 0
+    )
+    rows_loaded_int_2: int = (
+        rows_loaded_2.value
+        if isinstance(rows_loaded_2, IntMetadataValue) and rows_loaded_2.value
+        else 0
+    )
+    jobs_1 = metdadata_1.get("jobs", []) if metdadata_1 else []
+    jobs_2 = metadata_2.get("jobs", []) if metadata_2 else []
+    new_meta = {}
+    if rows_loaded_1 is not None or rows_loaded_2 is not None:
+        new_meta["rows_loaded"] = MetadataValue.int(
+            rows_loaded_int_1 + rows_loaded_int_2
+        )  # type: ignore
+    new_meta["jobs"] = list([*jobs_1, *jobs_2])  # type: ignore
+    return {**metdadata_1, **metadata_2, **new_meta}  # type: ignore

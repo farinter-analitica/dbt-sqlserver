@@ -33,7 +33,8 @@ else:
 
 PYMONGOARROW_AVAILABLE = find_spec('pymongoarrow') is not None
 
-def max_dt_with_lag_last_value_func(event, lag_days: int = 1) -> p_datetime:
+def max_dt_with_lag_last_value_func(event, lag_days: int | None = 1) -> p_datetime:
+    _lag_days: int = lag_days or 1
     last_value = pendulum.instance(datetime.fromtimestamp(0, tz=pendulum.UTC))
     item: p_datetime
     # print("Items received in this event: "+str(len(event)))
@@ -43,14 +44,14 @@ def max_dt_with_lag_last_value_func(event, lag_days: int = 1) -> p_datetime:
     else:
         item, last_value = event
 
-    print(
-        "item: "
-        + str(item)
-        + " last value: "
-        + str("None" if last_value is None else last_value)
-    )
+    # print(
+    #     "item: "
+    #     + str(item)
+    #     + " last value: "
+    #     + str("None" if last_value is None else last_value)
+    # )
     # setting the last value
-    last_value = max(item.subtract(days=lag_days), last_value)
+    last_value = max(item.subtract(days=_lag_days), last_value)
     last_value_tz = last_value.timezone_name
     last_value = min(pendulum.now(tz=last_value_tz).subtract(days=1), last_value)
     last_value = last_value
@@ -75,22 +76,20 @@ class CollectionLoader:
         if incremental:
             self.cursor_field = incremental.cursor_path
             self.last_value = incremental.last_value
+            if incremental.last_value_func not in (
+                    max,
+                    min,
+                    max_dt_with_lag_last_value_func,
+                    None
+                ):
+                    raise ValueError(
+                        "Last value function must be one of max, min or max_dt_with_lag_last_value_func"
+                    )
+            if incremental.row_order not in ("asc", "desc", None):
+                raise ValueError("Row order must be one of asc or desc")
         else:
             self.cursor_column = None
             self.last_value = None
-
-    def __post_init__(self):
-        if self.incremental and self.incremental.last_value_func not in (
-            max,
-            min,
-            max_dt_with_lag_last_value_func,
-        ):
-            raise ValueError(
-                "Last value function must be one of max, min or max_dt_with_lag_last_value_func"
-            )
-
-        if self.incremental and self.incremental.row_order not in ("asc", "desc"):
-            raise ValueError("Row order must be one of asc or desc")
 
     @property
     def _sort_op(self) -> Optional[Sequence[tuple[str, int]]]:
@@ -131,6 +130,9 @@ class CollectionLoader:
             Dict[str, Any]: A dictionary with the filter operator.
         """
         if not (self.incremental and self.last_value):
+            return {}
+
+        if not self.incremental.last_value_func:
             return {}
 
         filt = {}

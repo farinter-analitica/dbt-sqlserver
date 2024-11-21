@@ -2,15 +2,13 @@ from datetime import datetime, timedelta
 from itertools import chain
 from typing import Sequence
 
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import dlt_mongo_db_asset_factory
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import DltPipelineSourceConfigResourceTuple
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import DLTRColl
 import dlt
 import dlt.extract
 from dagster import (
     AssetCheckResult,
     AssetChecksDefinition,
     AssetKey,
+    RunConfig,
     SourceAsset,
     asset_check,
     build_last_update_freshness_checks,
@@ -21,7 +19,11 @@ from dlt.common import pendulum
 
 from dagster_shared_gf.automation import automation_hourly_cron_prd
 from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
+    DltIncrementalPartialConfig as IncConfig,
     DltPipelineSourceConfig,
+    DltPipelineSourceConfigResourceTuple,
+    DLTRColl,
+    dlt_mongo_db_asset_factory,
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
@@ -32,12 +34,12 @@ from dagster_shared_gf.shared_variables import default_timezone_teg, tags_repo
 
 read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
+        connection_string=dlt.secrets["sources.mdb_crm_hn.connection_url"],
         dataset_name="mongo_db_crm_hn",
         dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="updated_at",
+        database=dlt.secrets["sources.mdb_crm_hn.database"],
         primary_key="_id",
+        incrementals=(IncConfig(cursor_path="updated_at"),),  # por defecto
         pipeline_base_name="mongo_crm_hn_updated_at",
         collections=(
             DLTRColl(
@@ -63,35 +65,26 @@ read_source_config_updated_at: DltPipelineSourceConfigResourceTuple = (
             DLTRColl(
                 collection_name="campaignsRecetas",
                 columns_to_remove=("created_at",),
-                cursor_path="updatedAt",
+                incrementals=(IncConfig(cursor_path="updatedAt"),),
                 automation_condition=automation_hourly_cron_prd,
             ),
             DLTRColl(
                 collection_name="clientToCall",
-                cursor_path="updatedAt",
+                incrementals=(IncConfig(cursor_path="updatedAt"),),
                 automation_condition=automation_hourly_cron_prd,
             ),
-        ),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="updatedAt",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_updatedat",
-        collections=(
             DLTRColl(
                 collection_name="crm_list",
+                incrementals=(IncConfig(cursor_path="updatedAt"),),
             ),
         ),
     ),
 )
 
-class DLTRCollPerson(DLTRColl):
-    collection_name="crm_person"
-    columns_hints= {
+
+collection_person = DLTRColl(
+    collection_name="crm_person",
+    columns_hints={
         "id": {"data_type": "bigint"},
         "treatment": {"data_type": "text"},
         "first_name": {"data_type": "text"},
@@ -140,116 +133,73 @@ class DLTRCollPerson(DLTRColl):
         "linkedin_username": {"data_type": "text"},
         "instagram_username": {"data_type": "text"},
         "fecha_ingreso": {"data_type": "timestamp"},
-    }
+    },
+    incrementals=(
+        IncConfig(
+            cursor_path="updated_at",
+            initial_value=pendulum.now().subtract(months=1),
+        ),
+        IncConfig(cursor_path="created_at"),
+    ),
     # limit=1000,
-
+)
 
 read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
+        connection_string=dlt.secrets["sources.mdb_crm_hn.connection_url"],
         dataset_name="mongo_db_crm_hn",
         dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="updated_at",
+        database=dlt.secrets["sources.mdb_crm_hn.database"],
         primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_updated_at",
-        initial_value=pendulum.now().subtract(months=1),
+        pipeline_base_name="mongo_crm_hn_multi_incremental",
+        # initial_value=pendulum.now().subtract(months=1),
         collections=(
-            DLTRColl(collection_name=DLTRCollPerson.collection_name, columns_hints=DLTRCollPerson.columns_hints),
-            DLTRColl(collection_name="crm_message"),
-            DLTRColl(collection_name="crm_campaign"),
-        ),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="created_at",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_created_at",
-        dep_pipeline_cursor="updated_at",
-        collections=(
-            DLTRColl(collection_name=DLTRCollPerson.collection_name, columns_hints=DLTRCollPerson.columns_hints),
-            DLTRColl(collection_name="crm_message"),
-            DLTRColl(collection_name="crm_campaign"),
-        ),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="EndDate",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_enddate",
-        initial_value=pendulum.now().subtract(months=1),
-        collections=(DLTRColl(collection_name="campaignSchedule"),),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="createdDate",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_createddate",
-        dep_pipeline_cursor="EndDate",
-        collections=(DLTRColl(collection_name="campaignSchedule"),),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="updatedAt",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        initial_value=pendulum.now().subtract(months=1),
-        collections=(DLTRColl(collection_name="dataViewList"),),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="creationDate",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_creationdate",
-        dep_pipeline_cursor="updatedAt",
-        collections=(DLTRColl(collection_name="dataViewList"),),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="UpdatedAt",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_updatedat",
-        initial_value=pendulum.now().subtract(months=1),
-        collections=(
+            collection_person,
             DLTRColl(
-                collection_name="crmCall",
-                table_new_name="crm_call",
-                columns_hints={
-                    "clientNumber": {"data_type": "text"},
-                    "callerId": {"data_type": "bigint"},
-                    "clientId": {"data_type": "bigint", "name": "callee_id"},
-                },
+                collection_name="crm_message",
+                incrementals=(
+                    IncConfig(
+                        cursor_path="updated_at",
+                        initial_value=pendulum.now().subtract(months=1),
+                    ),
+                    IncConfig(cursor_path="created_at"),
+                ),
             ),
-        ),
-    ),
-    DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
-        dataset_name="mongo_db_crm_hn",
-        dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
-        cursor_path="createdAt",
-        primary_key="_id",
-        pipeline_base_name="mongo_crm_hn_multi_createdat",
-        dep_pipeline_cursor="UpdatedAt",
-        collections=(
+            DLTRColl(
+                collection_name="crm_campaign",
+                # cursor_path="updatedAt",
+                incrementals=(
+                    IncConfig(
+                        cursor_path="updatedAt",
+                        initial_value=pendulum.now().subtract(months=1),
+                    ),
+                    IncConfig(
+                        cursor_path="updated_at",
+                        initial_value=pendulum.now().subtract(months=1),
+                    ),
+                    IncConfig(cursor_path="created_at"),
+                ),
+            ),  # updatedAt
+            DLTRColl(
+                collection_name="campaignSchedule",
+                incrementals=(
+                    IncConfig(
+                        cursor_path="EndDate",
+                        initial_value=pendulum.now().subtract(months=1),
+                    ),
+                    IncConfig(cursor_path="createdDate"),
+                ),
+            ),
+            DLTRColl(
+                collection_name="dataViewList",
+                incrementals=(
+                    IncConfig(
+                        cursor_path="updatedAt",
+                        initial_value=pendulum.now().subtract(months=1),
+                    ),
+                    IncConfig(cursor_path="creationDate"),
+                ),
+            ),
             DLTRColl(
                 collection_name="crmCall",
                 table_new_name="crm_call",
@@ -258,6 +208,13 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
                     "callerId": {"data_type": "bigint"},
                     "clientId": {"data_type": "bigint", "name": "callee_id"},
                 },
+                incrementals=(
+                    IncConfig(
+                        cursor_path="UpdatedAt",
+                        initial_value=pendulum.now().subtract(months=1),
+                    ),
+                    IncConfig(cursor_path="createdAt"),
+                ),
             ),
         ),
     ),
@@ -266,10 +223,10 @@ read_source_config_multi_column: DltPipelineSourceConfigResourceTuple = (
 
 read_source_config_not_incremental: DltPipelineSourceConfigResourceTuple = (
     DltPipelineSourceConfig(
-        connection_string= dlt.secrets["sources.mdb_crm_hn.connection_url"],
+        connection_string=dlt.secrets["sources.mdb_crm_hn.connection_url"],
         dataset_name="mongo_db_crm_hn",
         dagster_group_name="dlt_mongo_db_crm_hn_etl_dwh",
-        database= dlt.secrets["sources.mdb_crm_hn.database"],
+        database=dlt.secrets["sources.mdb_crm_hn.database"],
         primary_key="_id",
         pipeline_base_name="mongo_crm_hn_not_incremental",
         collections=(DLTRColl(collection_name="campaignActivity"),),
@@ -301,7 +258,10 @@ all_mongo_db_hn_source_assets = list(
 
 
 @asset_check(
-    asset=AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "campaigns_recetas", "updated_at")), blocking=False
+    asset=AssetKey(
+        ("DL_FARINTER", "mongo_db_crm_hn", "campaigns_recetas", "updated_at")
+    ),
+    blocking=False,
 )
 def campaigns_recetas_check(dwh_farinter_dl: SQLServerResource) -> AssetCheckResult:
     dwh = dwh_farinter_dl
@@ -384,7 +344,7 @@ if __name__ == "__main__":
             configured_total == loaded_total
         ), f"Expected {configured_total} assets, but loaded {loaded_total} assets"
 
-    from dagster import build_resources
+    from dagster import build_resources, materialize
 
     from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
     from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
@@ -397,23 +357,46 @@ if __name__ == "__main__":
                 "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
             },
         ) as resources_init:
-            # asset_to_test = tuple(
-            #     asset
-            #     for asset in all_assets
-            #     if asset.key == AssetKey(("dlt_mongo_crm_hn_updated_at", "campaignsRecetas"))
-            # )
-
-            # result = materialize(
-            #     asset_to_test,
-            #     instance=instance,
-            #     resources=resources_init.kwds,
-            # )
-
-            check_result = campaigns_recetas_check(
-                dwh_farinter_dl=resources_init.dwh_farinter_dl
+            asset_to_test = tuple(
+                asset
+                for asset in all_assets
+                if asset.key
+                in (
+                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "campaignSchedule")),
+                    AssetKey(
+                        (
+                            "DL_FARINTER",
+                            "mongo_db_crm_hn",
+                            "campaignSchedule",
+                            "updatedAt",
+                        )
+                    ),
+                )
             )
-            print(check_result)
+            assert asset_to_test
+            result = materialize(
+                asset_to_test,
+                instance=instance,
+                resources=resources_init.original_resource_dict,
+                # run_config=RunConfig(
+                #     resources={
+                #         "dlt_pipeline_dest_mssql_dwh": {
+                #             "config": {
+                #                 "write_disposition": "replace",
+                #             }
+                #         }
+                #     }
+                # ),
+            )
 
-        # print(
-        #     [mat.step_materialization_data for mat in result.get_asset_materialization_events()]
-        # )
+            # check_result = campaigns_recetas_check(
+            #     dwh_farinter_dl=resources_init.dwh_farinter_dl
+            # )
+            # print(check_result)
+
+            print(f"Materialized:{
+                [
+                    mat.step_materialization_data
+                    for mat in result.get_asset_materialization_events()
+                ]
+            }")
