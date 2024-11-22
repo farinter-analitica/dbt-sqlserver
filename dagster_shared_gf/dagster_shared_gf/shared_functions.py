@@ -124,8 +124,10 @@ class DagsterInstanceCurrentEnv():
         self.env_long_name: str
         if self.env == "dev":
             self.env_long_name = "development"
-        elif self.env == "prod":
+        elif self.env == "prd":
             self.env_long_name = "production"
+        elif self.env == "local":
+            self.env_long_name = "local"
         else:
             self.env_long_name = f"{self.env} no long name asigned"
         self.graphql_port = int(os.getenv('DAGSTER_GRAPHQL_PORT',3000))

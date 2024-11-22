@@ -1,37 +1,167 @@
-from functools import wraps
-import functools
-def max_dt_with_lag_last_value_func(event: None = None, lag_days: int =1):
-    return lag_days*2
+
+import dlt
+from dagster_embedded_elt.dlt import (
+    DagsterDltResource,
+)
+from dlt.common import pendulum
+
+from dagster_shared_gf.dlt_shared.dlt_resources import (
+    dlt_pipeline_dest_mssql_dwh,
+)
+from dagster_shared_gf.dlt_shared.mongodb import mongodb
+from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
+    DltIncrementalPartialConfig as IncConfig,
+)
+from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
+    DltResourceCollectionConfig as DLTRColl,
+)
+from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
+    dlt_mongodb_asset_factory,
+)
+from dagster_shared_gf.shared_functions import (
+    get_for_current_env,
+)
+
+mongodb_ecommerce_hn = mongodb(
+    connection_url=dlt.secrets["sources.mdb_ecommerce_hn.connection_url"],
+    database=dlt.secrets["sources.mdb_ecommerce_hn.database"],
+    collection_names=["orders"],
+    write_disposition="merge",
+    parallel=True,
+)
+
+# orders
+collections_config = (
+    DLTRColl(
+        collection_name="orders",
+        primary_key="_id",
+        # automation_condition=automation_hourly_cron_prd,
+        # columns_to_include=tuple(
+        #     key
+        #     for key in {
+        #         "_id": {"String": 1},
+        #         "address": {"Document": 0.997, "Null": 0.003},
+        #         "amount": {"Double": 0.954, "Int32": 0.046},
+        #         "appVersion": {"Double": 0.258, "Undefined": 0.742},
+        #         "billNumberDGI": {"String": 0.691, "Undefined": 0.309},
+        #         "billNumberLD": {"String": 0.691, "Undefined": 0.309},
+        #         "billReference": {"String": 0.691, "Undefined": 0.309},
+        #         "country": {"String": 0.691, "Undefined": 0.309},
+        #         "createdAt": {"Date": 1},
+        #         "dataRoutes": {"Document": 0.896, "Array": 0.104},
+        #         "deliveryManName": {"String": 0.691, "Undefined": 0.309},
+        #         "deliveryManNumber": {"String": 0.691, "Undefined": 0.309},
+        #         "error": {"Document": 0.187, "String": 0.061, "Undefined": 0.752},
+        #         "homeDelivery": {"Int32": 0.992, "Undefined": 0.008},
+        #         "isCanje": {"Boolean": 0.093, "Undefined": 0.907},
+        #         "isRecharge": {"Boolean": 0.258, "Undefined": 0.742},
+        #         #"modificatedAt": {"String": 0.002, "Undefined": 0.998},
+        #         "modificatedDateAt": {"Date": 0.002, "Undefined": 0.998},
+        #         "orderForTomorrow": {"Boolean": 1},
+        #         "orderNumber": {"Int32": 0.691, "String": 0.309},
+        #         "origin": {"String": 1},
+        #         "packagingOrder": {"Boolean": 0.806, "Undefined": 0.194},
+        #         "payData": {"Document": 0.752, "Null": 0.004, "Undefined": 0.244},
+        #         "productPackage": {"Array": 0.875, "Null": 0.125},
+        #         "resumeOrder": {"Document": 1},
+        #         #"routeDate": {"String": 0.691, "Undefined": 0.309},
+        #         "rtn": {"Document": 0.806, "Undefined": 0.194},
+        #         "rtnActive": {"Boolean": 0.806, "Undefined": 0.194},
+        #         "selectedAddress": {"String": 0.806, "Undefined": 0.194},
+        #         "selectedCreditCard": {"String": 0.747, "Undefined": 0.253},
+        #         "shoppingCart": {"Array": 1},
+        #         "status": {"String": 1},
+        #         "tax": {"Int32": 0.476, "Double": 0.215, "Undefined": 0.309},
+        #         "total": {"Double": 0.651, "Int32": 0.04, "Undefined": 0.309},
+        #         "typeOrder": {"String": 1},
+        #         "typePayCard": {"String": 0.809, "Boolean": 0.183, "Undefined": 0.008},
+        #         "typePayment": {"String": 1},
+        #         "userId": {"String": 1},
+        #         "userName": {"String": 1},
+        #         "version": {"Double": 0.008, "Undefined": 0.992},
+        #     }
+        # ),
+        incrementals=(
+            IncConfig(
+                cursor_path="createdAt",
+                initial_value=get_for_current_env(
+                    {
+                        "local": pendulum.now().subtract(days=7),
+                        "dev": pendulum.now().subtract(years=2),
+                    }
+                ),
+            ),
+        ),
+        limit=get_for_current_env({"local": 1000}),
+    ),
+)
 
 
 
-class ComparableFunction:
-    def __init__(self, func, *args, **kwargs):
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
+all_assets = tuple(
+    asset_def
+    for asset_def in dlt_mongodb_asset_factory(
+        dlt_source=mongodb_ecommerce_hn,
+        collections_config=collections_config,
+        group_name="mongodb_ecommerce_hn_group",
+        dataset_name="mdb_ecommerce_hn",
+        pipeline_name="mongodb_ecommerce_hn_pipeline",
+    )
+)
 
-    def __call__(self, *args, **kwargs):
-        return self.func(*self.args, *args, **{**self.kwargs, **kwargs})
+if __name__ == "__main__":
+    print(all_assets)
 
-    def __eq__(self, other):
-        if isinstance(other, ComparableFunction):
-            return self.func == other.func
-        return self.func == other
+    from dagster import (
+        AssetKey,
+        build_resources,
+        instance_for_test,
+        materialize,
+    )
 
-    def __getattr__(self, name):
-        return getattr(self.func, name)
+    from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
+    from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
 
-def make_comparable(func, *args, **kwargs):
-    return ComparableFunction(func, *args, **kwargs)
+    with instance_for_test() as instance:
+        with build_resources(
+            instance=instance,
+            resources={
+                "dwh_farinter_dl": dwh_farinter_dl,
+                "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
+                "dlt": DagsterDltResource(),
+            },
+        ) as resources_init:
+            asset_to_test = tuple(
+                asset
+                for asset in all_assets
+                if asset.key in (AssetKey(("dlt_mongodb_orders",)),
+                AssetKey(("DL_FARINTER", "mdb_ecommerce_hn", "orders")),)
+            )
+            assert asset_to_test
+            result = materialize(
+                asset_to_test,
+                instance=instance,
+                resources=resources_init.original_resource_dict,
+                # run_config=RunConfig(
+                #     resources={
+                #         "dlt_pipeline_dest_mssql_dwh": {
+                #             "config": {
+                #                 # "dev_mode": True,
+                #                 "refresh": "drop_sources",
+                #             }
+                #         }
+                #     }
+                # ),
+            )
 
+            # check_result = campaigns_recetas_check(
+            #     dwh_farinter_dl=resources_init.dwh_farinter_dl
+            # )
+            # print(check_result)
 
-new_function = make_comparable(max_dt_with_lag_last_value_func, lag_days=2)
-
-print(new_function.__name__)  # Output: max_dt_with_lag_last_value_func
-
-print(max_dt_with_lag_last_value_func())
-
-print(new_function())
-
-assert new_function == max_dt_with_lag_last_value_func
+            print(f"Materialized:{
+                [
+                    mat.step_materialization_data
+                    for mat in result.get_asset_materialization_events()
+                ]
+            }")

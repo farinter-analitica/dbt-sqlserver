@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 import os
 from typing import Any, Dict, Literal, Optional, Sequence
 
@@ -36,7 +37,7 @@ mssql_dwh_destination = dlt.destinations.mssql(
     create_indexes=True,
 )
 fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
-ExtractedResourceMetadata = Dict[str, Any]
+ExtractedResourceMetadata = Mapping[str, Any]
 
 
 @dataclasses.dataclass(config={"arbitrary_types_allowed": True})
@@ -118,6 +119,8 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         description="Enables the run method of the Pipeline object to restore the pipeline state and schemas from the destination",
     )
 
+    dev_mode: bool = Field(default=False)
+
     def get_pipeline(self, pipeline_name: str, dataset_name: str) -> dlt.Pipeline:
         # configure the pipeline with your destination details
         pipeline = dlt.pipeline(
@@ -127,6 +130,7 @@ drop_data: Wipe all data and resource state for all resources being processed. S
             progress="log",
             refresh=self.refresh,
             pipelines_dir=new_pipelines_dir,
+            dev_mode=self.dev_mode,
         )
         if self.restore_from_destination is not None:
             pipeline.config.restore_from_destination = self.restore_from_destination
@@ -188,7 +192,7 @@ if __name__ == "__main__":
     assert dlt_pipeline_dest_mssql_dwh.get_pipeline("test_pipeline", "test_dataset")
 
 
-def merge_dlt_dagster_metadata(metdadata_1: dict, metadata_2: dict) -> dict:
+def merge_dlt_dagster_metadata(metdadata_1: Mapping, metadata_2: Mapping) -> dict:
     rows_loaded_1 = metdadata_1.get("rows_loaded", None) if metdadata_1 else None
     rows_loaded_2 = metadata_2.get("rows_loaded", None) if metadata_2 else None
     rows_loaded_int_1: int = (
