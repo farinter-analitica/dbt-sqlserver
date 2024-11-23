@@ -13,27 +13,32 @@ from dagster_shared_gf.shared_variables import (
 )
 from dagster_shared_gf.shared_variables import tags_repo
 
-defs: Definitions = defs ##import your defs
-asset_spec: AssetSpec 
+defs: Definitions = defs  ##import your defs
+asset_spec: AssetSpec
 warnings.filterwarnings("ignore", message="validators are deprecated")
+
 
 def test_all_assets_assigned_to_a_job():
     # Inspect the Definitions object to find assets without jobs
     all_assets_specs = set()
     all_auto_stop_assets_specs = set()
-    #all_assets = list(asset_spec.key for asset_spec in defs.get_all_asset_specs())
+    # all_assets = list(asset_spec.key for asset_spec in defs.get_all_asset_specs())
     for asset_spec in defs.get_all_asset_specs():
-        if defs.get_assets_def(asset_spec.key).execution_type == AssetExecutionType.MATERIALIZATION:
+        if (
+            defs.get_assets_def(asset_spec.key).execution_type
+            == AssetExecutionType.MATERIALIZATION
+        ):
             all_assets_specs.add(asset_spec.key)
-            if asset_spec.automation_condition or tags_repo.DetenerCarga.key in asset_spec.tags:
+            if (
+                asset_spec.automation_condition
+                or tags_repo.DetenerCarga.key in asset_spec.tags
+            ):
                 all_auto_stop_assets_specs.add(asset_spec.key)
-        #print(defs.get_assets_def(asset_spec.key).execution_type)
+        # print(defs.get_assets_def(asset_spec.key).execution_type)
     print("All assets: ", str(len(all_assets_specs)))
 
-
-
-    #print(all_assets)
-    #print(defs.get_implicit_job_def_for_assets(all_assets))
+    # print(all_assets)
+    # print(defs.get_implicit_job_def_for_assets(all_assets))
     job_auto_stop_assigned_assets = set()
     all_jobs = defs.jobs or []
     all_assets = defs.assets
@@ -43,38 +48,39 @@ def test_all_assets_assigned_to_a_job():
                 materialized_assets = {
                     asset_key
                     for asset_key in job_def.asset_selection
-                    if defs.get_assets_def(asset_key).execution_type == AssetExecutionType.MATERIALIZATION
+                    if defs.get_assets_def(asset_key).execution_type
+                    == AssetExecutionType.MATERIALIZATION
                 }
                 job_auto_stop_assigned_assets.update(materialized_assets)
         elif isinstance(job_def, UnresolvedAssetJobDefinition):
-            resolved_assets = job_def.selection.resolve(all_assets) # type: ignore
+            resolved_assets = job_def.selection.resolve(all_assets)  # type: ignore
             materialized_assets = {
                 asset_key
                 for asset_key in resolved_assets
-                if defs.get_assets_def(asset_key).execution_type == AssetExecutionType.MATERIALIZATION
+                if defs.get_assets_def(asset_key).execution_type
+                == AssetExecutionType.MATERIALIZATION
             }
             job_auto_stop_assigned_assets.update(materialized_assets)
 
-    job_auto_stop_assigned_assets.update(all_auto_stop_assets_specs)    
-    print("Job, auto or stopped assigned assets: ", str(len(job_auto_stop_assigned_assets)))
+    job_auto_stop_assigned_assets.update(all_auto_stop_assets_specs)
 
     non_job_assigned_assets = all_assets_specs - job_auto_stop_assigned_assets
-    print("Non-job, auto or stopped assigned assets: ", str(len(non_job_assigned_assets)))
 
-    assert_message =f"""Non-job assigned assets: {str(len(non_job_assigned_assets))}
+    assert_message = f"""
+        All assets: {str(len(all_assets_specs))}
+        Non-job assigned assets: {str(len(non_job_assigned_assets))}
         List of non-job assigned assets: {non_job_assigned_assets}
+        Job, auto or stopped assigned assets: {str(len(job_auto_stop_assigned_assets))}
+        Non-job, auto or stopped assigned assets: {str(len(non_job_assigned_assets))}
         """
-    assert len(non_job_assigned_assets) == 0 , assert_message
+    assert len(non_job_assigned_assets) == 0, assert_message
 
     # Print non-job assigned assets
     # print("Non-job assigned assets:")
     # for asset_key in non_job_assigned_assets:
     #     print(asset_key)
 
-
-
-
-        #print(asset_key.metadata for asset_key in defs.get_all_asset_specs() if asset_key in non_job_assigned_assets)
+    # print(asset_key.metadata for asset_key in defs.get_all_asset_specs() if asset_key in non_job_assigned_assets)
     # Optionally, define a job with the non-job assigned assets for testing purposes
     # non_job_assigned_assets_selection = AssetSelection.assets(*non_job_assigned_assets)
 
@@ -88,6 +94,7 @@ def test_all_assets_assigned_to_a_job():
     #     assets=[asset1, asset2, asset3],
     #     jobs=[job_with_assets, non_job_assigned_assets_job]
     # )
+
 
 if __name__ == "__main__":
     test_all_assets_assigned_to_a_job()

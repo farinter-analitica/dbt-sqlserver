@@ -4,7 +4,7 @@
     {{
         config(
             as_columnstore=false,
-            tags=["periodo/diario"],
+            tags=["periodo/diario", "automation/si"],
             target_schema='dbt_snapshot',
             strategy='timestamp',
             unique_key="Suscripcion_Id" ,

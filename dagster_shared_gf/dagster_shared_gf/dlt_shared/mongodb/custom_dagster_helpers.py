@@ -137,6 +137,16 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
             # , **{"columns_schema": resource.columns}
         }
 
+    def get_automation_condition(
+        self, resource: DltResource
+    ) -> Optional[AutomationCondition]:
+        if self.collection and self.collection.automation_condition:
+            super_auto = super().get_automation_condition(resource)
+            if super_auto:
+                return self.collection.automation_condition | super_auto
+            else:
+                return self.collection.automation_condition
+
     def get_normalized_table_identifier(self, resource: DltResource) -> str:
         return snake_case_normalizer.normalize_table_identifier(resource.name)
 
@@ -185,9 +195,7 @@ def make_comparable(func, *args, **kwargs):
     return ComparableFunction(func, *args, **kwargs)
 
 
-def force_columns_types(
-    doc: Dict, force_dict: Optional[dict[str, Any]] = None
-) -> Dict:
+def force_columns_types(doc: Dict, force_dict: Optional[dict[str, Any]] = None) -> Dict:
     """
     Removes the specified columns from the given document.
 
@@ -203,7 +211,9 @@ def force_columns_types(
 
     for column_name in force_dict:
         # print(f"check {column_name}")
-        if column_name in doc and not isinstance(doc[column_name], force_dict[column_name]):
+        if column_name in doc and not isinstance(
+            doc[column_name], force_dict[column_name]
+        ):
             # print(f"del {column_name}")
             doc[column_name] = None
 
@@ -256,7 +266,7 @@ def include_collection_columns(
     #     "a",
     # ) as file:
     #     file.write(f"comparing {include_columns} with {str(doc.keys())}\n")
-    #print(f"comparing {include_columns} with {str(doc.keys())}")
+    # print(f"comparing {include_columns} with {str(doc.keys())}")
     return {
         column_name: doc[column_name]
         for column_name in include_columns
@@ -286,6 +296,7 @@ def process_collection_config(
         col.max_table_nesting = c.max_table_nesting
 
     if c.force_columns_type:
+
         def force_columns(doc):
             return force_columns_types(doc=doc, force_dict=c.force_columns_type)
 
@@ -301,7 +312,7 @@ def process_collection_config(
         col = col.add_map(remove_columns)
 
     if c.columns_to_include:
-        
+
         def include_columns(doc):
             return include_collection_columns(
                 doc=doc, include_columns=c.columns_to_include
@@ -348,9 +359,10 @@ def custom_runs_interator(
                 incremental_dlt = dlt.sources.incremental(
                     cursor_path=i.cursor_path,
                     initial_value=i.initial_value,  # .to_iso8601_string(),
-                    #lag=i.lag,
-                    last_value_func=make_comparable(max_dt_with_lag_last_value_func,
-                                                   lag_days=i.lag),
+                    # lag=i.lag,
+                    last_value_func=make_comparable(
+                        max_dt_with_lag_last_value_func, lag_days=i.lag
+                    ),
                 )
                 yield dlt_resource.apply_hints(incremental=incremental_dlt)
         else:
@@ -407,7 +419,7 @@ def create_dlt_asset(
         ):
             # print(custom_run_resource.columns)
             new_pipeline.drop_pending_packages()
-        
+
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource, new_pipeline
             )

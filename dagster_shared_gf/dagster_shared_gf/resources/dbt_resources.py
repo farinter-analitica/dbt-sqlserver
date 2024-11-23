@@ -14,7 +14,9 @@ from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.shared_functions import get_for_current_env
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
-warnings.filterwarnings("ignore", message=".*Pydantic V1 style `@validator` validators are deprecated..*")
+warnings.filterwarnings(
+    "ignore", message=".*Pydantic V1 style `@validator` validators are deprecated..*"
+)
 env_str: str = shared_vars.env_str
 
 base_path = os.environ.get("DAGSTER_HOME")
@@ -128,12 +130,14 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         self, dbt_resource_props
     ) -> Optional[AutomationCondition]:
         tags = self.get_tags(dbt_resource_props)
-        daily_auto_tags = (
-            shared_vars.tags_repo.Daily.tag
-            | shared_vars.tags_repo.Partitioned.tag
-        )
+        daily_auto_tags = {
+            **shared_vars.tags_repo.Automation.tag, **shared_vars.tags_repo.Partitioned.tag
+        }
         all_automations = super().get_automation_condition(dbt_resource_props)
-        if all(item in tags.items() for item in daily_auto_tags.items()):
+        if (
+            any(item in tags.items() for item in daily_auto_tags.items())
+            and shared_vars.tags_repo.Daily.key in tags
+        ):
             if all_automations is None:
                 all_automations = automation_daily_delta_2_cron
             else:

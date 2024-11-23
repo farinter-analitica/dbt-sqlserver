@@ -16,6 +16,7 @@ env_str: str = dagster_instance_current_env.env
 shared_class_holder = [UnresolvedAssetJobDefinition, AssetExecutionType]
 default_timezone_teg: str = "America/Tegucigalpa"
 
+
 class SingletonMeta(type):
     """
     This is a thread-safe implementation of Singleton.
@@ -120,6 +121,7 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
 
     Monthly: Tags = Tags(key="periodo/mensual", value="")
     """{"periodo/mensual": ""}"""
+
     HourlyAdditional: Tags = Tags(key="periodo/por_hora_adicional", value="")
     """{"periodo/por_hora_adicional": ""}"""
 
@@ -129,18 +131,15 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     DetenerCarga: Tags = Tags(key="detener_carga/si", value="")
     """{"detener_carga/si": ""}"""
 
+    Automation: Tags = Tags(key="automation/si", value="")
+    """{"automation/si": ""}"""
+
 
 def get_execution_config(max_concurrent: int) -> dict:
-    return {
-        "config": {
-            "multiprocess": {
-                "max_concurrent": max_concurrent
-            }
-        }
-    }
+    return {"config": {"multiprocess": {"max_concurrent": max_concurrent}}}
+
 
 tags_repo = TagsRepositoryGF()
 
 if __name__ == "__main__":
     print(tags_repo.Hourly.key)
-
