@@ -1,4 +1,9 @@
-from dagster import AssetsDefinition, Definitions
+from dagster import (
+    AssetSelection,
+    AssetsDefinition,
+    Definitions,
+    AutomationConditionSensorDefinition as ACS,
+)
 import dagster_kielsa_gf.dlt.definitions as dlt_defs
 import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
 
@@ -59,16 +64,26 @@ dbt_sources_assets: list = [
 all_resources = all_shared_resources
 
 
-
 defs = Definitions.merge(
     # dlt_defs.defs, #antes todos los subrepos
     Definitions(
-        assets=(*all_assets, *dbt_sources_assets, *dlt_defs.all_assets,),
+        assets=(
+            *all_assets,
+            *dbt_sources_assets,
+            *dlt_defs.all_assets,
+        ),
         asset_checks=(*all_asset_checks, *dlt_defs.all_asset_checks),
         resources=all_resources | dlt_defs.all_resources,
         jobs=(*jobs.all_jobs, *job_control_replicas.all_jobs),
         schedules=all_schedules,
-        sensors=all_sensors,
+        sensors=(
+            *all_sensors,
+            ACS(
+                "automation_condition_sensor",
+                target=AssetSelection.all(),
+                use_user_code_server=True,
+            ),
+        ),
     ),
     gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos
 )
