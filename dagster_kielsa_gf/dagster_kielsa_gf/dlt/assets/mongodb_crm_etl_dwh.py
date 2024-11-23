@@ -223,7 +223,7 @@ mongodb_crm_hn_updated_at_assets = dlt_mongodb_asset_factory(
     dataset_name="mongo_db_crm_hn",
     collections_config=read_source_config_updated_at,
     group_name="dlt_mongo_db_crm_hn_etl_dwh",
-    base_pipeline_name="mongodb_crm_hn_pipeline_updated_at",
+    base_pipeline_name="mongodb_crm_hn_updated_at",
 )
 
 mongodb_crm_hn_person = mongodb(
@@ -239,7 +239,7 @@ mongodb_crm_hn_person_assets = dlt_mongodb_asset_factory(
     dataset_name="mongo_db_crm_hn",
     collections_config=(collection_person,),
     group_name="dlt_mongo_db_crm_hn_etl_dwh",
-    base_pipeline_name="mongodb_crm_hn_pipeline_person",
+    base_pipeline_name="mongodb_crm_hn_person",
 )
 
 
@@ -256,7 +256,7 @@ mongodb_crm_hn_multi_assets = dlt_mongodb_asset_factory(
     dataset_name="mongo_db_crm_hn",
     collections_config=read_source_config_multi_column,
     group_name="dlt_mongo_db_crm_hn_etl_dwh",
-    base_pipeline_name="mongodb_crm_hn_pipeline_multi",
+    base_pipeline_name="mongodb_crm_hn_multi",
 )
 
 mongodb_crm_hn_full_refresh = mongodb(
@@ -272,7 +272,7 @@ mongodb_crm_hn_full_refresh_assets = dlt_mongodb_asset_factory(
     dataset_name="mongo_db_crm_hn",
     collections_config=read_source_config_full_refresh,
     group_name="dlt_mongo_db_crm_hn_etl_dwh",
-    base_pipeline_name="mongodb_crm_hn_pipeline_full_refresh",
+    base_pipeline_name="mongodb_crm_hn_full_refresh",
 )
 
 #Enlistar todos los assets
