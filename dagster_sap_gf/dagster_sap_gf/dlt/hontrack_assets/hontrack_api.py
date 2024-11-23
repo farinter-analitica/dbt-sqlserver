@@ -171,6 +171,7 @@ def hontrack_api_source(
             doc["enterprise_id"] = "farinter"
             for data in doc["data"]:
                 data["_dlt_id"] = f"{doc["code"]}_{datetime.fromisoformat(data['fchapl']).strftime("%Y%m%d")}"
+                data["driver_code"] = doc["code"]
             return  doc
         
         resource.add_map(transform_doc)
