@@ -130,7 +130,7 @@ created_mongodb_assets = dlt_mongodb_asset_factory(
     collections_config=collections_config,
     group_name="mongodb_ecommerce_hn_group",
     dataset_name="mdb_ecommerce_hn",
-    pipeline_name="mongodb_ecommerce_hn_pipeline",
+    base_pipeline_name="mongodb_ecommerce_hn_pipeline",
 )
 
 all_mongodb_hn_assets = (*created_mongodb_assets,)

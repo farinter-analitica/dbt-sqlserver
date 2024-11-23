@@ -448,7 +448,7 @@ def dlt_mongodb_asset_factory(
     dlt_source: DltSource,
     dataset_name: str,
     collections_config: tuple[DltResourceCollectionConfig, ...],
-    pipeline_name: str,
+    base_pipeline_name: str,
     group_name: str | None = None,
 ) -> Generator[AssetsDefinition, None, None]:
     collections_config_dict = {c.collection_name: c for c in collections_config}
@@ -465,5 +465,5 @@ def dlt_mongodb_asset_factory(
             ),
             dataset_name=dataset_name,
             collections_config_dict=collections_config_dict,
-            pipeline_name=pipeline_name,
+            pipeline_name=base_pipeline_name + "_" + resource,
         )
