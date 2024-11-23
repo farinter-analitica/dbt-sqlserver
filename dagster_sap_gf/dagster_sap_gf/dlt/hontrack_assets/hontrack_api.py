@@ -15,7 +15,7 @@ from dagster import (
 from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
 from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
-from dlt.sources.rest_api.typing import RESTAPIConfig, PaginatorConfig
+from dlt.sources.rest_api.typing import RESTAPIConfig, PaginatorConfig, ClientConfig, PaginatorType, ResponseActionDict
 
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.dlt_shared.dlt_resources import (
@@ -35,6 +35,12 @@ def remove_fields(response: Response, *args, **kwargs) -> Response:
     response._content = modified_content
     return response
 
+def validate_response(response: Response, *args, **kwargs) -> Response:
+    response.raise_for_status()
+    if response.status_code == 200 and response.json():
+        return response
+
+    raise Exception(response.text[:1000])
 
 @dlt.source
 def hontrack_api_source(
@@ -61,24 +67,33 @@ def hontrack_api_source(
     start_date_str = v_start_date.strftime("%Y-%m-%d %H:%M:%S")
     end_date_str = v_end_date.strftime("%Y-%m-%d %H:%M:%S")
 
-    paginator: PaginatorConfig = {"type":"single_page"}
+    paginator_type: PaginatorType = "single_page"
+    paginator_config: PaginatorConfig = {"type":paginator_type}
 
-    config: RESTAPIConfig = {
-        "client": {
+    client_config: ClientConfig = {
             "base_url": "https://rma.hontrack.com/api/external/",
             "auth": {
                 "token": api_key,
             },
-            "paginator": paginator,
-        },
+            "paginator": paginator_config,
+            
+        }
+
+    config: RESTAPIConfig = {
+        "client": client_config,
         "resource_defaults": {
             # "primary_key": "id",
             "write_disposition": "merge",
-            # "endpoint": {
-            #     "params": {
-            #         "per_page": 100,
-            # },
-            # },
+            "endpoint": {
+                "response_actions": [
+                        # ResponseActionDict(status_code=200, action=validate_response),
+                        # {"status_code": 400, "action": "ignore"},
+                        # {"status_code": 401, "action": "ignore"},
+                        # {"status_code": 404, "action": "ignore"},
+                        ResponseActionDict(action=validate_response),
+                    ],
+            },
+            
         },
         "resources": [
             {
@@ -93,11 +108,6 @@ def hontrack_api_source(
                         "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
                         "api_key": api_key,
                     },
-                    "response_actions": [
-                        {"status_code": 400, "action": "ignore"},
-                        {"status_code": 401, "action": "ignore"},
-                        {"status_code": 404, "action": "ignore"},
-                    ],
                     "data_selector": "payload.vehicles",
                 },
             },
@@ -113,15 +123,6 @@ def hontrack_api_source(
                         "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
                         "api_key": api_key,
                     },
-                    "response_actions": [
-                        {"status_code": 400, "action": "ignore"},
-                        {"status_code": 401, "action": "ignore"},
-                        {"status_code": 404, "action": "ignore"},
-                        # {
-                        #     "status_code": 200,
-                        #     "action": lambda columns = ("data",):  remove_fields,
-                        # },
-                    ],
                     "data_selector": "payload.vehicles",
                     
                 },
@@ -146,8 +147,6 @@ def hontrack_api_source(
                 "enterprise_id": "farinter",  # add new column
             }
         )
-
-    
 
     return source
 
@@ -282,5 +281,5 @@ if __name__ == "__main__":
             [defs.get_assets_def(AssetKey(("DL_FARINTER", "hontrack_api", "sensors_resumen")))],
             instance=instance,
             # resources=defs.resources,
-            partition_key="2024-11-07",
+            partition_key="2024-11-15",
         )
