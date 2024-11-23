@@ -121,16 +121,18 @@ drop_data: Wipe all data and resource state for all resources being processed. S
 
     dev_mode: bool = Field(default=False)
 
-    def get_pipeline(self, pipeline_name: str, dataset_name: str) -> dlt.Pipeline:
+    def get_pipeline(self, pipeline_name: str, dataset_name: str, import_schema_path: str|None = None, export_schema_path: str|None = None) -> dlt.Pipeline:
         # configure the pipeline with your destination details
         pipeline = dlt.pipeline(
             pipeline_name=pipeline_name,
             destination=self._get_destination(),
             dataset_name=dataset_name,
             progress="log",
-            refresh=self.refresh,
+            refresh=self.refresh, # type: ignore
             pipelines_dir=new_pipelines_dir,
             dev_mode=self.dev_mode,
+            import_schema_path=import_schema_path, # type: ignore[arg-type]
+            export_schema_path=export_schema_path, # type: ignore[arg-type]
         )
         if self.restore_from_destination is not None:
             pipeline.config.restore_from_destination = self.restore_from_destination
@@ -156,7 +158,9 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         if write_disposition is None:
             write_disposition = self.write_disposition
         load_info: LoadInfo = pipeline.run(
-            resource_data, write_disposition=write_disposition
+            resource_data,
+            write_disposition=write_disposition,
+            refresh=self.refresh, # type: ignore
         )
         # oad_info.raise_on_failed_jobs()
         # extracted_resource_metadata = self.extract_resource_metadata( resource_data, load_info)

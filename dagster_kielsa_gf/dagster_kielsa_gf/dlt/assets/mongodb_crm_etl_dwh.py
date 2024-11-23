@@ -222,7 +222,7 @@ mongodb_crm_hn_updated_at_assets = dlt_mongodb_asset_factory(
     dlt_source=mongodb_crm_hn_updated_at,
     dataset_name="mongo_db_crm_hn",
     collections_config=read_source_config_updated_at,
-    group_name="mongodb_crm_hn_etl_dwh_group",
+    group_name="dlt_mongo_db_crm_hn_etl_dwh",
     pipeline_name="mongodb_crm_hn_pipeline_updated_at",
 )
 
@@ -238,7 +238,7 @@ mongodb_crm_hn_person_assets = dlt_mongodb_asset_factory(
     dlt_source=mongodb_crm_hn_person,
     dataset_name="mongo_db_crm_hn",
     collections_config=(collection_person,),
-    group_name="mongodb_crm_hn_etl_dwh_group",
+    group_name="dlt_mongo_db_crm_hn_etl_dwh",
     pipeline_name="mongodb_crm_hn_pipeline_person",
 )
 
@@ -255,7 +255,7 @@ mongodb_crm_hn_multi_assets = dlt_mongodb_asset_factory(
     dlt_source=mongodb_crm_hn_multi,
     dataset_name="mongo_db_crm_hn",
     collections_config=read_source_config_multi_column,
-    group_name="mongodb_crm_hn_etl_dwh_group",
+    group_name="dlt_mongo_db_crm_hn_etl_dwh",
     pipeline_name="mongodb_crm_hn_pipeline_multi",
 )
 
@@ -271,7 +271,7 @@ mongodb_crm_hn_full_refresh_assets = dlt_mongodb_asset_factory(
     dlt_source=mongodb_crm_hn_full_refresh,
     dataset_name="mongo_db_crm_hn",
     collections_config=read_source_config_full_refresh,
-    group_name="mongodb_crm_hn_etl_dwh_group",
+    group_name="dlt_mongo_db_crm_hn_etl_dwh",
     pipeline_name="mongodb_crm_hn_pipeline_full_refresh",
 )
 
@@ -405,15 +405,7 @@ if __name__ == "__main__":
                 for asset in all_assets
                 if asset.key
                 in (
-                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "campaignSchedule")),
-                    AssetKey(
-                        (
-                            "DL_FARINTER",
-                            "mongo_db_crm_hn",
-                            "campaignSchedule",
-                            "updatedAt",
-                        )
-                    ),
+                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),
                 )
             )
             assert asset_to_test

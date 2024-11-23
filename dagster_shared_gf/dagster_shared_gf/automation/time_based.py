@@ -139,8 +139,8 @@ def my_cron_automation_condition(
 #     & all_daily_deps_updated.since_last_handled()
 # ).with_label("Cron diario condicional.")
 
-daily_cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "0 0 * * *"})
-automation_daily_delta_1_cron = my_cron_automation_condition(
+daily_cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "5 0 * * *"})
+automation_daily_delta_2_cron = my_cron_automation_condition(
     cron_schedule=daily_cron_schedule,
     ignored_deps_updated_selection=(
         AssetSelection.all()
@@ -148,3 +148,4 @@ automation_daily_delta_1_cron = my_cron_automation_condition(
     ),
     lookback_delta=timedelta(days=2),
 )
+

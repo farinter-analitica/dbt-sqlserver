@@ -1,4 +1,3 @@
-
 from collections.abc import Sequence
 from datetime import timedelta
 from itertools import chain
@@ -33,64 +32,82 @@ from dagster_shared_gf.shared_functions import (
     get_for_current_env,
 )
 from dagster_shared_gf.shared_variables import tags_repo
+from dagster_shared_gf.automation import automation_daily_delta_2_cron
 
 # orders
 collections_config = (
     DLTRColl(
         collection_name="orders",
         primary_key="_id",
-        # automation_condition=automation_hourly_cron_prd,
-        # columns_to_include=tuple(
-        #     key
-        #     for key in {
-        #         "_id": {"String": 1},
-        #         "address": {"Document": 0.997, "Null": 0.003},
-        #         "amount": {"Double": 0.954, "Int32": 0.046},
-        #         "appVersion": {"Double": 0.258, "Undefined": 0.742},
-        #         "billNumberDGI": {"String": 0.691, "Undefined": 0.309},
-        #         "billNumberLD": {"String": 0.691, "Undefined": 0.309},
-        #         "billReference": {"String": 0.691, "Undefined": 0.309},
-        #         "country": {"String": 0.691, "Undefined": 0.309},
-        #         "createdAt": {"Date": 1},
-        #         "dataRoutes": {"Document": 0.896, "Array": 0.104},
-        #         "deliveryManName": {"String": 0.691, "Undefined": 0.309},
-        #         "deliveryManNumber": {"String": 0.691, "Undefined": 0.309},
-        #         "error": {"Document": 0.187, "String": 0.061, "Undefined": 0.752},
-        #         "homeDelivery": {"Int32": 0.992, "Undefined": 0.008},
-        #         "isCanje": {"Boolean": 0.093, "Undefined": 0.907},
-        #         "isRecharge": {"Boolean": 0.258, "Undefined": 0.742},
-        #         #"modificatedAt": {"String": 0.002, "Undefined": 0.998},
-        #         "modificatedDateAt": {"Date": 0.002, "Undefined": 0.998},
-        #         "orderForTomorrow": {"Boolean": 1},
-        #         "orderNumber": {"Int32": 0.691, "String": 0.309},
-        #         "origin": {"String": 1},
-        #         "packagingOrder": {"Boolean": 0.806, "Undefined": 0.194},
-        #         "payData": {"Document": 0.752, "Null": 0.004, "Undefined": 0.244},
-        #         "productPackage": {"Array": 0.875, "Null": 0.125},
-        #         "resumeOrder": {"Document": 1},
-        #         #"routeDate": {"String": 0.691, "Undefined": 0.309},
-        #         "rtn": {"Document": 0.806, "Undefined": 0.194},
-        #         "rtnActive": {"Boolean": 0.806, "Undefined": 0.194},
-        #         "selectedAddress": {"String": 0.806, "Undefined": 0.194},
-        #         "selectedCreditCard": {"String": 0.747, "Undefined": 0.253},
-        #         "shoppingCart": {"Array": 1},
-        #         "status": {"String": 1},
-        #         "tax": {"Int32": 0.476, "Double": 0.215, "Undefined": 0.309},
-        #         "total": {"Double": 0.651, "Int32": 0.04, "Undefined": 0.309},
-        #         "typeOrder": {"String": 1},
-        #         "typePayCard": {"String": 0.809, "Boolean": 0.183, "Undefined": 0.008},
-        #         "typePayment": {"String": 1},
-        #         "userId": {"String": 1},
-        #         "userName": {"String": 1},
-        #         "version": {"Double": 0.008, "Undefined": 0.992},
-        #     }
-        # ),
+        automation_condition=automation_daily_delta_2_cron,
+        # columns_hints={
+        #     "dataRoutes" : {"nullable" : True, "data_type": "json"},
+        #     "address" : {"nullable" : True},
+        # },
+        max_table_nesting=4,
+        # force_columns_type={
+        #     "dataRoutes": dict,
+        # },
+        columns_to_include=tuple(
+            key
+            for key in {
+                "_id": {"String": 1},
+                "address": {"Document": 0.997, "Null": 0.003},
+                "amount": {"Double": 0.954, "Int32": 0.046},
+                "appVersion": {"Double": 0.258, "Undefined": 0.742},
+                "billNumberDGI": {"String": 0.691, "Undefined": 0.309},
+                "billNumberLD": {"String": 0.691, "Undefined": 0.309},
+                "billReference": {"String": 0.691, "Undefined": 0.309},
+                "country": {"String": 0.691, "Undefined": 0.309},
+                "createdAt": {"Date": 1},
+                "dataRoutes": {"Document": 0.896, "Array": 0.104},
+                "deliveryManName": {"String": 0.691, "Undefined": 0.309},
+                "deliveryManNumber": {"String": 0.691, "Undefined": 0.309},
+                "error": {"Document": 0.187, "String": 0.061, "Undefined": 0.752},
+                "homeDelivery": {"Int32": 0.992, "Undefined": 0.008},
+                "isCanje": {"Boolean": 0.093, "Undefined": 0.907},
+                "isRecharge": {"Boolean": 0.258, "Undefined": 0.742},
+                # "modificatedAt": {"String": 0.002, "Undefined": 0.998},
+                "modificatedDateAt": {"Date": 0.002, "Undefined": 0.998},
+                "orderForTomorrow": {"Boolean": 1},
+                "orderNumber": {"Int32": 0.691, "String": 0.309},
+                "origin": {"String": 1},
+                "packagingOrder": {"Boolean": 0.806, "Undefined": 0.194},
+                "payData": {"Document": 0.752, "Null": 0.004, "Undefined": 0.244},
+                "productPackage": {"Array": 0.875, "Null": 0.125},
+                "resumeOrder": {"Document": 1},
+                # "routeDate": {"String": 0.691, "Undefined": 0.309},
+                "rtn": {"Document": 0.806, "Undefined": 0.194},
+                "rtnActive": {"Boolean": 0.806, "Undefined": 0.194},
+                "selectedAddress": {"String": 0.806, "Undefined": 0.194},
+                "selectedCreditCard": {"String": 0.747, "Undefined": 0.253},
+                "shoppingCart": {"Array": 1},
+                "status": {"String": 1},
+                "tax": {"Int32": 0.476, "Double": 0.215, "Undefined": 0.309},
+                "total": {"Double": 0.651, "Int32": 0.04, "Undefined": 0.309},
+                "typeOrder": {"String": 1},
+                "typePayCard": {"String": 0.809, "Boolean": 0.183, "Undefined": 0.008},
+                "typePayment": {"String": 1},
+                "userId": {"String": 1},
+                "userName": {"String": 1},
+                "version": {"Double": 0.008, "Undefined": 0.992},
+            }
+        ),
         incrementals=(
+            IncConfig(
+                cursor_path="modificatedDateAt",
+                initial_value=get_for_current_env(
+                    {
+                        "local": pendulum.now().subtract(days=30),
+                        "dev": pendulum.now().subtract(days=30),
+                    }
+                ),
+            ),
             IncConfig(
                 cursor_path="createdAt",
                 initial_value=get_for_current_env(
                     {
-                        "local": pendulum.now().subtract(days=7),
+                        "local": pendulum.now().subtract(days=30),
                         "dev": pendulum.now().subtract(years=2),
                     }
                 ),
@@ -105,20 +122,18 @@ mongodb_ecommerce_hn = mongodb(
     database=dlt.secrets["sources.mdb_ecommerce_hn.database"],
     collection_names=[c.collection_name for c in collections_config],
     write_disposition="merge",
-    parallel=True,
+    # parallel=True,
 )
 
-created_mongodb_assets=dlt_mongodb_asset_factory(
-        dlt_source=mongodb_ecommerce_hn,
-        collections_config=collections_config,
-        group_name="mongodb_ecommerce_hn_group",
-        dataset_name="mdb_ecommerce_hn",
-        pipeline_name="mongodb_ecommerce_hn_pipeline",
-    )
-
-all_mongodb_hn_assets = (
-    *created_mongodb_assets,
+created_mongodb_assets = dlt_mongodb_asset_factory(
+    dlt_source=mongodb_ecommerce_hn,
+    collections_config=collections_config,
+    group_name="mongodb_ecommerce_hn_group",
+    dataset_name="mdb_ecommerce_hn",
+    pipeline_name="mongodb_ecommerce_hn_pipeline",
 )
+
+all_mongodb_hn_assets = (*created_mongodb_assets,)
 
 
 all_mongodb_hn_source_assets = list(
@@ -174,6 +189,7 @@ if __name__ == "__main__":
         build_resources,
         instance_for_test,
         materialize,
+        RunConfig,
     )
 
     from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
@@ -191,24 +207,28 @@ if __name__ == "__main__":
             asset_to_test = tuple(
                 asset
                 for asset in all_assets
-                if asset.key in (AssetKey(("dlt_mongodb_orders",)),
-                AssetKey(("DL_FARINTER", "mdb_ecommerce_hn", "orders")),)
+                if asset.key
+                in (
+                    AssetKey(("dlt_mongodb_orders",)),
+                    AssetKey(("DL_FARINTER", "mdb_ecommerce_hn", "orders")),
+                )
             )
             assert asset_to_test
             result = materialize(
                 asset_to_test,
                 instance=instance,
                 resources=resources_init.original_resource_dict,
-                # run_config=RunConfig(
-                #     resources={
-                #         "dlt_pipeline_dest_mssql_dwh": {
-                #             "config": {
-                #                 # "dev_mode": True,
-                #                 "refresh": "drop_sources",
-                #             }
-                #         }
-                #     }
-                # ),
+                run_config=RunConfig(
+                    resources={
+                        "dlt_pipeline_dest_mssql_dwh": {
+                            "config": {
+                                # "dev_mode": True,
+                                "write_disposition": "replace",
+                                # "refresh": "drop_sources",
+                            }
+                        }
+                    }
+                ),
             )
 
             # check_result = campaigns_recetas_check(

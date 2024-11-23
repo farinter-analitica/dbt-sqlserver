@@ -13,7 +13,7 @@ from dagster import (
     get_dagster_logger,
 )
 from dagster_embedded_elt.dlt import DagsterDltTranslator
-from dlt.common import pendulum
+from dlt.common import pendulum, logger
 from dlt.common.normalizers.naming.snake_case import NamingConvention
 from dlt.common.pipeline import LoadInfo
 from dlt.extract import DltResource, DltSource
@@ -24,9 +24,11 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
     merge_dlt_dagster_metadata,
 )
 from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
 
 snake_case_normalizer = NamingConvention()
-logger = get_dagster_logger()
+# logger = get_dagster_logger()
+
 
 def default_date_fn():
     pendulum_dt = get_for_current_env(
@@ -49,6 +51,7 @@ class DltIncrementalPartialConfig:
     def to_dict(self):
         return dataclasses.asdict(self)
 
+
 @dataclasses.dataclass(frozen=True, config={"arbitrary_types_allowed": True})
 class DltResourceCollectionConfig:
     collection_name: str
@@ -64,9 +67,12 @@ class DltResourceCollectionConfig:
     lag_days: Optional[int] = None
     automation_condition: Optional[AutomationCondition] = None
     dep_pipeline_cursor: Optional[str] = None
+    max_table_nesting: Optional[int] = None
+    force_columns_type: Optional[dict[str, Any]] = None
 
     def get_all_configs_dict(self) -> Mapping[str, Any]:
         return {key: value for key, value in self.__dict__.items() if value is not None}
+
 
 @dataclasses.dataclass
 class DagsterDltTranslatorMongodb(DagsterDltTranslator):
@@ -115,7 +121,9 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
         return dependencies
 
     def get_metadata(self, resource: DltResource) -> Mapping[str, Any]:
-        collection_dict = self.collection.get_all_configs_dict() if self.collection else None
+        collection_dict = (
+            self.collection.get_all_configs_dict() if self.collection else None
+        )
         collection_meta = {}
         if collection_dict:
             collection_meta = {
@@ -123,8 +131,9 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
                 for key, value in collection_dict.items()
             }
         return {
-            **collection_meta
-            , **resource.explicit_args  # type: ignore
+            **super().get_metadata(resource=resource),
+            **collection_meta,
+            **resource.explicit_args,  # type: ignore
             # , **{"columns_schema": resource.columns}
         }
 
@@ -135,13 +144,13 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
         return snake_case_normalizer.normalize_identifier(column_identifier)
 
     def get_normalized_dataset_name(self) -> str:
-        return snake_case_normalizer.normalize_table_identifier(
-            self.dataset_name
-        )
+        return snake_case_normalizer.normalize_table_identifier(self.dataset_name)
 
     def get_normalized_cursor_path(self, resource: DltResource) -> str | None:
         return (
-            snake_case_normalizer.normalize_identifier(resource.incremental.incremental.cursor_path)
+            snake_case_normalizer.normalize_identifier(
+                resource.incremental.incremental.cursor_path
+            )
             if resource.incremental and resource.incremental.incremental
             else None
         )
@@ -152,6 +161,7 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
             return collection.incrementals
         else:
             return ()
+
 
 class ComparableFunction:
     def __init__(self, func, *args, **kwargs):
@@ -170,8 +180,34 @@ class ComparableFunction:
     def __getattr__(self, name):
         return getattr(self.func, name)
 
+
 def make_comparable(func, *args, **kwargs):
     return ComparableFunction(func, *args, **kwargs)
+
+
+def force_columns_types(
+    doc: Dict, force_dict: Optional[dict[str, Any]] = None
+) -> Dict:
+    """
+    Removes the specified columns from the given document.
+
+    Args:
+        doc (Dict): The document from which columns are to be removed.
+        remove_columns (Optional[tuple[str]], optional): The list of column names to be removed. Defaults to None.
+
+    Returns:
+        Dict: The modified document with the specified columns removed.
+    """
+    if force_dict is None:
+        force_dict = {}
+
+    for column_name in force_dict:
+        # print(f"check {column_name}")
+        if column_name in doc and not isinstance(doc[column_name], force_dict[column_name]):
+            # print(f"del {column_name}")
+            doc[column_name] = None
+
+    return doc
 
 
 def remove_collection_columns(
@@ -191,7 +227,9 @@ def remove_collection_columns(
         remove_columns = []
 
     for column_name in remove_columns:
+        # print(f"check {column_name}")
         if column_name in doc:
+            # print(f"del {column_name}")
             del doc[column_name]
 
     return doc
@@ -213,9 +251,21 @@ def include_collection_columns(
     if include_columns is None:
         include_columns = []
 
-    return {column_name: doc[column_name] for column_name in include_columns if column_name in doc}
+    # with open(
+    #     r"D:\python_p\Main_Dagster_DEV\dagster_shared_gf\dagster_shared_gf\dlt_shared\logs.log",
+    #     "a",
+    # ) as file:
+    #     file.write(f"comparing {include_columns} with {str(doc.keys())}\n")
+    #print(f"comparing {include_columns} with {str(doc.keys())}")
+    return {
+        column_name: doc[column_name]
+        for column_name in include_columns
+        if column_name in doc
+    }
+
 
 ColConfigs = tuple[DltResourceCollectionConfig, ...]
+
 
 def process_collection_config(
     col: DltResource, collections_config: DltResourceCollectionConfig | None
@@ -232,19 +282,32 @@ def process_collection_config(
     if c.columns_hints:
         col = col.apply_hints(columns=c.columns_hints)
 
+    if c.max_table_nesting:
+        col.max_table_nesting = c.max_table_nesting
+
+    if c.force_columns_type:
+        def force_columns(doc):
+            return force_columns_types(doc=doc, force_dict=c.force_columns_type)
+
+        col = col.add_map(force_columns)
+
     if c.columns_to_remove:
-        col = col.add_map(
-            lambda doc, columns=c.columns_to_remove: remove_collection_columns(
-                doc=doc, remove_columns=columns
+
+        def remove_columns(doc):
+            return remove_collection_columns(
+                doc=doc, remove_columns=c.columns_to_remove
             )
-        )
+
+        col = col.add_map(remove_columns)
 
     if c.columns_to_include:
-        col = col.add_map(
-            lambda doc, columns=c.columns_to_include: include_collection_columns(
-                doc=doc, include_columns=columns
+        
+        def include_columns(doc):
+            return include_collection_columns(
+                doc=doc, include_columns=c.columns_to_include
             )
-        )
+
+        col = col.add_map(include_columns)
 
     if isinstance(c.primary_key, str):
         col = col.apply_hints(
@@ -275,7 +338,8 @@ def process_collection_config(
 
 
 def custom_runs_interator(
-    dlt_resource: DltResource, collection_config: dict[str, DltResourceCollectionConfig] | None = None
+    dlt_resource: DltResource,
+    collection_config: dict[str, DltResourceCollectionConfig] | None = None,
 ):
     if collection_config and dlt_resource.name in collection_config:
         incs = collection_config[dlt_resource.name].incrementals
@@ -283,8 +347,10 @@ def custom_runs_interator(
             for i in incs:
                 incremental_dlt = dlt.sources.incremental(
                     cursor_path=i.cursor_path,
-                    initial_value=i.initial_value.to_iso8601_string(),
-                    lag=i.lag,
+                    initial_value=i.initial_value,  # .to_iso8601_string(),
+                    #lag=i.lag,
+                    last_value_func=make_comparable(max_dt_with_lag_last_value_func,
+                                                   lag_days=i.lag),
                 )
                 yield dlt_resource.apply_hints(incremental=incremental_dlt)
         else:
@@ -340,7 +406,8 @@ def create_dlt_asset(
             dlt_source, collection_config=collections_config_dict
         ):
             # print(custom_run_resource.columns)
-
+            new_pipeline.drop_pending_packages()
+        
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource, new_pipeline
             )
@@ -374,13 +441,17 @@ def dlt_mongodb_asset_factory(
 ) -> Generator[AssetsDefinition, None, None]:
     collections_config_dict = {c.collection_name: c for c in collections_config}
     for resource in dlt_source.resources:
-        process_collection_config(dlt_source.resources[resource], collections_config_dict.get(resource))    
+        process_collection_config(
+            dlt_source.resources[resource], collections_config_dict.get(resource)
+        )
         yield create_dlt_asset(
             dlt_source=dlt_source.resources[resource],
             group_name=group_name,
-            dlt_t=DagsterDltTranslatorMongodb(dataset_name=dataset_name, collection=collections_config_dict.get(resource)),
+            dlt_t=DagsterDltTranslatorMongodb(
+                dataset_name=dataset_name,
+                collection=collections_config_dict.get(resource),
+            ),
             dataset_name=dataset_name,
             collections_config_dict=collections_config_dict,
             pipeline_name=pipeline_name,
         )
-

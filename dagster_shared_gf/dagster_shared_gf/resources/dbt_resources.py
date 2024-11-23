@@ -10,7 +10,7 @@ from dagster._utils.tags import is_valid_tag_key
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource
 
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf.automation import automation_daily_delta_1_cron
+from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.shared_functions import get_for_current_env
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
@@ -135,8 +135,8 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         all_automations = super().get_automation_condition(dbt_resource_props)
         if all(item in tags.items() for item in daily_auto_tags.items()):
             if all_automations is None:
-                all_automations = automation_daily_delta_1_cron
+                all_automations = automation_daily_delta_2_cron
             else:
-                all_automations = all_automations | automation_daily_delta_1_cron
+                all_automations = all_automations | automation_daily_delta_2_cron
 
         return all_automations

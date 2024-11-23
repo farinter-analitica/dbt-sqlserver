@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "${file}",
             "pythonArgs": ["-Xfrozen_modules=off"],
-            "justMyCode": true,
+            "justMyCode": false,
             "console": "integratedTerminal",
             "purpose": ["debug-in-terminal"],
         }

@@ -1,37 +1,39 @@
 from collections import deque
 from datetime import datetime, timedelta
+import json
 from typing import Iterator, Optional
 
+from dagster_shared_gf.dlt_shared.dlt_resources import merge_dlt_dagster_metadata
 import dlt
 from dagster import (
     AssetExecutionContext,
     AssetMaterialization,
     BackfillPolicy,
-    IntMetadataValue,
     MaterializeResult,
-    MetadataValue,
     instance_for_test,
 )
 from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
 from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
-from dlt.sources.rest_api.typing import RESTAPIConfig
+from dlt.sources.rest_api.typing import RESTAPIConfig, PaginatorConfig
 
-from dagster_shared_gf.automation import automation_daily_delta_1_cron
+from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.dlt_shared.dlt_resources import (
     MyDagsterDltTranslator,
     dlt_pipeline_dest_mssql_dwh,
 )
 from dagster_shared_gf.partitions.time_based import get_daily_partition_def_to_today
+from requests import Response
 
-# def add_and_remove_fields(response: Response, *args, **kwargs) -> Response:
-#     payload = response.json()
-#     for record in payload["data"]:
-#         record["custom_field"] = "foobar"
-#         record.pop("email", None)
-#     modified_content: bytes = json.dumps(payload).encode("utf-8")
-#     response._content = modified_content
-#     return response
+def remove_fields(response: Response, *args, **kwargs) -> Response:
+    payload = response.json()
+    for record in payload["data"]:
+        for kwarg in kwargs:
+            #record[kwarg] = "foobar"
+            record.pop(kwarg, None)
+    modified_content: bytes = json.dumps(payload).encode("utf-8")
+    response._content = modified_content
+    return response
 
 
 @dlt.source
@@ -59,12 +61,15 @@ def hontrack_api_source(
     start_date_str = v_start_date.strftime("%Y-%m-%d %H:%M:%S")
     end_date_str = v_end_date.strftime("%Y-%m-%d %H:%M:%S")
 
+    paginator: PaginatorConfig = {"type":"single_page"}
+
     config: RESTAPIConfig = {
         "client": {
             "base_url": "https://rma.hontrack.com/api/external/",
             "auth": {
                 "token": api_key,
             },
+            "paginator": paginator,
         },
         "resource_defaults": {
             # "primary_key": "id",
@@ -96,6 +101,31 @@ def hontrack_api_source(
                     "data_selector": "payload.vehicles",
                 },
             },
+            {
+                "name": "sensors_resumen",
+                "primary_key": ["plate", "date_apl"],
+                "endpoint": {
+                    "path": "vehicles/get_sensors_resumen.php",
+                    "method": "POST",
+                    #"params": {},
+                    "json": {
+                        "from_date": start_date_str,  # "2024-10-29 00:00:00",
+                        "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
+                        "api_key": api_key,
+                    },
+                    "response_actions": [
+                        {"status_code": 400, "action": "ignore"},
+                        {"status_code": 401, "action": "ignore"},
+                        {"status_code": 404, "action": "ignore"},
+                        # {
+                        #     "status_code": 200,
+                        #     "action": lambda columns = ("data",):  remove_fields,
+                        # },
+                    ],
+                    "data_selector": "payload.vehicles",
+                    
+                },
+            },
         ],
     }
 
@@ -109,14 +139,15 @@ def hontrack_api_source(
     # })
 
     source = rest_api_source(config=config, name="hontrack_api")
-    vehicles_resumen = source.resources.get("vehicles_resumen")
-    if vehicles_resumen:
-        vehicles_resumen.add_map(
+    for resource_name in ("vehicles_resumen", "sensors_resumen"):
+        source.resources[resource_name].add_map(
             lambda row: {
                 **row,  # keep existing columns
                 "enterprise_id": "farinter",  # add new column
             }
         )
+
+    
 
     return source
 
@@ -128,7 +159,7 @@ hontrack_api_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
 # pipeline.refresh = "drop_sources"
 
 daily_partitions_def = get_daily_partition_def_to_today(
-    start_date=datetime(2024, 1, 1, 0, 0, 0),
+    start_date=datetime(2024, 9, 1, 0, 0, 0),
 )
 
 
@@ -142,14 +173,13 @@ def _daily_partition_iter(start_isodt: str, end_isodt: str) -> Iterator[tuple[da
             (start + timedelta(days=i + 1) - timedelta(seconds=1)),
         )
 
-
 @dlt_assets(
-    dlt_source=hontrack_api_source().with_resources("vehicles_resumen"),
+    dlt_source=hontrack_api_source().with_resources("vehicles_resumen", "sensors_resumen"),
     dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
     group_name="hontrack_api",
     dagster_dlt_translator=MyDagsterDltTranslator(
-        automation_condition=automation_daily_delta_1_cron,
+        automation_condition=automation_daily_delta_2_cron,
         prefix_key=["DL_FARINTER", "hontrack_api"],
     ),
     partitions_def=daily_partitions_def,
@@ -191,29 +221,9 @@ def hontrack_api_assets_per_day(
             askey = event.asset_key
             key = askey.to_python_identifier() if askey else ""
             final = unique_events[key]
-            meta_1 = final.metadata
-            meta_2 = event.metadata
-            rows_loaded_1 = meta_1.get("rows_loaded", None) if meta_1 else None
-            rows_loaded_2 = meta_2.get("rows_loaded", None) if meta_2 else None
-            rows_loaded_int_1: int = (
-                rows_loaded_1.value
-                if isinstance(rows_loaded_1, IntMetadataValue) and rows_loaded_1.value
-                else 0
-            )
-            rows_loaded_int_2: int = (
-                rows_loaded_2.value
-                if isinstance(rows_loaded_2, IntMetadataValue) and rows_loaded_2.value
-                else 0
-            )
-            jobs_1 = meta_1.get("jobs", []) if meta_1 else []
-            jobs_2 = meta_2.get("jobs", []) if meta_2 else []
-            new_meta = {}
-            if rows_loaded_1 is not None or rows_loaded_2 is not None:
-                new_meta["rows_loaded"] = MetadataValue.int(
-                    rows_loaded_int_1 + rows_loaded_int_2
-                )  # type: ignore
-            new_meta["jobs"] = list([*jobs_1, *jobs_2])  # type: ignore
-            final_meta = {**meta_1, **meta_2, **new_meta}  # type: ignore
+            meta_1 = final.metadata if final.metadata else {}
+            meta_2 = event.metadata if event.metadata else {}
+            final_meta = merge_dlt_dagster_metadata(meta_1, meta_2)
             unique_events[key] = (
                 final.with_metadata(final_meta)
                 if type(final) is AssetMaterialization
@@ -241,6 +251,7 @@ if __name__ == "__main__":
         Definitions,
         define_asset_job,
         materialize,
+        AssetKey,
     )
 
     with instance_for_test() as instance:
@@ -263,9 +274,13 @@ if __name__ == "__main__":
         #     instance=instance,
         # )
         # test single
-        materialize(
-            [hontrack_api_assets_per_day],
-            instance=instance,
+        defs=Definitions(
+            assets=[hontrack_api_assets_per_day],
             resources={"dlt": DagsterDltResource()},
+        )
+        materialize(
+            [defs.get_assets_def(AssetKey(("DL_FARINTER", "hontrack_api", "sensors_resumen")))],
+            instance=instance,
+            # resources=defs.resources,
             partition_key="2024-11-07",
         )

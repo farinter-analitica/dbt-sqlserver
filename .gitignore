@@ -143,4 +143,7 @@ dagster_sap_gf/dagster_sap_gf/dlt/.dlt/secrets.toml
 # vscode
 #.vscode/
 
+#dlt
 secrets.toml
+**/schemas/export/*
+#dagster_shared_gf/dagster_shared_gf/dlt_shared/mongodb/schemas/export/mongodb.schema.yaml

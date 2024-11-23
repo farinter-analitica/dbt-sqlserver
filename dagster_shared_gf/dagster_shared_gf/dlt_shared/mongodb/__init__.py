@@ -7,26 +7,31 @@ import dlt.common
 import dlt.common.configuration
 from dlt.common.data_writers import TDataItemFormat
 from dlt.common.schema.typing import TWriteDisposition
+import dlt.common.typing
 from dlt.sources import DltResource
+from dlt.common.typing import SecretSentinel
 
 from .helpers import (
     MongoDbCollectionConfiguration,
     MongoDbCollectionResourceConfiguration,
     client_from_credentials,
     collection_documents,
+    
 )
 
 
-@dlt.source
+@dlt.source(root_key=True)
 def mongodb(
-    connection_url: str = dlt.secrets.value,
+    connection_url: SecretSentinel = dlt.secrets.value,
     database: Optional[str] = dlt.config.value,
     collection_names: Optional[List[str]] = dlt.config.value,
     incremental: Optional[dlt.sources.incremental] = None,  # type: ignore[type-arg]
     write_disposition: Literal[TWriteDisposition] = dlt.config.value,
     parallel: Optional[bool] = dlt.config.value,
+    max_table_nesting: int = 4,
     limit: Optional[int] = None,
     filter_: Optional[Dict[str, Any]] = None,
+    data_item_format: Optional[TDataItemFormat] = "object", 
 ) -> Iterable[DltResource]:
     """
     A DLT source which loads data from a mongo database using PyMongo.
@@ -50,7 +55,7 @@ def mongodb(
     """
 
     # set up mongo client
-    client = client_from_credentials(connection_url)
+    client = client_from_credentials(connection_url) # type: ignore
     if not database:
         mongo_database = client.get_default_database()
     else:
@@ -69,14 +74,20 @@ def mongodb(
             primary_key="_id",
             write_disposition=write_disposition,
             spec=MongoDbCollectionConfiguration,
+            max_table_nesting=max_table_nesting,
         )(
             client,
             collection,
             incremental=incremental,
             parallel=parallel,
             limit=limit,
+            data_item_format=data_item_format,
             filter_=filter_ or {},
         )
+
+
+
+
 
 
 @dlt.common.configuration.with_config(
