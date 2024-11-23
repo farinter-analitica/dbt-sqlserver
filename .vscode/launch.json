@@ -6,7 +6,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "pythonArgs": ["-Xfrozen_modules=off"],
+            "pythonArgs": ["-X", "frozen_modules=off"],
             "justMyCode": false,
             "console": "integratedTerminal",
             "purpose": ["debug-in-terminal"],
