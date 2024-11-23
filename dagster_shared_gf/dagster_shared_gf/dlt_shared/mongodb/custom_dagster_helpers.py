@@ -414,19 +414,28 @@ def create_dlt_asset(
             }
         )
         extracted_resource_metadata = {}
+        first_iteration = True
         for custom_run_resource in custom_runs_interator(
             dlt_source, collection_config=collections_config_dict
         ):
             # print(custom_run_resource.columns)
             new_pipeline.drop_pending_packages()
-
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
-                custom_run_resource, new_pipeline
+                custom_run_resource,
+                new_pipeline,
+                write_disposition=dlt_pipeline_dest_mssql_dwh.write_disposition
+                if first_iteration or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
+                else None,
+                refresh=dlt_pipeline_dest_mssql_dwh.refresh
+                if first_iteration
+                else None,
             )
             context.log.info(
                 f"Last cursor unbound value: {custom_run_resource.incremental.incremental.start_value if custom_run_resource.incremental.incremental else None}"
             )
             load_info.raise_on_failed_jobs()
+
+            first_iteration = False
 
             if load_info:
                 extracted_resource_metadata = merge_dlt_dagster_metadata(
