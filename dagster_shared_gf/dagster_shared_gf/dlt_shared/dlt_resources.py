@@ -1,7 +1,14 @@
 from collections.abc import Mapping
 import os
 from typing import Any, Dict, Literal, Optional, Sequence
-
+from dlt.common.schema.typing import (
+    TColumnNames,
+    TSchemaTables,
+    TTableFormat,
+    TWriteDispositionConfig,
+    TAnySchemaColumns,
+    TSchemaContract,
+)
 import dlt
 import dlt.extract
 from dagster import (
@@ -105,8 +112,13 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
 
 
 class BaseDltPipeline(ConfigurableResource):
-    write_disposition: Literal["replace", "append", "merge", "skip"] = Field(
-        default="merge"
+    write_disposition: str | None = Field(
+        default="merge",
+        description="""The write disposition strategy.
+- replace: Overwrite the destination table with the new data.
+- append: Append the new data to the destination table.
+- merge: Merge the new data with the destination table.
+- skip: Do not write the new data to the destination table.""",
     )
     refresh: str | None = Field(
         default=None,
@@ -121,18 +133,24 @@ drop_data: Wipe all data and resource state for all resources being processed. S
 
     dev_mode: bool = Field(default=False)
 
-    def get_pipeline(self, pipeline_name: str, dataset_name: str, import_schema_path: str|None = None, export_schema_path: str|None = None) -> dlt.Pipeline:
+    def get_pipeline(
+        self,
+        pipeline_name: str,
+        dataset_name: str,
+        import_schema_path: str | None = None,
+        export_schema_path: str | None = None,
+    ) -> dlt.Pipeline:
         # configure the pipeline with your destination details
         pipeline = dlt.pipeline(
             pipeline_name=pipeline_name,
             destination=self._get_destination(),
             dataset_name=dataset_name,
             progress="log",
-            refresh=self.refresh, # type: ignore
+            refresh=self.refresh,  # type: ignore
             pipelines_dir=new_pipelines_dir,
             dev_mode=self.dev_mode,
-            import_schema_path=import_schema_path, # type: ignore[arg-type]
-            export_schema_path=export_schema_path, # type: ignore[arg-type]
+            import_schema_path=import_schema_path,  # type: ignore[arg-type]
+            export_schema_path=export_schema_path,  # type: ignore[arg-type]
         )
         if self.restore_from_destination is not None:
             pipeline.config.restore_from_destination = self.restore_from_destination
@@ -142,7 +160,8 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         self,
         resource_data: DltResource,
         pipeline: dlt.Pipeline,
-        write_disposition: Literal["replace", "append", "merge", "skip"] | None = None,
+        write_disposition: str | None = None,
+        refresh: str | None = None,
     ) -> LoadInfo:
         """
         A function to run a pipeline with the given resource data, pipeline, and write disposition.
@@ -155,20 +174,47 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         Returns:
             dlt.common.pipeline.LoadInfo: Information about the load operation.
         """
+        self.validate_dlt_config(write_disposition=write_disposition, refresh=refresh)
         if write_disposition is None:
-            write_disposition = self.write_disposition
+            write_disposition = self.write_disposition  # type: ignore
+        if refresh is None:
+            refresh = self.refresh
         load_info: LoadInfo = pipeline.run(
             resource_data,
-            write_disposition=write_disposition,
-            refresh=self.refresh, # type: ignore
+            write_disposition=write_disposition,  # type: ignore
+            refresh=refresh,  # type: ignore
         )
-        # oad_info.raise_on_failed_jobs()
+        # load_info.raise_on_failed_jobs()
         # extracted_resource_metadata = self.extract_resource_metadata( resource_data, load_info)
 
         return load_info
 
     def _get_destination(self) -> Destination | None:
         return None
+
+    def validate_dlt_config(self, **kwargs) -> None:
+        if "write_disposition" in kwargs:
+            if kwargs["write_disposition"] is not None and kwargs[
+                "write_disposition"
+            ] not in ["replace", "append", "merge", "skip"]:
+                raise ValueError(
+                    "write_disposition must be one of replace, append, merge or skip"
+                )
+        if "refresh" in kwargs:
+            if kwargs["refresh"] is not None and kwargs["refresh"] not in [
+                "drop_sources",
+                "drop_resources",
+                "drop_data",
+            ]:
+                raise ValueError(
+                    "refresh must be one of drop_sources, drop_resources or drop_data"
+                )
+
+    def setup_for_execution(
+        self, context: sql_server_resources.InitResourceContext
+    ) -> None:
+        self.validate_dlt_config(**context.resource_config)
+        return super().setup_for_execution(context)
 
     def extract_resource_metadata(
         self,
@@ -191,9 +237,6 @@ class DltPipelineDestMssqlDwh(BaseDltPipeline):
 
 
 dlt_pipeline_dest_mssql_dwh = DltPipelineDestMssqlDwh()
-
-if __name__ == "__main__":
-    assert dlt_pipeline_dest_mssql_dwh.get_pipeline("test_pipeline", "test_dataset")
 
 
 def merge_dlt_dagster_metadata(metdadata_1: Mapping, metadata_2: Mapping) -> dict:
@@ -218,3 +261,7 @@ def merge_dlt_dagster_metadata(metdadata_1: Mapping, metadata_2: Mapping) -> dic
         )  # type: ignore
     new_meta["jobs"] = list([*jobs_1, *jobs_2])  # type: ignore
     return {**metdadata_1, **metadata_2, **new_meta}  # type: ignore
+
+
+if __name__ == "__main__":
+    assert dlt_pipeline_dest_mssql_dwh.get_pipeline("test_pipeline", "test_dataset")
