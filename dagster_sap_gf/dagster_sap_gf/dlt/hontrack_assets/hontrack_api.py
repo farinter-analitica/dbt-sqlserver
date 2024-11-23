@@ -16,6 +16,7 @@ from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
 from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
 from dlt.sources.rest_api.typing import RESTAPIConfig, PaginatorConfig, ClientConfig, PaginatorType, ResponseActionDict
+from dlt.extract import DltResource, DltSource
 
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.dlt_shared.dlt_resources import (
@@ -41,6 +42,7 @@ def validate_response(response: Response, *args, **kwargs) -> Response:
         return response
 
     raise Exception(response.text[:1000])
+
 
 @dlt.source
 def hontrack_api_source(
@@ -102,7 +104,7 @@ def hontrack_api_source(
                 "endpoint": {
                     "path": "vehicles/get_vehicles_resumen.php",
                     "method": "POST",
-                    "params": {},
+                    #"params": {},
                     "json": {
                         "from_date": start_date_str,  # "2024-10-29 00:00:00",
                         "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
@@ -117,13 +119,27 @@ def hontrack_api_source(
                 "endpoint": {
                     "path": "vehicles/get_sensors_resumen.php",
                     "method": "POST",
-                    #"params": {},
                     "json": {
                         "from_date": start_date_str,  # "2024-10-29 00:00:00",
                         "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
                         "api_key": api_key,
                     },
                     "data_selector": "payload.vehicles",
+                    
+                },
+            },
+            {
+                "name": "drivers_resumen",
+                "primary_key": ["code"],
+                "endpoint": {
+                    "path": "vehicles/get_drivers_resumen.php",
+                    "method": "POST",
+                    "json": {
+                        "from_date": start_date_str,  # "2024-10-29 00:00:00",
+                        "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
+                        "api_key": api_key,
+                    },
+                    "data_selector": "payload.drivers",
                     
                 },
             },
@@ -147,6 +163,20 @@ def hontrack_api_source(
                 "enterprise_id": "farinter",  # add new column
             }
         )
+
+    def transform_drivers_resumen(resource:DltResource) -> DltResource:
+        def transform_doc(doc: dict):
+            #print(doc)
+            # new_doc = dict(next(iter(doc.values()))) #el proveedor corrigio el API
+            doc["enterprise_id"] = "farinter"
+            for data in doc["data"]:
+                data["_dlt_id"] = f"{doc["code"]}_{datetime.fromisoformat(data['fchapl']).strftime("%Y%m%d")}"
+            return  doc
+        
+        resource.add_map(transform_doc)
+        return resource
+
+    transform_drivers_resumen(source.resources["drivers_resumen"])
 
     return source
 
@@ -173,7 +203,7 @@ def _daily_partition_iter(start_isodt: str, end_isodt: str) -> Iterator[tuple[da
         )
 
 @dlt_assets(
-    dlt_source=hontrack_api_source().with_resources("vehicles_resumen", "sensors_resumen"),
+    dlt_source=hontrack_api_source().with_resources("vehicles_resumen", "sensors_resumen", "drivers_resumen"),
     dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
     group_name="hontrack_api",
@@ -189,7 +219,7 @@ def hontrack_api_assets_per_day(
     first_partition, last_partition = context.partition_key_range
     partition_iter = _daily_partition_iter(first_partition, last_partition)
     context.log.info(f"date_from: {first_partition}, date_to: {last_partition}")
-
+    context.log.info(f"expected_resources: {context.selected_asset_keys}")
     def consolidar_resultados() -> Iterator[DltEventType]:
         for start_of_day, end_of_day in partition_iter:
             context.log.info(f"run_date_from: {start_of_day.isoformat()}, run_date_to: {end_of_day.isoformat()}, date_from: {first_partition}, date_to: {last_partition}")
@@ -254,7 +284,7 @@ if __name__ == "__main__":
     )
 
     with instance_for_test() as instance:
-        # test job parti
+        ### test job parti
         # test_job = define_asset_job("test_job", selection=[hontrack_api_assets_per_day])
         # test_resources = {"dlt": DagsterDltResource()}
         # defs = Definitions(
@@ -272,14 +302,26 @@ if __name__ == "__main__":
         #     resources=test_resources,
         #     instance=instance,
         # )
-        # test single
+        ### test single
         defs=Definitions(
             assets=[hontrack_api_assets_per_day],
             resources={"dlt": DagsterDltResource()},
         )
         materialize(
-            [defs.get_assets_def(AssetKey(("DL_FARINTER", "hontrack_api", "sensors_resumen")))],
+            tuple(val for val in defs.get_repository_def().assets_defs_by_key.values()),
             instance=instance,
             # resources=defs.resources,
-            partition_key="2024-11-15",
+            partition_key="2024-11-16",
+            selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),),
         )
+        ### test runs
+        # hontrack_api_pipeline.drop_pending_packages()  # for dev only, to avoid conflicts in the test run
+        # hontrack_api_pipeline.drop()
+        # hontrack_api_pipeline.extract(
+        #     data=hontrack_api_source().with_resources(
+        #         "drivers_resumen",
+        #     )
+        # )
+        # hontrack_api_pipeline.normalize()
+        # print(hontrack_api_pipeline.schemas.list_schemas())
+        # print(hontrack_api_pipeline.schemas["hontrack_api"].to_pretty_json())
