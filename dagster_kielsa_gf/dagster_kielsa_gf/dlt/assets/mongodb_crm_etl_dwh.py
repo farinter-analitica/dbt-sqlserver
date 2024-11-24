@@ -71,10 +71,7 @@ read_source_config_updated_at: ColConfigs = (
     ),
 )
 
-
-collection_person = DLTRColl(
-    collection_name="crm_person",
-    columns_hints={
+collection_person_hints = {
         "id": {"data_type": "bigint"},
         "treatment": {"data_type": "text"},
         "first_name": {"data_type": "text"},
@@ -112,10 +109,10 @@ collection_person = DLTRColl(
         "user_id": {"data_type": "bigint"},
         "sapusercode": {"data_type": "text"},
         "number": {"data_type": "text"},
-        "sellers": {"data_type": "complex"},
+        "sellers": {"data_type": "json"},
         "seller_id": {"data_type": "text"},
-        "custom_fields": {"data_type": "complex"},
-        "debt_collectors": {"data_type": "complex"},
+        "custom_fields": {"data_type": "json"},
+        "debt_collectors": {"data_type": "json"},
         "facebook_username": {"data_type": "text"},
         "facebook_id": {"data_type": "text"},
         "twitter_username": {"data_type": "text"},
@@ -123,7 +120,14 @@ collection_person = DLTRColl(
         "linkedin_username": {"data_type": "text"},
         "instagram_username": {"data_type": "text"},
         "fecha_ingreso": {"data_type": "timestamp"},
-    },
+        "doctors": {"data_type": "json"},
+    }
+
+collection_person = DLTRColl(
+    collection_name="crm_person",
+    columns_to_include=tuple(key for key in collection_person_hints.keys()),
+    primary_key="_id",
+    columns_hints=collection_person_hints,
     incrementals=(
         IncConfig(
             cursor_path="updated_at",
@@ -133,6 +137,7 @@ collection_person = DLTRColl(
     ),
     # limit=1000,
 )
+
 
 read_source_config_multi_column: ColConfigs = (
     DLTRColl(
