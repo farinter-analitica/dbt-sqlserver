@@ -252,7 +252,7 @@ def hontrack_api_source(
                     data["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
                 )
                 data["_dlt_id"] = (
-                    f"{doc["code"]}_{datetime.fromisoformat(data['fchapl']).strftime("%Y%m%d")}"
+                    f"{doc["code"]}_{data['fchapl'].strftime("%Y%m%d")}"
                 )
                 data["driver_code"] = doc["code"]
             return doc
