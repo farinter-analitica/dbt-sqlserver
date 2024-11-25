@@ -8,7 +8,6 @@ from dagster import (
     AssetCheckResult,
     AssetChecksDefinition,
     AssetKey,
-    RunConfig,
     SourceAsset,
     asset_check,
     build_last_update_freshness_checks,

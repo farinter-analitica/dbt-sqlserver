@@ -223,8 +223,8 @@ if __name__ == "__main__":
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
                                 # "dev_mode": True,
-                                "write_disposition": "replace",
-                                # "refresh": "drop_sources",
+                                #"write_disposition": "merge",
+                                #"refresh": "drop_resources",
                             }
                         }
                     }

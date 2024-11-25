@@ -34,7 +34,7 @@ mongodb_ecommerce_hn = mdb_ecommerce_hn(
     parallel=True,
     #data_item_format="arrow",
     # limit=100,
-    max_table_nesting=3,
+    max_table_nesting=1,
     # incremental=dlt.sources.incremental(
     #     cursor_path="createdAt",
     #     initial_value=pendulum.now().subtract(days=30),
@@ -49,9 +49,9 @@ mongodb_ecommerce_hn.resources["orders"].apply_hints(
         initial_value=pendulum.now().subtract(days=30),
     ),
     primary_key=["_id"],
-)
+)'
 
-#mongodb_ecommerce_hn.resources["orders"].max_table_nesting = 0
+mongodb_ecommerce_hn.resources["orders"].max_table_nesting = 1
 # mongodb_ecommerce_hn.resources["orders"].apply_hints(
 #     columns={
 #         "data_routes": {"nullable": True, "data_type": "json"},

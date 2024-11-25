@@ -1,127 +1,67 @@
-import dlt
-from dagster_embedded_elt.dlt import (
-    DagsterDltResource,
-)
-from dlt.common import pendulum
+import decimal
 
-from dagster_shared_gf.dlt_shared.dlt_resources import (
-    dlt_pipeline_dest_mssql_dwh,
-)
-from dagster_shared_gf.dlt_shared.mongodb import mongodb
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
-    DltIncrementalPartialConfig as IncConfig,
-)
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
-    DltResourceCollectionConfig as DLTRColl,
-)
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
-    dlt_mongodb_asset_factory,
-)
-from dagster_shared_gf.shared_functions import (
-    get_for_current_env,
-)
+d = decimal.Decimal("3.23000")
+print(d.quantize(decimal.Decimal("0.0001"), rounding=decimal.ROUND_HALF_UP))  # Output: 1.2
 
-mongodb_ecommerce_hn = mongodb(
-    connection_url=dlt.secrets["sources.mdb_ecommerce_hn.connection_url"],
-    database=dlt.secrets["sources.mdb_ecommerce_hn.database"],
-    collection_names=["orders"],
-    write_disposition="replace",
-    # parallel=True,
-    # data_item_format="arrow",
-    # limit=100,
-    max_table_nesting=3,
-    # incremental=dlt.sources.incremental(
-    #     cursor_path="createdAt",
-    #     initial_value=pendulum.now().subtract(days=30),
-    # ),
-    filter_={
-        "createdAt": {
-            "$gte": get_for_current_env({"local": pendulum.now().subtract(days=7)})
-        }
+
+def to_str_decimal(value) -> str:
+    return format(decimal.Decimal(value), "020.4f")
+
+
+print(to_str_decimal(d))
+
+
+data = {
+    "FUEL1": {
+        "fuel_h": 307,
+        "fuel_l": 5018,
+        "fuel_m1": 3244,
+        "fuel_m2": 2633,
+        "fuel_m3": 1426,
+        "distance": 0,
+        "fuel_cap": 75,
+        "avg_value": 68.07,
+        "max_value": 73.01,
+        "min_value": 65.96,
+        "steps_cnt": 43,
+        "efficiency": {"ef_mL": 0, "ef_KmG": 0, "ef_KmL": 0, "ef_MiG": 0},
+        "last_value": 70.23,
+        "consumption": 2.36,
     },
-)
-
-mongodb_ecommerce_hn.resources["orders"].apply_hints(
-    # incremental=dlt.sources.incremental(
-    #     cursor_path="createdAt",
-    #     initial_value=pendulum.now().subtract(days=30),
-    # ),
-    primary_key=["_id"],
-)
-mongodb_ecommerce_hn.resources["orders"].max_table_nesting = 1
-mongodb_ecommerce_hn.resources["orders"].apply_hints(
-    columns={
-        "data_routes": {"nullable": True, "data_type": "json"},
-        "error": {"nullable": True, "data_type": "json"},
-        "pay_data": {"nullable": True, "data_type": "json"},
-    }
-)
-
-pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
-    "mdb_ecommerce_hn_pipeline", "mdb_ecommerce_hn"
-)
-pipeline.drop_pending_packages()
-pipeline.drop()
-pipeline.extract(mongodb_ecommerce_hn)
-pipeline.normalize()
-print(pipeline.schemas["mongodb"].to_pretty_json())
-# pipeline.run(mongodb_ecommerce_hn, refresh="drop_sources")
+    "SPEED": {"avg_value": 0.05, "max_value": 2, "min_value": 0, "steps_cnt": 43},
+    "IGNITION": {"avg_value": 0.01, "max_value": 1, "min_value": 0, "steps_cnt": 1536},
+    "BATT_VOLT": {
+        "avg_value": 11084.97,
+        "max_value": 13820,
+        "min_value": 10619,
+        "steps_cnt": 1536,
+    },
+}
 
 
-# if __name__ == "__main__":
-#     pass
-#     print(all_assets)
+def transform_data_to_decimals(data):
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, dict):
+                data[key] = transform_data_to_decimals(value)
+            elif isinstance(value, list):
+                data[key] = [
+                    transform_data_to_decimals(item)
+                    if isinstance(item, dict)
+                    else to_str_decimal(item)  # Pass item instead of data
+                    for item in value
+                ]
+            else:
+                data[key] = to_str_decimal(value)  # Pass value instead of data
+    elif isinstance(data, list):
+        data = [
+            transform_data_to_decimals(item)
+            if isinstance(item, dict)
+            else to_str_decimal(item)  # Pass item instead of data
+            for item in data
+        ]
+    else:
+        data = to_str_decimal(data)
+    return data
 
-#     from dagster import (
-#         AssetKey,
-#         build_resources,
-#         instance_for_test,
-#         materialize,
-#     )
-
-#     from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
-#     from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
-
-#     with instance_for_test() as instance:
-#         with build_resources(
-#             instance=instance,
-#             resources={
-#                 "dwh_farinter_dl": dwh_farinter_dl,
-#                 "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
-#                 "dlt": DagsterDltResource(),
-#             },
-#         ) as resources_init:
-#             asset_to_test = tuple(
-#                 asset
-#                 for asset in all_assets
-#                 if asset.key in (AssetKey(("dlt_mongodb_orders",)),
-#                 AssetKey(("DL_FARINTER", "mdb_ecommerce_hn", "orders")),)
-#             )
-#             assert asset_to_test
-#             result = materialize(
-#                 asset_to_test,
-#                 instance=instance,
-#                 resources=resources_init.original_resource_dict,
-#                 # run_config=RunConfig(
-#                 #     resources={
-#                 #         "dlt_pipeline_dest_mssql_dwh": {
-#                 #             "config": {
-#                 #                 # "dev_mode": True,
-#                 #                 "refresh": "drop_sources",
-#                 #             }
-#                 #         }
-#                 #     }
-#                 # ),
-#             )
-
-#             # check_result = campaigns_recetas_check(
-#             #     dwh_farinter_dl=resources_init.dwh_farinter_dl
-#             # )
-#             # print(check_result)
-
-#             print(f"Materialized:{
-#                 [
-#                     mat.step_materialization_data
-#                     for mat in result.get_asset_materialization_events()
-#                 ]
-#             }")
+print(transform_data_to_decimals(data))

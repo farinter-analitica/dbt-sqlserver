@@ -24,7 +24,7 @@ from dlt.sources.rest_api.typing import (
     PaginatorType,
     ResponseActionDict,
 )
-from dlt.extract import DltResource, DltSource
+from dlt.extract import DltResource
 
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.dlt_shared.dlt_resources import (
