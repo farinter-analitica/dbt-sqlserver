@@ -10,10 +10,9 @@ from dagster import (
     MaterializeResult,
     MetadataValue,
     asset,
-    get_dagster_logger,
 )
 from dagster_embedded_elt.dlt import DagsterDltTranslator
-from dlt.common import pendulum, logger
+from dlt.common import pendulum
 from dlt.common.normalizers.naming.snake_case import NamingConvention
 from dlt.common.pipeline import LoadInfo
 from dlt.extract import DltResource, DltSource
@@ -425,7 +424,7 @@ def create_dlt_asset(
                 new_pipeline,
                 write_disposition=dlt_pipeline_dest_mssql_dwh.write_disposition
                 if first_iteration or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
-                else None,
+                else str(custom_run_resource.write_disposition),
                 refresh=dlt_pipeline_dest_mssql_dwh.refresh
                 if first_iteration
                 else None,
