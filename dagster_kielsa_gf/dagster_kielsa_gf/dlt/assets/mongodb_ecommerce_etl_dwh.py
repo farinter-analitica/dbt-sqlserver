@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from datetime import timedelta
 from itertools import chain
+from decimal import Decimal
+import os
 
 import dlt
 from dagster import (
@@ -33,24 +35,24 @@ from dagster_shared_gf.shared_functions import (
 )
 from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
+import dlt.normalize
+import dlt.normalize.items_normalizers
+
+#type mapping
+type_mongodb_python_mapping = {
+    "String": str,
+    "Int32": int,
+    "Double": Decimal,
+    "Boolean": bool,
+    "Date": pendulum.DateTime,
+    "Document": dict,
+    "Array": list,
+    "Null": None,
+    "Undefined": None
+}
 
 # orders
-collections_config = (
-    DLTRColl(
-        collection_name="orders",
-        primary_key="_id",
-        automation_condition=automation_daily_delta_2_cron,
-        # columns_hints={
-        #     "dataRoutes" : {"nullable" : True, "data_type": "json"},
-        #     "address" : {"nullable" : True},
-        # },
-        max_table_nesting=4,
-        # force_columns_type={
-        #     "dataRoutes": dict,
-        # },
-        columns_to_include=tuple(
-            key
-            for key in {
+orders_forced_schema = {
                 "_id": {"String": 1},
                 "address": {"Document": 0.997, "Null": 0.003},
                 "amount": {"Double": 0.954, "Int32": 0.046},
@@ -92,7 +94,32 @@ collections_config = (
                 "userName": {"String": 1},
                 "version": {"Double": 0.008, "Undefined": 0.992},
             }
+
+for key, value in orders_forced_schema.items():
+    filtered_value = {k: v for k, v in value.items() if k != "Undefined"}
+    max_value = max(filtered_value.values())
+    max_type = [k for k, v in filtered_value.items() if v == max_value][0]
+    orders_forced_schema[key] = type_mongodb_python_mapping[max_type]
+
+collections_config = (
+    DLTRColl(
+        collection_name="orders",
+        primary_key="_id",
+        automation_condition=automation_daily_delta_2_cron,
+        # columns_hints={
+        #     "dataRoutes" : {"nullable" : True, "data_type": "json"},
+        #     "address" : {"nullable" : True},
+        # },
+        max_table_nesting=4,
+        # force_columns_type={
+        #     "dataRoutes": dict,
+        # },
+        # force_columns_type=orders_forced_schema, # usamos el esquema en la carpeta de esquemas para controlar esto mejor.
+        columns_to_include=tuple(
+            key
+            for key in orders_forced_schema
         ),
+        lag_days=15,
         incrementals=(
             IncConfig(
                 cursor_path="modificatedDateAt",
@@ -107,13 +134,16 @@ collections_config = (
                 cursor_path="createdAt",
                 initial_value=get_for_current_env(
                     {
-                        "local": pendulum.now().subtract(days=30),
+                        "local": pendulum.now().subtract(days=60),
                         "dev": pendulum.now().subtract(years=2),
                     }
                 ),
             ),
         ),
-        limit=get_for_current_env({"local": 1000}),
+        #limit=get_for_current_env({"local": 1000}),
+        import_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "import"),
+        export_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "export"),
+
     ),
 )
 
@@ -223,7 +253,7 @@ if __name__ == "__main__":
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
                                 # "dev_mode": True,
-                                #"write_disposition": "merge",
+                                #"write_disposition": "replace",
                                 #"refresh": "drop_resources",
                             }
                         }

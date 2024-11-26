@@ -1,4 +1,7 @@
 from collections.abc import Generator
+from datetime import datetime
+import decimal
+from decimal import Decimal
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
 import dlt
@@ -68,6 +71,8 @@ class DltResourceCollectionConfig:
     dep_pipeline_cursor: Optional[str] = None
     max_table_nesting: Optional[int] = None
     force_columns_type: Optional[dict[str, Any]] = None
+    import_schema_path: Optional[str] = None
+    export_schema_path: Optional[str] = None
 
     def get_all_configs_dict(self) -> Mapping[str, Any]:
         return {key: value for key, value in self.__dict__.items() if value is not None}
@@ -171,6 +176,14 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
         else:
             return ()
 
+    def get_import_schema_path(self, resource: DltResource) -> str | None:
+        if self.collection:
+            return self.collection.import_schema_path
+
+    def get_export_schema_path(self, resource: DltResource) -> str | None:
+        if self.collection:
+            return self.collection.export_schema_path
+
 
 class ComparableFunction:
     def __init__(self, func, *args, **kwargs):
@@ -196,25 +209,58 @@ def make_comparable(func, *args, **kwargs):
 
 def force_columns_types(doc: Dict, force_dict: Optional[dict[str, Any]] = None) -> Dict:
     """
-    Removes the specified columns from the given document.
+    Forces the specified columns to the given types in the document.
 
     Args:
-        doc (Dict): The document from which columns are to be removed.
-        remove_columns (Optional[tuple[str]], optional): The list of column names to be removed. Defaults to None.
+        doc (Dict): The document in which columns are to be forced to types.
+        force_dict (Optional[dict[str, Any]], optional): The dictionary of column names to types. Defaults to None.
 
     Returns:
-        Dict: The modified document with the specified columns removed.
+        Dict: The modified document with the specified columns forced to types.
     """
     if force_dict is None:
         force_dict = {}
 
-    for column_name in force_dict:
-        # print(f"check {column_name}")
-        if column_name in doc and not isinstance(
-            doc[column_name], force_dict[column_name]
-        ):
-            # print(f"del {column_name}")
-            doc[column_name] = None
+    # valid_types = [dict, list, int, float, str, bool, pendulum, datetime, Decimal]
+    # valid_types: type: default
+    valid_types = {
+        dict: {},
+        list: [],
+        int: None,
+        float: None,
+        str: None,
+        bool: None,
+        pendulum.DateTime: None,
+        datetime: None,
+        Decimal: None,
+    }
+    cast_functions = {
+        dict: dict,
+        list: list,
+        int: int,
+        float: float,
+        str: str,
+        bool: bool,
+        pendulum.DateTime: pendulum.parse,
+        datetime: pendulum.parse,
+        Decimal: lambda x: Decimal(x, context=decimal.Context(prec=24)).quantize(
+            decimal.Decimal("0.00000001"), rounding=decimal.ROUND_HALF_UP
+        ),
+    }
+    for column_name, column_type in force_dict.items():
+        if not isinstance(column_type, type) or column_type not in valid_types.keys():
+            raise NotImplementedError(
+                f"Not implemented type '{column_type}' for column '{column_name}'"
+            )
+
+        if column_name in doc and not isinstance(doc[column_name], column_type):
+            if doc[column_name] is None:
+                doc[column_name] = valid_types[column_type]
+            else:
+                try:
+                    doc[column_name] = cast_functions[column_type](doc[column_name])
+                except (ValueError, TypeError):
+                    doc[column_name] = None
 
     return doc
 
@@ -371,7 +417,7 @@ def custom_runs_interator(
 
 
 def create_dlt_asset(
-    dlt_source: DltResource,
+    dlt_resource: DltResource,
     dataset_name: str,
     dlt_t: DagsterDltTranslatorMongodb,
     collections_config_dict: dict[str, DltResourceCollectionConfig],
@@ -380,11 +426,11 @@ def create_dlt_asset(
     tags: Mapping[str, str] | None = None,
 ) -> AssetsDefinition:
     @asset(
-        key=dlt_t.get_asset_key(dlt_source),
+        key=dlt_t.get_asset_key(dlt_resource),
         group_name=group_name,
-        description=f"resource {dlt_t.get_asset_key(dlt_source)} description {dlt_t.get_description} ",
-        metadata=dlt_t.get_metadata(dlt_source),
-        deps=dlt_t.get_deps_asset_keys(dlt_source),
+        description=f"resource {dlt_t.get_asset_key(dlt_resource)} description {dlt_t.get_description} ",
+        metadata=dlt_t.get_metadata(dlt_resource),
+        deps=dlt_t.get_deps_asset_keys(dlt_resource),
         # compute_kind="dlt",
         kinds={
             "dlt",
@@ -392,20 +438,23 @@ def create_dlt_asset(
             "sql_server",
         },
         tags=tags,
-        automation_condition=dlt_t.get_automation_condition(dlt_source),
+        automation_condition=dlt_t.get_automation_condition(dlt_resource),
     )
     def compute_dlt_asset(
         context: AssetExecutionContext, dlt_pipeline_dest_mssql_dwh: BaseDltPipeline
     ):
         target_pipeline_name = pipeline_name
         new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
-            pipeline_name=target_pipeline_name, dataset_name=dataset_name
+            pipeline_name=target_pipeline_name,
+            dataset_name=dataset_name,
+            import_schema_path=dlt_t.get_import_schema_path(dlt_resource),
+            export_schema_path=dlt_t.get_export_schema_path(dlt_resource),
         )
         # print(str(dlt_t.get_incremental_info()))
         context.log.info(
             {
                 "Running dlt pipeline": target_pipeline_name,
-                "resource": dlt_t.get_asset_key(dlt_source),
+                "resource": dlt_t.get_asset_key(dlt_resource),
                 "dataset": dataset_name,
                 "write_disposition": dlt_pipeline_dest_mssql_dwh.write_disposition,
                 "directory": new_pipeline.pipelines_dir,
@@ -415,7 +464,7 @@ def create_dlt_asset(
         extracted_resource_metadata = {}
         first_iteration = True
         for custom_run_resource in custom_runs_interator(
-            dlt_source, collection_config=collections_config_dict
+            dlt_resource, collection_config=collections_config_dict
         ):
             # print(custom_run_resource.columns)
             new_pipeline.drop_pending_packages()
@@ -423,7 +472,8 @@ def create_dlt_asset(
                 custom_run_resource,
                 new_pipeline,
                 write_disposition=dlt_pipeline_dest_mssql_dwh.write_disposition
-                if first_iteration or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
+                if first_iteration
+                or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
                 else str(custom_run_resource.write_disposition),
                 refresh=dlt_pipeline_dest_mssql_dwh.refresh
                 if first_iteration
@@ -445,7 +495,7 @@ def create_dlt_asset(
                 )
 
         return MaterializeResult(
-            asset_key=dlt_t.get_asset_key(dlt_source),
+            asset_key=dlt_t.get_asset_key(dlt_resource),
             metadata=extracted_resource_metadata,
         )
 
@@ -465,7 +515,7 @@ def dlt_mongodb_asset_factory(
             dlt_source.resources[resource], collections_config_dict.get(resource)
         )
         yield create_dlt_asset(
-            dlt_source=dlt_source.resources[resource],
+            dlt_resource=dlt_source.resources[resource],
             group_name=group_name,
             dlt_t=DagsterDltTranslatorMongodb(
                 dataset_name=dataset_name,
