@@ -465,6 +465,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_TC_ArticuloXMecanica_Kielsa"]),
                  AssetKey(["AN_FARINTER", "dbo", "AN_Cal_CasaXProveedor_Kielsa"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+                 AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Calc"]),
                  AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_Info"]),
                  AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "FE_Identificacion_Tributaria"]),
                  AssetKey(["LDCOMHN_LDCOM_KIELSA", "dbo", "Regalia_Detalle"]),
