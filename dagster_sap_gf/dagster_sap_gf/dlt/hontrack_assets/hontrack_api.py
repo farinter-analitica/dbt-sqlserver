@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import decimal
 import json
 from typing import Iterator, Optional
-
+import hashlib
 from dagster_shared_gf.dlt_shared.dlt_resources import merge_dlt_dagster_metadata
 import dlt
 from dagster import (
@@ -166,6 +166,20 @@ def hontrack_api_source(
                     "data_selector": "payload.drivers",
                 },
             },
+            {
+                "name": "zones_resumen",
+                "primary_key": ["evtdid"],
+                "endpoint": {
+                    "path": "zones/get_zones_resumen.php",
+                    "method": "POST",
+                    "json": {
+                        "from_date": start_date_str,  # "2024-10-29 00:00:00",
+                        "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
+                        "api_key": api_key,
+                    },
+                    "data_selector": "payload.zones",
+                },
+            },
         ],
     }
 
@@ -265,6 +279,26 @@ def hontrack_api_source(
         source.resources["drivers_resumen"]
     )
 
+    def transform_zones_resumen(resource: DltResource) -> DltResource:
+        def transform_doc(doc: dict) -> dict:
+            doc["enterprise_id"] = "farinter"
+            for data in doc["data"]:
+                data["evtdfch"] = pendulum.from_format(
+                    data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                )
+                data["_dlt_id"] = (
+                    str(hashlib.md5(f"{doc["evtdid"]}_{data["plate"]}_{data['evtdfch'].strftime("%Y%m%d%H%M%S")}".encode()).hexdigest())
+                )
+            return doc
+        
+        resource.add_map(transform_doc)
+
+        return resource
+
+    source.resources["zones_resumen"] = transform_zones_resumen(
+        source.resources["zones_resumen"]
+    )
+
     return source
 
 
@@ -294,7 +328,7 @@ def _daily_partition_iter(
 
 @dlt_assets(
     dlt_source=hontrack_api_source().with_resources(
-        "vehicles_resumen", "sensors_resumen", "drivers_resumen"
+        "vehicles_resumen", "sensors_resumen", "drivers_resumen", "zones_resumen"
     ),
     dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
@@ -397,7 +431,7 @@ if __name__ == "__main__":
 
     with instance_for_test() as instance:
         ### test job parti
-        test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "sensors_resumen")),))
+        test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),))
         test_resources = {
                 "dlt": DagsterDltResource(),
                 "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
@@ -421,8 +455,8 @@ if __name__ == "__main__":
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            "write_disposition": "replace",
-                            # "refresh": "drop_resources",
+                            #"write_disposition": "replace",
+                            "refresh": "drop_resources",
                         }
                     }
                 }

@@ -1,0 +1,58 @@
+{
+    "enterprise_id": "miempresa",
+    "zones": [
+        {
+            "evtdid" : 1,
+            "evtdaddr": "ZONA: Plantel Farinter Prado",
+            "data": [
+                {
+                    "plate": "HAU4764",
+                    "name": "HAU4764",
+                    "evtdfch": "2024-11-21 08:10:22",
+                    "evtdtip": "GEOFENCEOUT",
+                    "evtdid": 1
+                },
+                {
+                    "plate": "HAU4764",
+                    "name": "HAU4764",
+                    "evtdfch": "2024-11-21 08:27:52",
+                    "evtdtip": "GEOFENCEIN",
+                    "evtdid": 1
+                },
+                {
+                    "plate": "HAU4764",
+                    "name": "HAU4764",
+                    "evtdfch": "2024-11-21 08:36:03",
+                    "evtdtip": "GEOFENCEOUT",
+                    "evtdaddr": "ZONA: Plantel Farinter Prado"
+                }
+            ]
+        },
+        {
+            "evtdaddr": "ZONA2: Plantel Farinter Prado",
+            "data": [
+                {
+                    "plate": "HAU4764",
+                    "name": "HAU4764",
+                    "evtdfch": "2024-11-21 08:10:22",
+                    "evtdtip": "GEOFENCEOUT",
+                    "evtdaddr": "ZONA: Plantel Farinter Prado"
+                },
+                {
+                    "plate": "HAU4764",
+                    "name": "HAU4764",
+                    "evtdfch": "2024-11-21 08:27:52",
+                    "evtdtip": "GEOFENCEIN",
+                    "evtdaddr": "ZONA: Plantel Farinter Prado"
+                },
+                {
+                    "plate": "HAU4764",
+                    "name": "HAU4764",
+                    "evtdfch": "2024-11-21 08:36:03",
+                    "evtdtip": "GEOFENCEOUT",
+                    "evtdaddr": "ZONA: Plantel Farinter Prado"
+                }
+            ]
+        },
+    ]
+}
