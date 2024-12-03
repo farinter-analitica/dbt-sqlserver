@@ -1,7 +1,7 @@
 {{ 
     config(
 		materialized="view",
-		tags=["periodo/por_hora"],
+		tags=["periodo/diario"],
 	) 
 }}
 --DBT DAGSTER 
