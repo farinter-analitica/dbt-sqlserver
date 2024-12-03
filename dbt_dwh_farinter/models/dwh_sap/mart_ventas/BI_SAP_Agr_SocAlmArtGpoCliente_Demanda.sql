@@ -51,8 +51,8 @@ SELECT --top 100
 			, V.Centro_Id
 			, COALESCE(CASE WHEN LEFT(V.Cliente_Id,5) = '00003' THEN 'INST' ELSE C.GrupoClientes_Nombre END, 'OTROS') AS GrupoClientes_Nombre
 			, (CONVERT(DECIMAL, V.Cantidad_SKU)) AS Cantidad_SKU
-		FROM	dbo.BI_SAP_Mixto_Facturas V
-		LEFT JOIN DL_FARINTER.dbo.DL_Edit_GrupoClientes_SAP C
+		FROM	dbo.BI_SAP_Mixto_Facturas V -- {{ ref('BI_SAP_Mixto_Facturas') }}
+		LEFT JOIN DL_FARINTER.dbo.DL_Edit_GrupoClientes_SAP C -- {{ source('DL_FARINTER', 'DL_Edit_GrupoClientes_SAP') }}
 			ON V.Cliente_Id = C.Cliente_Id
 		WHERE V.Anio_Calendario >= YEAR(DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE()))))
 			AND V.Fecha_Id > DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE())))
@@ -60,15 +60,15 @@ SELECT --top 100
 			AND (V.Indicador_Anulado = '' OR V.Indicador_Anulado IS NULL)
 			AND V.TipoDocumento_Id IN ( 'M',  'O', 'P' )
 		) A
-	INNER JOIN dbo.BI_Dim_Articulo_SAP C
+	INNER JOIN dbo.BI_Dim_Articulo_SAP C -- {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }}
 		ON A.Articulo_Id = C.Articulo_Id
-	INNER JOIN dbo.BI_Dim_Sociedad_SAP S
+	INNER JOIN dbo.BI_Dim_Sociedad_SAP S -- {{ source('BI_FARINTER', 'BI_Dim_Sociedad_SAP') }}
 		ON A.Sociedad_Id = S.Sociedad_Id
-	INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B
+	INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B -- {{ source('DL_FARINTER', 'DL_Planning_ParamSocMat') }}
 		ON S.Sociedad_Id = B.Sociedad_Id AND C.Articulo_Id = B.Articulo_Id
-	INNER JOIN dbo.BI_Dim_Centro_SAP D
+	INNER JOIN dbo.BI_Dim_Centro_SAP D -- {{ source('BI_FARINTER', 'BI_Dim_Centro_SAP') }}
 		ON A.Centro_Id = D.Centro_Id
-	INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1
+	INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1 -- {{ source('DL_FARINTER', 'DL_Edit_AlmacenFP_SAP') }}
 		ON A.Almacen_Id = E1.Almacen_Id
 	WHERE E1.Planificado = 'S'	--and B.Gpo_Obs_Id = 'COINS' --and A.Sociedad_Id = '1200' 
         AND A.Sociedad_Id IN ( '1200', '1300', '1301', '1700', '2500' )
