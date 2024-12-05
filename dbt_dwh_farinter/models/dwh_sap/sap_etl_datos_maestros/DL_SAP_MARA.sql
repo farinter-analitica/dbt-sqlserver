@@ -96,7 +96,10 @@ SELECT
 FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'MARA')}} A
 WHERE A.MANDT = '300'
 {% if is_incremental() %}
-  and A.LAEDA >= '{{last_date}}'
+  and (A.LAEDA >= '{{last_date}}'
+  OR A.ERSDA >=  '{{last_date}}'
+  )
+
 {% else %}
   --and S.LAEDA >= '00000000'
 {% endif %}
