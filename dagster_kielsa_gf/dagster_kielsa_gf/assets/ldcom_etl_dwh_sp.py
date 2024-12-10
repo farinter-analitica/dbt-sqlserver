@@ -192,6 +192,16 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Articulo_Proveedor",
         "tags": tags_repo.Daily.tag,
     },
+    "DL_paCargarKielsa_KPP_SMSValidacion"    : {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_KPP_SMSValidacion",
+        "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_KPP_Suscripcion": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_KPP_Suscripcion",
+        "tags": tags_repo.Daily.tag,
+    },
     "BI_paCargarHecho_VentasHist_Kielsa_V2": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_VentasHist_Kielsa_V2",
