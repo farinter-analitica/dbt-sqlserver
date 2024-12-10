@@ -15,7 +15,6 @@
       "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
       "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
       "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['TarjetaKC_Id']) }}",
-      "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Sucursal_Registro']) }}",
 		]
 		
 ) }}
@@ -27,37 +26,23 @@
 {% endif %}
 
 
-
-SELECT ISNULL([id],0) AS Id
-      ,ISNULL([TarjetaKC_Id] COLLATE DATABASE_DEFAULT ,'') AS TarjetaKC_Id
-      ,ISNULL([Fecha],'19000101') AS [Fecha]
-      ,[CodPlanKielsaClinica] COLLATE DATABASE_DEFAULT AS CodPlanKielsaClinica
-      ,[Tipo_Ingreso] COLLATE DATABASE_DEFAULT AS Tipo_Ingreso
-      ,[Origen] 
-      ,[Tipo_Documento] COLLATE DATABASE_DEFAULT AS Tipo_Documento
-      ,[Sucursal_Registro]
-      ,[Usuario_Registro] COLLATE DATABASE_DEFAULT AS Usuario_Registro
-      ,[TipoPlan]
-      ,[Tipo_Registro] COLLATE DATABASE_DEFAULT  AS Tipo_Registro
-      , GETDATE() AS Fecha_Actualizado
-  FROM  {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'LogMovimientoSuscripcion') }} --[KPP_DB].[dbo].[LogMovimientoSuscripcion]
-  {% if is_incremental() %}
-  WHERE Fecha > '{{ last_date }}'
-  {% else %}
-  UNION ALL
-  SELECT ISNULL([id],0) AS Id
-      ,ISNULL([TarjetaKC_Id],'') AS TarjetaKC_Id
-      ,ISNULL([Fecha],'19000101') AS [Fecha]
-      ,[CodPlanKielsaClinica]
-      ,[Tipo_Ingreso]
-      ,[Origen]
-      ,[Tipo_Documento]
-      ,[Sucursal_Registro]
+	SELECT --TOP (1000) 
+    [id]
+      ,[TarjetaKC_Id]
+      ,[Cliente_Nombre]
       ,[Usuario_Registro]
+      ,[Sucursal_Registro]
       ,[TipoPlan]
-      ,[Tipo_Registro]
+      ,[FRegistro]
+      ,[CodPlanKielsaClinica]
+      ,[Estado]
+      ,[ErrorMessage]
       , GETDATE() AS Fecha_Actualizado
-    FROM [DL_FARINTER].[dbo].[DL_Kielsa_KPP_LogMovimientoSuscripcion_Hist] -- {{ ref ('DL_Kielsa_KPP_LogMovimientoSuscripcion_Hist') }}
+  FROM {{ var('P_SQLLDSUBS_LS') }}.[KPP_DB].[dbo].[LogSuscripcion] -- {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'LogSuscripcion') }} 
+  {% if is_incremental() %}
+  WHERE [FRegistro] > '{{ last_date }}'
+  {% else %}
+
   {% endif %}
 
 

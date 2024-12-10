@@ -27,3 +27,5 @@ sources:
             group: "kpp_etl_dwh"
     tables:
       - name: Suscripcion
+      - name: Transacciones
+      - name: LogSuscripcion
