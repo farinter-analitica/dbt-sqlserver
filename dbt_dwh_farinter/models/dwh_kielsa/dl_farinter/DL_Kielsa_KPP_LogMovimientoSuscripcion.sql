@@ -28,8 +28,8 @@
 
 
 
-SELECT ISNULL([id],0) AS Id
-      ,ISNULL([TarjetaKC_Id] COLLATE DATABASE_DEFAULT ,'') AS TarjetaKC_Id
+SELECT ISNULL(CAST([id] AS INT),0) AS Id
+      ,ISNULL(CAST([TarjetaKC_Id] AS VARCHAR(50)) COLLATE DATABASE_DEFAULT ,'') AS TarjetaKC_Id
       ,ISNULL([Fecha],'19000101') AS [Fecha]
       ,[CodPlanKielsaClinica] COLLATE DATABASE_DEFAULT AS CodPlanKielsaClinica
       ,[Tipo_Ingreso] COLLATE DATABASE_DEFAULT AS Tipo_Ingreso
@@ -45,8 +45,8 @@ SELECT ISNULL([id],0) AS Id
   WHERE Fecha > '{{ last_date }}'
   {% else %}
   UNION ALL
-  SELECT ISNULL([id],0) AS Id
-      ,ISNULL([TarjetaKC_Id],'') AS TarjetaKC_Id
+  SELECT ISNULL(CAST([id] AS INT),0) AS Id
+      ,ISNULL(CAST([TarjetaKC_Id] AS VARCHAR(50)),'') AS TarjetaKC_Id
       ,ISNULL([Fecha],'19000101') AS [Fecha]
       ,[CodPlanKielsaClinica]
       ,[Tipo_Ingreso]
