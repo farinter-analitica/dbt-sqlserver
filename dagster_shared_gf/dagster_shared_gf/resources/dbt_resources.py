@@ -12,6 +12,7 @@ from dagster_dbt import DagsterDbtTranslator, DbtCliResource
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.shared_functions import get_for_current_env
+from pydantic import Field
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 warnings.filterwarnings(
@@ -31,10 +32,14 @@ dbt_target = get_for_current_env(
 )  # resuelve el target dependiendo de la variable de ambiente
 # print(os.fspath(dbt_project_dir))
 # dbt_project_dir="/opt/main_dagster_dev/dbt_dwh_farinter"
-dbt_resource = DbtCliResource(
+class MyDbtCliResource(DbtCliResource):
+    full_refresh: Optional[bool] = Field(default=False, description="Refresh full dbt models")
+
+dbt_resource = MyDbtCliResource(
     project_dir=os.fspath(dbt_project_dir),
     profiles_dir=os.fspath(dbt_project_dir),
     target=dbt_target,  # , dbt_executable="/opt/main_dagster_dev/.venv_main_dagster/bin/dbt"
+    state_path=None,
 )
 
 # If DAGSTER_DBT_PARSE_PROJECT_ON_LOAD is set, a manifest will be created at runtime.

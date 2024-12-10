@@ -42,6 +42,8 @@ def dbt_dwh_kielsa_mart_datos_maestros_assets(
     dbt_run_args: deque[str] = deque(("build",))
     if config.full_refresh:
         dbt_run_args.append("--full-refresh")
+    elif dbt_resource.model_dump(include={"full_refresh"}).get("full_refresh") is True:
+        dbt_run_args.append("--full-refresh")
     yield from (
         dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
     )
@@ -60,6 +62,8 @@ def CRM_Kielsa_RecetasContactarHist(
     v_date_from: str = (datetime.now().date() - timedelta(days=360)).replace(day=1).strftime("%Y%m%d")
     v_date_to: str = (datetime.now().date() + timedelta(days=1)).strftime("%Y%m%d")
     if config.full_refresh or not context.has_partition_key_range:
+        dbt_run_args.append("--full-refresh")
+    elif dbt_resource.model_dump(include={"full_refresh"}).get("full_refresh") is True:
         dbt_run_args.append("--full-refresh")
     if context.has_partition_key_range:
         v_date_from = datetime.fromisoformat(
