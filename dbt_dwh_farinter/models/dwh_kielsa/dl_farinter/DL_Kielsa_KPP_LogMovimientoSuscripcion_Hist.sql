@@ -30,7 +30,7 @@ Datos1 AS
 			, 'Nuevo' AS Tipo_Registro
 			, 1 AS Transac_No
 		FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_Suscripcion] AS A -- {{ source ("DL_FARINTER","DL_Kielsa_KPP_Suscripcion") }}
-		INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS C
+		INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS C -- {{ source ("DL_FARINTER","DL_Kielsa_Monedero") }}
 			ON A.TarjetaKC_Id = C.MonederoTarj_Id_Original COLLATE DATABASE_DEFAULT
 		WHERE C.Emp_Id = 1 and A.Suscripcion_Id < 26173	--- '26173' es el id de suscripci�n del primer monedero registrado en la tbl LogMovimientoSuscripcion
 											--ORDER BY A.FRegistro ASC
@@ -62,8 +62,8 @@ Datos1 AS
 					END AS Tipo_Ingreso
 					, CONVERT(DATE, A.Fecha) AS Fecha
 					, ROW_NUMBER() OVER (PARTITION BY A.TarjetaKC_Id, CONVERT(DATE, A.Fecha)ORDER BY A.Fecha) AS Veces
-				FROM	[REPLICASLD].[KPP_DB].[dbo].[Transacciones] A
-				INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS B
+				FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_Transacciones] A -- {{ ref('DL_Kielsa_KPP_Transacciones') }}
+				INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS B -- {{ source ("DL_FARINTER","DL_Kielsa_Monedero") }}
 					ON A.TarjetaKC_Id = B.MonederoTarj_Id_Original COLLATE DATABASE_DEFAULT
 				WHERE B.Emp_Id = 1 and A.Transaccion_Id < 30350	--- '30350' es el id de transacci�n del primer monedero registrado en la tbl LogMovimientoSuscripcion
 													--ORDER BY Fecha ASC
