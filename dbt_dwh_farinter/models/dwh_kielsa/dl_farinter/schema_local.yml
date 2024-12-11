@@ -3,3 +3,7 @@ models:
     meta:
         dagster:
             owners: ["cleymer.mendoza@farinter.com"]
+  - name: DL_Kielsa_KPP_LogMovimientoSuscripcion_Hist
+    meta:
+        dagster:
+            owners: ["Andrea.Lozano@farinter.com"]
