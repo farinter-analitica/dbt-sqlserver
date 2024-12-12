@@ -21,3 +21,13 @@ sources:
       - name: Transacciones
       - name: LogSuscripcion
       - name: LogMovimientoSuscripcion
+
+  - name: RECETAS
+    description: "RECETAS"
+    database: RECETAS
+    schema: dbo
+    meta:
+        dagster:
+            group: "recetas_etl_dwh"
+    tables:
+      - name: TR_Actualizador_KielsaCash
