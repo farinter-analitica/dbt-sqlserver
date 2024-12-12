@@ -2,7 +2,8 @@ from collections import deque
 from datetime import datetime, timedelta
 import decimal
 import json
-from typing import Iterator, Optional
+import math
+from typing import Any, Iterator, Optional
 import hashlib
 from dagster_shared_gf.dlt_shared.dlt_resources import merge_dlt_dagster_metadata
 import dlt
@@ -16,6 +17,10 @@ from dagster import (
 from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
 from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
+from dlt.sources.helpers.rest_client.client import RESTClient
+from dlt.sources.helpers.rest_client.paginators import SinglePagePaginator, RangePaginator
+from dlt.common import jsonpath
+
 from dlt.common.schema.typing import TWriteDisposition
 from dlt.sources.rest_api.typing import (
     RESTAPIConfig,
@@ -35,7 +40,7 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
 from dagster_shared_gf.shared_variables import default_timezone_teg
 from dagster_shared_gf.partitions.time_based import get_daily_partition_def_to_today
 import pendulum
-from requests import Response
+from requests import Request, Response
 
 
 def remove_fields(response: Response, *args, **kwargs) -> Response:
@@ -68,8 +73,152 @@ def to_str_decimal(value):
     # value = format(decimal.Decimal(value), "020.4f") if value else None
     return value
 
+class JsonPageFromRegsPaginator(RangePaginator):
+    """A paginator that uses page number-based pagination strategy.
 
-@dlt.source
+    For example, consider an API located at `https://api.example.com/items`
+    that supports pagination through page number and page size query parameters,
+    and provides the total number of pages in its responses, as shown below:
+
+        {
+            "items": [...],
+            "total_pages": 10
+        }
+
+    To use `PageNumberPaginator` with such an API, you can instantiate `RESTClient`
+    as follows:
+
+        from dlt.sources.helpers.rest_client import RESTClient
+
+        client = RESTClient(
+            base_url="https://api.example.com",
+            paginator=PageNumberPaginator(
+                total_path="total_pages"
+            )
+        )
+
+        @dlt.resource
+        def get_items():
+            for page in client.paginate("/items", params={"size": 100}):
+                yield page
+
+    Note that we pass the `size` parameter in the initial request to the API.
+    The `PageNumberPaginator` will automatically increment the page number for
+    each subsequent request until all items are fetched.
+
+    If the API does not provide the total number of pages, you can use the
+    `maximum_page` parameter to limit the number of pages to fetch. For example:
+
+        client = RESTClient(
+            base_url="https://api.example.com",
+            paginator=PageNumberPaginator(
+                maximum_page=5,
+                total_path=None
+            )
+        )
+        ...
+
+    In this case, pagination will stop after fetching 5 pages of data.
+    """
+
+    def __init__(
+        self,
+        base_page: int = 0,
+        page: Optional[int] = None,
+        page_json_param: str = "page",
+        regs_per_page: int = 10,
+        total_regs_path: jsonpath.TJsonPath = "total_regs",
+        maximum_page: Optional[int] = None,
+        stop_after_empty_page: Optional[bool] = True,
+    ):
+        """
+        Args:
+            base_page (int): The index of the initial page from the API perspective.
+                Determines the page number that the API server uses for the starting
+                page. Normally, this is 0-based or 1-based (e.g., 1, 2, 3, ...)
+                indexing for the pages. Defaults to 0.
+            page (int): The page number for the first request. If not provided,
+                the initial value will be set to `base_page`.
+            page_param (str): The query parameter name for the page number.
+                Defaults to 'page'.
+            total_path (jsonpath.TJsonPath): The JSONPath expression for
+                the total number of pages. Defaults to 'total'.
+            maximum_page (int): The maximum page number. If provided, pagination
+                will stop once this page is reached or exceeded, even if more
+                data is available. This allows you to limit the maximum number
+                of pages for pagination. Defaults to None.
+            stop_after_empty_page (bool): Whether pagination should stop when
+              a page contains no result items. Defaults to `True`.
+        """
+        if total_regs_path is None and maximum_page is None and not stop_after_empty_page:
+            raise ValueError(
+                "Either `total_path` or `maximum_page` or `stop_after_empty_page` must be provided."
+            )
+
+        page = page if page is not None else base_page
+
+        self.regs_per_page = regs_per_page
+        self.total_pages = None
+        super().__init__(
+            param_name=page_json_param,
+            initial_value=page,
+            base_index=base_page,
+            total_path=total_regs_path,
+            value_step=1,
+            maximum_value=maximum_page,
+            error_message_items="pages",
+            stop_after_empty_page=stop_after_empty_page,
+        )
+
+    def init_request(self, request: Request) -> None:
+        self._has_next_page = True
+        self.current_value = self.initial_value
+        if request.json is None:
+            request.json = {}
+
+        request.json[self.param_name] = self.current_value
+
+    def __str__(self) -> str:
+        return (
+            super().__str__()
+            + f": current page: {self.current_value} page_param: {self.param_name} total_path:"
+            f" {self.total_path} maximum_value: {self.maximum_value}"
+        )
+    
+    def update_state(self, response: Response, data: Optional[list[Any]] = None) -> None:
+        if self._stop_after_this_page(data):
+            self._has_next_page = False
+        else:
+            total = None
+            if self.total_pages is None and self.total_path:
+                response_json = response.json()
+                values = jsonpath.find_values(self.total_path, response_json)
+                total = values[0] if values else None
+                if total is None:
+                    self._handle_missing_total(response_json)
+                else:
+                    try:
+                        self.total_pages = math.ceil(int(total) / self.regs_per_page)
+                    except ValueError:
+                        self._handle_invalid_total(total)
+
+            self.current_value += self.value_step
+
+            total = self.total_pages
+
+            if (total is not None and self.current_value >= total + self.base_index) or (
+                self.maximum_value is not None and self.current_value >= self.maximum_value
+            ):
+                self._has_next_page = False
+
+    def update_request(self, request: Request) -> None:
+        if request.json is None:
+            request.json = {}
+        request.json[self.param_name] = self.current_value
+        
+
+
+@dlt.source(root_key=True)
 def hontrack_api_source(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -106,6 +255,8 @@ def hontrack_api_source(
         },
         "paginator": paginator_config,
     }
+
+    hontrack_client_pages = RESTClient(base_url=client_config["base_url"], paginator=JsonPageFromRegsPaginator(base_page=0, total_regs_path="payload.total_regs", regs_per_page=10))
 
     config: RESTAPIConfig = {
         "client": client_config,
@@ -152,20 +303,20 @@ def hontrack_api_source(
                     "data_selector": "payload.vehicles",
                 },
             },
-            {
-                "name": "drivers_resumen",
-                "primary_key": ["code"],
-                "endpoint": {
-                    "path": "vehicles/get_drivers_resumen.php",
-                    "method": "POST",
-                    "json": {
-                        "from_date": start_date_str,  # "2024-10-29 00:00:00",
-                        "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
-                        "api_key": api_key,
-                    },
-                    "data_selector": "payload.drivers",
-                },
-            },
+            # {
+            #     "name": "drivers_resumen",
+            #     "primary_key": ["code"],
+            #     "endpoint": {
+            #         "path": "vehicles/get_drivers_resumen.php",
+            #         "method": "POST",
+            #         "json": {
+            #             "from_date": start_date_str,  # "2024-10-29 00:00:00",
+            #             "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
+            #             "api_key": api_key,
+            #         },
+            #         "data_selector": "payload.drivers",
+            #     },
+            # },
             {
                 "name": "zones_resumen",
                 "primary_key": ["evtdid"],
@@ -250,6 +401,46 @@ def hontrack_api_source(
         source.resources["sensors_resumen"]
     )
 
+    def transform_zones_resumen(resource: DltResource) -> DltResource:
+        def transform_doc(doc: dict) -> dict:
+            doc["enterprise_id"] = "farinter"
+            for data in doc["data"]:
+                data["evtdfch"] = pendulum.from_format(
+                    data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                )
+                data["_dlt_id"] = (
+                    str(hashlib.md5(f"{doc["evtdid"]}_{data["plate"]}_{data['evtdfch'].strftime("%Y%m%d%H%M%S")}".encode()).hexdigest())
+                )
+            return doc
+        
+        resource.add_map(transform_doc)
+
+        return resource
+
+    source.resources["zones_resumen"] = transform_zones_resumen(
+        source.resources["zones_resumen"]
+    )
+
+
+    
+    @dlt.resource(
+        name="drivers_resumen",
+        primary_key=["code"],)
+    def drivers_resumen():
+        for page in hontrack_client_pages.paginate(
+            path="vehicles/get_drivers_resumen.php",
+            method="POST",
+            json={
+                "from_date": start_date_str,  # "2024-10-29 00:00:00",
+                "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
+                "api_key": api_key,
+            },
+            data_selector="payload.drivers",
+        ):
+            yield page
+    
+    source.resources.add(drivers_resumen)
+
     def transform_drivers_resumen(resource: DltResource) -> DltResource:
         def transform_doc(doc: dict) -> dict:
             # print(doc)
@@ -277,26 +468,6 @@ def hontrack_api_source(
 
     source.resources["drivers_resumen"] = transform_drivers_resumen(
         source.resources["drivers_resumen"]
-    )
-
-    def transform_zones_resumen(resource: DltResource) -> DltResource:
-        def transform_doc(doc: dict) -> dict:
-            doc["enterprise_id"] = "farinter"
-            for data in doc["data"]:
-                data["evtdfch"] = pendulum.from_format(
-                    data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
-                )
-                data["_dlt_id"] = (
-                    str(hashlib.md5(f"{doc["evtdid"]}_{data["plate"]}_{data['evtdfch'].strftime("%Y%m%d%H%M%S")}".encode()).hexdigest())
-                )
-            return doc
-        
-        resource.add_map(transform_doc)
-
-        return resource
-
-    source.resources["zones_resumen"] = transform_zones_resumen(
-        source.resources["zones_resumen"]
     )
 
     return source
@@ -361,6 +532,7 @@ def hontrack_api_assets_per_day(
             context.log.info(
                 f"run_date_from: {start_of_day.isoformat()}, run_date_to: {end_of_day.isoformat()}, date_from: {first_partition}, date_to: {last_partition}"
             )
+            new_pipeline.config.refresh = dlt_pipeline_dest_mssql_dwh.refresh if first_iteration else None # type: ignore
             result = dlt.run(
                 context=context,
                 dlt_source=hontrack_api_source(
@@ -431,7 +603,7 @@ if __name__ == "__main__":
 
     with instance_for_test() as instance:
         ### test job parti
-        test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),))
+        test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),))
         test_resources = {
                 "dlt": DagsterDltResource(),
                 "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
@@ -445,8 +617,8 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2024-11-01",
-                "dagster/asset_partition_range_end": "2024-11-02",
+                "dagster/asset_partition_range_start": "2024-12-01",
+                "dagster/asset_partition_range_end": "2024-12-03",
             },
             resources=test_resources,
             instance=instance,
@@ -456,7 +628,7 @@ if __name__ == "__main__":
                         "config": {
                             # "dev_mode": True,
                             #"write_disposition": "replace",
-                            "refresh": "drop_resources",
+                            #"refresh": "drop_resources",
                         }
                     }
                 }
