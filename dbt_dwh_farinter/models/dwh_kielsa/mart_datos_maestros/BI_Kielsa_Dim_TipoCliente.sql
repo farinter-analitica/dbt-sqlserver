@@ -25,4 +25,4 @@ SELECT --TOP (1000)
       ,ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') AS [HashStr_TipoCliEmp]
       ,[Fecha_Carga]
       ,[Fecha_Actualizado]
-  FROM [DL_FARINTER].[dbo].[DL_Kielsa_Tipo_Cliente] -- {{ source('DL_FARINTER', 'DL_Kielsa_Tipo_Cliente') }}
+  FROM [DL_FARINTER].[dbo].[DL_Kielsa_Tipo_Cliente] -- {{ ref( 'DL_Kielsa_Tipo_Cliente') }}
