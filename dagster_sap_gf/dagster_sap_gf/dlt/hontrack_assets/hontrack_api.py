@@ -61,6 +61,8 @@ def validate_response(response: Response, *args, **kwargs) -> Response:
 
     raise Exception(response.text[:1000])
 
+def hash_sha256_from_str(str: str) -> str:
+    return hashlib.sha256(str.encode()).hexdigest()
 
 def to_str_decimal(value):
     value = (
@@ -460,6 +462,20 @@ def hontrack_api_source(
                     f"{doc["code"]}_{data['fchapl'].strftime("%Y%m%d")}"
                 )
                 data["driver_code"] = doc["code"]
+                for vehicle in data.get("vehicles", []):
+                    vehicle["end_time"] = pendulum.from_format(
+                        vehicle["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                    )
+                    vehicle["_dlt_id"] = hash_sha256_from_str(f"{doc["code"]}_{vehicle['end_time'].strftime("%Y%m%d%H%M%S")}_{vehicle['Plate']}")
+                    for session in vehicle.get("Sessions", []):
+                        session["end_time"] = pendulum.from_format(
+                            session["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                        )
+                        session["start_time"] = pendulum.from_format(
+                            session["start_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                        )
+                        session["_dlt_id"] = hash_sha256_from_str(f"{doc['code']}_{session['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['Plate']}")
+
             return doc
 
         resource.add_map(transform_doc)
@@ -602,64 +618,64 @@ if __name__ == "__main__":
     )
 
     with instance_for_test() as instance:
-        ### test job parti
-        test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),))
-        test_resources = {
-                "dlt": DagsterDltResource(),
-                "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
-            }
+        # ### test job parti
+        # test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),))
+        # test_resources = {
+        #         "dlt": DagsterDltResource(),
+        #         "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
+        #     }
+        # defs = Definitions(
+        #     assets=[hontrack_api_assets_per_day],
+        #     jobs=[test_job],
+        #     resources=test_resources,
+        # )
+
+        # test_job_def = defs.get_job_def("test_job")
+        # result = test_job_def.execute_in_process(
+        #     tags={
+        #         "dagster/asset_partition_range_start": "2024-12-01",
+        #         "dagster/asset_partition_range_end": "2024-12-03",
+        #     },
+        #     resources=test_resources,
+        #     instance=instance,
+        #     run_config=RunConfig(
+        #         resources={
+        #             "dlt_pipeline_dest_mssql_dwh": {
+        #                 "config": {
+        #                     # "dev_mode": True,
+        #                     #"write_disposition": "replace",
+        #                     #"refresh": "drop_resources",
+        #                 }
+        #             }
+        #         }
+        #     ),
+        # )
+        # test single
         defs = Definitions(
             assets=[hontrack_api_assets_per_day],
-            jobs=[test_job],
-            resources=test_resources,
-        )
-
-        test_job_def = defs.get_job_def("test_job")
-        result = test_job_def.execute_in_process(
-            tags={
-                "dagster/asset_partition_range_start": "2024-12-01",
-                "dagster/asset_partition_range_end": "2024-12-03",
+            resources={
+                "dlt": DagsterDltResource(),
+                "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
             },
-            resources=test_resources,
+        )
+        result = materialize(
+            tuple(val for val in defs.get_repository_def().assets_defs_by_key.values()),
             instance=instance,
+            # resources=defs.resources,
+            partition_key="2024-11-18",
+            selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),),
             run_config=RunConfig(
                 resources={
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
                             #"write_disposition": "replace",
-                            #"refresh": "drop_resources",
+                            # "refresh": "drop_resources",
                         }
                     }
                 }
             ),
         )
-        ## test single
-        # defs = Definitions(
-        #     assets=[hontrack_api_assets_per_day],
-        #     resources={
-        #         "dlt": DagsterDltResource(),
-        #         "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
-        #     },
-        # )
-        # result = materialize(
-        #     tuple(val for val in defs.get_repository_def().assets_defs_by_key.values()),
-        #     instance=instance,
-        #     # resources=defs.resources,
-        #     partition_key="2024-11-18",
-        #     selection=(AssetKey(("DL_FARINTER", "hontrack_api", "sensors_resumen")),),
-        #     run_config=RunConfig(
-        #         resources={
-        #             "dlt_pipeline_dest_mssql_dwh": {
-        #                 "config": {
-        #                     # "dev_mode": True,
-        #                     "write_disposition": "replace",
-        #                     # "refresh": "drop_resources",
-        #                 }
-        #             }
-        #         }
-        #     ),
-        # )
 
         print(f"Materialized:{
             [
