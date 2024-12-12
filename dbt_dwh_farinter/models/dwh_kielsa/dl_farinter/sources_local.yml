@@ -133,4 +133,3 @@ sources:
       - name: DL_Kielsa_Libros_Tipo
       - name: DL_MDBECOMM_Usuarios
       - name: DL_Kielsa_KPP_Suscripcion
-      - name: DL_Kielsa_Tipo_Cliente
