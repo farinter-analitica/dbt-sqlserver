@@ -18,7 +18,10 @@ from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
 from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
 from dlt.sources.helpers.rest_client.client import RESTClient
-from dlt.sources.helpers.rest_client.paginators import SinglePagePaginator, RangePaginator
+from dlt.sources.helpers.rest_client.paginators import (
+    SinglePagePaginator,
+    RangePaginator,
+)
 from dlt.common import jsonpath
 
 from dlt.common.schema.typing import TWriteDisposition
@@ -61,8 +64,10 @@ def validate_response(response: Response, *args, **kwargs) -> Response:
 
     raise Exception(response.text[:1000])
 
+
 def hash_sha256_from_str(str: str) -> str:
     return hashlib.sha256(str.encode()).hexdigest()
+
 
 def to_str_decimal(value):
     value = (
@@ -74,6 +79,7 @@ def to_str_decimal(value):
     )
     # value = format(decimal.Decimal(value), "020.4f") if value else None
     return value
+
 
 class JsonPageFromRegsPaginator(RangePaginator):
     """A paginator that uses page number-based pagination strategy.
@@ -153,7 +159,11 @@ class JsonPageFromRegsPaginator(RangePaginator):
             stop_after_empty_page (bool): Whether pagination should stop when
               a page contains no result items. Defaults to `True`.
         """
-        if total_regs_path is None and maximum_page is None and not stop_after_empty_page:
+        if (
+            total_regs_path is None
+            and maximum_page is None
+            and not stop_after_empty_page
+        ):
             raise ValueError(
                 "Either `total_regs_path` or `maximum_page` must be provided, or `stop_after_empty_page` must be set to `True`."
             )
@@ -186,8 +196,10 @@ class JsonPageFromRegsPaginator(RangePaginator):
             + f": current page: {self.current_value} page_param: {self.param_name} total_path:"
             f" {self.total_path} maximum_value: {self.maximum_value}"
         )
-    
-    def update_state(self, response: Response, data: Optional[list[Any]] = None) -> None:
+
+    def update_state(
+        self, response: Response, data: Optional[list[Any]] = None
+    ) -> None:
         if self._stop_after_this_page(data):
             self._has_next_page = False
         else:
@@ -208,8 +220,11 @@ class JsonPageFromRegsPaginator(RangePaginator):
 
             total = self.total_pages
 
-            if (total is not None and self.current_value >= total + self.base_index) or (
-                self.maximum_value is not None and self.current_value >= self.maximum_value
+            if (
+                total is not None and self.current_value >= total + self.base_index
+            ) or (
+                self.maximum_value is not None
+                and self.current_value >= self.maximum_value
             ):
                 self._has_next_page = False
 
@@ -217,7 +232,6 @@ class JsonPageFromRegsPaginator(RangePaginator):
         if request.json is None:
             request.json = {}
         request.json[self.param_name] = self.current_value
-        
 
 
 @dlt.source(root_key=True)
@@ -258,7 +272,12 @@ def hontrack_api_source(
         "paginator": paginator_config,
     }
 
-    hontrack_client_pages = RESTClient(base_url=client_config["base_url"], paginator=JsonPageFromRegsPaginator(base_page=0, total_regs_path="payload.total_regs", regs_per_page=10))
+    hontrack_client_pages = RESTClient(
+        base_url=client_config["base_url"],
+        paginator=JsonPageFromRegsPaginator(
+            base_page=0, total_regs_path="payload.total_regs", regs_per_page=10
+        ),
+    )
 
     config: RESTAPIConfig = {
         "client": client_config,
@@ -410,11 +429,13 @@ def hontrack_api_source(
                 data["evtdfch"] = pendulum.from_format(
                     data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
                 )
-                data["_dlt_id"] = (
-                    str(hashlib.md5(f"{doc["evtdid"]}_{data["plate"]}_{data['evtdfch'].strftime("%Y%m%d%H%M%S")}".encode()).hexdigest())
+                data["_dlt_id"] = str(
+                    hashlib.md5(
+                        f"{doc["evtdid"]}_{data["plate"]}_{data['evtdfch'].strftime("%Y%m%d%H%M%S")}".encode()
+                    ).hexdigest()
                 )
             return doc
-        
+
         resource.add_map(transform_doc)
 
         return resource
@@ -423,11 +444,10 @@ def hontrack_api_source(
         source.resources["zones_resumen"]
     )
 
-
-    
     @dlt.resource(
         name="drivers_resumen",
-        primary_key=["code"],)
+        primary_key=["code"],
+    )
     def drivers_resumen():
         for page in hontrack_client_pages.paginate(
             path="vehicles/get_drivers_resumen.php",
@@ -440,7 +460,7 @@ def hontrack_api_source(
             data_selector="payload.drivers",
         ):
             yield page
-    
+
     source.resources.add(drivers_resumen)
 
     def transform_drivers_resumen(resource: DltResource) -> DltResource:
@@ -458,24 +478,32 @@ def hontrack_api_source(
                 data["end_time"] = pendulum.from_format(
                     data["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
                 )
-                data["_dlt_id"] = (
-                    f"{doc["code"]}_{data['fchapl'].strftime("%Y%m%d")}"
-                )
+                data["_dlt_id"] = f"{doc["code"]}_{data['fchapl'].strftime("%Y%m%d")}"
                 data["driver_code"] = doc["code"]
                 for vehicle in data.get("vehicles", []):
                     vehicle["end_time"] = pendulum.from_format(
-                        vehicle["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                        vehicle["end_time"],
+                        "YYYY-MM-DD HH:mm:ss",
+                        tz=default_timezone_teg,
                     )
-                    vehicle["_dlt_id"] = hash_sha256_from_str(f"{doc["code"]}_{vehicle['end_time'].strftime("%Y%m%d%H%M%S")}_{vehicle['plate']}")
+                    vehicle["_dlt_id"] = hash_sha256_from_str(
+                        f"{doc["code"]}_{vehicle['end_time'].strftime("%Y%m%d%H%M%S")}_{vehicle['plate']}"
+                    )
                     vehicle["_dlt_parent_id"] = data["_dlt_id"]
                     for session in vehicle.get("Sessions", []):
                         session["end_time"] = pendulum.from_format(
-                            session["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                            session["end_time"],
+                            "YYYY-MM-DD HH:mm:ss",
+                            tz=default_timezone_teg,
                         )
                         session["start_time"] = pendulum.from_format(
-                            session["start_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                            session["start_time"],
+                            "YYYY-MM-DD HH:mm:ss",
+                            tz=default_timezone_teg,
                         )
-                        session["_dlt_id"] = hash_sha256_from_str(f"{doc['code']}_{session['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['plate']}")
+                        session["_dlt_id"] = hash_sha256_from_str(
+                            f"{doc['code']}_{session['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['plate']}"
+                        )
                         session["_dlt_parent_id"] = vehicle["_dlt_id"]
 
             return doc
@@ -537,8 +565,13 @@ def hontrack_api_assets_per_day(
         "hontrack_api_pipeline", "hontrack_api"
     )
     new_pipeline.drop_pending_packages()
-    first_partition, last_partition = context.partition_key_range
-    partition_iter = _daily_partition_iter(first_partition, last_partition)
+    first_partition, last_partition = (
+        context.partition_key_range if context.has_partition_key_range else (None, None)
+    )  # else (daily_partitions_def.get_first_partition_key(), daily_partitions_def.get_last_partition_key())
+    if first_partition is None or last_partition is None:
+        ValueError("First or last partition not found. Try a partitioned run.")
+    else:
+        partition_iter = _daily_partition_iter(first_partition, last_partition)
     context.log.info(f"date_from: {first_partition}, date_to: {last_partition}")
     context.log.info(
         f"write_disp: {dlt_pipeline_dest_mssql_dwh.write_disposition}, refresh: {dlt_pipeline_dest_mssql_dwh.refresh}"
@@ -558,7 +591,8 @@ def hontrack_api_assets_per_day(
                 ),
                 dlt_pipeline=new_pipeline,
                 write_disposition=dlt_pipeline_dest_mssql_dwh.write_disposition
-                if first_iteration or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
+                if first_iteration
+                or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
                 else None,
                 refresh=dlt_pipeline_dest_mssql_dwh.refresh
                 if first_iteration
@@ -670,7 +704,7 @@ if __name__ == "__main__":
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            #"write_disposition": "replace",
+                            # "write_disposition": "replace",
                             "refresh": "drop_resources",
                         }
                     }
