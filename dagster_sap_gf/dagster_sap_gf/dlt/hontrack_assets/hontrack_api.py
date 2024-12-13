@@ -382,7 +382,7 @@ def hontrack_api_source(
 
     transform_common(("vehicles_resumen", "sensors_resumen"))
 
-    def transform_sensors_resumen(resource: DltResource) -> DltResource:
+    def transform_sensors_resumen(resource: DltResource) -> None:
         def transform_doc(doc: dict) -> dict:
             def transform_data_to_decimals(data: dict) -> dict:
                 if isinstance(data, dict):
@@ -416,13 +416,12 @@ def hontrack_api_source(
 
         resource.add_map(transform_doc, 2)
 
-        return resource
 
-    source.resources["sensors_resumen"] = transform_sensors_resumen(
+    transform_sensors_resumen(
         source.resources["sensors_resumen"]
     )
 
-    def transform_zones_resumen(resource: DltResource) -> DltResource:
+    def transform_zones_resumen(resource: DltResource) -> None:
         def transform_doc(doc: dict) -> dict:
             doc["enterprise_id"] = "farinter"
             for data in doc["data"]:
@@ -438,9 +437,8 @@ def hontrack_api_source(
 
         resource.add_map(transform_doc)
 
-        return resource
 
-    source.resources["zones_resumen"] = transform_zones_resumen(
+    transform_zones_resumen(
         source.resources["zones_resumen"]
     )
 
@@ -463,7 +461,7 @@ def hontrack_api_source(
 
     source.resources.add(drivers_resumen)
 
-    def transform_drivers_resumen(resource: DltResource) -> DltResource:
+    def transform_drivers_resumen(resource: DltResource) -> None:
         def transform_doc(doc: dict) -> dict:
             # print(doc)
             # new_doc = dict(next(iter(doc.values()))) #el proveedor corrigio el API
@@ -510,9 +508,8 @@ def hontrack_api_source(
 
         resource.add_map(transform_doc)
 
-        return resource
 
-    source.resources["drivers_resumen"] = transform_drivers_resumen(
+    transform_drivers_resumen(
         source.resources["drivers_resumen"]
     )
 
@@ -653,64 +650,64 @@ if __name__ == "__main__":
     )
 
     with instance_for_test() as instance:
-        # ### test job parti
-        # test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),))
-        # test_resources = {
-        #         "dlt": DagsterDltResource(),
-        #         "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
-        #     }
-        # defs = Definitions(
-        #     assets=[hontrack_api_assets_per_day],
-        #     jobs=[test_job],
-        #     resources=test_resources,
-        # )
-
-        # test_job_def = defs.get_job_def("test_job")
-        # result = test_job_def.execute_in_process(
-        #     tags={
-        #         "dagster/asset_partition_range_start": "2024-12-01",
-        #         "dagster/asset_partition_range_end": "2024-12-03",
-        #     },
-        #     resources=test_resources,
-        #     instance=instance,
-        #     run_config=RunConfig(
-        #         resources={
-        #             "dlt_pipeline_dest_mssql_dwh": {
-        #                 "config": {
-        #                     # "dev_mode": True,
-        #                     #"write_disposition": "replace",
-        #                     #"refresh": "drop_resources",
-        #                 }
-        #             }
-        #         }
-        #     ),
-        # )
-        # test single
-        defs = Definitions(
-            assets=[hontrack_api_assets_per_day],
-            resources={
+        ### test job parti
+        test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),))
+        test_resources = {
                 "dlt": DagsterDltResource(),
                 "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
-            },
+            }
+        defs = Definitions(
+            assets=[hontrack_api_assets_per_day],
+            jobs=[test_job],
+            resources=test_resources,
         )
-        result = materialize(
-            tuple(val for val in defs.get_repository_def().assets_defs_by_key.values()),
+
+        test_job_def = defs.get_job_def("test_job")
+        result = test_job_def.execute_in_process(
+            tags={
+                "dagster/asset_partition_range_start": "2024-09-01",
+                "dagster/asset_partition_range_end": "2024-12-03",
+            },
+            resources=test_resources,
             instance=instance,
-            # resources=defs.resources,
-            partition_key="2024-11-18",
-            selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),),
             run_config=RunConfig(
                 resources={
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            # "write_disposition": "replace",
-                            "refresh": "drop_resources",
+                            #"write_disposition": "replace",
+                            #"refresh": "drop_resources",
                         }
                     }
                 }
             ),
         )
+        # # test single
+        # defs = Definitions(
+        #     assets=[hontrack_api_assets_per_day],
+        #     resources={
+        #         "dlt": DagsterDltResource(),
+        #         "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
+        #     },
+        # )
+        # result = materialize(
+        #     tuple(val for val in defs.get_repository_def().assets_defs_by_key.values()),
+        #     instance=instance,
+        #     # resources=defs.resources,
+        #     #partition_key="2024-11-18",
+        #     selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),),
+        #     run_config=RunConfig(
+        #         resources={
+        #             "dlt_pipeline_dest_mssql_dwh": {
+        #                 "config": {
+        #                     # "dev_mode": True,
+        #                     # "write_disposition": "replace",
+        #                     # "refresh": "drop_resources",
+        #                 }
+        #             }
+        #         }
+        #     ),
+        # )
 
         print(f"Materialized:{
             [
