@@ -550,8 +550,6 @@ def hontrack_api_assets_per_day(
             context.log.info(
                 f"run_date_from: {start_of_day.isoformat()}, run_date_to: {end_of_day.isoformat()}, date_from: {first_partition}, date_to: {last_partition}"
             )
-            dlt_pipeline_dest_mssql_dwh.write_disposition = None
-            new_pipeline.config.refresh = dlt_pipeline_dest_mssql_dwh.refresh if first_iteration else None # type: ignore
             result = dlt.run(
                 context=context,
                 dlt_source=hontrack_api_source(
