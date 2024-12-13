@@ -416,10 +416,7 @@ def hontrack_api_source(
 
         resource.add_map(transform_doc, 2)
 
-
-    transform_sensors_resumen(
-        source.resources["sensors_resumen"]
-    )
+    transform_sensors_resumen(source.resources["sensors_resumen"])
 
     def transform_zones_resumen(resource: DltResource) -> None:
         def transform_doc(doc: dict) -> dict:
@@ -437,10 +434,7 @@ def hontrack_api_source(
 
         resource.add_map(transform_doc)
 
-
-    transform_zones_resumen(
-        source.resources["zones_resumen"]
-    )
+    transform_zones_resumen(source.resources["zones_resumen"])
 
     @dlt.resource(
         name="drivers_resumen",
@@ -508,10 +502,7 @@ def hontrack_api_source(
 
         resource.add_map(transform_doc)
 
-
-    transform_drivers_resumen(
-        source.resources["drivers_resumen"]
-    )
+    transform_drivers_resumen(source.resources["drivers_resumen"])
 
     return source
 
@@ -563,12 +554,19 @@ def hontrack_api_assets_per_day(
     )
     new_pipeline.drop_pending_packages()
     first_partition, last_partition = (
-        context.partition_key_range if context.has_partition_key_range else (None, None)
-    )  # else (daily_partitions_def.get_first_partition_key(), daily_partitions_def.get_last_partition_key())
+        context.partition_key_range
+        if context.has_partition_key_range or context.has_partition_key
+        else (
+            daily_partitions_def.get_last_partition_key(),
+            daily_partitions_def.get_last_partition_key(),
+        )
+    )
     if first_partition is None or last_partition is None:
-        ValueError("First or last partition not found. Try a partitioned run.")
-    else:
-        partition_iter = _daily_partition_iter(first_partition, last_partition)
+        raise ValueError(
+            "Partition range not found, try a partitioned run."
+        )
+
+    partition_iter = _daily_partition_iter(first_partition, last_partition)
     context.log.info(f"date_from: {first_partition}, date_to: {last_partition}")
     context.log.info(
         f"write_disp: {dlt_pipeline_dest_mssql_dwh.write_disposition}, refresh: {dlt_pipeline_dest_mssql_dwh.refresh}"
@@ -651,11 +649,14 @@ if __name__ == "__main__":
 
     with instance_for_test() as instance:
         ### test job parti
-        test_job = define_asset_job("test_job", selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),))
+        test_job = define_asset_job(
+            "test_job",
+            selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),),
+        )
         test_resources = {
-                "dlt": DagsterDltResource(),
-                "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
-            }
+            "dlt": DagsterDltResource(),
+            "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
+        }
         defs = Definitions(
             assets=[hontrack_api_assets_per_day],
             jobs=[test_job],
@@ -675,8 +676,8 @@ if __name__ == "__main__":
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            #"write_disposition": "replace",
-                            #"refresh": "drop_resources",
+                            # "write_disposition": "replace",
+                            # "refresh": "drop_resources",
                         }
                     }
                 }
