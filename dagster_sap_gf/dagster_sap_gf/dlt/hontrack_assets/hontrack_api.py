@@ -84,7 +84,7 @@ class JsonPageFromRegsPaginator(RangePaginator):
 
         {
             "items": [...],
-            "total_pages": 10
+            "total_regs": 10
         }
 
     To use `PageNumberPaginator` with such an API, you can instantiate `RESTClient`
@@ -95,7 +95,7 @@ class JsonPageFromRegsPaginator(RangePaginator):
         client = RESTClient(
             base_url="https://api.example.com",
             paginator=PageNumberPaginator(
-                total_path="total_pages"
+                total_path="total_regs"
             )
         )
 
@@ -135,16 +135,17 @@ class JsonPageFromRegsPaginator(RangePaginator):
     ):
         """
         Args:
-            base_page (int): The index of the initial page from the API perspective.
-                Determines the page number that the API server uses for the starting
+            base_page (int): The index of the first page from the API perspective.
+                Determines the page number that the API server uses for the first
                 page. Normally, this is 0-based or 1-based (e.g., 1, 2, 3, ...)
                 indexing for the pages. Defaults to 0.
             page (int): The page number for the first request. If not provided,
                 the initial value will be set to `base_page`.
-            page_param (str): The query parameter name for the page number.
+            page_json_param (str): The query parameter name for the page number.
                 Defaults to 'page'.
-            total_path (jsonpath.TJsonPath): The JSONPath expression for
-                the total number of pages. Defaults to 'total'.
+            regs_per_page (int): The number of items per page. Defaults to 10.
+            total_regs_path (jsonpath.TJsonPath): The JSONPath expression for
+                the total number of pages. Defaults to 'total_regs'.
             maximum_page (int): The maximum page number. If provided, pagination
                 will stop once this page is reached or exceeded, even if more
                 data is available. This allows you to limit the maximum number
@@ -154,9 +155,8 @@ class JsonPageFromRegsPaginator(RangePaginator):
         """
         if total_regs_path is None and maximum_page is None and not stop_after_empty_page:
             raise ValueError(
-                "Either `total_path` or `maximum_page` or `stop_after_empty_page` must be provided."
+                "Either `total_regs_path` or `maximum_page` must be provided, or `stop_after_empty_page` must be set to `True`."
             )
-
         page = page if page is not None else base_page
 
         self.regs_per_page = regs_per_page
@@ -466,7 +466,8 @@ def hontrack_api_source(
                     vehicle["end_time"] = pendulum.from_format(
                         vehicle["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
                     )
-                    vehicle["_dlt_id"] = hash_sha256_from_str(f"{doc["code"]}_{vehicle['end_time'].strftime("%Y%m%d%H%M%S")}_{vehicle['Plate']}")
+                    vehicle["_dlt_id"] = hash_sha256_from_str(f"{doc["code"]}_{vehicle['end_time'].strftime("%Y%m%d%H%M%S")}_{vehicle['plate']}")
+                    vehicle["_dlt_parent_id"] = data["_dlt_id"]
                     for session in vehicle.get("Sessions", []):
                         session["end_time"] = pendulum.from_format(
                             session["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
@@ -474,7 +475,8 @@ def hontrack_api_source(
                         session["start_time"] = pendulum.from_format(
                             session["start_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
                         )
-                        session["_dlt_id"] = hash_sha256_from_str(f"{doc['code']}_{session['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['Plate']}")
+                        session["_dlt_id"] = hash_sha256_from_str(f"{doc['code']}_{session['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['plate']}")
+                        session["_dlt_parent_id"] = vehicle["_dlt_id"]
 
             return doc
 
@@ -548,6 +550,7 @@ def hontrack_api_assets_per_day(
             context.log.info(
                 f"run_date_from: {start_of_day.isoformat()}, run_date_to: {end_of_day.isoformat()}, date_from: {first_partition}, date_to: {last_partition}"
             )
+            dlt_pipeline_dest_mssql_dwh.write_disposition = None
             new_pipeline.config.refresh = dlt_pipeline_dest_mssql_dwh.refresh if first_iteration else None # type: ignore
             result = dlt.run(
                 context=context,
@@ -670,7 +673,7 @@ if __name__ == "__main__":
                         "config": {
                             # "dev_mode": True,
                             #"write_disposition": "replace",
-                            # "refresh": "drop_resources",
+                            "refresh": "drop_resources",
                         }
                     }
                 }

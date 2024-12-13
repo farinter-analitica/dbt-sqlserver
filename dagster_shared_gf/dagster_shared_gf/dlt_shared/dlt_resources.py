@@ -146,7 +146,7 @@ drop_data: Wipe all data and resource state for all resources being processed. S
             destination=self._get_destination(),
             dataset_name=dataset_name,
             progress="log",
-            refresh=self.refresh,  # type: ignore
+            #refresh=self.refresh,  # type: ignore
             pipelines_dir=new_pipelines_dir,
             dev_mode=self.dev_mode,
             import_schema_path=import_schema_path,  # type: ignore[arg-type]
