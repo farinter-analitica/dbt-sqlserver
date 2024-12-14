@@ -302,12 +302,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
     #     "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_C&L_Param_Pesos"])],
     # },
-    "DL_paCargarKielsa_Mov_Inventario_Detalle": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Mov_Inventario_Detalle",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empresa"])],
-    },
+    # "DL_paCargarKielsa_Mov_Inventario_Detalle": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": "DL_Kielsa_Mov_Inventario_Detalle",
+    #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    #     "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Empresa"])],
+    # },
     "DL_paCargarKielsa_Mov_Inventario_Encabezado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Mov_Inventario_Encabezado",
