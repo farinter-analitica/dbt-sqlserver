@@ -285,22 +285,22 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Empleado"])],
     },
-    # "AN_pacargarC&L_Param_Pesos": {
+    # "AN_pacargarClinicaLab_Param_Pesos": {
     #     "key_prefix": ["AN_FARINTER", "dbo"],
-    #     "name": "AN_C&L_Param_Pesos",
+    #     "name": "AN_ClinicaLab_Param_Pesos",
     #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
     #     "deps": [
     #         AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
     #         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"]),
-    #         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasC&LHist_Kielsa"]),
+    #         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasClinicaLabHist_Kielsa"]),
     #         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Cliente"]),
     #     ],
     # },
-    # "BI_paCargarC&L_Hecho_ProyeccionVentas": {
+    # "BI_paCargarClinicaLab_Hecho_ProyeccionVentas": {
     #     "key_prefix": ["BI_FARINTER", "dbo"],
-    #     "name": "BI_C&L_Hecho_ProyeccionVentas",
+    #     "name": "BI_ClinicaLab_Hecho_ProyeccionVentas",
     #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-    #     "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_C&L_Param_Pesos"])],
+    #     "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_ClinicaLab_Param_Pesos"])],
     # },
     # "DL_paCargarKielsa_Mov_Inventario_Detalle": {
     #     "key_prefix": ["DL_FARINTER", "dbo"],
@@ -469,7 +469,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_ClientesXArticulo": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Acum_ClientesXArticulo_Kielsa",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag | tags_repo.DetenerCarga.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
@@ -788,5 +788,5 @@ all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
 all_asset_freshness_checks = (
-    all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+    *all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks
 )
