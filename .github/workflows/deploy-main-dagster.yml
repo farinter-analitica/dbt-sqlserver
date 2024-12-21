@@ -1,0 +1,71 @@
+name: Deploy Dagster
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Deploy with function calls
+        run: |
+          # Directory variables
+          REPO_DIR="/opt/main_dagster_bare"
+          DEPLOY_DIR_MAIN="/opt/main_dagster_prd"
+          DEPLOY_DIR_DEV="/opt/main_dagster_dev"
+
+          # Define the same function as in your post-receive script
+          update_directory() {
+              local deploy_dir=$1
+              local branch=$2
+
+              if [ -d "$deploy_dir" ]; then
+                  cd "$deploy_dir"
+                  if [ -d ".git" ]; then
+                      export GIT_DIR="$deploy_dir/.git"
+                      export GIT_WORK_TREE="$deploy_dir"
+
+                      git fetch origin
+                      git checkout "$branch"
+                      git pull --rebase origin "$branch"
+
+                      # Run your Python script in the appropriate virtual environment
+                      PATH="$deploy_dir/.venv_main_dagster/bin:$PATH"
+                      "$deploy_dir/.venv_main_dagster/bin/python" "$deploy_dir/dbt_dwh_farinter/autoload_dbt_parse.py"
+
+                      echo "Updated $deploy_dir to the latest $branch"
+                  else
+                      echo "Directory $deploy_dir is not a git repository."
+                  fi
+              else
+                  echo "Directory $deploy_dir does not exist."
+              fi
+          }
+  
+          # Navigate to the repository directory
+          cd "$REPO_DIR" || exit 1
+
+          # Extract the short branch name (e.g. main or dev)
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "Current branch reference is $GITHUB_REF (branch: $BRANCH)"
+
+          case "$BRANCH" in
+            "main")
+              update_directory "$DEPLOY_DIR_MAIN" "main"
+              ;;
+            "dev")
+              update_directory "$DEPLOY_DIR_DEV" "dev"
+              ;;
+            *)
+              echo "Warning: Unknown branch '$BRANCH'. No action taken."
+              ;;
+          esac
