@@ -8,6 +8,11 @@ pip install -e dagster_sap_gf --config-settings editable_mode=compat
 pip install -e dagster_kielsa_gf --config-settings editable_mode=compat
 
 ```
+### Uso de github ###
+Requiere la creacion de un token para usar para el clone o remote:
+git clone https://<MYTOKEN>@github.com/org-name/repo-name.git
+git add origin https://<MYTOKEN>@github.com/org-name/repo-name.git
+
 
 ### Configuración local ###
 
