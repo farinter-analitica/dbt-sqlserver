@@ -205,6 +205,7 @@ read_source_config_multi_column: ColConfigs = (
 
 read_source_config_full_refresh: ColConfigs = (
     DLTRColl(collection_name="campaignActivity"),
+    DLTRColl(collection_name="crm_budget_header"),
 )
 
 
@@ -409,7 +410,7 @@ if __name__ == "__main__":
                 for asset in all_assets
                 if asset.key
                 in (
-                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),
+                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_budget_header")),
                 )
             )
             assert asset_to_test
