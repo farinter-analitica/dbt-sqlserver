@@ -285,23 +285,23 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Empleado"])],
     },
-    # "AN_pacargarClinicaLab_Param_Pesos": {
-    #     "key_prefix": ["AN_FARINTER", "dbo"],
-    #     "name": "AN_ClinicaLab_Param_Pesos",
-    #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-    #     "deps": [
-    #         AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
-    #         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"]),
-    #         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasClinicaLabHist_Kielsa"]),
-    #         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Cliente"]),
-    #     ],
-    # },
-    # "BI_paCargarClinicaLab_Hecho_ProyeccionVentas": {
-    #     "key_prefix": ["BI_FARINTER", "dbo"],
-    #     "name": "BI_ClinicaLab_Hecho_ProyeccionVentas",
-    #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-    #     "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_ClinicaLab_Param_Pesos"])],
-    # },
+    "AN_pacargarClinicaLab_Param_Pesos": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": "AN_ClinicaLab_Param_Pesos",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_Ventas_ClinicaLab"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Cliente"]),
+        ],
+    },
+    "BI_paCargarClinicaLab_Hecho_ProyeccionVentas": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_ClinicaLab_Hecho_ProyeccionVentas",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_ClinicaLab_Param_Pesos"])],
+    },
     # "DL_paCargarKielsa_Mov_Inventario_Detalle": {
     #     "key_prefix": ["DL_FARINTER", "dbo"],
     #     "name": "DL_Kielsa_Mov_Inventario_Detalle",
