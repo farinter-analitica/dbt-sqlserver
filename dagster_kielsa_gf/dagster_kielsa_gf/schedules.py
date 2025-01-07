@@ -192,18 +192,19 @@ kielsa_hourly_additional_job_schedule = ScheduleDefinition(
     should_execute=should_exec_kielsa_hourly_additional_job_run,
 )
 
-kielsa_olap_kielsa_general_temp_dev_job_schedule = ScheduleDefinition(
-    cron_schedule=get_for_current_env(
-        dict={
-            "dev": ["05 6-19 * * *", "05 23 * * *"],
-            "prd": ["05 6-19 * * *", "05 23 * * *"],
-        }
-    ),  # cron template: hour minute day month day_of_week
-    execution_timezone=default_timezone,
-    job=kielsa_olap_kielsa_general_temp_dev_job,
-    default_status=only_dev_default_schedule_status,
-    should_execute=should_exec_kielsa_hourly_job_run,
-)
+# Migrado a PRD
+# kielsa_olap_kielsa_general_temp_dev_job_schedule = ScheduleDefinition(
+#     cron_schedule=get_for_current_env(
+#         dict={
+#             "dev": ["05 6-19 * * *", "05 23 * * *"],
+#             "prd": ["05 6-19 * * *", "05 23 * * *"],
+#         }
+#     ),  # cron template: hour minute day month day_of_week
+#     execution_timezone=default_timezone,
+#     job=kielsa_olap_kielsa_general_temp_dev_job,
+#     default_status=only_dev_default_schedule_status,
+#     should_execute=should_exec_kielsa_hourly_job_run,
+# )
 
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
