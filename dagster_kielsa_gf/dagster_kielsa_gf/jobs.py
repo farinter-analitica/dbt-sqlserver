@@ -165,21 +165,21 @@ kielsa_hourly_additional_job: UnresolvedAssetJobDefinition = define_asset_job(
     },  # max 45 minutes in seconds, then mark it as failed.)
 )
 
-
-kielsa_olap_kielsa_general_temp_dev_job: UnresolvedAssetJobDefinition = (
-    define_asset_job(
-        name="kielsa_olap_kielsa_general_temp_dev_job",
-        selection=AssetSelection.assets(
-            AssetKey(["DWH_TABULAR", "SSAS", "olap_tabular_kielsa_general_ejecucion"])
-        ).upstream()
-        & kielsa_hourly_assets,
-        config=RunConfig(execution=execution_run_config_default),
-        tags=tags_repo.Hourly.tag
-        | {
-            "dagster/max_runtime": (100 * 60)
-        },  # max 100 minutes in seconds, then mark it as failed.)
-    )
-)
+# Migrado a PRD
+# kielsa_olap_kielsa_general_temp_dev_job: UnresolvedAssetJobDefinition = (
+#     define_asset_job(
+#         name="kielsa_olap_kielsa_general_temp_dev_job",
+#         selection=AssetSelection.assets(
+#             AssetKey(["DWH_TABULAR", "SSAS", "olap_tabular_kielsa_general_ejecucion"])
+#         ).upstream()
+#         & kielsa_hourly_assets,
+#         config=RunConfig(execution=execution_run_config_default),
+#         tags=tags_repo.Hourly.tag
+#         | {
+#             "dagster/max_runtime": (100 * 60)
+#         },  # max 100 minutes in seconds, then mark it as failed.)
+#     )
+# )
 
 dlt_dwh_kielsa_all_downstream_assets: AssetSelection = (
     AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh").downstream()
