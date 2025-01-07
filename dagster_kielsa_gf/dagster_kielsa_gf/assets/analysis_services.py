@@ -1,26 +1,23 @@
+from datetime import timedelta
+from typing import Sequence
+
 from dagster import (
-    asset,
-    AssetKey,
-    load_assets_from_current_module,
-    load_asset_checks_from_current_module,
-    build_last_update_freshness_checks,
     AssetChecksDefinition,
     AssetExecutionContext,
-    AssetsDefinition,
-    multi_asset,
-    AssetSpec,
-    Output,
-    AssetOut,
+    AssetKey,
     Field,
+    SourceAsset,
+    asset,
+    build_last_update_freshness_checks,
+    load_asset_checks_from_current_module,
+    load_assets_from_current_module,
 )
+
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
-    get_all_instances_of_class,
 )
-from dagster_shared_gf.shared_variables import tags_repo, env_str
-from datetime import timedelta
-from typing import Sequence, List, Mapping, Dict, Any
+from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
 @asset(
@@ -35,13 +32,18 @@ from typing import Sequence, List, Mapping, Dict, Any
         AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesosDesc_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ProyeccionDescuentoCupon_Kielsa"]),
     ],
-    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP VENTAS KIELSA';"
+    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP VENTAS KIELSA';",
 )
-def olap_ventas_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
-    if env_str == "prd": 
-        dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'OLAP VENTAS KIELSA';")
+def olap_ventas_kielsa_ejecucion(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    if env_str == "prd":
+        dwh_farinter_dl.execute_and_commit(
+            "EXEC msdb.dbo.sp_start_job @job_name = 'OLAP VENTAS KIELSA';"
+        )
     else:
         context.log.info("No se ejecuta el job de OLAP VENTAS KIELSA en dev")
+
 
 @asset(
     key_prefix=["DWH_TABULAR", "SSAS"],
@@ -59,18 +61,31 @@ def olap_ventas_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ExistenciasHist_Kielsa"]),
     ],
     description="EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General' ó EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General_CadaHora';",
-    config_schema={"hourly": Field(bool, is_required=False, default_value=False),
-                   "daily": Field(bool, is_required=False, default_value=False)},
-
+    config_schema={
+        "hourly": Field(bool, is_required=False, default_value=False),
+        "daily": Field(bool, is_required=False, default_value=False),
+    },
 )
-def olap_tabular_kielsa_general_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
-    if env_str == "dev" or env_str == "local": 
-        if context.job_def.tags.get(tags_repo.Hourly.key) is not None or context.op_execution_context.op_config.get("hourly"):
-            dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General_CadaHora';")
-        elif context.job_def.tags.get(tags_repo.Daily.key) is not None or context.op_execution_context.op_config.get("daily"):
-            dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General';")
+def olap_tabular_kielsa_general_ejecucion(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    if env_str == "prd":
+        if context.job_def.tags.get(
+            tags_repo.Hourly.key
+        ) is not None or context.op_execution_context.op_config.get("hourly"):
+            dwh_farinter_dl.execute_and_commit(
+                "EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General_CadaHora';"
+            )
+        elif context.job_def.tags.get(
+            tags_repo.Daily.key
+        ) is not None or context.op_execution_context.op_config.get("daily"):
+            dwh_farinter_dl.execute_and_commit(
+                "EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General';"
+            )
         else:
-            context.log.error("No se ejecuta el job de OLAP Tabular sin especificar el tipo de ejecución.")
+            context.log.error(
+                "No se ejecuta el job de OLAP Tabular sin especificar el tipo de ejecución."
+            )
     else:
         context.log.info(f"No se ejecuta el job de OLAP VENTAS KIELSA en {env_str}")
 
@@ -82,13 +97,18 @@ def olap_tabular_kielsa_general_ejecucion(context: AssetExecutionContext, dwh_fa
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Sugeridos_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_SugeridosResumen_Kielsa"]),
     ],
-    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';"
+    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';",
 )
-def olap_sugeridos_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
-    if env_str == "prd": 
-        dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';")
+def olap_sugeridos_kielsa_ejecucion(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    if env_str == "prd":
+        dwh_farinter_dl.execute_and_commit(
+            "EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';"
+        )
     else:
         context.log.info("No se ejecuta el job de OLAP SUGERIDOS KIELSA en dev")
+
 
 @asset(
     key_prefix=["DWH_204", "SSAS"],
@@ -102,35 +122,53 @@ def olap_sugeridos_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_SucursalDest_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Existencias_Kielsa"]),
     ],
-    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';"
+    description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';",
 )
-def olap_existencias_kielsa_ejecucion(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource) -> None:
-    if env_str == "prd": 
-        dwh_farinter_dl.execute_and_commit(f"EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';")
+def olap_existencias_kielsa_ejecucion(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    if env_str == "prd":
+        dwh_farinter_dl.execute_and_commit(
+            "EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';"
+        )
     else:
         context.log.info("No se ejecuta el job de OLAP EXISTENCIAS KIELSA en dev")
 
 
 if __name__ == "__main__":
-
     all_assets = load_assets_from_current_module(group_name="analysis_services")
-    print([asset.keys for asset in all_assets])
+    print([asset.keys for asset in all_assets if isinstance(asset, AssetChecksDefinition)])
+    print([asset.key for asset in all_assets if isinstance(asset, SourceAsset)])
 
 
 else:
     all_assets = load_assets_from_current_module(group_name="analysis_services")
 
     all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+        assets=filter_assets_by_tags(
+            all_assets,
+            tags_to_match=tags_repo.Hourly.tag,
+            filter_type="exclude_if_any_tag",
+        ),
         lower_bound_delta=timedelta(hours=26),
         deadline_cron="0 9 * * 1-6",
     )
     # print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
+    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
+        build_last_update_freshness_checks(
+            assets=filter_assets_by_tags(
+                all_assets,
+                tags_to_match=tags_repo.Hourly.tag,
+                filter_type="any_tag_matches",
+            ),
+            lower_bound_delta=timedelta(hours=13),
+            deadline_cron="0 10-16 * * 1-6",
+        )
     )
 
-    all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
-    all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
+    all_asset_checks: Sequence[AssetChecksDefinition] = (
+        load_asset_checks_from_current_module()
+    )
+    all_asset_freshness_checks = (
+        *all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks
+    )
