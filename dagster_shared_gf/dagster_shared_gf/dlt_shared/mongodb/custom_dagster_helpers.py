@@ -490,6 +490,7 @@ def create_dlt_asset(
             dlt_resource, collection_config=collections_config_dict
         ):
             # print(custom_run_resource.columns)
+            custom_run_resource.compute_table_schema() # ? al parecerer arregla el problema de los tipos de datos
             new_pipeline.drop_pending_packages()
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource,

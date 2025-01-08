@@ -145,7 +145,7 @@ collections_config = (
         #limit=get_for_current_env({"local": 1000}),
         import_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "import"),
         export_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "export"),
-        schema_contract={"tables": "discard_value", "columns": "discard_value", "data_type": "discard_value"}
+        schema_contract={"tables": "discard_value", "columns": "evolve", "data_type": "evolve"}
 
     ),
 )
@@ -256,8 +256,8 @@ if __name__ == "__main__":
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
                                 #"dev_mode": True,
-                                "write_disposition": "replace",
-                                "refresh": "drop_resources",
+                                #"write_disposition": "replace",
+                                #"refresh": "drop_resources",
                             }
                         }
                     }
