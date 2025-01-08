@@ -18,6 +18,7 @@ setup(
         "pandas",
         "pyodbc",
         "smbprotocol",
+        "polars<=1.7.1"
         "dagster-polars",
         "dagster-gcp",
         "fastexcel",
