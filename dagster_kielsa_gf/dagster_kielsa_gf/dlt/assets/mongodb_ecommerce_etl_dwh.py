@@ -129,6 +129,7 @@ collections_config = (
                         "dev": pendulum.now().subtract(days=30),
                     }
                 ),
+                lag=15, # days
             ),
             IncConfig(
                 cursor_path="createdAt",
@@ -138,11 +139,13 @@ collections_config = (
                         "dev": pendulum.now().subtract(years=2),
                     }
                 ),
+                lag=15, # days
             ),
         ),
         #limit=get_for_current_env({"local": 1000}),
         import_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "import"),
         export_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "export"),
+        schema_contract={"tables": "discard_value", "columns": "discard_value", "data_type": "discard_value"}
 
     ),
 )
@@ -252,9 +255,9 @@ if __name__ == "__main__":
                     resources={
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
-                                # "dev_mode": True,
-                                #"write_disposition": "replace",
-                                #"refresh": "drop_resources",
+                                #"dev_mode": True,
+                                "write_disposition": "replace",
+                                "refresh": "drop_resources",
                             }
                         }
                     }

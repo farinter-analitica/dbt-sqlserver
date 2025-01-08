@@ -18,6 +18,7 @@ from dagster_embedded_elt.dlt import DagsterDltTranslator
 from dlt.common import pendulum
 from dlt.common.normalizers.naming.snake_case import NamingConvention
 from dlt.common.pipeline import LoadInfo
+from dlt.common.schema.typing import TSchemaContractDict
 from dlt.extract import DltResource, DltSource
 from pydantic import Field, dataclasses
 
@@ -73,8 +74,26 @@ class DltResourceCollectionConfig:
     force_columns_type: Optional[dict[str, Any]] = None
     import_schema_path: Optional[str] = None
     export_schema_path: Optional[str] = None
+    schema_contract: Optional[TSchemaContractDict] = None
+    """
+    You can control the following schema entities:
 
-    def get_all_configs_dict(self) -> Mapping[str, Any]:
+    tables - the contract is applied when a new table is created
+    columns - the contract is applied when a new column is created on an existing table
+    data_type - the contract is applied when data cannot be coerced into a data type associated with an existing column.
+    You can use contract modes to tell dlt how to apply the contract for a particular entity:
+
+    evolve: No constraints on schema changes.
+    freeze: This will raise an exception if data is encountered that does not fit the existing schema, so no data will be loaded to the destination.
+    discard_row: This will discard any extracted row if it does not adhere to the existing schema, and this row will not be loaded to the destination.
+    discard_value: This will discard data in an extracted row that does not adhere to the existing schema, and the row will be loaded without this data.
+    
+    Example:
+    {"tables": "freeze", "columns": "freeze", "data_type": "freeze"}
+    https://dlthub.com/docs/general-usage/schema-contracts
+    """
+
+    def get_all_configs_dict(self) -> Mapping[str, str]:
         return {key: value for key, value in self.__dict__.items() if value is not None}
 
 
@@ -376,6 +395,9 @@ def process_collection_config(
             }
         )
 
+    if c.schema_contract:
+        col = col.apply_hints(schema_contract= c.schema_contract)
+
     return col
 
 
@@ -459,6 +481,7 @@ def create_dlt_asset(
                 "write_disposition": dlt_pipeline_dest_mssql_dwh.write_disposition,
                 "directory": new_pipeline.pipelines_dir,
                 "incremental": str(dlt_t.get_incremental_config()),
+                "import_schema_path": dlt_t.get_import_schema_path(dlt_resource),
             }
         )
         extracted_resource_metadata = {}
@@ -471,16 +494,10 @@ def create_dlt_asset(
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource,
                 new_pipeline,
-                write_disposition=dlt_pipeline_dest_mssql_dwh.write_disposition
-                if first_iteration
-                or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
-                else str(custom_run_resource.write_disposition),
-                refresh=dlt_pipeline_dest_mssql_dwh.refresh
-                if first_iteration
-                else None,
+                remove_config=not first_iteration,
             )
             context.log.info(
-                f"Last cursor unbound value: {custom_run_resource.incremental.incremental.start_value if custom_run_resource.incremental.incremental else None}"
+                f"Last cursor unbound value: {custom_run_resource.incremental.incremental.start_value if custom_run_resource.incremental and custom_run_resource.incremental.incremental else None}"
             )
             load_info.raise_on_failed_jobs()
 

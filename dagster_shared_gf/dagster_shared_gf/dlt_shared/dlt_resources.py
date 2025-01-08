@@ -162,6 +162,7 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         pipeline: dlt.Pipeline,
         write_disposition: str | None = None,
         refresh: str | None = None,
+        remove_config: bool = False,
     ) -> LoadInfo:
         """
         A function to run a pipeline with the given resource data, pipeline, and write disposition.
@@ -170,15 +171,21 @@ drop_data: Wipe all data and resource state for all resources being processed. S
             resource_data (dlt.extract.DltResource): The data resource to run the pipeline with.
             pipeline (dlt.pipeline): The pipeline to run. You can use get_pipeline() to get the pipeline.
             write_disposition (Literal["replace", "append", "merge", "skip"], optional): The write disposition strategy. Defaults to configured write disposition.
+            refresh (Literal["drop_sources", "drop_resources", "drop_data"], optional): The refresh strategy. Defaults to configured refresh.
+            remove_config (bool, optional): If True, the write_disposition and refresh configurations at resource level are ignored. Defaults to False.
 
         Returns:
             dlt.common.pipeline.LoadInfo: Information about the load operation.
         """
         self.validate_dlt_config(write_disposition=write_disposition, refresh=refresh)
-        if write_disposition is None:
-            write_disposition = self.write_disposition  # type: ignore
-        if refresh is None:
-            refresh = self.refresh
+        if remove_config:
+            write_disposition = None
+            refresh = None
+        else:
+            if write_disposition is None:
+                write_disposition = self.write_disposition  # type: ignore
+            if refresh is None:
+                refresh = self.refresh
         load_info: LoadInfo = pipeline.run(
             resource_data,
             write_disposition=write_disposition,  # type: ignore

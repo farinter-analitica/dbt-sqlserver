@@ -1,6 +1,6 @@
-version: 38
-version_hash: F+iKIiy43LvDBLRZXobfS0sxDcUdz6xWXXXyMe/sr1c=
-engine_version: 10
+version: 39
+version_hash: FLLPI0PEd6Am9ZbCueiuJiLhQHaK19n0rqR0WPOBFw0=
+engine_version: 11
 name: mongodb_ecommerce_hn_orders
 tables:
   _dlt_version:
@@ -199,7 +199,7 @@ tables:
         data_type: bool
         nullable: true
       order_number:
-        data_type: bigint
+        data_type: text
         nullable: true
       origin:
         data_type: text
@@ -308,8 +308,6 @@ tables:
       error: 
         data_type: json
         nullable: true
-      order_number__v_text:
-        variant: true
       error__status_code:
         data_type: text
         nullable: true
@@ -340,7 +338,6 @@ tables:
       modificated_date_at:
         data_type: timestamp
         nullable: true
-    write_disposition: merge
     resource: orders
   orders__address__list_zone_id:
     columns:
@@ -978,10 +975,6 @@ tables:
       requiere_requisitos:
         data_type: text
         nullable: true
-      valor_aplicado_laboratorio__v_double:
-        variant: true
-        data_type: double
-        nullable: true
       maximum_amount_allowed:
         data_type: double
         nullable: true
@@ -1436,6 +1429,7 @@ normalizers:
           orders:
             _dlt_id: _dlt_root_id
 previous_hashes:
+- F+iKIiy43LvDBLRZXobfS0sxDcUdz6xWXXXyMe/sr1c=
 - 3dGE5I3E3+FBMwpF+VjDigmpLYxNxlE9gwW0luuW91M=
 - E50msNQ0L4gBf/7MKZxtlCDTFZkf3qqIpnkL4d5dbLM=
 - PO+efR5OEyWo2FFYjHPipcYXoDH/DcwCIq8S7XfpLpw=
