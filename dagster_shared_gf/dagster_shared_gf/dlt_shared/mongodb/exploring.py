@@ -34,7 +34,6 @@ mongodb_ecommerce_hn = mdb_ecommerce_hn(
     parallel=True,
     #data_item_format="arrow",
     # limit=100,
-    max_table_nesting=1,
     # incremental=dlt.sources.incremental(
     #     cursor_path="createdAt",
     #     initial_value=pendulum.now().subtract(days=30),
@@ -46,12 +45,12 @@ mongodb_ecommerce_hn = mdb_ecommerce_hn(
 mongodb_ecommerce_hn.resources["orders"].apply_hints(
     incremental=dlt.sources.incremental(
         cursor_path="createdAt",
-        initial_value=pendulum.now().subtract(days=30),
+        initial_value=pendulum.now().subtract(days=60),
     ),
     primary_key=["_id"],
 )
 
-mongodb_ecommerce_hn.resources["orders"].max_table_nesting = 0
+mongodb_ecommerce_hn.resources["orders"].max_table_nesting = 4
 # mongodb_ecommerce_hn.resources["orders"].apply_hints(
 #     columns={
 #         "data_routes": {"nullable": True, "data_type": "json"},
@@ -60,25 +59,27 @@ mongodb_ecommerce_hn.resources["orders"].max_table_nesting = 0
 #     }
 # )
 
-pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
-    "mdb_ecommerce_hn_pipeline",
-    "mdb_ecommerce_hn",
-    import_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "import"),
-    export_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "export"),
-)
-pipeline.drop_pending_packages()
-# pipeline.drop()
-pipeline.schemas.clear_storage()
-# with pipeline.destination_client() as client:
-#     client.drop_storage()
-# pipeline.extract(mongodb_ecommerce_hn, refresh="drop_sources")
-# pipeline.schemas.save_import_schema_if_not_exists(schema=mongodb_ecommerce_hn.schema)
-# pipeline.normalize()
-# # print(pipeline.schemas["mongodb"].to_pretty_json())
-# pipeline.sync_schema()
-# pipeline.load(raise_on_failed_jobs=True)
-pipeline.run(mongodb_ecommerce_hn)
+# pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
+#     "mdb_ecommerce_hn_pipeline",
+#     "mdb_ecommerce_hn",
+#     import_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "import"),
+#     export_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "export"),
+# )
+# pipeline.drop_pending_packages()
+# # pipeline.drop()
+# # pipeline.schemas.clear_storage()
+# # with pipeline.destination_client() as client:
+# #     client.drop_storage()
+# # pipeline.extract(mongodb_ecommerce_hn, refresh="drop_sources")
+# # pipeline.schemas.save_import_schema_if_not_exists(schema=mongodb_ecommerce_hn.schema)
+# # pipeline.normalize()
+# # # print(pipeline.schemas["mongodb"].to_pretty_json())
+# # pipeline.sync_schema()
+# # pipeline.load(raise_on_failed_jobs=True)
 
+
+# loadinfo = pipeline.run(mongodb_ecommerce_hn,  refresh="drop_resources")
+# loadinfo.raise_on_failed_jobs()
 
 # if __name__ == "__main__":
 #     pass

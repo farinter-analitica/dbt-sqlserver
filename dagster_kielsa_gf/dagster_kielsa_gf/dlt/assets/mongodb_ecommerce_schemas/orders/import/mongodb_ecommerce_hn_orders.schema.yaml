@@ -1,5 +1,5 @@
-version: 39
-version_hash: FLLPI0PEd6Am9ZbCueiuJiLhQHaK19n0rqR0WPOBFw0=
+version: 40
+version_hash: g4a10Q7ZJTRqVacZjQ01ct8HPHFHwYGUEEJz/4zEr8Y=
 engine_version: 11
 name: mongodb_ecommerce_hn_orders
 tables:
@@ -338,7 +338,210 @@ tables:
       modificated_date_at:
         data_type: timestamp
         nullable: true
+    write_disposition: merge
     resource: orders
+  orders__shopping_cart:
+    columns:
+      _id:
+        data_type: text
+        nullable: true
+      categoria_web:
+        data_type: text
+        nullable: true
+      porcentaje_isv:
+        data_type: double
+        nullable: true
+      id_product:
+        data_type: text
+        nullable: true
+      week_days:
+        data_type: bigint
+        nullable: true
+      precio_con_descuento_miercoles_tercera_edad:
+        data_type: double
+        nullable: true
+      precio_con_descuento_tercera_edad:
+        data_type: double
+        nullable: true
+      descuento_tercera_edad:
+        data_type: double
+        nullable: true
+      descuento_34:
+        data_type: double
+        nullable: true
+      descuento_35:
+        data_type: double
+        nullable: true
+      precio_con_descuento:
+        data_type: double
+        nullable: true
+      precio_con_descuento_34:
+        data_type: double
+        nullable: true
+      precio_con_descuento_35:
+        data_type: double
+        nullable: true
+      descuento_miercoles_tercera_edad:
+        data_type: double
+        nullable: true
+      descuento:
+        data_type: double
+        nullable: true
+      name_product:
+        data_type: text
+        nullable: true
+      other_id_product:
+        data_type: text
+        nullable: true
+      user_id:
+        data_type: text
+        nullable: true
+      amount:
+        data_type: double
+        nullable: true
+      price_product:
+        data_type: double
+        nullable: true
+      discount:
+        data_type: double
+        nullable: true
+      tax:
+        data_type: double
+        nullable: true
+      normal_price:
+        data_type: double
+        nullable: true
+      costo_producto:
+        data_type: double
+        nullable: true
+      impuesto_id:
+        data_type: bigint
+        nullable: true
+      descuento_jueves_canje_tp:
+        data_type: double
+        nullable: true
+      descuento_jueves_canje_tercera_edad:
+        data_type: double
+        nullable: true
+      precio_con_descuento_jueves_canje_tp:
+        data_type: double
+        nullable: true
+      precio_con_descuento_jueves_canje_tercera_edad:
+        data_type: double
+        nullable: true
+      valor_aplicado_jueves_canje_tp:
+        data_type: double
+        nullable: true
+      valor_aplicado_jueves_canje_tercera_edad:
+        data_type: double
+        nullable: true
+      desplegar_web:
+        data_type: bigint
+        nullable: true
+      created_at:
+        data_type: timestamp
+        nullable: true
+      descuento_laboratorio:
+        data_type: double
+        nullable: true
+      valor_aplicado_laboratorio:
+        data_type: double
+        nullable: true
+      precio_con_descuento_laboratorio:
+        data_type: double
+        nullable: true
+      cupon_check:
+        data_type: bool
+        nullable: true
+      requiere_requisitos:
+        data_type: text
+        nullable: true
+      updated_at:
+        data_type: timestamp
+        nullable: true
+      active:
+        data_type: bool
+        nullable: true
+      it_has_been_buyed:
+        data_type: bool
+        nullable: true
+      _version:
+        data_type: bigint
+        nullable: true
+      _dlt_root_id:
+        root_key: true
+        data_type: text
+        nullable: false
+      _dlt_parent_id:
+        parent_key: true
+        data_type: text
+        nullable: false
+      _dlt_list_idx:
+        data_type: bigint
+        nullable: false
+      _dlt_id:
+        row_key: true
+        data_type: text
+        nullable: false
+        unique: true
+      empaquetado:
+        data_type: bigint
+        nullable: true
+      recipe_image:
+        data_type: text
+        nullable: true
+      company:
+        data_type: text
+        nullable: true
+      type:
+        data_type: text
+        nullable: true
+      emp_id:
+        data_type: bigint
+        nullable: true
+      autorizador_id:
+        data_type: bigint
+        nullable: true
+      servicio_id:
+        data_type: bigint
+        nullable: true
+      servicio_tipo:
+        data_type: bigint
+        nullable: true
+      telephone_number:
+        data_type: text
+        nullable: true
+      start_day:
+        data_type: text
+        nullable: true
+      start_hour:
+        data_type: text
+        nullable: true
+      end_day:
+        data_type: text
+        nullable: true
+      image_product:
+        data_type: text
+        nullable: true
+      cuarta_edad_cupon_id:
+        data_type: bigint
+        nullable: true
+      cuarta_edad_cupon_porcentaje:
+        data_type: double
+        nullable: true
+      precio_con_descuento_cuarta_edad:
+        data_type: double
+        nullable: true
+      precio_con_cupon_cuarta_edad:
+        data_type: double
+        nullable: true
+      descuento_cuarta_edad:
+        data_type: double
+        nullable: true
+      maximum_amount_allowed:
+        data_type: double
+        nullable: true
+    parent: orders
   orders__address__list_zone_id:
     columns:
       value:
@@ -360,6 +563,172 @@ tables:
         data_type: text
         nullable: false
         unique: true
+    parent: orders
+  orders__product_package:
+    columns:
+      value:
+        data_type: text
+        nullable: true
+      _dlt_root_id:
+        root_key: true
+        data_type: text
+        nullable: false
+      _dlt_parent_id:
+        parent_key: true
+        data_type: text
+        nullable: false
+      _dlt_list_idx:
+        data_type: bigint
+        nullable: false
+      _dlt_id:
+        row_key: true
+        data_type: text
+        nullable: false
+        unique: true
+      id_product:
+        data_type: text
+        nullable: true
+      week_days:
+        data_type: bigint
+        nullable: true
+      precio_con_descuento_miercoles_tercera_edad:
+        data_type: double
+        nullable: true
+      precio_con_descuento_tercera_edad:
+        data_type: double
+        nullable: true
+      descuento_tercera_edad:
+        data_type: double
+        nullable: true
+      descuento_34:
+        data_type: double
+        nullable: true
+      descuento_35:
+        data_type: double
+        nullable: true
+      precio_con_descuento:
+        data_type: double
+        nullable: true
+      precio_con_descuento_34:
+        data_type: double
+        nullable: true
+      precio_con_descuento_35:
+        data_type: double
+        nullable: true
+      descuento_miercoles_tercera_edad:
+        data_type: double
+        nullable: true
+      descuento:
+        data_type: double
+        nullable: true
+      name_product:
+        data_type: text
+        nullable: true
+      other_id_product:
+        data_type: text
+        nullable: true
+      user_id:
+        data_type: text
+        nullable: true
+      amount:
+        data_type: double
+        nullable: true
+      price_product:
+        data_type: double
+        nullable: true
+      discount:
+        data_type: double
+        nullable: true
+      tax:
+        data_type: double
+        nullable: true
+      normal_price:
+        data_type: double
+        nullable: true
+      costo_producto:
+        data_type: double
+        nullable: true
+      impuesto_id:
+        data_type: bigint
+        nullable: true
+      descuento_jueves_canje_tp:
+        data_type: double
+        nullable: true
+      descuento_jueves_canje_tercera_edad:
+        data_type: double
+        nullable: true
+      precio_con_descuento_jueves_canje_tp:
+        data_type: double
+        nullable: true
+      precio_con_descuento_jueves_canje_tercera_edad:
+        data_type: double
+        nullable: true
+      valor_aplicado_jueves_canje_tp:
+        data_type: double
+        nullable: true
+      valor_aplicado_jueves_canje_tercera_edad:
+        data_type: double
+        nullable: true
+      desplegar_web:
+        data_type: bigint
+        nullable: true
+      created_at:
+        data_type: timestamp
+        nullable: true
+      descuento_laboratorio:
+        data_type: double
+        nullable: true
+      valor_aplicado_laboratorio:
+        data_type: double
+        nullable: true
+      precio_con_descuento_laboratorio:
+        data_type: double
+        nullable: true
+      cupon_check:
+        data_type: bool
+        nullable: true
+      empaquetado:
+        data_type: bigint
+        nullable: true
+      recipe_image:
+        data_type: text
+        nullable: true
+      _id:
+        data_type: text
+        nullable: true
+      updated_at:
+        data_type: timestamp
+        nullable: true
+      active:
+        data_type: bool
+        nullable: true
+      it_has_been_buyed:
+        data_type: bool
+        nullable: true
+      categoria_web:
+        data_type: text
+        nullable: true
+      porcentaje_isv:
+        data_type: double
+        nullable: true
+      requiere_requisitos:
+        data_type: text
+        nullable: true
+      maximum_amount_allowed:
+        data_type: double
+        nullable: true
+      cuarta_edad_cupon_id:
+        data_type: bigint
+        nullable: true
+      cuarta_edad_cupon_porcentaje:
+        data_type: double
+        nullable: true
+      precio_con_descuento_cuarta_edad:
+        data_type: double
+        nullable: true
+      precio_con_cupon_cuarta_edad:
+        data_type: double
+        nullable: true
     parent: orders
   orders__data_routes__products:
     columns:
@@ -601,208 +970,6 @@ tables:
         data_type: text
         nullable: true
     parent: orders
-  orders__shopping_cart:
-    columns:
-      _id:
-        data_type: text
-        nullable: true
-      categoria_web:
-        data_type: text
-        nullable: true
-      porcentaje_isv:
-        data_type: double
-        nullable: true
-      id_product:
-        data_type: text
-        nullable: true
-      week_days:
-        data_type: bigint
-        nullable: true
-      precio_con_descuento_miercoles_tercera_edad:
-        data_type: double
-        nullable: true
-      precio_con_descuento_tercera_edad:
-        data_type: double
-        nullable: true
-      descuento_tercera_edad:
-        data_type: double
-        nullable: true
-      descuento_34:
-        data_type: double
-        nullable: true
-      descuento_35:
-        data_type: double
-        nullable: true
-      precio_con_descuento:
-        data_type: double
-        nullable: true
-      precio_con_descuento_34:
-        data_type: double
-        nullable: true
-      precio_con_descuento_35:
-        data_type: double
-        nullable: true
-      descuento_miercoles_tercera_edad:
-        data_type: double
-        nullable: true
-      descuento:
-        data_type: double
-        nullable: true
-      name_product:
-        data_type: text
-        nullable: true
-      other_id_product:
-        data_type: text
-        nullable: true
-      user_id:
-        data_type: text
-        nullable: true
-      amount:
-        data_type: double
-        nullable: true
-      price_product:
-        data_type: double
-        nullable: true
-      discount:
-        data_type: double
-        nullable: true
-      tax:
-        data_type: double
-        nullable: true
-      normal_price:
-        data_type: double
-        nullable: true
-      costo_producto:
-        data_type: double
-        nullable: true
-      impuesto_id:
-        data_type: bigint
-        nullable: true
-      descuento_jueves_canje_tp:
-        data_type: double
-        nullable: true
-      descuento_jueves_canje_tercera_edad:
-        data_type: double
-        nullable: true
-      precio_con_descuento_jueves_canje_tp:
-        data_type: double
-        nullable: true
-      precio_con_descuento_jueves_canje_tercera_edad:
-        data_type: double
-        nullable: true
-      valor_aplicado_jueves_canje_tp:
-        data_type: double
-        nullable: true
-      valor_aplicado_jueves_canje_tercera_edad:
-        data_type: double
-        nullable: true
-      desplegar_web:
-        data_type: bigint
-        nullable: true
-      created_at:
-        data_type: timestamp
-        nullable: true
-      descuento_laboratorio:
-        data_type: double
-        nullable: true
-      valor_aplicado_laboratorio:
-        data_type: double
-        nullable: true
-      precio_con_descuento_laboratorio:
-        data_type: double
-        nullable: true
-      cupon_check:
-        data_type: bool
-        nullable: true
-      requiere_requisitos:
-        data_type: text
-        nullable: true
-      updated_at:
-        data_type: timestamp
-        nullable: true
-      active:
-        data_type: bool
-        nullable: true
-      it_has_been_buyed:
-        data_type: bool
-        nullable: true
-      _version:
-        data_type: bigint
-        nullable: true
-      _dlt_root_id:
-        root_key: true
-        data_type: text
-        nullable: false
-      _dlt_parent_id:
-        parent_key: true
-        data_type: text
-        nullable: false
-      _dlt_list_idx:
-        data_type: bigint
-        nullable: false
-      _dlt_id:
-        row_key: true
-        data_type: text
-        nullable: false
-        unique: true
-      empaquetado:
-        data_type: bigint
-        nullable: true
-      recipe_image:
-        data_type: text
-        nullable: true
-      company:
-        data_type: text
-        nullable: true
-      type:
-        data_type: text
-        nullable: true
-      emp_id:
-        data_type: bigint
-        nullable: true
-      autorizador_id:
-        data_type: bigint
-        nullable: true
-      servicio_id:
-        data_type: bigint
-        nullable: true
-      servicio_tipo:
-        data_type: bigint
-        nullable: true
-      telephone_number:
-        data_type: text
-        nullable: true
-      start_day:
-        data_type: text
-        nullable: true
-      start_hour:
-        data_type: text
-        nullable: true
-      end_day:
-        data_type: text
-        nullable: true
-      image_product:
-        data_type: text
-        nullable: true
-      cuarta_edad_cupon_id:
-        data_type: bigint
-        nullable: true
-      cuarta_edad_cupon_porcentaje:
-        data_type: double
-        nullable: true
-      precio_con_descuento_cuarta_edad:
-        data_type: double
-        nullable: true
-      precio_con_cupon_cuarta_edad:
-        data_type: double
-        nullable: true
-      descuento_cuarta_edad:
-        data_type: double
-        nullable: true
-      maximum_amount_allowed:
-        data_type: double
-        nullable: true
-    parent: orders
   orders__data_routes__stores__store__departamentos_asignados:
     columns:
       value:
@@ -825,7 +992,7 @@ tables:
         nullable: false
         unique: true
     parent: orders__data_routes__stores
-  orders__product_package:
+  orders__pay_data__message:
     columns:
       value:
         data_type: text
@@ -846,150 +1013,28 @@ tables:
         data_type: text
         nullable: false
         unique: true
-      id_product:
+    parent: orders
+  orders__error__message:
+    columns:
+      value:
         data_type: text
         nullable: true
-      week_days:
+      _dlt_root_id:
+        root_key: true
+        data_type: text
+        nullable: false
+      _dlt_parent_id:
+        parent_key: true
+        data_type: text
+        nullable: false
+      _dlt_list_idx:
         data_type: bigint
-        nullable: true
-      precio_con_descuento_miercoles_tercera_edad:
-        data_type: double
-        nullable: true
-      precio_con_descuento_tercera_edad:
-        data_type: double
-        nullable: true
-      descuento_tercera_edad:
-        data_type: double
-        nullable: true
-      descuento_34:
-        data_type: double
-        nullable: true
-      descuento_35:
-        data_type: double
-        nullable: true
-      precio_con_descuento:
-        data_type: double
-        nullable: true
-      precio_con_descuento_34:
-        data_type: double
-        nullable: true
-      precio_con_descuento_35:
-        data_type: double
-        nullable: true
-      descuento_miercoles_tercera_edad:
-        data_type: double
-        nullable: true
-      descuento:
-        data_type: double
-        nullable: true
-      name_product:
+        nullable: false
+      _dlt_id:
+        row_key: true
         data_type: text
-        nullable: true
-      other_id_product:
-        data_type: text
-        nullable: true
-      user_id:
-        data_type: text
-        nullable: true
-      amount:
-        data_type: double
-        nullable: true
-      price_product:
-        data_type: double
-        nullable: true
-      discount:
-        data_type: double
-        nullable: true
-      tax:
-        data_type: double
-        nullable: true
-      normal_price:
-        data_type: double
-        nullable: true
-      costo_producto:
-        data_type: double
-        nullable: true
-      impuesto_id:
-        data_type: bigint
-        nullable: true
-      descuento_jueves_canje_tp:
-        data_type: double
-        nullable: true
-      descuento_jueves_canje_tercera_edad:
-        data_type: double
-        nullable: true
-      precio_con_descuento_jueves_canje_tp:
-        data_type: double
-        nullable: true
-      precio_con_descuento_jueves_canje_tercera_edad:
-        data_type: double
-        nullable: true
-      valor_aplicado_jueves_canje_tp:
-        data_type: double
-        nullable: true
-      valor_aplicado_jueves_canje_tercera_edad:
-        data_type: double
-        nullable: true
-      desplegar_web:
-        data_type: bigint
-        nullable: true
-      created_at:
-        data_type: timestamp
-        nullable: true
-      descuento_laboratorio:
-        data_type: double
-        nullable: true
-      valor_aplicado_laboratorio:
-        data_type: double
-        nullable: true
-      precio_con_descuento_laboratorio:
-        data_type: double
-        nullable: true
-      cupon_check:
-        data_type: bool
-        nullable: true
-      empaquetado:
-        data_type: bigint
-        nullable: true
-      recipe_image:
-        data_type: text
-        nullable: true
-      _id:
-        data_type: text
-        nullable: true
-      updated_at:
-        data_type: timestamp
-        nullable: true
-      active:
-        data_type: bool
-        nullable: true
-      it_has_been_buyed:
-        data_type: bool
-        nullable: true
-      categoria_web:
-        data_type: text
-        nullable: true
-      porcentaje_isv:
-        data_type: double
-        nullable: true
-      requiere_requisitos:
-        data_type: text
-        nullable: true
-      maximum_amount_allowed:
-        data_type: double
-        nullable: true
-      cuarta_edad_cupon_id:
-        data_type: bigint
-        nullable: true
-      cuarta_edad_cupon_porcentaje:
-        data_type: double
-        nullable: true
-      precio_con_descuento_cuarta_edad:
-        data_type: double
-        nullable: true
-      precio_con_cupon_cuarta_edad:
-        data_type: double
-        nullable: true
+        nullable: false
+        unique: true
     parent: orders
   orders__data_routes__no_products:
     columns:
@@ -1357,50 +1402,6 @@ tables:
         unique: true
         row_key: true
     parent: orders__data_routes__tiendas_sub_ancla
-  orders__pay_data__message:
-    columns:
-      value:
-        data_type: text
-        nullable: true
-      _dlt_root_id:
-        root_key: true
-        data_type: text
-        nullable: false
-      _dlt_parent_id:
-        parent_key: true
-        data_type: text
-        nullable: false
-      _dlt_list_idx:
-        data_type: bigint
-        nullable: false
-      _dlt_id:
-        row_key: true
-        data_type: text
-        nullable: false
-        unique: true
-    parent: orders
-  orders__error__message:
-    columns:
-      value:
-        data_type: text
-        nullable: true
-      _dlt_root_id:
-        root_key: true
-        data_type: text
-        nullable: false
-      _dlt_parent_id:
-        parent_key: true
-        data_type: text
-        nullable: false
-      _dlt_list_idx:
-        data_type: bigint
-        nullable: false
-      _dlt_id:
-        row_key: true
-        data_type: text
-        nullable: false
-        unique: true
-    parent: orders
 settings:
   detections:
   - iso_timestamp
@@ -1429,6 +1430,7 @@ normalizers:
           orders:
             _dlt_id: _dlt_root_id
 previous_hashes:
+- FLLPI0PEd6Am9ZbCueiuJiLhQHaK19n0rqR0WPOBFw0=
 - F+iKIiy43LvDBLRZXobfS0sxDcUdz6xWXXXyMe/sr1c=
 - 3dGE5I3E3+FBMwpF+VjDigmpLYxNxlE9gwW0luuW91M=
 - E50msNQ0L4gBf/7MKZxtlCDTFZkf3qqIpnkL4d5dbLM=

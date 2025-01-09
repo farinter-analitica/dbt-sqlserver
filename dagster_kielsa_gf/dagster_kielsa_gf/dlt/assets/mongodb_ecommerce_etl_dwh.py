@@ -62,7 +62,7 @@ orders_forced_schema = {
                 "billReference": {"String": 0.691, "Undefined": 0.309},
                 "country": {"String": 0.691, "Undefined": 0.309},
                 "createdAt": {"Date": 1},
-                "dataRoutes": {"Document": 0.896, "Array": 0.104},
+                #"dataRoutes": {"Document": 0.896, "Array": 0.104},
                 "deliveryManName": {"String": 0.691, "Undefined": 0.309},
                 "deliveryManNumber": {"String": 0.691, "Undefined": 0.309},
                 "error": {"Document": 0.187, "String": 0.061, "Undefined": 0.752},
@@ -75,10 +75,10 @@ orders_forced_schema = {
                 "orderNumber": {"Int32": 0.691, "String": 0.309},
                 "origin": {"String": 1},
                 "packagingOrder": {"Boolean": 0.806, "Undefined": 0.194},
-                "payData": {"Document": 0.752, "Null": 0.004, "Undefined": 0.244},
+                #"payData": {"Document": 0.752, "Null": 0.004, "Undefined": 0.244},
                 "productPackage": {"Array": 0.875, "Null": 0.125},
                 "resumeOrder": {"Document": 1},
-                # "routeDate": {"String": 0.691, "Undefined": 0.309},
+                #"routeDate": {"String": 0.691, "Undefined": 0.309},
                 "rtn": {"Document": 0.806, "Undefined": 0.194},
                 "rtnActive": {"Boolean": 0.806, "Undefined": 0.194},
                 "selectedAddress": {"String": 0.806, "Undefined": 0.194},
@@ -114,23 +114,13 @@ collections_config = (
         # force_columns_type={
         #     "dataRoutes": dict,
         # },
-        # force_columns_type=orders_forced_schema, # usamos el esquema en la carpeta de esquemas para controlar esto mejor.
+        #force_columns_type=orders_forced_schema, # usamos el esquema en la carpeta de esquemas para controlar esto mejor.
         columns_to_include=tuple(
             key
             for key in orders_forced_schema
         ),
         lag_days=15,
         incrementals=(
-            IncConfig(
-                cursor_path="modificatedDateAt",
-                initial_value=get_for_current_env(
-                    {
-                        "local": pendulum.now().subtract(days=30),
-                        "dev": pendulum.now().subtract(days=30),
-                    }
-                ),
-                lag=15, # days
-            ),
             IncConfig(
                 cursor_path="createdAt",
                 initial_value=get_for_current_env(
@@ -141,11 +131,21 @@ collections_config = (
                 ),
                 lag=15, # days
             ),
-        ),
+            IncConfig(
+                cursor_path="modificatedDateAt",
+                initial_value=get_for_current_env(
+                    {
+                        "local": pendulum.now().subtract(days=30),
+                        "dev": pendulum.now().subtract(days=30),
+                    }
+                ),
+                lag=15, # days
+            ),        
+            ),
         #limit=get_for_current_env({"local": 1000}),
         import_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "import"),
         export_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "export"),
-        schema_contract={"tables": "discard_value", "columns": "evolve", "data_type": "evolve"}
+        schema_contract={"columns": "evolve", "data_type": "evolve"}
 
     ),
 )
@@ -256,8 +256,8 @@ if __name__ == "__main__":
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
                                 #"dev_mode": True,
-                                #"write_disposition": "replace",
-                                #"refresh": "drop_resources",
+                                "write_disposition": "replace",
+                                "refresh": "drop_resources",
                             }
                         }
                     }
