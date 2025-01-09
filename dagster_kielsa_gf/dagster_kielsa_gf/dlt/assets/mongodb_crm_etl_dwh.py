@@ -68,7 +68,7 @@ read_source_config_updated_at: ColConfigs = (
         collection_name="crm_list",
         incrementals=(IncConfig(cursor_path="updatedAt"),),
     ),
-  
+   
 )
 
 collection_person_hints = {
@@ -208,6 +208,9 @@ read_source_config_full_refresh: ColConfigs = (
     DLTRColl(collection_name="campaignActivity"),
     DLTRColl(collection_name="crm_budget_header"),
     DLTRColl(collection_name="crm_budget",  limit=get_for_current_env({"local":20000},)),
+    DLTRColl(collection_name="crm_seller_planification"),
+    DLTRColl(collection_name="appVisita"),
+
 )
 
 
@@ -412,7 +415,7 @@ if __name__ == "__main__":
                 for asset in all_assets
                 if asset.key
                 in (
-                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_budget")),
+                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "appVisita")),
                 )
             )
             assert asset_to_test
