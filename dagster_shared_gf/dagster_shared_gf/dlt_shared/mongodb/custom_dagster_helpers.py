@@ -342,29 +342,29 @@ ColConfigs = tuple[DltResourceCollectionConfig, ...]
 
 
 def process_collection_config(
-    col: DltResource, collections_config: DltResourceCollectionConfig | None
+    col_res: DltResource, collections_config: DltResourceCollectionConfig | None
 ) -> DltResource:
     """Process a collection resource with configs."""
     if not collections_config:
-        return col
+        return col_res
 
     c = collections_config
-    col.add_limit(c.limit) if c.limit else None
+    col_res.add_limit(c.limit) if c.limit else None
     if c.table_new_name:
-        col = col.apply_hints(table_name=c.table_new_name)
+        col_res = col_res.apply_hints(table_name=c.table_new_name)
 
     if c.columns_hints:
-        col = col.apply_hints(columns=c.columns_hints)
+        col_res = col_res.apply_hints(columns=c.columns_hints)
 
     if c.max_table_nesting:
-        col.max_table_nesting = c.max_table_nesting
+        col_res.max_table_nesting = c.max_table_nesting
 
     if c.force_columns_type:
 
         def force_columns(doc):
             return force_columns_types(doc=doc, force_dict=c.force_columns_type)
 
-        col = col.add_map(force_columns)
+        col_res = col_res.add_map(force_columns)
 
     if c.columns_to_remove:
 
@@ -373,7 +373,7 @@ def process_collection_config(
                 doc=doc, remove_columns=c.columns_to_remove
             )
 
-        col = col.add_map(remove_columns)
+        col_res = col_res.add_map(remove_columns)
 
     if c.columns_to_include:
 
@@ -382,23 +382,23 @@ def process_collection_config(
                 doc=doc, include_columns=c.columns_to_include
             )
 
-        col = col.add_map(include_columns)
+        col_res = col_res.add_map(include_columns)
 
     if isinstance(c.primary_key, str):
-        col = col.apply_hints(
+        col_res = col_res.apply_hints(
             columns={c.primary_key: {"data_type": "text", "precision": 50}}
         )
     elif isinstance(c.primary_key, tuple):
-        col = col.apply_hints(
+        col_res = col_res.apply_hints(
             columns={
                 key: {"data_type": "text", "precision": 50} for key in c.primary_key
             }
         )
 
     if c.schema_contract:
-        col = col.apply_hints(schema_contract= c.schema_contract)
+        col_res = col_res.apply_hints(schema_contract=c.schema_contract)
 
-    return col
+    return col_res
 
 
 # @dlt_assets(
@@ -490,7 +490,9 @@ def create_dlt_asset(
             dlt_resource, collection_config=collections_config_dict
         ):
             # print(custom_run_resource.columns)
-            custom_run_resource.compute_table_schema() # ? al parecerer arregla el problema de los tipos de datos
+            new_pipeline.activate()
+            custom_run_resource.compute_table_schema()  # ? al parecerer arregla el problema de los tipos de datos
+            custom_run_resource.columns
             new_pipeline.drop_pending_packages()
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource,

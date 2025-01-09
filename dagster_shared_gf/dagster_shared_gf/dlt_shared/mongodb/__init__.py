@@ -28,7 +28,6 @@ def mongodb(
     incremental: Optional[dlt.sources.incremental] = None,  # type: ignore[type-arg]
     write_disposition: Literal[TWriteDisposition] = dlt.config.value,
     parallel: Optional[bool] = dlt.config.value,
-    max_table_nesting: int = 4,
     limit: Optional[int] = None,
     filter_: Optional[Dict[str, Any]] = None,
     data_item_format: Optional[TDataItemFormat] = "object", 
@@ -74,7 +73,6 @@ def mongodb(
             primary_key="_id",
             write_disposition=write_disposition,
             spec=MongoDbCollectionConfiguration,
-            max_table_nesting=max_table_nesting,
         )(
             client,
             collection,
