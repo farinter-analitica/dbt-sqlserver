@@ -148,3 +148,7 @@ secrets.toml
 **/schemas/export/*
 **/*_schemas/*/export/*
 #dagster_shared_gf/dagster_shared_gf/dlt_shared/mongodb/schemas/export/mongodb.schema.yaml
+
+#sling
+.slingdata/*
+!.slingdata/env.yaml.sample
