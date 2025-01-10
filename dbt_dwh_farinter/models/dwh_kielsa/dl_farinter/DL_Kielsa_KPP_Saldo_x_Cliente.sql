@@ -26,7 +26,7 @@
 
 
 	SELECT --TOP (1000) 
-       ISNULL([Id], 0) AS [Id],
+       ISNULL([Id], 0) AS [Id]
       ,[TarjetaKC_Id]
       ,[F_asignacion]
       ,[Meses_asignados]

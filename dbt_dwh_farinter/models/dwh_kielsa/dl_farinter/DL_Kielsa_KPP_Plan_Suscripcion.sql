@@ -27,7 +27,7 @@
 
 
 	SELECT --TOP (1000)
-       ISNULL([Plan_Id], 0) AS [Plan_Id],
+       ISNULL([Plan_Id], 0) AS [Plan_Id]
       ,[Nombre]
       ,[Costo]
       ,[Contrato]

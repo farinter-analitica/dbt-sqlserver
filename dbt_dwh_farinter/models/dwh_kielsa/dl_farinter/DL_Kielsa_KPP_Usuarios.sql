@@ -27,9 +27,9 @@
 
 
 	SELECT --TOP (1000) 
-       ISNULL([id], 0) AS [Id],
+       ISNULL([id], 0) AS [Id]
       ,[usuario] AS [Usuario]
-      ,[contraseña] AS [Contraseña]
+      --,[contraseÃ±a] AS [ContraseÃ±a]
       ,[rol] AS [Rol_Id]
       ,[pais] AS [Pais_Id]
       , GETDATE() AS Fecha_Actualizado

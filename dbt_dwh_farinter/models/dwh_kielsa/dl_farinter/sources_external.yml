@@ -21,6 +21,9 @@ sources:
       - name: Transacciones
       - name: LogSuscripcion
       - name: LogMovimientoSuscripcion
+      - name: Saldo_x_Cliente
+      - name: usuarios
+      - name: Plan_Suscripcion
 
   - name: RECETAS
     description: "RECETAS"
