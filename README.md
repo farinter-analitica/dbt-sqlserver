@@ -14,6 +14,7 @@ Requiere la creacion de un token para usar para el clone o remote:
 git clone https://<MYTOKEN>@github.com/org-name/repo-name.git
 git add origin https://<MYTOKEN>@github.com/org-name/repo-name.git
 
+
 ### Configuración local ###
 Al lado de archivos .sample crear los archivos con claves necesarios
 
