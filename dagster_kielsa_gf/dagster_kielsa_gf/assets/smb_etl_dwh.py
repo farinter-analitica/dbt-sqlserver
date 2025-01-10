@@ -29,7 +29,7 @@ from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
 )
 from dagster_shared_gf.shared_variables import env_str, tags_repo
-
+from io import BytesIO
 
 ##
 class ExcelSchemaConfig(Config):
@@ -117,12 +117,12 @@ def DL_Kielsa_MetaHist_Temp(
                     )
                 )
                 v_metadata["Archivos"][current_file_key] = {}
-                with smb_resource.open_server_file(
-                    file_path=current_file_path, mode="rb"
+                with smb_resource.client.open_file(
+                    path=current_file_path, mode="rb"
                 ) as file:
                     # file_content = BytesIO(file.read())
                     dfd = pl.read_excel(
-                        file.read(),
+                        BytesIO(file.read()),
                         sheet_id=0,
                         # , sheet_name='carga'
                         infer_schema_length=0,
@@ -381,8 +381,8 @@ def DL_Kielsa_MetaHist_Temp(
                         if_table_exists="append",
                     )
 
-                with smb_resource.open_server_file(
-                    file_path=current_file_path.parent.joinpath("logs_carga.txt"),
+                with smb_resource.client.open_file(
+                    path=current_file_path.parent.joinpath("logs_carga.txt"),
                     mode="a",
                 ) as file:
                     file.write(
@@ -410,8 +410,8 @@ def DL_Kielsa_MetaHist_Temp(
                 )
                 v_metadata["Archivos"][current_file_key]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with smb_resource.open_server_file(
-                    file_path=current_file_path.parent.joinpath("logs_carga.txt"),
+                with smb_resource.client.open_file(
+                    path=current_file_path.parent.joinpath("logs_carga.txt"),
                     mode="a",
                 ) as file:
                     file.write(log_message + "\n")  # type: ignore
@@ -424,8 +424,8 @@ def DL_Kielsa_MetaHist_Temp(
                     f"{e.__repr__() + f" Linea: {str(e.__traceback__.tb_lineno)}" if e.__traceback__ else '' }"
                 )
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with smb_resource.open_server_file(
-                    file_path=current_file_path.parent.joinpath("logs_carga.txt"),
+                with smb_resource.client.open_file(
+                    path=current_file_path.parent.joinpath("logs_carga.txt"),
                     mode="a",
                 ) as file:
                     file.write(log_message)  # type: ignore
@@ -438,8 +438,8 @@ def DL_Kielsa_MetaHist_Temp(
         log_message = (
             f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e) }\n"
         )
-        with smb_resource.open_server_file(
-            file_path=directory_path.joinpath("logs_carga.txt"), mode="a"
+        with smb_resource.client.open_file(
+            path=directory_path.joinpath("logs_carga.txt"), mode="a"
         ) as file:
             file.write(log_message)  # type: ignore
         raise e

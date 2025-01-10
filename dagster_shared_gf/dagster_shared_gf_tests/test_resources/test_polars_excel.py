@@ -1,7 +1,7 @@
+from io import BytesIO
 import polars as pl
 import os
 import re
-
 def test_read_excel_with_calamine():
     # Define the path to the Excel file
     excel_file_path = os.path.join(os.path.dirname(__file__), 'test_excel_file.xlsx')
@@ -10,7 +10,7 @@ def test_read_excel_with_calamine():
     with open(excel_file_path, "rb") as f:
         # Read the Excel file using Polars with Calamine
         dfd = pl.read_excel(
-            f.read(),
+            BytesIO(f.read()),
             sheet_id=0,
             # , sheet_name='carga'
             infer_schema_length=0,

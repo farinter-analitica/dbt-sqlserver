@@ -95,7 +95,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                 current_file_path = smb_resource.get_full_server_path(file_descriptor.path)
                 current_file_key = clean_string_to_key(current_file_path.relative_to(smb_resource.get_full_server_path(directory_path)))
                 v_metadata["Archivos"][current_file_key] = {}
-                with smb_resource.open_server_file(file_path=current_file_path, mode="rb") as file:
+                with smb_resource.client.open_file(path=current_file_path, mode="rb") as file:
                     file_content = BytesIO(file.read())
                     dfd = pl.read_excel(file_content
                                     , sheet_id=0
@@ -160,7 +160,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                     conn.commit()
                     rows_inserted = df.write_database(table_name=f"{schema}.{table}", connection=conn, if_table_exists="append")
 
-                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
+                with smb_resource.client.open_file(path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {current_file_key} cargado con {row_count} filas.\n")
 
                 if env_str in ["prd"]:
@@ -180,14 +180,14 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
                             f"Archivo {current_file_key} error { str(ne) }.")
                 v_metadata["Archivos"][current_file_key]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
+                with smb_resource.client.open_file(path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message + f"\n")
             except Exception as e:
                 log_message = (f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, " +
                             f"Archivo {current_file_key} error { str(e) }.\n")
                 v_metadata["Archivos"][current_file_key]["Error"] = f"{e.__repr__() + f" Linea: {str(e.__traceback__.tb_lineno)}" if e.__traceback__ else '' }"
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
-                with smb_resource.open_server_file(file_path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
+                with smb_resource.client.open_file(path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a") as file:
                     file.write(log_message)
 
         if v_metadata.get("Cant. Errores", 0) > 0:
@@ -196,7 +196,7 @@ def DL_Finanzas_Presupuesto_Temp(context: AssetExecutionContext, smb_resource_an
     except (Exception, ErrorsOccurred) as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
         log_message = (f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e) }\n")
-        with smb_resource.open_server_file(file_path=directory_path.joinpath("logs_carga.txt"), mode="a") as file:
+        with smb_resource.client.open_file(path=directory_path.joinpath("logs_carga.txt"), mode="a") as file:
             file.write(log_message)
         raise e    
     return MaterializeResult(metadata=v_metadata)

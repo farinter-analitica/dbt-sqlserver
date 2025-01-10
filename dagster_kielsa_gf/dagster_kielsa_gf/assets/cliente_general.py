@@ -859,7 +859,7 @@ def create_file_on_smb(
     # format_file_path = smbr.get_full_server_path("\\staging_dagster\\kielsa_clientes.fmt")
 
     # Write the CSV file
-    with smbr.open_server_file(file_path, mode="w") as f:
+    with smbr.client.open_file(file_path, mode="w") as f:
         df_clientes.cast({pl.Boolean: pl.Int8}).write_csv(
             f,
             include_bom=False,
