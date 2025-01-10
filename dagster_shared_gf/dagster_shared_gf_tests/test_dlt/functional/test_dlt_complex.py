@@ -7,6 +7,8 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
 )
 import dlt.helpers
 
+# import_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "import")
+# export_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "export")
 json_source_data = [
     # Document 21
     {
@@ -52,7 +54,12 @@ json_source_data = [
         "extra_info44": [{"vip": False, "notes": "Frequent flyer"}],
         "extra_info55": [{"vip": False, "notes": "Frequent flyer"}],
         "extra_info66": [{"vip": False, "notes": "Frequent flyer"}],
-        "extra_info77": [{"vip": False, "notes": "Frequent flyer"}],
+        "extra_info77": [{"vip": False, "notes": "Frequent flyer",
+            "11": [{"vip": False, "notes": "Frequent flyer"}],
+            "22": [{"vip": False, "notes": "Frequent flyer"}],
+            "33": [{"vip": False, "notes": "Frequent flyer"}],
+            "90": [{"vip": False, "notes": "Frequent flyer"}],
+                          }],
         "extra_info89": [{"vip": False, "notes": "Frequent flyer"}],
         "extra_info90": [{"vip": False, "notes": "Frequent flyer"}],
     },
@@ -88,28 +95,27 @@ def variants_tests():
     return [variants_tests_chunks, variants_tests_chunks_v2]
 
 
-variants_tests_source = variants_tests()
-# for rname, resource in variants_tests_source.resources.items():
-#     resource.apply_hints(
-#         incremental=dlt.sources.incremental(
-#             cursor_path="id",
-#             initial_value=0,
-#             #lag=23,
-#         ),
-#     )
-import_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "import")
-export_schema_path=os.path.join(os.path.dirname(__file__), "schemas", "export")
 
-pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
-    "tests_pipeline",
-    "tests",
-    # import_schema_path=import_schema_path,
-    # export_schema_path=export_schema_path,
-)
 
 
 def test_first_load_dwh():
 
+    variants_tests_source = variants_tests()
+    # for rname, resource in variants_tests_source.resources.items():
+    #     resource.apply_hints(
+    #         incremental=dlt.sources.incremental(
+    #             cursor_path="id",
+    #             initial_value=0,
+    #             #lag=23,
+    #         ),
+    #     )
+
+    pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
+        "tests_pipeline_temp",
+        "tests_temp",
+        # import_schema_path=import_schema_path,
+        # export_schema_path=export_schema_path,
+    )
     pipeline.drop_pending_packages()
     # if not pipeline.first_run:
     #     drop(pipeline)
@@ -120,10 +126,6 @@ def test_first_load_dwh():
     #     #
     variants_tests_chunks = variants_tests_source.resources.get("variants_tests_chunks")
     pipeline.extract(variants_tests_chunks, refresh="drop_resources")
-    for key, Schema in pipeline.schemas.items():
-        print(key)
-        for key, value in Schema.items():
-            print(key, value)
 
     loadinfo = pipeline.run(variants_tests_source, refresh="drop_resources")
     #loadinfo = pipeline.run(variants_tests_source, write_disposition="replace", refresh="drop_sources")
@@ -245,6 +247,12 @@ json_source_data = [
         "id": 19,
         "name": "Sam",
         # Missing address & preferences
+        "extra_info177": [{"vip": False, "notes": "Frequent flyer",
+            "11": [{"vip": False, "notes": "Frequent flyer"}],
+            "22": [{"vip": False, "notes": "Frequent flyer"}],
+            "33": [{"vip": False, "notes": "Frequent flyer"}],
+            "90": [{"vip": False, "notes": "Frequent flyer"}],
+                          }],
     },
     # Document 20, more complex nested data in 'preferences' with data type changed.
     {
@@ -266,37 +274,37 @@ json_source_data = [
     },
 ]
 
-variants_tests_source = variants_tests()
-for rname, resource in variants_tests_source.resources.items():
-    resource.apply_hints(
-        incremental=dlt.sources.incremental(
-            cursor_path="id",
-            initial_value=0,
-            lag=23,
-        ),
-        primary_key=["id"],
-    )
-pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
-    "tests_pipeline",
-    "tests",
-    #import_schema_path=import_schema_path,
-    export_schema_path=export_schema_path,
-)
-#drop(pipeline)
-#pipeline.drop_pending_packages()
-
-def drop_all():
-    
-    drop(pipeline)
-    pipeline.drop()
-    # previous doesnt drop states?
-    with pipeline.sql_client() as client:
-        client.drop_dataset()
-
-    return True
 
     
 def test_second_load_dwh():
+    variants_tests_source = variants_tests()
+    for rname, resource in variants_tests_source.resources.items():
+        resource.apply_hints(
+            incremental=dlt.sources.incremental(
+                cursor_path="id",
+                initial_value=0,
+                lag=23,
+            ),
+            primary_key=["id"],
+        )
+    pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
+        "tests_pipeline_temp",
+        "tests_temp",
+        #import_schema_path=import_schema_path,
+        #export_schema_path=export_schema_path,
+    )
+    #drop(pipeline)
+    #pipeline.drop_pending_packages()
+
+    def drop_all():
+        
+        drop(pipeline)
+        pipeline.drop()
+        # previous doesnt drop states?
+        with pipeline.sql_client() as client:
+            client.drop_dataset()
+
+        return True
 
     pipeline.drop_pending_packages()
     # if not pipeline.first_run:
