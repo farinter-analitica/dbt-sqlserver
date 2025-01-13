@@ -173,7 +173,7 @@ def generate_hourly_store_procedure_assets() -> List[AssetsDefinition]:
     ]
 
     store_procedure_assets: List[AssetsDefinition] = []
-    tags = tags_repo.Replicas.tag | tags_repo.Hourly.tag
+    tags = tags_repo.Replicas.tag |  tags_repo.Daily.tag |  tags_repo.Hourly.tag
     for procedure_name in store_procedure_list:
         store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
         store_procedure_assets.append(store_procedure_execution)
