@@ -75,7 +75,7 @@ INNER JOIN {{ source('DL_FARINTER', 'DL_SAP_BKPF') }} B --Cabecera de documento 
 		AND A.GJAHR = B.GJAHR
 		AND A.AnioMes_Id = B.AnioMesCreado_Id
 WHERE A.AEDAT >= '{{last_date}}'
-
+AND A.AnioMes_Id >= (YEAR(GETDATE())-2) * 100 + 01
 ),
 {% endif %}
 staging as

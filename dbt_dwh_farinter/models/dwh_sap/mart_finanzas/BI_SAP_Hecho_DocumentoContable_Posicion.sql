@@ -133,8 +133,9 @@ INNER JOIN {{ source('DL_FARINTER', 'DL_SAP_BKPF') }} B --Cabecera de documento 
 WHERE
 {% if is_incremental() %}
    A.AEDAT >= '{{last_date}}'
+   AND A.AnioMes_Id >= (YEAR(GETDATE())-2) * 100 + 01
 {% else %}
-   A.AnioMes_Id >= 202301 AND A.BUKRS IN ('1400','1301','5000')
+   A.AnioMes_Id >= (YEAR(GETDATE())-2) * 100 + 01 AND A.BUKRS IN ('1400','1301','5000')
 {% endif %}
 
 )
