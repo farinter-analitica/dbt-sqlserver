@@ -54,8 +54,10 @@
 
 {% if is_incremental() %}
 	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '20240101')  from  """ ~ this, relation_not_found_value='20240101') %}
+	{% set last_date2 = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Contable)), 112), '20240101')  from  """ ~ this, relation_not_found_value='20240101') %}
+    {% set last_date = last_date if last_date < last_date2 else last_date2 %}
 {% else %}
-	{% set last_date = '20240101' %}
+    {% set last_date = '20240101' %}
 {% endif %}
 
 WITH
