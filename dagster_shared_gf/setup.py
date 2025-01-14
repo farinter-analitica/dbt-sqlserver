@@ -4,9 +4,9 @@ setup(
     name="dagster_shared_gf",
     packages=find_packages(exclude=["dagster_shared_gf_tests"]),
     install_requires=[
-        "dagster>=1.7.12,<2.0",
-        "dbt-core>=1.8.3,<2.0",
-        "dagster-dbt>=0.23",
+        "dagster>=1.9.6,<1.9.7",
+        "dbt-core>=1.8,<2.0",
+        "dagster-dbt>=0.24",
         "dbt-postgres>=1.8,<2.0",
         #"dbt-sqlserver @ git+https://github.com/axellpadilla/dbt-sqlserver.git@dbt_18#egg=dbt-sqlserver",
         "dbt-sqlserver>=1.8.0,<2.0",
@@ -30,6 +30,7 @@ setup(
         "deep-translator",
         "ydata-profiling",
         "psycopg[binary,pool]",
+        "wheel",
     ],
     extras_require={"dev": [ "pytest", "pytest-mock", "mypy", "ruff", "pre-commit"]},
 )
