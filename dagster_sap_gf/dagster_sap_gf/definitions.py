@@ -16,13 +16,11 @@ from dagster_sap_gf.assets import (
     dbt_sources,
     sap_etl_dwh,
     sap_etl_dwh_sp,
-    smb_etl_dwh,
 )
 
 all_assets: Sequence[AssetsDefinition | Any] = (
     *dbt_dwh_sap.all_assets,
     *sap_etl_dwh.all_assets,
-    *smb_etl_dwh.all_assets,
     *sap_etl_dwh_sp.all_assets,
     *dlt_all_assets,
 )
