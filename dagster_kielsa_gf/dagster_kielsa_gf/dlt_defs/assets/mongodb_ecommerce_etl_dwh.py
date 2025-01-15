@@ -65,7 +65,7 @@ orders_forced_schema = {
                 #"dataRoutes": {"Document": 0.896, "Array": 0.104},
                 "deliveryManName": {"String": 0.691, "Undefined": 0.309},
                 "deliveryManNumber": {"String": 0.691, "Undefined": 0.309},
-                "error": {"Document": 0.187, "String": 0.061, "Undefined": 0.752},
+                #"error": {"Document": 0.187, "String": 0.061, "Undefined": 0.752},
                 "homeDelivery": {"Int32": 0.992, "Undefined": 0.008},
                 "isCanje": {"Boolean": 0.093, "Undefined": 0.907},
                 "isRecharge": {"Boolean": 0.258, "Undefined": 0.742},
@@ -256,8 +256,9 @@ if __name__ == "__main__":
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
                                 #"dev_mode": True,
-                                "write_disposition": "replace",
-                                "refresh": "drop_resources",
+                                #"write_disposition": "replace",
+                                #"refresh": "drop_resources",
+                                "drop_pending_packages" : True
                             }
                         }
                     }
