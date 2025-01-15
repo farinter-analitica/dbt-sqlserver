@@ -311,7 +311,7 @@ def remove_collection_columns(
 
 def include_collection_columns(
     doc: Dict, include_columns: Optional[Sequence[str]] = None
-) -> Dict:
+): #-> Dict:
     """
     Removes the specified columns from the given document.
 
@@ -331,11 +331,12 @@ def include_collection_columns(
     # ) as file:
     #     file.write(f"comparing {include_columns} with {str(doc.keys())}\n")
     # print(f"comparing {include_columns} with {str(doc.keys())}")
-    return {
-        column_name: doc[column_name]
-        for column_name in include_columns
-        if column_name in doc
-    }
+    yield {
+        key: doc[key]
+        for key in doc.keys()
+        if key in include_columns
+        or str(key).startswith("_dlt")    
+        }
 
 
 ColConfigs = tuple[DltResourceCollectionConfig, ...]
@@ -382,7 +383,7 @@ def process_collection_config(
                 doc=doc, include_columns=c.columns_to_include
             )
 
-        col_res = col_res.add_map(include_columns)
+        col_res = col_res.add_yield_map(include_columns)
 
     if isinstance(c.primary_key, str):
         col_res = col_res.apply_hints(
