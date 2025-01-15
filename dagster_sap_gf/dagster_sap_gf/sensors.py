@@ -1,9 +1,6 @@
-from dagster import SensorDefinition, DefaultSensorStatus, build_sensor_for_freshness_checks
+from dagster import SensorDefinition, DefaultSensorStatus
 from dagster_shared_gf.shared_functions import (get_all_instances_of_class, get_for_current_env)
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster_sap_gf.assets import (dbt_dwh_sap
-        , sap_etl_dwh 
-    )
 from dagster_shared_gf import shared_failed_sensors
 #cron: minute hour day month day_of_week, example daily at midnight: 0 0 * * *
 #cron example daily at midnight mon-fri with numbers: 0 0 * * 1-5
@@ -21,11 +18,5 @@ stopped_default_sensor_status: DefaultSensorStatus = get_for_current_env({"local
 #shared sensors
 failed_asset_notification_sensor = shared_failed_sensors.failed_asset_notification_sensor
 
-all_asset_freshness_checks = (*sap_etl_dwh.all_asset_freshness_checks, *dbt_dwh_sap.all_asset_freshness_checks)
-freshness_checks_sensor = build_sensor_for_freshness_checks(
-    freshness_checks=all_asset_freshness_checks,
-    default_status=running_default_sensor_status,
-    minimum_interval_seconds=30 * 60,  # 5 minutes
-    )
 
 all_sensors = get_all_instances_of_class([SensorDefinition])
