@@ -493,8 +493,12 @@ def create_dlt_asset(
             new_pipeline.activate()
             custom_run_resource.compute_table_schema()  # ? al parecerer arregla el problema de los tipos de datos
             custom_run_resource.columns
-            if first_iteration and (dlt_pipeline_dest_mssql_dwh.write_disposition == "replace" or dlt_pipeline_dest_mssql_dwh.refresh is not None):
-                new_pipeline.drop_pending_packages() 
+            if first_iteration and (
+                dlt_pipeline_dest_mssql_dwh.write_disposition == "replace"
+                or dlt_pipeline_dest_mssql_dwh.refresh is not None
+                or dlt_pipeline_dest_mssql_dwh.drop_pending_packages
+            ):
+                new_pipeline.drop_pending_packages()
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource,
                 new_pipeline,
