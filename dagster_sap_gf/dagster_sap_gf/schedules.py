@@ -1,5 +1,5 @@
 from dagster import ScheduleDefinition, DefaultScheduleStatus, RunsFilter, DagsterRunStatus, ScheduleEvaluationContext
-from dagster_sap_gf.jobs import *
+from dagster_sap_gf import jobs
 from dagster_shared_gf.shared_functions import (get_all_instances_of_class, get_for_current_env)
 from dagster_shared_gf import shared_variables as shared_vars
 # cron: minute hour day month day_of_week, example daily at midnight: 0 0 * * *
@@ -33,7 +33,7 @@ dbt_dwh_sap_marts_job_schedule = ScheduleDefinition(
         dict={"dev": "15 2 * * *", "prd": "30 1 * * *"}
     ),  # cron template: hour minute day month day_of_week
     execution_timezone=default_timezone,
-    job=dbt_dwh_sap_marts_job,
+    job=jobs.dbt_dwh_sap_marts_job,
     default_status=stopped_default_schedule_status,
 )
 sap_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
@@ -41,14 +41,14 @@ sap_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
         dict={"dev": "15 01 * * *", "prd": "05 00 * * *"}
     ),  # cron template: hour minute day month day_of_week
     execution_timezone=default_timezone,
-    job=sap_etl_dwh_all_downstream_job,
+    job=jobs.sap_etl_dwh_all_downstream_job,
     default_status=running_default_schedule_status,
 )
 
 
 def should_exec_sap_dwh_hourly_job_run(
     context: ScheduleEvaluationContext,
-    job_name: str = sap_dwh_hourly_job.name,
+    job_name: str = jobs.sap_dwh_hourly_job.name,
 ) -> bool:
     filters = RunsFilter(
         job_name=job_name,
@@ -67,7 +67,7 @@ sap_dwh_hourly_job_schedule = ScheduleDefinition(
         }
     ),  # cron template: hour minute day month day_of_week
     execution_timezone=default_timezone,
-    job=sap_dwh_hourly_job,
+    job=jobs.sap_dwh_hourly_job,
     default_status=get_for_current_env(
         {
             "local": DefaultScheduleStatus.STOPPED,
@@ -81,7 +81,7 @@ sap_dwh_hourly_job_schedule = ScheduleDefinition(
 dbt_dwh_sap_marts_all_orphan_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env(dict={"dev": "15 2 * * *", "prd": "30 1 * * *"}),
     execution_timezone=default_timezone,
-    job=dbt_dwh_sap_marts_all_orphan_job,
+    job=jobs.dbt_dwh_sap_marts_all_orphan_job,
     default_status=running_default_schedule_status,
 )
 

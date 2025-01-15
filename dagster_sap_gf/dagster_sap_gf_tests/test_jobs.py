@@ -48,7 +48,12 @@ def test_all_assets_assigned_to_a_job():
                 }
                 job_auto_stop_assigned_assets.update(materialized_assets)
         elif isinstance(job_def, UnresolvedAssetJobDefinition):
-            resolved_assets = job_def.selection.resolve(all_assets) # type: ignore
+            try:    
+                resolved_assets = job_def.selection.resolve(all_assets) # type: ignore
+            except Exception as e:
+                print("Error resolving assets for job: ", job_def.name)
+                resolved_assets = set()
+                raise e
             materialized_assets = {
                 asset_key
                 for asset_key in resolved_assets

@@ -88,16 +88,6 @@ sap_dwh_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     config=RunConfig(execution=execution_run_config_default),
 )
 
-smb_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups(
-    "smb_etl_dwh"
-).downstream()
-smb_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
-    name="smb_etl_dwh_all_downstream_job",
-    selection=smb_etl_dwh_all_downstream_assets,
-    # , tags= {"dagster/max_runtime": (4*60*60)} # max 4 hours in seconds, then mark it as failed.
-    config=RunConfig(execution=execution_run_config_default),
-)
-
 dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = (
     AssetSelection.groups(
         "dbt_dwh_sap_mart_datos_maestros", "dbt_dwh_sap_mart_finanzas"
@@ -110,7 +100,7 @@ dbt_dwh_sap_marts_all_orphan_job: UnresolvedAssetJobDefinition = define_asset_jo
     config=RunConfig(execution=execution_run_config_default),
 )
 
-all_jobs = get_all_instances_of_class(
+all_jobs: tuple[JobDefinition | UnresolvedAssetJobDefinition,...] = get_all_instances_of_class(
     class_type_list=[JobDefinition, UnresolvedAssetJobDefinition], namespace=globals()
 )
 
