@@ -399,7 +399,7 @@ if __name__ == "__main__":
 
     test_all_assets_loaded()
 
-    from dagster import build_resources, materialize
+    from dagster import build_resources, materialize, RunConfig
 
     from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh
     from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
@@ -417,7 +417,7 @@ if __name__ == "__main__":
                 for asset in all_assets
                 if asset.key
                 in (
-                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "appVisita")),
+                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),
                 )
             )
             assert asset_to_test
@@ -425,15 +425,16 @@ if __name__ == "__main__":
                 asset_to_test,
                 instance=instance,
                 resources=resources_init.original_resource_dict,
-                # run_config=RunConfig(
-                #     resources={
-                #         "dlt_pipeline_dest_mssql_dwh": {
-                #             "config": {
-                #                 "write_disposition": "replace",
-                #             }
-                #         }
-                #     }
-                # ),
+                run_config=RunConfig(
+                    resources={
+                        "dlt_pipeline_dest_mssql_dwh": {
+                            "config": {
+                                "write_disposition": "replace",
+                                "refresh": "drop_resources"
+                            }
+                        }
+                    }
+                ),
             )
 
             # check_result = campaigns_recetas_check(
