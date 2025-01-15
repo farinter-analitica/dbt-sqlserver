@@ -1,14 +1,6 @@
 from collections.abc import Mapping
 import os
-from typing import Any, Dict, Literal, Optional, Sequence
-from dlt.common.schema.typing import (
-    TColumnNames,
-    TSchemaTables,
-    TTableFormat,
-    TWriteDispositionConfig,
-    TAnySchemaColumns,
-    TSchemaContract,
-)
+from typing import Any, Dict, Optional, Sequence
 import dlt
 import dlt.extract
 from dagster import (
@@ -36,7 +28,9 @@ from dagster_shared_gf.shared_variables import env_str
 new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
 dlt.secrets["dwh_farinter_dl"] = (
-    sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url().render_as_string(hide_password=False)
+    sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url().render_as_string(
+        hide_password=False
+    )
 )
 
 mssql_dwh_destination = dlt.destinations.mssql(
@@ -130,6 +124,10 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         default=None,
         description="Enables the run method of the Pipeline object to restore the pipeline state and schemas from the destination",
     )
+    drop_pending_packages: bool = Field(
+        default=False,
+        description="Drops previous pending data instead of trying to load it again.",
+    )
 
     dev_mode: bool = Field(default=False)
 
@@ -146,7 +144,7 @@ drop_data: Wipe all data and resource state for all resources being processed. S
             destination=self._get_destination(),
             dataset_name=dataset_name,
             progress="log",
-            #refresh=self.refresh,  # type: ignore
+            # refresh=self.refresh,  # type: ignore
             pipelines_dir=new_pipelines_dir,
             dev_mode=self.dev_mode,
             import_schema_path=import_schema_path,  # type: ignore[arg-type]
@@ -162,6 +160,7 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         pipeline: dlt.Pipeline,
         write_disposition: str | None = None,
         refresh: str | None = None,
+        drop_pending_packages: bool | None = None,
         remove_config: bool = False,
     ) -> LoadInfo:
         """
@@ -178,14 +177,25 @@ drop_data: Wipe all data and resource state for all resources being processed. S
             dlt.common.pipeline.LoadInfo: Information about the load operation.
         """
         self.validate_dlt_config(write_disposition=write_disposition, refresh=refresh)
+
         if remove_config:
             write_disposition = None
             refresh = None
+            drop_pending_packages = False
         else:
             if write_disposition is None:
                 write_disposition = self.write_disposition  # type: ignore
             if refresh is None:
                 refresh = self.refresh
+            if drop_pending_packages is None:
+                drop_pending_packages = self.drop_pending_packages
+        if (
+            dlt_pipeline_dest_mssql_dwh.write_disposition == "replace"
+            or dlt_pipeline_dest_mssql_dwh.refresh is not None
+            or dlt_pipeline_dest_mssql_dwh.drop_pending_packages
+        ):
+            pipeline.drop_pending_packages()
+
         load_info: LoadInfo = pipeline.run(
             resource_data,
             write_disposition=write_disposition,  # type: ignore

@@ -1,20 +1,18 @@
+from collections import deque
 from datetime import timedelta
 from typing import Any, Sequence
 
-from dagster import (
-    AssetChecksDefinition,
-    AssetsDefinition,
-    Definitions,
-    AutomationConditionSensorDefinition as ACS,
-    AssetSelection,
-    build_last_update_freshness_checks,
-    build_sensor_for_freshness_checks,
-    DefaultSensorStatus,
-)
-from dagster_shared_gf.shared_variables import tags_repo
+from dagster import AssetsDefinition, Definitions, AutomationConditionSensorDefinition as ACS, AssetSelection
+
 from dagster_sap_gf.jobs import all_jobs
 from dagster_sap_gf.schedules import all_schedules
-from dagster_sap_gf.sensors import all_sensors
+from dagster_sap_gf.sensors import (
+    all_sensors,
+    only_prd_running_default_sensor_status,
+    running_default_sensor_status,
+    hourly_freshness_lbound_per_environ,
+    hourly_freshness_seconds_per_environ,
+)
 from dagster_shared_gf import all_shared_resources
 from dagster_sap_gf.dlt_defs.definitions import (
     all_assets as dlt_all_assets,
@@ -43,10 +41,11 @@ all_asset_checks = (
 )
 # Update the set with keys from each asset
 all_asset_keys = set()
-
+all_asset_defs = deque()
 for asset in all_assets:
-    if type(asset) is AssetsDefinition:
+    if isinstance(asset, AssetsDefinition):
         all_asset_keys.update(asset.keys)
+        all_asset_defs.append(asset)
 
 dbt_sources_assets = (
     source_asset
@@ -54,53 +53,13 @@ dbt_sources_assets = (
     if source_asset.key not in all_asset_keys
 )
 
-
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(
-        all_assets,
-        tags_to_match=tags_repo.Hourly.tag,
-        filter_type="exclude_if_any_tag",
-    ),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-    build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="any_tag_matches",
-        ),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-)
-all_asset_freshness_checks = (
-    *all_assets_non_hourly_freshness_checks,
-    *all_assets_hourly_freshness_checks,
-)
-all_asset_freshness_checks_sensor = build_sensor_for_freshness_checks(
-    freshness_checks=all_asset_freshness_checks,
-    default_status=DefaultSensorStatus.RUNNING,
-    minimum_interval_seconds=60 * 60,  # 1 hour
-)
-
 dagster_sap_gf_resources = {**all_shared_resources, **dlt_all_resources}
 
 defs = Definitions(
     assets=(*all_assets, *dbt_sources_assets),
-    asset_checks=all_asset_checks,
+    asset_checks=(*all_asset_checks, *all_asset_freshness_checks),
     resources=dagster_sap_gf_resources,
     jobs=all_jobs,
-    sensors=(
-        *all_sensors,
-        ACS(
-            "automation_condition_sensor",
-            target=AssetSelection.all(),
-            use_user_code_server=True,
-        ),
-        all_asset_freshness_checks_sensor,
-    ),
+    sensors=(*all_sensors,ACS("automation_condition_sensor", target=AssetSelection.all(), use_user_code_server=True)),
     schedules=all_schedules,
 )

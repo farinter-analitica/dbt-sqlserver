@@ -311,7 +311,7 @@ def remove_collection_columns(
 
 def include_collection_columns(
     doc: Dict, include_columns: Optional[Sequence[str]] = None
-) -> Dict:
+): #-> Dict:
     """
     Removes the specified columns from the given document.
 
@@ -331,11 +331,12 @@ def include_collection_columns(
     # ) as file:
     #     file.write(f"comparing {include_columns} with {str(doc.keys())}\n")
     # print(f"comparing {include_columns} with {str(doc.keys())}")
-    return {
-        column_name: doc[column_name]
-        for column_name in include_columns
-        if column_name in doc
-    }
+    yield {
+        key: doc[key]
+        for key in doc.keys()
+        if key in include_columns
+        or str(key).startswith("_dlt")    
+        }
 
 
 ColConfigs = tuple[DltResourceCollectionConfig, ...]
@@ -382,7 +383,7 @@ def process_collection_config(
                 doc=doc, include_columns=c.columns_to_include
             )
 
-        col_res = col_res.add_map(include_columns)
+        col_res = col_res.add_yield_map(include_columns)
 
     if isinstance(c.primary_key, str):
         col_res = col_res.apply_hints(
@@ -493,8 +494,12 @@ def create_dlt_asset(
             new_pipeline.activate()
             custom_run_resource.compute_table_schema()  # ? al parecerer arregla el problema de los tipos de datos
             custom_run_resource.columns
-            if first_iteration and (dlt_pipeline_dest_mssql_dwh.write_disposition == "replace" or dlt_pipeline_dest_mssql_dwh.refresh is not None):
-                new_pipeline.drop_pending_packages() 
+            if first_iteration and (
+                dlt_pipeline_dest_mssql_dwh.write_disposition == "replace"
+                or dlt_pipeline_dest_mssql_dwh.refresh is not None
+                or dlt_pipeline_dest_mssql_dwh.drop_pending_packages
+            ):
+                new_pipeline.drop_pending_packages()
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource,
                 new_pipeline,
@@ -531,6 +536,7 @@ def dlt_mongodb_asset_factory(
     group_name: str | None = None,
 ) -> Generator[AssetsDefinition, None, None]:
     collections_config_dict = {c.collection_name: c for c in collections_config}
+    dlt_source.root_key = True
     for resource in dlt_source.resources:
         process_collection_config(
             dlt_source.resources[resource], collections_config_dict.get(resource)
