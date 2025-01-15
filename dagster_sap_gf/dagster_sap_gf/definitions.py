@@ -2,8 +2,16 @@ from collections import deque
 from datetime import timedelta
 from typing import Any, Sequence
 
-from dagster import AssetsDefinition, Definitions, AutomationConditionSensorDefinition as ACS, AssetSelection
-
+from dagster import (
+    AssetChecksDefinition,
+    AssetsDefinition,
+    Definitions,
+    AutomationConditionSensorDefinition as ACS,
+    AssetSelection,
+    build_last_update_freshness_checks,
+    build_sensor_for_freshness_checks,
+)
+from dagster_shared_gf.shared_variables import tags_repo
 from dagster_sap_gf.jobs import all_jobs
 from dagster_sap_gf.schedules import all_schedules
 from dagster_sap_gf.sensors import (
@@ -53,6 +61,55 @@ dbt_sources_assets = (
     if source_asset.key not in all_asset_keys
 )
 
+all_asset_defs_hourly_tag = filter_assets_by_tags(
+    all_asset_defs,
+    tags_to_match=tags_repo.Hourly.tag,
+    filter_type="any_tag_matches",
+)
+
+all_asset_defs_non_hourly_tag = tuple(
+    asset
+    for asset in filter_assets_by_tags(
+        all_asset_defs,
+        tags_to_match=tags_repo.Hourly.tag,
+        filter_type="exclude_if_any_tag",
+    )
+    if asset not in all_asset_defs_hourly_tag
+)
+
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
+    build_last_update_freshness_checks(
+        assets=all_asset_defs_hourly_tag,
+        lower_bound_delta=hourly_freshness_lbound_per_environ,
+        deadline_cron="0 10-16 * * 1-6",
+    )
+)
+
+all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+    assets=all_asset_defs_non_hourly_tag,
+    lower_bound_delta=timedelta(hours=26),
+    deadline_cron="0 9 * * 1-6",
+)
+
+#
+all_asset_freshness_checks = (
+    *all_assets_hourly_freshness_checks,
+    *all_assets_non_hourly_freshness_checks,
+)
+all_assets_non_hourly_freshness_checks_sensor = build_sensor_for_freshness_checks(
+    freshness_checks=all_assets_non_hourly_freshness_checks,
+    default_status=running_default_sensor_status,
+    minimum_interval_seconds=60 * 60 * 6,  # 6 hour
+    name="all_assets_non_hourly_freshness_checks_sensor",
+)
+all_assets_hourly_freshness_checks_sensor = build_sensor_for_freshness_checks(
+    freshness_checks=all_assets_hourly_freshness_checks,
+    default_status=running_default_sensor_status,
+    minimum_interval_seconds=hourly_freshness_seconds_per_environ,  # 1 hour
+    name="all_assets_hourly_freshness_checks_sensor",
+)
+
+
 dagster_sap_gf_resources = {**all_shared_resources, **dlt_all_resources}
 
 defs = Definitions(
@@ -60,6 +117,15 @@ defs = Definitions(
     asset_checks=(*all_asset_checks, *all_asset_freshness_checks),
     resources=dagster_sap_gf_resources,
     jobs=all_jobs,
-    sensors=(*all_sensors,ACS("automation_condition_sensor", target=AssetSelection.all(), use_user_code_server=True)),
+    sensors=(
+        *all_sensors,
+        ACS(
+            "automation_condition_sensor",
+            target=AssetSelection.all(),
+            use_user_code_server=True,
+        ),
+        all_assets_non_hourly_freshness_checks_sensor,
+        all_assets_hourly_freshness_checks_sensor,
+    ),
     schedules=all_schedules,
 )
