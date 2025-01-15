@@ -353,36 +353,14 @@ if not __name__ == "__main__":
         group_name="sap_etl_dwh"
     )  # + store_procedure_assets
 
-    all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="exclude_if_any_tag",
-        ),
-        lower_bound_delta=timedelta(hours=26),
-        deadline_cron="0 9 * * 1-6",
-    )
-    # print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-        build_last_update_freshness_checks(
-            assets=filter_assets_by_tags(
-                all_assets,
-                tags_to_match=tags_repo.Hourly.tag,
-                filter_type="any_tag_matches",
-            ),
-            lower_bound_delta=timedelta(hours=13),
-            deadline_cron="0 10-16 * * 1-6",
-        )
-    )
 
     # all_asset_checks = load_asset_checks_from_current_module()
     # all_asset_checks: List[AssetChecksDefinition] = itertools.chain.from_iterable(get_all_instances_of_class([Sequence[AssetChecksDefinition]]))
     all_asset_checks: Sequence[AssetChecksDefinition] = (
         load_asset_checks_from_current_module()
     )
-    all_asset_freshness_checks = (
-        *all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks
-    )
+
+
 
 if __name__ == "__main__":
     ##testing
