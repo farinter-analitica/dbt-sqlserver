@@ -11,7 +11,7 @@ from dagster_sap_gf.dlt_defs import hontrack_assets as ha
 #     },
 # )
 
-all_assets = (ha.hontrack_api_assets_per_day,)
+all_assets = (*ha.all_assets,)
 all_resources={
         "dlt": DagsterDltResource(),
         "dlt_pipeline_dest_mssql_dwh": dlt_resources.dlt_pipeline_dest_mssql_dwh

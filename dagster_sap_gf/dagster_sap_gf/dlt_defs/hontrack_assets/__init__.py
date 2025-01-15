@@ -1,4 +1,4 @@
-from .hontrack_api import hontrack_api_assets_per_day
+from .hontrack_api import all_assets
 all_asset_checks = tuple()
 
-__all__ = ["hontrack_api_assets_per_day", "all_asset_checks"]
+__all__ = ["all_assets", "all_asset_checks"]

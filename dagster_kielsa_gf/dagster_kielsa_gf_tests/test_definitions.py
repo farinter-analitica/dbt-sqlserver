@@ -80,6 +80,9 @@ all_sources_assets_keys = tuple(
     {asset.key}
     for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)
 )
+all_main_assets_keys = flatten_elements(
+    tuple(asset.keys for asset in all_assets if isinstance(asset, (AssetsDefinition)))
+)
 # all_assets = tuple(asset for asset in all_assets if isinstance(asset, AssetsDefinition))
 # print("sources:" + str(all_sources_assets_keys))
 all_assets_keys = flatten_elements(
@@ -94,9 +97,10 @@ all_defs_assets_keys = set(
             tuple(
                 asset.keys if isinstance(asset, AssetsDefinition) else asset.key
                 for asset in defs.assets
-                if defs.assets is not None
-                and isinstance(asset, (AssetsDefinition, SourceAsset))
+                if isinstance(asset, (AssetsDefinition, SourceAsset))
             )
+            if defs.assets is not None
+            else tuple()
         )
     )
 )
@@ -105,7 +109,7 @@ all_assets_keys_deduplicated = set(all_assets_keys)
 
 # print("assets_deduplicated:" + str(all_assets_deduplicated))
 all_duplicated_assets = set(
-    filter(lambda x: x in all_assets_keys_deduplicated, all_assets_keys)
+    x for x in all_main_assets_keys if all_main_assets_keys.count(x) > 1
 )
 all_not_in_definitions = set(
     filter(lambda x: x not in all_defs_assets_keys, all_assets_keys_deduplicated)
@@ -122,9 +126,9 @@ def test_all_assets_loaded():
 
 
 def test_all_no_asset_duplicates():
-    assert count_assetkeys(all_assets_keys) == count_assetkeys(
-        all_assets_keys_deduplicated
-    ), f"""Duplicated assets found: {all_duplicated_assets}"""
+    assert len(all_duplicated_assets) == 0, (
+        f"""{len(all_duplicated_assets)} Duplicated assets found: {all_duplicated_assets}"""
+    )
 
 
 if __name__ == "__main__":
