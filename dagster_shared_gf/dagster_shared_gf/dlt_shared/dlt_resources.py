@@ -1,14 +1,6 @@
 from collections.abc import Mapping
 import os
-from typing import Any, Dict, Literal, Optional, Sequence
-from dlt.common.schema.typing import (
-    TColumnNames,
-    TSchemaTables,
-    TTableFormat,
-    TWriteDispositionConfig,
-    TAnySchemaColumns,
-    TSchemaContract,
-)
+from typing import Any, Dict, Optional, Sequence
 import dlt
 import dlt.extract
 from dagster import (
