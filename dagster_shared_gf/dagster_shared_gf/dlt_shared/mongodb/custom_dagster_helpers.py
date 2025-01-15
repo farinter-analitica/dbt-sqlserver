@@ -535,6 +535,7 @@ def dlt_mongodb_asset_factory(
     group_name: str | None = None,
 ) -> Generator[AssetsDefinition, None, None]:
     collections_config_dict = {c.collection_name: c for c in collections_config}
+    dlt_source.root_key = True
     for resource in dlt_source.resources:
         process_collection_config(
             dlt_source.resources[resource], collections_config_dict.get(resource)
