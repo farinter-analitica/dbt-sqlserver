@@ -4,7 +4,7 @@ from dagster import (
     Definitions,
     AutomationConditionSensorDefinition as ACS,
 )
-import dagster_kielsa_gf.dlt.definitions as dlt_defs
+import dagster_kielsa_gf.dlt_defs.definitions as dlt_defs
 import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
 
 from dagster_kielsa_gf import job_control_replicas, jobs

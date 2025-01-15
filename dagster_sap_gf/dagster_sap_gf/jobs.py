@@ -18,7 +18,6 @@ execution_run_config_default = get_execution_config(max_concurrent=4)
 # dbt_dwh_sap_mart_datos_maestros_job = define_asset_job(name="dbt_dwh_sap_mart_datos_maestros_job"
 #                                                             , selection=AssetSelection.groups("dbt_dwh_sap_mart_datos_maestros"))
 
-
 dbt_dwh_sap_marts_job = define_asset_job(
     name="dbt_dwh_sap_marts_job",
     selection=AssetSelection.groups(

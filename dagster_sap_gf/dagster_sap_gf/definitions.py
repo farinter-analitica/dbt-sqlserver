@@ -6,7 +6,7 @@ from dagster_sap_gf.jobs import all_jobs
 from dagster_sap_gf.schedules import all_schedules
 from dagster_sap_gf.sensors import all_sensors
 from dagster_shared_gf import all_shared_resources
-from dagster_sap_gf.dlt.definitions import (
+from dagster_sap_gf.dlt_defs.definitions import (
     all_assets as dlt_all_assets,
     all_resources as dlt_all_resources,
 )

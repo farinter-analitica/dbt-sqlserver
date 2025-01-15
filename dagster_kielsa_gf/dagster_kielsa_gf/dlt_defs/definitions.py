@@ -1,6 +1,6 @@
 from dagster import Definitions, load_assets_from_modules
 from dagster_embedded_elt.dlt import DagsterDltResource
-from dagster_kielsa_gf.dlt.assets import mongodb_crm_etl_dwh, mongodb_ecommerce_etl_dwh
+from dagster_kielsa_gf.dlt_defs.assets import mongodb_crm_etl_dwh, mongodb_ecommerce_etl_dwh
 from dagster_shared_gf.dlt_shared import dlt_resources
 
 # defs = Definitions(

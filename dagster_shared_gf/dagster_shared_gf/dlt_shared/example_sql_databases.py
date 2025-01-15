@@ -1,7 +1,7 @@
 
 from dlt.sources.credentials import ConnectionStringCredentials
-import dlt, os
-from dagster_sap_gf.dlt.sql_database import sql_database, sql_table, Table
+import dlt
+from dagster_shared_gf.dlt_shared.sql_database import sql_database, sql_table, Table
 from sqlalchemy.engine import URL, create_engine
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.resources import sql_server_resources

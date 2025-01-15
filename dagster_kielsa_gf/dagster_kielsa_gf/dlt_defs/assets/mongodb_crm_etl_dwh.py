@@ -388,14 +388,16 @@ if __name__ == "__main__":
     def test_all_assets_loaded():
         configured_total = 0
         configured_total += len(read_source_config_updated_at)
-        configured_total += 1 #person
+        configured_total += 1 #collection_person
         configured_total += len(read_source_config_multi_column)
         configured_total += len(read_source_config_full_refresh)
 
-        loaded_total = len(all_assets)
+        loaded_total = len(all_mongodb_hn_assets)
         assert (
             configured_total == loaded_total
         ), f"Expected {configured_total} assets, but loaded {loaded_total} assets"
+
+    test_all_assets_loaded()
 
     from dagster import build_resources, materialize
 

@@ -58,7 +58,7 @@ def count_assetkeys(data: Any) -> int:
     return 0
 
 all_assets: Sequence[AssetsDefinition | SourceAsset] = apply_function_to_submodules(import_variable_from_module, module_name= "dagster_sap_gf.assets", variable_name="all_assets")
-all_assets = all_assets + apply_function_to_submodules(import_variable_from_module, module_name= "dagster_sap_gf.dlt.hontrack_assets", variable_name="all_assets")
+all_assets = all_assets + apply_function_to_submodules(import_variable_from_module, module_name= "dagster_sap_gf.dlt_defs.hontrack_assets", variable_name="all_assets")
 all_sources_assets_keys = [{asset.key} for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)]
 #print("sources:" + str(all_sources_assets_keys))
 all_assets_keys = flatten_elements([asset.keys for asset in filter(lambda asset: not isinstance(asset, SourceAsset), all_assets)])
