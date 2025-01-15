@@ -12,8 +12,7 @@ def test_read_excel_with_calamine():
         dfd = pl.read_excel(
             BytesIO(f.read()),
             sheet_id=0,
-            # , sheet_name='carga'
-            infer_schema_length=0,
+            # , sheet_name='carga',
             # , columns=list(schema_config.expected_columns.values())
             engine="calamine",
             raise_if_empty=False,
