@@ -155,7 +155,7 @@ mongodb_ecommerce_hn = mongodb(
     database=dlt.secrets["sources.mdb_ecommerce_hn.database"],
     collection_names=[c.collection_name for c in collections_config],
     write_disposition="merge",
-    # parallel=True,
+    parallel=True,
 )
 
 created_mongodb_assets = dlt_mongodb_asset_factory(
