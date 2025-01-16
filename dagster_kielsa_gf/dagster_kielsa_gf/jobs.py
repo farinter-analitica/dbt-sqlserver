@@ -34,6 +34,8 @@ ldcom_etl_dwh_job = define_asset_job(
 
 seleccion_no_programar: AssetSelection = AssetSelection.tag(
     key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
+) | AssetSelection.tag(
+    key=tags_repo.Automation.key, value=tags_repo.Automation.value
 )
 
 examples_assets_job = define_asset_job(
@@ -91,7 +93,7 @@ dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(
 # Definir assets que tengan la etiqueta por_hora y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_hourly_assets: AssetSelection = (
     AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
-    - seleccion_no_programar
+    - seleccion_no_programar 
 )
 kielsa_hourly_assets = (
     kielsa_hourly_assets

@@ -10,7 +10,7 @@ from dagster._utils.tags import is_valid_tag_key
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource
 
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf.automation import automation_daily_delta_2_cron
+from dagster_shared_gf.automation import automation_daily_delta_2_cron, automation_hourly_delta_12_cron
 from dagster_shared_gf.shared_functions import get_for_current_env
 from pydantic import Field
 
@@ -139,13 +139,17 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
             **shared_vars.tags_repo.Automation.tag, **shared_vars.tags_repo.Partitioned.tag
         }
         all_automations = super().get_automation_condition(dbt_resource_props)
-        if (
-            any(item in tags.items() for item in daily_auto_tags.items())
-            and shared_vars.tags_repo.Daily.key in tags
-        ):
-            if all_automations is None:
-                all_automations = automation_daily_delta_2_cron
-            else:
-                all_automations = all_automations | automation_daily_delta_2_cron
-
+        if any(item in tags.items() for item in daily_auto_tags.items()):
+            if shared_vars.tags_repo.Daily.key in tags:
+                all_automations = (
+                    automation_daily_delta_2_cron 
+                    if all_automations is None 
+                    else all_automations | automation_daily_delta_2_cron
+                )
+            elif shared_vars.tags_repo.Hourly.key in tags:
+                all_automations = (
+                    automation_hourly_delta_12_cron
+                    if all_automations is None
+                    else all_automations | automation_hourly_delta_12_cron
+                )
         return all_automations

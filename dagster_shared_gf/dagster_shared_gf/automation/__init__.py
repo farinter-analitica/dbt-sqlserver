@@ -1,4 +1,4 @@
-from dagster_shared_gf.automation.time_based import automation_hourly_cron_prd, automation_daily_delta_2_cron
+from dagster_shared_gf.automation.time_based import automation_hourly_cron_prd, automation_daily_delta_2_cron, automation_hourly_delta_12_cron
 
 # https://docs.dagster.io/concepts/automation/declarative-automation
 # https://docs.dagster.io/concepts/automation/declarative-automation/customizing-automation-conditions
@@ -14,4 +14,5 @@ from dagster_shared_gf.automation.time_based import automation_hourly_cron_prd, 
 __all__ = (
     "automation_hourly_cron_prd",
     "automation_daily_delta_2_cron",
+    "automation_hourly_delta_12_cron",
 )

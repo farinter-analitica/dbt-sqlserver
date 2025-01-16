@@ -24,6 +24,7 @@ from dagster_kielsa_gf.assets import (
 from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
 from dagster_shared_gf import all_shared_resources
+from dagster_shared_gf.shared_variables import tags_repo
 
 all_assets = (
     *examples.all_assets,
@@ -80,8 +81,24 @@ defs = Definitions.merge(
             *all_sensors,
             ACS(
                 "automation_condition_sensor",
-                target=AssetSelection.all(),
+                target=AssetSelection.all()
+                - (
+                    AssetSelection.tag(
+                        key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
+                    )
+                    & AssetSelection.groups("recetas_libros_etl_dwh")
+                ),
                 use_user_code_server=True,
+                minimum_interval_seconds=60 * 5,
+            ),
+            ACS(
+                "automation_condition_sensor_hourly",
+                target=AssetSelection.tag(
+                    key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
+                )
+                & AssetSelection.groups("recetas_libros_etl_dwh"),
+                use_user_code_server=True,
+                minimum_interval_seconds=60,
             ),
         ),
     ),

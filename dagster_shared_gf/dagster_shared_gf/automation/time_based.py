@@ -148,4 +148,15 @@ automation_daily_delta_2_cron = my_cron_automation_condition(
     ),
     lookback_delta=timedelta(days=2),
 )
-
+hourly_cron_schedule = get_for_current_env(  {
+            "dev": "01 6-19,23 * * *",
+            "prd": "01 6-19,23 * * *",
+        })
+automation_hourly_delta_12_cron = my_cron_automation_condition(
+    cron_schedule=hourly_cron_schedule,
+    ignored_deps_updated_selection=(
+        AssetSelection.all()
+        - AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
+    ),
+    lookback_delta=timedelta(hours=12),
+)
