@@ -8,6 +8,7 @@ from dagster import (
     AssetChecksDefinition,
     AssetExecutionContext,
     AssetKey,
+    AssetSpec,
     AssetsDefinition,
     AutomationCondition,
     EnvVar,
@@ -17,6 +18,7 @@ from dagster import (
     load_asset_checks_from_current_module,
     get_dagster_logger,
     DagsterType,
+    multi_asset,
 )
 from logging import Logger
 
@@ -32,7 +34,6 @@ from dagster_shared_gf.shared_functions import (
     search_for_word_in_text,
 )
 from dagster_shared_gf.shared_variables import tags_repo, env_str, Tags
-
 
 
 """
@@ -52,6 +53,7 @@ class Workflow(NamedTuple):
     workflow_directory: str
     tags: Optional[dict]
     automation_condition: Optional[AutomationCondition]
+    asset_keys: Optional[list[str]]
 
 
 WorkflowsTuple = DagsterType(
@@ -127,34 +129,35 @@ def fetch_knime_workflows(
     dagster_logger: Logger, db_analitica_etl: PostgreSQLResource
 ) -> tuple[Workflow, ...]:
     query = f"""
-    SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory 
-    FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev":"DEV", "prd":"PRD"})}';"""
+    SELECT knime_bin, ambiente, knime_workflow, cron_text, workflow_directory, asset_keys 
+    FROM knime.programacion_ejecucion WHERE activo = true AND ambiente = '{get_for_current_env({"dev": "DEV", "prd": "PRD"})}';"""
     results = db_analitica_etl.query(query)
 
     tags: dict[str, Tags | dict] = {
-        "MDBCRM_ETL_LlamadasConsolidado": {**tags_repo.Hourly.tag, **tags_repo.Daily.tag},
+        "MDBCRM_ETL_LlamadasConsolidado": {
+            **tags_repo.Hourly.tag,
+            **tags_repo.Daily.tag,
+        },
         "DWHFP_SalidaExportarAExcel": tags_repo.Monthly,
-        "Knime_Workflows_Placeholder": tags_repo.Monthly # Para prevenir error en el job
+        "Knime_Workflows_Placeholder": tags_repo.Monthly,  # Para prevenir error en el job
     }
     automation_conditions = {
         "MDBCRM_ETL_LlamadasConsolidado": automation_hourly_cron_prd
     }
-    wf_ph=Workflow(
-                knime_bin="",
-                ambiente=get_for_current_env({"dev": "DEV", "prd": "PRD"}),
-                knime_workflow="Knime_Workflows_Placeholder",
-                # cron_text="",
-                workflow_directory="",
-                tags=tags.get("Knime_Workflows_Placeholder", None),
-                automation_condition=None,
-            ) # Para prevenir error en el job
-    
+    wf_ph = Workflow(
+        knime_bin="",
+        ambiente=get_for_current_env({"dev": "DEV", "prd": "PRD"}),
+        knime_workflow="Knime_Workflows_Placeholder",
+        # cron_text="",
+        workflow_directory="",
+        tags=tags.get("Knime_Workflows_Placeholder", None),
+        automation_condition=None,
+        asset_keys=None,
+    )  # Para prevenir error en el job
+
     if not results:
         dagster_logger.error("No workflows found in the database.")
-        return tuple(
-            wf_ph
-            for _ in range(1)
-        )
+        return tuple(wf_ph for _ in range(1))
     else:
         dagster_logger.info(f"Found {len(results)} workflows in the database.")
         wf_tuple = tuple(
@@ -166,6 +169,7 @@ def fetch_knime_workflows(
                 workflow_directory=row[4],
                 tags=tags.get(row[2], None),
                 automation_condition=automation_conditions.get(row[2], None),
+                asset_keys=row[5],
             )
             for row in results
         )
@@ -176,7 +180,6 @@ def fetch_knime_workflows(
 def execute_knime_workflow(
     knime_bin: str, workflow_directory: str, context: AssetExecutionContext
 ) -> None:
-    
     command = [
         "sudo",
         "-S",
@@ -196,7 +199,7 @@ def execute_knime_workflow(
     password = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value()
     if not password:
         load_env_vars()
-    
+
     if password:
         password = password + "\n"
     else:
@@ -207,9 +210,7 @@ def execute_knime_workflow(
         raise exception
 
     try:
-        context.log.info(
-            f"Executing in {env_str} environment command: {command}"
-        )
+        context.log.info(f"Executing in {env_str} environment command: {command}")
         result = subprocess.check_output(
             command, input=password.encode("utf-8"), stderr=subprocess.STDOUT
         )
@@ -233,38 +234,84 @@ def execute_knime_workflow(
 def create_knime_workflow_asset(
     wf: Workflow,
 ) -> AssetsDefinition:
-    @asset(
-        key=AssetKey(["knime_wf", wf.ambiente, wf.knime_workflow]),
-        description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
-        group_name="knime_workflows",
-        automation_condition=wf.automation_condition,
-        tags=wf.tags,
-    )
-    def knime_workflow_asset(context: AssetExecutionContext) -> None:
-        supported_envs = ("dev", "prd")
-        if (
-            wf.ambiente.lower() in supported_envs
-            and wf.knime_workflow != "Knime_Workflows_Placeholder"
-        ):
-            execute_knime_workflow(
-                knime_bin=wf.knime_bin,
-                workflow_directory=wf.workflow_directory,
-                context=context,
-            )
-            context.log.info(
-                f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
-            )
-        else:
-            context.log.warning(
-                f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
-            )
-            
+    if wf.asset_keys is None or len(wf.asset_keys) == 1:
+
+        @asset(
+            key=AssetKey(
+                [
+                    "DL_FARINTER",
+                    "dbo",
+                    wf.asset_keys[0] if wf.asset_keys else wf.knime_workflow,
+                ]
+            ),
+            description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
+            group_name="knime_workflows",
+            automation_condition=wf.automation_condition,
+            tags=wf.tags,
+            kinds={"knime", "sql"},
+        )
+        def knime_workflow_asset(context: AssetExecutionContext) -> None:
+            supported_envs = ("dev", "prd")
+            if (
+                wf.ambiente.lower() in supported_envs
+                and wf.knime_workflow != "Knime_Workflows_Placeholder"
+            ):
+                execute_knime_workflow(
+                    knime_bin=wf.knime_bin,
+                    workflow_directory=wf.workflow_directory,
+                    context=context,
+                )
+                context.log.info(
+                    f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
+                )
+            else:
+                context.log.warning(
+                    f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
+                )
+    elif wf.asset_keys is not None and len(wf.asset_keys) > 1:
+
+        @multi_asset(
+            specs=tuple(
+                (AssetSpec(
+                    key=AssetKey(("DL_FARINTER", "dbo", asset_key)),
+                    tags=wf.tags,  # check automation condition on load_assets_from_current_module
+                    automation_condition=wf.automation_condition,
+                    kinds={"knime", "sql"},
+                    description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
+                    group_name="knime_workflows",
+                )
+                for asset_key in wf.asset_keys
+            )),
+            description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
+            group_name="knime_workflows",
+        )
+        def knime_workflow_asset(context: AssetExecutionContext) :
+            supported_envs = ("dev", "prd")
+            if (
+                wf.ambiente.lower() in supported_envs
+                and wf.knime_workflow != "Knime_Workflows_Placeholder"
+            ):
+                execute_knime_workflow(
+                    knime_bin=wf.knime_bin,
+                    workflow_directory=wf.workflow_directory,
+                    context=context,
+                )
+                context.log.info(
+                    f"Executed {wf.knime_workflow} in {wf.ambiente} target environment"
+                )
+            else:
+                context.log.warning(
+                    f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
+                )
+            return tuple(None for _ in wf.asset_keys) # type: ignore
 
     return knime_workflow_asset
 
 
 # Dynamically create assets based on the fetched workflows
-def create_knime_assets(dagster_logger: Logger, workflows) -> tuple[AssetsDefinition, ...]:
+def create_knime_assets(
+    dagster_logger: Logger, workflows
+) -> tuple[AssetsDefinition, ...]:
     asset_definitions = deque()
     # print("Starting create_knime_assets")
     if len(workflows) > 0:
@@ -283,17 +330,25 @@ def create_knime_assets(dagster_logger: Logger, workflows) -> tuple[AssetsDefini
         return tuple()
 
 
-def knime_asset_creation_graph(dagster_logger,db_analitica_etl) -> tuple[AssetsDefinition, ...]: 
-    
-    fetched_workflows = fetch_knime_workflows(dagster_logger=dagster_logger, db_analitica_etl=db_analitica_etl)
-    return create_knime_assets(dagster_logger=dagster_logger, workflows=fetched_workflows)
+def knime_asset_creation_graph(
+    dagster_logger, db_analitica_etl
+) -> tuple[AssetsDefinition, ...]:
+    fetched_workflows = fetch_knime_workflows(
+        dagster_logger=dagster_logger, db_analitica_etl=db_analitica_etl
+    )
+    return create_knime_assets(
+        dagster_logger=dagster_logger, workflows=fetched_workflows
+    )
+
 
 all_assets: tuple[AssetsDefinition, ...]
 # Build the context with the resourcesc
-resources={"db_analitica_etl":db_analitica_etl}
-#context=build_op_context(resources=resources)
+resources = {"db_analitica_etl": db_analitica_etl}
+# context=build_op_context(resources=resources)
 dagster_logger_instance = get_dagster_logger(name="Independent")
-all_assets = knime_asset_creation_graph(dagster_logger=dagster_logger_instance,db_analitica_etl=db_analitica_etl)
+all_assets = knime_asset_creation_graph(
+    dagster_logger=dagster_logger_instance, db_analitica_etl=db_analitica_etl
+)
 
 # Check for placeholders
 # if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:
@@ -323,7 +378,8 @@ all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
 all_asset_freshness_checks = (
-    *all_assets_non_hourly_freshness_checks , *all_assets_hourly_freshness_checks
+    *all_assets_non_hourly_freshness_checks,
+    *all_assets_hourly_freshness_checks,
 )
 
 if __name__ == "__main__":

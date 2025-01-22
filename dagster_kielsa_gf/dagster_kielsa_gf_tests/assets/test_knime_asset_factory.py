@@ -8,7 +8,7 @@ def test_knime_asset_factory():
     #builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
     # Fetch workflows and create assets
     asset_definitions = all_assets
-    print([asset.key for asset in asset_definitions])
+    print([asset.keys for asset in asset_definitions])
     assert len(asset_definitions) > 0, "No assets were created for the knnime workflows."
 
 def test_filter_logs_std():
