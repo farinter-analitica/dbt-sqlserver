@@ -133,3 +133,9 @@ sources:
       - name: DL_Kielsa_Libros_Tipo
       - name: DL_MDBECOMM_Usuarios
       - name: DL_Kielsa_KPP_Suscripcion
+      - name: DL_MDBKTMPRO_Clinicas_Usuarios
+      - name: DL_MDBKTMPRO_Clinicas_Videoconf_Cabecera
+      - name: DL_MDBKTMPRO_Clinicas_Postvideoconf
+      - name: DL_MDBKTMPRO_Clinicas_Consultas
+      - name: DL_MDBKTMPRO_Clinicas_Videoconf_Indicaciones
+      - name: DL_MDBKTMPRO_Clinicas_Videoconf_Textos
