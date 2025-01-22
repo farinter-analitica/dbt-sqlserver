@@ -62,9 +62,9 @@ LEFT JOIN
 	WHERE AR.Emp_Id = 1
     ) AS DI
 	ON VC.Video_Id = DI.Video_Id
-
-{# LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_KPP_Suscripcion AS SU --{{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }}
-	ON US.Identidad_Limpia = SU.Identidad_Limpia; #}
+{% if is_incremental() %}
+WHERE VC.Fecha_Actualizado > '{{ last_date }}'
+{% endif %}
 )
 
 SELECT 	ISNULL({{ dwh_farinter_hash_column( columns = ["Consulta_Id", "Numero_Indicacion"], table_alias="A") }},'') AS Receta_Id 
