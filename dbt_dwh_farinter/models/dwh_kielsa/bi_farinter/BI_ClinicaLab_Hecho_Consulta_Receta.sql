@@ -43,7 +43,7 @@ SELECT VC.[Consulta_Id]
       ,[Fecha_Actualizado]
 FROM [BI_FARINTER].[dbo].[BI_ClinicaLab_Hecho_Consulta] VC --{{ ref('BI_ClinicaLab_Hecho_Consulta') }}
 -- Indicaciones (LEFT JOIN para conservar registros principales aunque no haya receta)
-LEFT JOIN
+INNER JOIN
 	(SELECT
 		VI._id_oid AS Video_Id
 		, AR.Articulo_Id
@@ -55,11 +55,10 @@ LEFT JOIN
 	FROM	DL_FARINTER.dbo.DL_MDBKTMPRO_Clinicas_Videoconf_Indicaciones AS VI --{{ source('DL_FARINTER', 'DL_MDBKTMPRO_Clinicas_Videoconf_Indicaciones') }}
 	LEFT JOIN (SELECT Emp_Id, Articulo_Nombre, MAX(Articulo_Id) Articulo_Id 
 			FROM DL_FARINTER.dbo.DL_Kielsa_Articulo AR --{{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }}
-			WHERE AR.Indicador_PadreHijo = 'P'
+			WHERE AR.Emp_Id = 1 and AR.Indicador_PadreHijo = 'P'
 			GROUP BY Emp_Id, Articulo_Nombre
 			) AS AR 
 		ON VI.medicine = AR.Articulo_Nombre
-	WHERE AR.Emp_Id = 1
     ) AS DI
 	ON VC.Video_Id = DI.Video_Id
 {% if is_incremental() %}
