@@ -107,7 +107,7 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
 
 class BaseDltPipeline(ConfigurableResource):
     write_disposition: str | None = Field(
-        default="merge",
+        default=None,
         description="""The write disposition strategy.
 - replace: Overwrite the destination table with the new data.
 - append: Append the new data to the destination table.

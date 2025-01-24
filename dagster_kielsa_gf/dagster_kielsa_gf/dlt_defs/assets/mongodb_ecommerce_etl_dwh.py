@@ -119,31 +119,6 @@ collections_config = (
             key
             for key in orders_forced_schema
         ),
-        lag_days=15,
-        incrementals=(
-            IncConfig(
-                cursor_path="createdAt",
-                initial_value=get_for_current_env(
-                    {
-                        "local": pendulum.now().subtract(days=60),
-                        "dev": pendulum.now().subtract(years=2),
-                    }
-                ),
-                lag=15, # days
-            ),
-            IncConfig(
-                cursor_path="modificatedDateAt",
-                initial_value=get_for_current_env(
-                    {
-                        "local": pendulum.now().subtract(days=30),
-                        "dev": pendulum.now().subtract(days=30),
-                    }
-                ),
-                lag=15, # days
-            ),        
-            ),
-        #limit=get_for_current_env({"local": 1000}),
-        import_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "import"),
         export_schema_path=os.path.join(os.path.dirname(__file__), "mongodb_ecommerce_schemas", "orders", "export"),
         schema_contract={"columns": "evolve", "data_type": "evolve"}
 
@@ -154,7 +129,7 @@ mongodb_ecommerce_hn = mongodb(
     connection_url=dlt.secrets["sources.mdb_ecommerce_hn.connection_url"],
     database=dlt.secrets["sources.mdb_ecommerce_hn.database"],
     collection_names=[c.collection_name for c in collections_config],
-    write_disposition="merge",
+    write_disposition="replace",
     parallel=True,
 )
 
@@ -256,7 +231,7 @@ if __name__ == "__main__":
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
                                 #"dev_mode": True,
-                                #"write_disposition": "replace",
+                                "write_disposition": "replace",
                                 #"refresh": "drop_resources",
                                 "drop_pending_packages" : True
                             }
