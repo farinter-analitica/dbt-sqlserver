@@ -99,6 +99,10 @@ def filter_logs_std(logs):
         ),
         re.compile(r"WARN.*Node All.*partition.*", re.IGNORECASE),
         re.compile(r"WARN.*Node Multiple inputs are active.*", re.IGNORECASE),
+        re.compile(r"ERROR.*elf_dynamic_array_reader.h\(64\).*", re.IGNORECASE),
+        re.compile(r"ERROR.*file_io_posix.cc\(144\).*", re.IGNORECASE),
+        re.compile(r"WARN.*Node No connection available..*", re.IGNORECASE),
+        re.compile(r"WARN.*Node created an empty data table.*", re.IGNORECASE),
     ]
 
     filtered_lines = []

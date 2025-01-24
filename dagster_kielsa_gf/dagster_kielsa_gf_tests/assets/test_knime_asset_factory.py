@@ -30,6 +30,10 @@ def test_filter_logs_std():
     WARN Node Multiple inputs are active.
     DEBUG A debug message.
     INFO Another info message.
+    [0124/045716.153709:ERROR:elf_dynamic_array_reader.h(64)] tag not found
+    [0124/045716.178330:ERROR:file_io_posix.cc(144)] open /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq: No such file or directory (2)
+    WARN KNIME-Worker-2-Table Row to Variable Loop Start 3:121 Node No connection available.
+    WARN KNIME-Worker-4-CASE Switch End 3:171 Node Node created an empty data table.
     """
     expected_logs = """INFO This is a normal log line.\nDEBUG A debug message.\nINFO Another info message."""
     filtered_logs = filter_logs_std(logs)
