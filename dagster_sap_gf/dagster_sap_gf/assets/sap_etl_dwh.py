@@ -193,10 +193,10 @@ def generate_daily_store_procedure_assets() -> deque[AssetsDefinition]:
     return store_procedure_assets
 
 
-generated_store_procedure_assets: tuple[AssetsDefinition, ...] = (
+generated_store_procedure_assets: list[AssetsDefinition, ...] = [ #si no es lista la funcion load_assets_from_current_module tiene problema
     *generate_hourly_store_procedure_assets(),
     *generate_daily_store_procedure_assets(),
-)
+]
 
 
 @asset(
