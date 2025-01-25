@@ -1,3 +1,4 @@
+from collections import deque
 from dagster import (
     asset,
     multi_asset,
@@ -160,15 +161,15 @@ def create_store_procedure_asset(
     return store_procedure_execution
 
 
-def generate_hourly_store_procedure_assets() -> List[AssetsDefinition]:
-    store_procedure_list: List[str] = [
+def generate_hourly_store_procedure_assets() -> deque[AssetsDefinition]:
+    store_procedure_list: tuple[str, ...] = (
         "DL_paCargarSAP_REPLICA_DatosMaestros",
         "DL_paCargarSAP_REPLICA_SD",
         "DL_paCargarSAP_REPLICA_MM",
         "DL_paCargarSAP_REPLICA_WM",
-    ]
+    )
 
-    store_procedure_assets: List[AssetsDefinition] = []
+    store_procedure_assets: deque[AssetsDefinition] = deque()
     tags = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.Hourly.tag
     for procedure_name in store_procedure_list:
         store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
@@ -177,13 +178,13 @@ def generate_hourly_store_procedure_assets() -> List[AssetsDefinition]:
     return store_procedure_assets
 
 
-def generate_daily_store_procedure_assets() -> List[AssetsDefinition]:
-    store_procedure_list: List[str] = [
+def generate_daily_store_procedure_assets() -> deque[AssetsDefinition]:
+    store_procedure_list: tuple[str, ...] = (
         "DL_paCargarSAP_REPLICA_VBFA",
         "DL_paCargarSAP_REPLICA_FI",
-    ]
+    )
 
-    store_procedure_assets: List[AssetsDefinition] = []
+    store_procedure_assets: deque[AssetsDefinition] = deque()
     tags = tags_repo.Replicas.tag | tags_repo.Daily.tag  | tags_repo.UniquePeriod
     for procedure_name in store_procedure_list:
         store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
@@ -192,7 +193,7 @@ def generate_daily_store_procedure_assets() -> List[AssetsDefinition]:
     return store_procedure_assets
 
 
-store_procedure_assets: tuple[AssetsDefinition, ...] = (
+generated_store_procedure_assets: tuple[AssetsDefinition, ...] = (
     *generate_hourly_store_procedure_assets(),
     *generate_daily_store_procedure_assets(),
 )
@@ -200,12 +201,11 @@ store_procedure_assets: tuple[AssetsDefinition, ...] = (
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    #       , name="sp_start_job_sap_cadahora"
     tags=tags_repo.Replicas.tag
     | tags_repo.Hourly.tag
-    | tags_repo.UniquePeriod.tag,  # replicas_tag | hourly_unique_tag
+    | tags_repo.UniquePeriod.tag, 
     deps=(
-        *store_procedure_assets,
+        *generated_store_procedure_assets,
         DL_SAP_T001,
         AssetKey(
             [
@@ -246,9 +246,9 @@ def sp_start_job_sap_cadahora(
     key_prefix=["DL_FARINTER", "dbo"],
     tags=tags_repo.Replicas.tag
     | tags_repo.Daily.tag
-    | tags_repo.UniquePeriod.tag,  # replicas_tag | daily_unique_tag
+    | tags_repo.UniquePeriod.tag, 
     deps=(
-        *store_procedure_assets,
+        *generated_store_procedure_assets,
         DL_SAP_T001,
         AssetKey(
             [
@@ -384,7 +384,8 @@ if __name__ == "__main__":
     from dagster import build_asset_context
 
     ##
-    # print(generate_store_procedure_assets())
+    for gasset in generated_store_procedure_assets:
+        print(gasset.keys, gasset.tags_by_key)
     # print((timedelta(days=-5*365) + datetime.now()).date().isoformat())
     context = build_asset_context()
 
@@ -396,7 +397,8 @@ if __name__ == "__main__":
         sp_start_job_sap_cadahora(context, dwh_farinter_dl)
 
     # tests1()
-    tests2()
+    # 
+    # tests2()
     # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
     # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
     # print("type " +  str(type(all_assets_hourly_freshness_checks)))
