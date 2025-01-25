@@ -5,7 +5,6 @@ from dagster import (
     AssetChecksDefinition,
     AssetExecutionContext,
     AssetsDefinition,
-    build_last_update_freshness_checks,
     load_assets_from_current_module,
     load_asset_checks_from_current_module,
     Field,
@@ -13,10 +12,6 @@ from dagster import (
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, tags_repo
-from dagster_shared_gf.shared_functions import (
-    filter_assets_by_tags,
-)
-import dagster_sap_gf.assets.dbt_dwh_sap as dbt_dwh_sap
 from pathlib import Path
 from typing import List, Any, Mapping, NamedTuple, Sequence
 from datetime import datetime, date, timedelta
@@ -49,7 +44,8 @@ def DL_SAP_T001(
         with dwh_farinter_dl.get_connection(database) as conn:
             last_date_updated_query: str = f"""SELECT MAX(Fecha_Actualizado) FROM [{database}].[{schema}].[{table}]"""
             last_date_updated_result: List[NamedTuple] = dwh_farinter_dl.query(
-                query=last_date_updated_query, connection=conn # type: ignore
+                query=last_date_updated_query,
+                connection=conn,  # type: ignore
             )
             last_date_updated: date = date(1900, 1, 1)
             if last_date_updated_result and last_date_updated_result[0][0] is not None:
@@ -112,14 +108,16 @@ def DL_SAP_BSEG(
         else:
             last_aniomes_id_query: str = f"""SELECT MAX(AnioMes_Id) FROM [{database}].[{schema}].[{table}] WITH (NOLOCK);"""
             last_aniomes_id_result: List[Any] = dwh_farinter_dl.query(
-                query=last_aniomes_id_query, connection=conn # type: ignore
+                query=last_aniomes_id_query,
+                connection=conn,  # type: ignore
             )
             last_date_updated_query: str = f"""
                 SELECT MAX(AEDAT) FROM [{database}].[{schema}].[{table}] 
-                WHERE AnioMes_Id >= {last_aniomes_id_result[0][0] if last_aniomes_id_result else (datetime.now().year*100-5)+1};
+                WHERE AnioMes_Id >= {last_aniomes_id_result[0][0] if last_aniomes_id_result else (datetime.now().year * 100 - 5) + 1};
                 """
             last_date_updated_result: List[Any] = dwh_farinter_dl.query(
-                query=last_date_updated_query, connection=conn # type: ignore
+                query=last_date_updated_query,
+                connection=conn,  # type: ignore
             )
             last_date_updated: date = (datetime.now() - timedelta(days=5 * 365)).date()
             if last_date_updated_result:
@@ -165,15 +163,13 @@ def create_store_procedure_asset(
 def generate_hourly_store_procedure_assets() -> List[AssetsDefinition]:
     store_procedure_list: List[str] = [
         "DL_paCargarSAP_REPLICA_DatosMaestros",
-        "DL_paCargarSAP_REPLICA_VBFA",
         "DL_paCargarSAP_REPLICA_SD",
         "DL_paCargarSAP_REPLICA_MM",
         "DL_paCargarSAP_REPLICA_WM",
-        "DL_paCargarSAP_REPLICA_FI",
     ]
 
     store_procedure_assets: List[AssetsDefinition] = []
-    tags = tags_repo.Replicas.tag |  tags_repo.Daily.tag |  tags_repo.Hourly.tag
+    tags = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.Hourly.tag
     for procedure_name in store_procedure_list:
         store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
         store_procedure_assets.append(store_procedure_execution)
@@ -181,8 +177,24 @@ def generate_hourly_store_procedure_assets() -> List[AssetsDefinition]:
     return store_procedure_assets
 
 
-store_procedure_assets: List[AssetsDefinition] = (
-    generate_hourly_store_procedure_assets()
+def generate_daily_store_procedure_assets() -> List[AssetsDefinition]:
+    store_procedure_list: List[str] = [
+        "DL_paCargarSAP_REPLICA_VBFA",
+        "DL_paCargarSAP_REPLICA_FI",
+    ]
+
+    store_procedure_assets: List[AssetsDefinition] = []
+    tags = tags_repo.Replicas.tag | tags_repo.Daily.tag  | tags_repo.UniquePeriod
+    for procedure_name in store_procedure_list:
+        store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
+        store_procedure_assets.append(store_procedure_execution)
+
+    return store_procedure_assets
+
+
+store_procedure_assets: tuple[AssetsDefinition, ...] = (
+    *generate_hourly_store_procedure_assets(),
+    *generate_daily_store_procedure_assets(),
 )
 
 
@@ -192,14 +204,17 @@ store_procedure_assets: List[AssetsDefinition] = (
     tags=tags_repo.Replicas.tag
     | tags_repo.Hourly.tag
     | tags_repo.UniquePeriod.tag,  # replicas_tag | hourly_unique_tag
-    deps=store_procedure_assets
-    + list([DL_SAP_T001])
-    + list()
-    + [
+    deps=(
+        *store_procedure_assets,
+        DL_SAP_T001,
         AssetKey(
-            ["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"]
-        )
-    ],
+            [
+                "DL_FARINTER",
+                "dbo",
+                "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones",
+            ]
+        ),
+    ),
     compute_kind="sqlserver",
 )
 def sp_start_job_sap_cadahora(
@@ -232,14 +247,17 @@ def sp_start_job_sap_cadahora(
     tags=tags_repo.Replicas.tag
     | tags_repo.Daily.tag
     | tags_repo.UniquePeriod.tag,  # replicas_tag | daily_unique_tag
-    deps=store_procedure_assets
-    + list([DL_SAP_T001])
-    + list([dbt_dwh_sap.dbt_sap_etl_dwh_assets])
-    + [
+    deps=(
+        *store_procedure_assets,
+        DL_SAP_T001,
         AssetKey(
-            ["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"]
-        )
-    ],
+            [
+                "DL_FARINTER",
+                "dbo",
+                "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones",
+            ]
+        ),
+    ),
     #        , freshness_policy= FreshnessPolicy(maximum_lag_minutes=60*26, cron_schedule="0 10-16 * * *", cron_schedule_timezone="America/Tegucigalpa") #deprecated
     compute_kind="sqlserver",
 )
@@ -353,13 +371,11 @@ if not __name__ == "__main__":
         group_name="sap_etl_dwh"
     )  # + store_procedure_assets
 
-
     # all_asset_checks = load_asset_checks_from_current_module()
     # all_asset_checks: List[AssetChecksDefinition] = itertools.chain.from_iterable(get_all_instances_of_class([Sequence[AssetChecksDefinition]]))
     all_asset_checks: Sequence[AssetChecksDefinition] = (
         load_asset_checks_from_current_module()
     )
-
 
 
 if __name__ == "__main__":
