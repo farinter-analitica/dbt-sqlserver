@@ -481,6 +481,25 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "BI_Dim_Tiempo",
         "tags": tags_repo.Daily.tag,
     },
+     ##eCommerce
+    "AN_pacargarParam_PesoseCommerce_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": ["AN_Param_PesoseCommerce_Kielsa"],
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "deps": [
+            AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentaseCommerceResumenHist_Kielsa"]),
+            AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentaseCommerceHist_Kielsa"]),
+        ],
+    },
+    "BI_paCargarHecho_ProyeccionVentaseCommerce_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": "BI_Hecho_ProyeccionVentaseCommerce_Kielsa",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesoseCommerce_Kielsa"])],
+    },
+
     "DL_paCargarKielsa_MecanicaCanje": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_MecanicaCanje",
