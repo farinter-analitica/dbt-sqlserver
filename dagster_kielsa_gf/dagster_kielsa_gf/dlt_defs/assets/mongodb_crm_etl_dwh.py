@@ -208,8 +208,10 @@ read_source_config_full_refresh: ColConfigs = (
     DLTRColl(collection_name="campaignActivity"),
     DLTRColl(collection_name="crm_budget_header"),
     DLTRColl(collection_name="crm_budget",  limit=get_for_current_env({"local":20000},)),
-    DLTRColl(collection_name="crm_seller_planification"),
-    DLTRColl(collection_name="appVisita"),
+    DLTRColl(collection_name="crm_seller_planification",
+                automation_condition=automation_hourly_cron_prd,),
+    DLTRColl(collection_name="appVisita", 
+                automation_condition=automation_hourly_cron_prd,),
 
 )
 
