@@ -3,12 +3,12 @@
 
     {{
         config(
-            as_columnstore=false,
+            as_columnstore=true,
             tags=["periodo/diario", "automation/si"],
             target_schema='dbt_snapshot',
             strategy='timestamp',
             unique_key="Suscripcion_Id" ,
-            updated_at='FVigencia',
+            updated_at='Fecha_Actualizado',
         )
     }}
 --Source SCRIPT cannot have identity columns
@@ -30,6 +30,7 @@ SELECT --TOP (1000)
       ,[Celular] COLLATE DATABASE_DEFAULT AS [Celular]
       ,[Origen]
       ,[LogMovId]
-  FROM [{{ var('P_SQLLDSUBS_LS') }}].[KPP_DB].[dbo].[Suscripcion] -- {{ source('KPP_DB', 'Suscripcion') }}
+      ,[Fecha_Actualizado]
+  FROM [DL_Kielsa_KPP_Suscripcion] -- {{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }}
 {% endsnapshot %}
 
