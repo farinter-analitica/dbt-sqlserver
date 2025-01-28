@@ -26,4 +26,6 @@ sources:
       - name: CSKT
       - name: CEPCT
       - name: CEPC
+      - name: USER_ADDR
+      - name: ZFRM_EPT_0001
 

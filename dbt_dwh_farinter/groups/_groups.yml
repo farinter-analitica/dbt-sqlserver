@@ -63,3 +63,6 @@ groups:
   - name: crm_dwh_kielsa
     owner:
       email: brian.padilla@farinter.com
+  - name: dbt_dwh_kielsa_an
+    owner:
+      email: brian.padilla@farinter.com
