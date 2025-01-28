@@ -141,3 +141,4 @@ sources:
       - name: DL_MDBKTMPRO_Clinicas_Videoconf_Textos
       - name: DL_Kielsa_Regalia_Encabezado
       - name: DL_Kielsa_Regalia_Detalle
+      - name: DL_Kielsa_Monedero_Tarjetas_Replica
