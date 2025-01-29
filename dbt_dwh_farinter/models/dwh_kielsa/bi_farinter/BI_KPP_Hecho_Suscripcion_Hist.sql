@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Suscripcion_Id", "Transaccion_Id"] %}
+{% set unique_key_list = ["Suscripcion_Id", "Transaccion_Id", "Log_Id"] %}
 
 {{ 
     config(
@@ -26,46 +26,65 @@
 {%- endif %}
 
 WITH Transacciones_Iniciales AS (
-    -- Identificar primera transacción para cada suscripción nueva
     SELECT 
-        t.Transaccion_Id,
-        t.TarjetaKC_Id,
-        t.Fecha,
-        ROW_NUMBER() OVER (PARTITION BY t.TarjetaKC_Id, CAST(t.Fecha AS DATE) ORDER BY t.Transaccion_Id) as rn
+        ISNULL(t.Transaccion_Id, 0) as Transaccion_Id,
+        ISNULL(l.Id, 0) as Log_Id,
+        ISNULL(t.Transaccion_Id, l.Id) as Evento_Id,
+        s.Suscripcion_Id,
+        COALESCE(t.TarjetaKC_Id, l.TarjetaKC_Id) COLLATE DATABASE_DEFAULT AS TarjetaKC_Id,
+        s.Identidad_Limpia,
+        t.Monto_Rebajado AS Monto_Rebajado,
+        cast(COALESCE(t.Fecha, l.Fecha) as date) AS Fecha_Transaccion,
+        COALESCE(l.Usuario_Registro, s.Usuario_Registro) COLLATE DATABASE_DEFAULT AS Usuario_Id,
+        COALESCE(l.Sucursal_Registro, s.Sucursal_Registro) AS Sucursal_Id,
+        COALESCE(l.CodPlanKielsaClinica, s.CodPlanKielsaClinica) COLLATE DATABASE_DEFAULT AS Articulo_Id,
+        COALESCE(l.TipoPlan, s.TipoPlan) AS Plan_Id,
+        l.Tipo_Ingreso,
+        l.Origen,
+        ROW_NUMBER() OVER (PARTITION BY COALESCE(t.TarjetaKC_Id COLLATE DATABASE_DEFAULT, l.TarjetaKC_Id COLLATE DATABASE_DEFAULT), CAST(COALESCE(t.Fecha, l.Fecha) AS DATE) 
+                          ORDER BY t.Transaccion_Id desc, l.Id desc) as rn,
+        CASE WHEN CAST(s.FRegistro AS DATE) = cast(COALESCE(t.Fecha, l.Fecha) as date) THEN 1 ELSE 0 END Es_Evento_Inicial 
     FROM {{ ref('DL_Kielsa_KPP_Transacciones_Validas') }} t
-    INNER JOIN  {{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }} s
-        ON s.TarjetaKC_Id = t.TarjetaKC_Id  COLLATE DATABASE_DEFAULT
-        AND CAST(s.FRegistro AS DATE) = CAST(t.Fecha AS DATE)
-    WHERE t.Es_Transaccion_Valida = 1
+    FULL OUTER JOIN {{ ref('DL_Kielsa_KPP_LogMovimientoSuscripcion') }} l
+        ON l.TarjetaKC_Id = t.TarjetaKC_Id COLLATE DATABASE_DEFAULT
+        AND CAST(l.Fecha AS DATE) = CAST(t.Fecha AS DATE)
+        AND l.Tipo_Documento = 'suscripcion'
+    INNER JOIN {{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }} s
+        ON s.TarjetaKC_Id = COALESCE(t.TarjetaKC_Id, l.TarjetaKC_Id) COLLATE DATABASE_DEFAULT
+    WHERE (t.Es_Transaccion_Valida = 1 OR l.Id IS NOT NULL)
         {% if is_incremental() %}
         AND s.Fecha_Actualizado >= '{{ last_date }}'
         {% endif %}
-
 ),
+
 Suscripciones_Nuevas AS (
-    -- Captura suscripciones iniciales con su transacción correspondiente
     SELECT 
-        ISNULL(ti.Transaccion_Id,0) as Transaccion_Id,  -- Será 0 si no hay transacción en la misma fecha
+        ISNULL(ti.Transaccion_Id, 0) as Transaccion_Id,
+        ISNULL(ti.Log_Id, 0) as Log_Id,
         s.Suscripcion_Id,
         s.TarjetaKC_Id COLLATE DATABASE_DEFAULT AS TarjetaKC_Id,
         s.Identidad_Limpia,
-        COALESCE(t.Monto_Rebajado, p.Costo) AS Monto_Rebajado, 
+        COALESCE(t.Monto_Rebajado, p.Costo) AS Monto_Rebajado,
         CONVERT(DATE, s.FRegistro) AS Fecha_Transaccion,
-        s.Usuario_Registro COLLATE DATABASE_DEFAULT AS Usuario_Id,
-        s.Sucursal_Registro  AS Sucursal_Id,
-        s.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT AS Articulo_Id,
-        s.TipoPlan AS Plan_Id,
+        COALESCE(l.Usuario_Registro, s.Usuario_Registro) COLLATE DATABASE_DEFAULT AS Usuario_Id,
+        COALESCE(l.Sucursal_Registro, s.Sucursal_Registro) AS Sucursal_Id,
+        COALESCE(l.CodPlanKielsaClinica, s.CodPlanKielsaClinica) COLLATE DATABASE_DEFAULT AS Articulo_Id,
+        COALESCE(l.TipoPlan, s.TipoPlan) AS Plan_Id,
+        l.Tipo_Ingreso,
+        l.Origen,
         1 AS Numero_Transaccion,
         s.Fecha_Actualizado
     FROM {{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }} s
     INNER JOIN {{ ref('DL_Kielsa_KPP_Plan_Suscripcion') }} p 
         ON s.TipoPlan = p.Plan_Id
     LEFT JOIN Transacciones_Iniciales ti
-        ON s.TarjetaKC_Id = ti.TarjetaKC_Id  COLLATE DATABASE_DEFAULT
-        AND CAST(s.FRegistro AS DATE) = CAST(ti.Fecha AS DATE)
+        ON s.TarjetaKC_Id = ti.TarjetaKC_Id COLLATE DATABASE_DEFAULT
+        AND ti.Es_Evento_Inicial = 1
         AND ti.rn = 1
     LEFT JOIN {{ ref('DL_Kielsa_KPP_Transacciones_Validas') }} t
         ON ti.Transaccion_Id = t.Transaccion_Id
+    LEFT JOIN {{ ref('DL_Kielsa_KPP_LogMovimientoSuscripcion') }} l
+        ON ti.Log_Id = l.Id
     {% if is_incremental() %}
     WHERE s.Fecha_Actualizado >= '{{ last_date }}'
     {% endif %}
@@ -74,29 +93,37 @@ Suscripciones_Nuevas AS (
 
     -- Captura renovaciones excluyendo transacciones ya usadas
     SELECT 
-        t.Transaccion_Id,
+        ISNULL(l.Transaccion_Id, 0) as Transaccion_Id,
+        ISNULL(l.Log_Id, 0) as Log_Id,
         s.Suscripcion_Id,
-        t.TarjetaKC_Id COLLATE DATABASE_DEFAULT AS TarjetaKC_Id,
+        l.TarjetaKC_Id COLLATE DATABASE_DEFAULT AS TarjetaKC_Id,
         s.Identidad_Limpia,
-        t.Monto_Rebajado,
-        t.Fecha AS Fecha_Transaccion,
-        s.Usuario_Registro COLLATE DATABASE_DEFAULT AS  Usuario_Id,
-        s.Sucursal_Registro AS Sucursal_Id,
-        s.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT AS Articulo_Id,
-        s.TipoPlan AS Plan_Id,
-        ROW_NUMBER() OVER (PARTITION BY t.TarjetaKC_Id ORDER BY t.Fecha) + 1 AS Numero_Transaccion,
+        COALESCE(l.Monto_Rebajado, p.Costo) AS Monto_Rebajado,
+        l.Fecha_Transaccion,
+        l.Usuario_Id,
+        l.Sucursal_Id,
+        l.Articulo_Id,
+        l.Plan_Id,
+        l.Tipo_Ingreso,
+        l.Origen,
+        ROW_NUMBER() OVER (PARTITION BY l.TarjetaKC_Id 
+                          ORDER BY l.Fecha_Transaccion, l.Evento_Id) + 1 AS Numero_Transaccion,
         s.Fecha_Actualizado
-    FROM {{ ref('DL_Kielsa_KPP_Transacciones_Validas') }} t
+    FROM Transacciones_Iniciales l
     INNER JOIN {{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }} s
-        ON t.TarjetaKC_Id = s.TarjetaKC_Id COLLATE DATABASE_DEFAULT
-    LEFT JOIN Transacciones_Iniciales ti
-        ON t.Transaccion_Id = ti.Transaccion_Id
-        AND ti.rn = 1
-    WHERE t.Es_Transaccion_Valida = 1
-    AND ti.Transaccion_Id IS NULL  -- Excluye transacciones ya usadas en suscripciones nuevas
+        ON l.TarjetaKC_Id = s.TarjetaKC_Id COLLATE DATABASE_DEFAULT
+    LEFT JOIN {{ ref('DL_Kielsa_KPP_Plan_Suscripcion') }} p 
+        ON l.Plan_Id = p.Plan_Id
+    WHERE l.Es_Evento_Inicial = 0  -- Excluye transacciones ya usadas en suscripciones nuevas
+        AND l.rn = 1  -- Excluye duplicados
+        {% if is_incremental() %}
+        AND s.Fecha_Actualizado >= '{{ last_date }}'
+        {% endif %}
+
 )
 SELECT 
     s.Transaccion_Id,
+    s.Log_Id,
     s.Suscripcion_Id,
     s.TarjetaKC_Id,
     s.Identidad_Limpia,
@@ -107,6 +134,8 @@ SELECT
     s.Plan_Id,
     s.Usuario_Id,
     s.Sucursal_Id,
+    s.Tipo_Ingreso,
+    s.Origen,
     LEAD(s.Fecha_Transaccion) OVER (PARTITION BY s.TarjetaKC_Id ORDER BY s.Numero_Transaccion) AS Siguiente_Fecha_Transaccion,
     LEAD(s.Articulo_Id) OVER (PARTITION BY s.TarjetaKC_Id ORDER BY s.Numero_Transaccion) AS Siguiente_Articulo_Id,
     LEAD(s.Sucursal_Id) OVER (PARTITION BY s.TarjetaKC_Id ORDER BY s.Numero_Transaccion) AS Siguiente_Sucursal_Id,
@@ -116,4 +145,4 @@ SELECT
     CASE WHEN s.Numero_Transaccion <= 1 THEN 'Nuevo' ELSE 'Renovacion' END AS Tipo_Suscripcion,
     s.Fecha_Actualizado
 FROM Suscripciones_Nuevas s
---where s.Identidad_Limpia='0801198704679'
+--where s.Suscripcion_Id=76293
