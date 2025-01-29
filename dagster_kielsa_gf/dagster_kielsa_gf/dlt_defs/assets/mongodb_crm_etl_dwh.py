@@ -16,7 +16,7 @@ from dagster import (
 )
 from dlt.common import pendulum
 
-from dagster_shared_gf.automation import automation_hourly_cron_prd
+from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
     DltIncrementalPartialConfig as IncConfig,
     ColConfigs,
@@ -57,12 +57,12 @@ read_source_config_updated_at: ColConfigs = (
         collection_name="campaignsRecetas",
         columns_to_remove=("created_at",),
         incrementals=(IncConfig(cursor_path="updatedAt"),),
-        automation_condition=automation_hourly_cron_prd,
+        automation_condition=automation_hourly_delta_12_cron,
     ),
     DLTRColl(
         collection_name="clientToCall",
         incrementals=(IncConfig(cursor_path="updatedAt"),),
-        automation_condition=automation_hourly_cron_prd,
+        automation_condition=automation_hourly_delta_12_cron,
     ),
     DLTRColl(
         collection_name="crm_list",
@@ -209,9 +209,9 @@ read_source_config_full_refresh: ColConfigs = (
     DLTRColl(collection_name="crm_budget_header"),
     DLTRColl(collection_name="crm_budget",  limit=get_for_current_env({"local":20000},)),
     DLTRColl(collection_name="crm_seller_planification",
-                automation_condition=automation_hourly_cron_prd,),
+                automation_condition=automation_hourly_delta_12_cron,),
     DLTRColl(collection_name="appVisita", 
-                automation_condition=automation_hourly_cron_prd,),
+                automation_condition=automation_hourly_delta_12_cron,),
 
 )
 

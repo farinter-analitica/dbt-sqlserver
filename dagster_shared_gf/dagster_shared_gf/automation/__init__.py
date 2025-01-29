@@ -1,4 +1,4 @@
-from dagster_shared_gf.automation.time_based import automation_hourly_cron_prd, automation_daily_delta_2_cron, automation_hourly_delta_12_cron
+from dagster_shared_gf.automation.time_based import automation_hourly_delta_12_cron, automation_daily_delta_2_cron, automation_hourly_delta_12_cron
 
 # https://docs.dagster.io/concepts/automation/declarative-automation
 # https://docs.dagster.io/concepts/automation/declarative-automation/customizing-automation-conditions
@@ -12,7 +12,7 @@ from dagster_shared_gf.automation.time_based import automation_hourly_cron_prd, 
 # AutomationCondition.any_downstream_condition()	Any AutomationCondition on a downstream asset evaluates to true
 
 __all__ = (
-    "automation_hourly_cron_prd",
+    "automation_hourly_delta_12_cron",
     "automation_daily_delta_2_cron",
     "automation_hourly_delta_12_cron",
 )

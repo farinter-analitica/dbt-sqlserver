@@ -49,19 +49,6 @@ def get_cron_eager_execution_condition(cron_schedule: str) -> AutomationConditio
 # Example usage
 hourly_condition = get_cron_eager_execution_condition("@hourly")
 
-automation_hourly_cron_prd = get_for_current_env(
-    {
-        "dev": None,
-        "prd": (
-            AutomationCondition.cron_tick_passed(
-                "01 6-19 * * *", cron_timezone=default_timezone_teg
-            ).since_last_handled()
-            & ~AutomationCondition.in_progress()
-            & ~AutomationCondition.any_deps_in_progress()
-        ).with_label("Por hora (06-19)"),
-    }
-)
-
 
 def my_cron_automation_condition(
     cron_schedule: str,
@@ -149,7 +136,7 @@ automation_daily_delta_2_cron = my_cron_automation_condition(
     lookback_delta=timedelta(days=2),
 )
 hourly_cron_schedule = get_for_current_env(  {
-            "dev": "01 6-19,23 * * *",
+            "dev": "23 * * *",
             "prd": "01 6-19,23 * * *",
         })
 automation_hourly_delta_12_cron = my_cron_automation_condition(
