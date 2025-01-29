@@ -36,6 +36,7 @@ SELECT ISNULL(A.TarjetaKC_Id COLLATE DATABASE_DEFAULT,'') AS [TarjetaKC_Id],
     A.Cobro COLLATE DATABASE_DEFAULT AS Cobro_Realizado,
     A.Origen,
     A.Usuario_Registro COLLATE DATABASE_DEFAULT AS Usuario_Registro,
+    A.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT AS Articulo_Id,
     /*
     C.Monedero_Celular AS Celular,
     C.Monedero_Telefono AS Telefono,
