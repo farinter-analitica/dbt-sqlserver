@@ -123,15 +123,20 @@ Suscripciones_Nuevas AS (
 
 )
 SELECT 
+    1 as Emp_Id,
     s.Transaccion_Id,
     s.Log_Id,
     s.Suscripcion_Id,
     s.TarjetaKC_Id,
     s.Identidad_Limpia,
+    CONCAT(1,'-',s.Identidad_Limpia) AS EmpMon_Id,
     s.Monto_Rebajado,
     s.Fecha_Transaccion,
     s.Numero_Transaccion,
     s.Articulo_Id,
+    CONCAT(1,'-',s.Articulo_Id) AS EmpArt_Id,
+    s.Sucursal_Id,
+    CONCAT(1,'-',s.Sucursal_Id) AS EmpSuc_Id,
     s.Plan_Id,
     s.Usuario_Id,
     s.Sucursal_Id,
