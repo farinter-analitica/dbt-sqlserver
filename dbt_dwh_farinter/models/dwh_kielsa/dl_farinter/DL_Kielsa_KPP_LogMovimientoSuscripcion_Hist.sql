@@ -31,7 +31,7 @@ Datos1 AS
 			, 1 AS Transac_No
 		FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_Suscripcion] AS A -- {{ source ("DL_FARINTER","DL_Kielsa_KPP_Suscripcion") }}
 		INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS C -- {{ source ("DL_FARINTER","DL_Kielsa_Monedero") }}
-			ON A.TarjetaKC_Id = C.MonederoTarj_Id_Original COLLATE DATABASE_DEFAULT
+			ON A.Identidad_Limpia = C.Monedero_Id COLLATE DATABASE_DEFAULT
 		WHERE C.Emp_Id = 1 and A.Suscripcion_Id < 26173	--- '26173' es el id de suscripci�n del primer monedero registrado en la tbl LogMovimientoSuscripcion
 											--ORDER BY A.FRegistro ASC
 		UNION ALL
@@ -56,16 +56,18 @@ Datos1 AS
 					, A.TarjetaKC_Id
 					, CASE
 						WHEN B.Ingreso
-							BETWEEN DATEADD(minute, -3, A.Fecha) AND DATEADD(minute, 3, A.Fecha)
+							BETWEEN DATEADD(day, -1, A.Fecha) AND DATEADD(day, 1, A.Fecha)
 							THEN 'automatico'
 						ELSE 'mecanico'
 					END AS Tipo_Ingreso
 					, CONVERT(DATE, A.Fecha) AS Fecha
 					, ROW_NUMBER() OVER (PARTITION BY A.TarjetaKC_Id, CONVERT(DATE, A.Fecha)ORDER BY A.Fecha) AS Veces
-				FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_Transacciones] A -- {{ ref('DL_Kielsa_KPP_Transacciones') }}
+				FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_Transacciones_Validas] A -- {{ ref('DL_Kielsa_KPP_Transacciones_Validas') }}
+				INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_KPP_Suscripcion] AS S -- {{ source ("DL_FARINTER","DL_Kielsa_KPP_Suscripcion") }}
+					ON A.TarjetaKC_Id = S.TarjetaKC_Id COLLATE DATABASE_DEFAULT
 				INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS B -- {{ source ("DL_FARINTER","DL_Kielsa_Monedero") }}
-					ON A.TarjetaKC_Id = B.MonederoTarj_Id_Original COLLATE DATABASE_DEFAULT
-				WHERE B.Emp_Id = 1 and A.Transaccion_Id < 30350	--- '30350' es el id de transacci�n del primer monedero registrado en la tbl LogMovimientoSuscripcion
+					ON S.Identidad_Limpia = B.Monedero_Id COLLATE DATABASE_DEFAULT
+				WHERE B.Emp_Id = 1 and A.Es_Transaccion_Valida=1 AND A.Es_Transaccion_Sospechosa = 0 AND A.Transaccion_Id < 30350 	--- '30350' es el id de transacci�n del primer monedero registrado en la tbl LogMovimientoSuscripcion
 													--ORDER BY Fecha ASC
 			) AS A
 			LEFT JOIN
@@ -78,12 +80,12 @@ Datos1 AS
 					, CodPlanKielsaClinica
 					, ROW_NUMBER() OVER (PARTITION BY TarjetaKC_Id, CONVERT(DATE, FRegistro)ORDER BY FRegistro) AS Veces
 				FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_LogSuscripcion] -- {{ ref ("DL_Kielsa_KPP_LogSuscripcion") }}
-				WHERE (ErrorMessage NOT LIKE '%Error%' AND ErrorMessage NOT LIKE '%time%') AND id < 24905 --- '24905' es el id de LogSuscripcion del primer monedero registrado en la tbl LogMovimientoSuscripcion
+				WHERE id < 24905 --- '24905' es el id de LogSuscripcion del primer monedero registrado en la tbl LogMovimientoSuscripcion
 																											--ORDER BY id ASC
 			) AS B
 				ON A.TarjetaKC_Id = B.TarjetaKC_Id COLLATE DATABASE_DEFAULT
 				 AND A.Fecha = B.Fecha
-			WHERE A.Veces = 1 OR B.Veces = 1) AS A
+			WHERE A.Veces = 1 AND (B.Veces = 1 OR B.Veces IS NULL)) AS A
 		WHERE A.Transac_No <> 1) AS A )
 ,
 Datos AS

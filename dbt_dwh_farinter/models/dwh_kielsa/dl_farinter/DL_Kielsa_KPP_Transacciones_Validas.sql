@@ -63,9 +63,10 @@ WITH TransactionSequence AS (
 LogValidation AS (
     SELECT TarjetaKC_Id,
         CAST(FRegistro AS DATE) AS Fecha_Log,
-        COUNT(*) AS Total_Errores --STRING_AGG(ErrorMessage, ' | ') WITHIN GROUP (ORDER BY FRegistro) AS Errores_Concatenados
+        COUNT(*) AS Total_Errores,
+        STRING_AGG(ErrorMessage, ' | ') WITHIN GROUP (ORDER BY FRegistro) AS Errores_Concatenados
     FROM {{ ref('DL_Kielsa_KPP_LogSuscripcion') }}
-    WHERE ErrorMessage LIKE '%error%'
+    WHERE (ErrorMessage LIKE '%error%' and ErrorMessage NOT LIKE '%usuario no encontrado%')
         OR ErrorMessage LIKE '%unauth%'
         OR ErrorMessage LIKE '%time%out%'
     GROUP BY TarjetaKC_Id,
@@ -73,7 +74,7 @@ LogValidation AS (
 ),
 ValidTransactions AS (
     SELECT t.*,
-        --l.Errores_Concatenados AS Mensajes_Error,
+        l.Errores_Concatenados AS Mensajes_Error,
         l.Total_Errores,
         CASE
             WHEN t.Monto_Rebajado > 0
@@ -95,6 +96,7 @@ ValidTransactions AS (
         LEFT JOIN LogValidation l ON t.TarjetaKC_Id = l.TarjetaKC_Id
         AND CAST(t.Fecha AS DATE) = l.Fecha_Log
 )
-SELECT *
+SELECT *,
+    CASE WHEN Es_Transaccion_Valida = 1 AND Total_Errores > 0 THEN 1 ELSE 0 END AS Es_Transaccion_Sospechosa
 FROM ValidTransactions
 --WHERE TarjetaKC_Id = '0603-1989-00447' --ORDER BY Fecha;

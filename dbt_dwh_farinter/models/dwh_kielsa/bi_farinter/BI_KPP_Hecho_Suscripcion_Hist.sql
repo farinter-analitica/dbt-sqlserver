@@ -49,9 +49,10 @@ WITH Transacciones_Iniciales AS (
         ON l.TarjetaKC_Id = t.TarjetaKC_Id COLLATE DATABASE_DEFAULT
         AND CAST(l.Fecha AS DATE) = CAST(t.Fecha AS DATE)
         AND l.Tipo_Documento = 'suscripcion'
+        AND l.id>0
     INNER JOIN {{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }} s
         ON s.TarjetaKC_Id = COALESCE(t.TarjetaKC_Id, l.TarjetaKC_Id) COLLATE DATABASE_DEFAULT
-    WHERE (t.Es_Transaccion_Valida = 1 OR l.Id IS NOT NULL)
+    WHERE ((t.Es_Transaccion_Valida = 1 and t.Es_Transaccion_Sospechosa =0) OR l.Id IS NOT NULL)
         {% if is_incremental() %}
         AND s.Fecha_Actualizado >= '{{ last_date }}'
         {% endif %}
