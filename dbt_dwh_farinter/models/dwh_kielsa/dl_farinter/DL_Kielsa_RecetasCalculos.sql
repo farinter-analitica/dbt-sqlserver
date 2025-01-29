@@ -28,8 +28,13 @@ SELECT
 	, RD.articulo_nombre as Articulo_Nombre
 	, RD.Presentación as Presentacion
 	, RD.Tipo AS Presentacion_Tipo
+    , CONCAT(RD.idpais,'-',SUC.Sucursal_Id) AS EmpSuc_Id
+    , CONCAT(RD.idpais,'-',RD.Identidad) AS EmpMon_Id
+    , CONCAT(RD.idpais,'-',RD.Articulo_Id) AS EmpArt_Id
 	, ISNULL(RD.receta_id,0) AS Receta_Id
+    , CONCAT(RD.idpais,'-',RD.Receta_Id) AS EmpRec_Id
 	, ISNULL(RD.linea_id,0) AS Linea_Id
+	, CONCAT(RD.idpais,'-',RD.Receta_Id,'-',RD.Linea_Id) AS EmpRecLin_Id
 	, RD.fecha_Receta AS Fecha_Receta
 	, RD.Factura_Fecha as Fecha_Compra
 	, RD.cantidad_recetada as Cantidad_Recetada
