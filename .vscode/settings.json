@@ -7,24 +7,5 @@
     "python.testing.pytestEnabled": true,
     "python.analysis.typeCheckingMode": "basic",
     "dbt.perspectiveTheme": "Vintage",
-    "sqltools.connections": [
-        {
-            "dbDriver": "mssqlnodev8",
-            "connectionMethod": "Integrated",
-            "connectionTimeout": 15,
-            "sidePanelOptions": {
-                "inaccessibleDatabase": false,
-                "inaccessibleSchema": true
-            },
-            "previewLimit": 50,
-            "odbcDriver": "SQL Server",
-            "port": 1433,
-            "msnodesqlv8Options": {
-                "instanceName": "DWHFARINTERDEV"
-            },
-            "driver": "SQL Server/Azure+",
-            "name": "DWHDEV",
-            "server": "172.16.2.227"
-        }
-    ],
+
 }
