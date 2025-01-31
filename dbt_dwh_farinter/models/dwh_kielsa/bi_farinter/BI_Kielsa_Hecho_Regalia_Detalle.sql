@@ -36,6 +36,7 @@ with staging as (
         ART.Articulo_Codigo_Padre AS Articulo_Padre_Id,
         RD.Bodega_Id,
         RD.Consecutivo,
+        -- Encabezado
         RE.Cliente_Id,
         RE.Vendedor_Id,
         RE.Identidad_Limpia,
@@ -44,7 +45,8 @@ with staging as (
 	    RE.EmpCli_Id,
         RE.EmpVen_Id,
         RE.EmpMon_Id,
-
+        RE.Tipo_Origen,
+        RE.Operacion_Id,
 
         -- Date and Time
         RD.Detalle_Fecha as Detalle_Momento,

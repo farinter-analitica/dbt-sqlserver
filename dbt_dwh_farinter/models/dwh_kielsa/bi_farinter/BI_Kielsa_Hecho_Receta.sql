@@ -29,7 +29,9 @@ SELECT
     RC.Dias_Stock_Actual,
     RC.Indicador_A_Tiempo,
     -- Fechas
-    RC.Fecha_Receta,
+    RC.Fecha_Receta  AS Momento_Receta,
+    CAST(RC.Fecha_Receta AS DATE) AS Fecha_Receta,
+    DATEPART(HOUR, RC.Fecha_Receta) AS Hora_Receta,
     RC.Fecha_Compra,
     RC.Contactar_El,
     RC.AnioMes_Id,
