@@ -6,18 +6,13 @@ from deep_translator import GoogleTranslator
 from dagster import (asset
                      , AssetChecksDefinition 
                      , AssetExecutionContext
-                     , build_last_update_freshness_checks
+                     , build_last_update_freshness_checks, load_asset_checks_from_current_module
                      , load_assets_from_current_module
-                     , load_asset_checks_from_current_module
                      , AutomationCondition
                      )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource 
 from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.shared_functions import filter_assets_by_tags
-from dagster_shared_gf.resources.sql_server_resources import SQLServerResource 
-from dagster_shared_gf.shared_variables import tags_repo
-from datetime import datetime, timedelta
-import polars as pl
 #from translate import Translator
 from typing import Sequence
 
@@ -34,7 +29,7 @@ def obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin) -> pl.DataFrame
 
     for codigo_pais in codigos_pais:
         # URL base para la API de Calendarific
-        url_base = f"https://calendarific.com/api/v2/holidays"
+        url_base = r"https://calendarific.com/api/v2/holidays"
         # Parámetros para la solicitud a la API
         parametros = {
             "api_key": "xHkJmJwBCYlgoRD5GYF1yZNyFd7C0sDb",  # Reemplazar con tu clave de API
@@ -95,7 +90,7 @@ def obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin) -> pl.DataFrame
     compute_kind="polars",    
     automation_condition=AutomationCondition.on_cron("@monthly")
 )
-def web_api_DL_Edit_CalendarioNoLaboral(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
+def DL_Edit_CalendarioNoLaboral_Temp(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
     table = "DL_Edit_CalendarioNoLaboral_Temp"
     database = "DL_FARINTER"
     schema = "web_api"
@@ -112,16 +107,7 @@ def web_api_DL_Edit_CalendarioNoLaboral(context: AssetExecutionContext, dwh_fari
     # Ejemplo: Guardar el DataFrame en un archivo CSV que pueda cargarse en la tabla SQL
     #df_festivos.write_csv("DL_Edit_CalendarioNoLaboral.csv")
 
-@asset(
-    key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
-    compute_kind="sqlserver",    
-    automation_condition=AutomationCondition.cron_tick_passed("@monthly") | AutomationCondition.eager(),
-    deps=[web_api_DL_Edit_CalendarioNoLaboral],
-)
-def DL_Edit_CalendarioNoLaboral(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
-    with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
-        conn.execute(dwh_farinter_dl.text(""";
+QUERY_TEMP_A_FINAL = """;
 MERGE INTO [dbo].[DL_Edit_CalendarioNoLaboral] AS TARGET
 USING (
 SELECT [Fecha_Id]
@@ -150,39 +136,68 @@ AND TARGET.[Fecha_Id]>GETDATE() AND TARGET.[Fecha_Id]<(SELECT MAX(Fecha_Id) FROM
 THEN
     DELETE
 ;
-            """)
-            )
+            """
 
-    with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
-        conn.execute(dwh_farinter_dl.text(""";
+QUERY_ANIO_SIGUIENTE = """;
 INSERT INTO [DL_FARINTER].[dbo].[DL_Edit_CalendarioNoLaboral] 
 (
 [Fecha_Id]
-      ,[Motivo]
-      ,[Json_Sociedades_Id]
-      ,[Json_Paises_Id]
-      ,[fue_automatico]
-      ,[bloquear_modificacion]
-      ,[fecha_actualizado]
-      ,[json_paises_fijo_anual]
+    ,[Motivo]
+    ,[Json_Sociedades_Id]
+    ,[Json_Paises_Id]
+    ,[fue_automatico]
+    ,[bloquear_modificacion]
+    ,[fecha_actualizado]
+    ,[json_paises_fijo_anual]
 )
 SELECT DATEADD(YEAR,1,CALN.[Fecha_Id]) AS [Fecha_Id]
-      ,CALN.[Motivo]
-      ,CALN.[Json_Sociedades_Id]
-      ,CALN.[json_paises_fijo_anual] [Json_Paises_Id]
-      ,1 as [fue_automatico]
-      ,CALN.[bloquear_modificacion]
-      ,getdate() [fecha_actualizado]
-      ,CALN.[json_paises_fijo_anual]
-  FROM [DL_FARINTER].[dbo].[DL_Edit_CalendarioNoLaboral] CALN
-  LEFT JOIN [DL_FARINTER].[dbo].[DL_Edit_CalendarioNoLaboral] CAL
-  ON DATEADD(YEAR,1,CALN.[Fecha_Id])=CAL.Fecha_Id
-  WHERE CAL.Fecha_Id IS NULL
-  AND YEAR(CALN.[Fecha_Id]) = YEAR(GETDATE())
-  AND CALN.json_paises_fijo_anual IS NOT NULL AND ISJSON(CALN.json_paises_fijo_anual)=1 AND CALN.json_paises_fijo_anual<>'[]'                                          
+    ,CALN.[Motivo]
+    ,CALN.[Json_Sociedades_Id]
+    ,CALN.[json_paises_fijo_anual] [Json_Paises_Id]
+    ,1 as [fue_automatico]
+    ,CALN.[bloquear_modificacion]
+    ,getdate() [fecha_actualizado]
+    ,CALN.[json_paises_fijo_anual]
+FROM [DL_FARINTER].[dbo].[DL_Edit_CalendarioNoLaboral] CALN
+LEFT JOIN [DL_FARINTER].[dbo].[DL_Edit_CalendarioNoLaboral] CAL
+ON DATEADD(YEAR,1,CALN.[Fecha_Id])=CAL.Fecha_Id
+WHERE CAL.Fecha_Id IS NULL
+AND YEAR(CALN.[Fecha_Id]) = YEAR(GETDATE())
+AND CALN.json_paises_fijo_anual IS NOT NULL AND ISJSON(CALN.json_paises_fijo_anual)=1 AND CALN.json_paises_fijo_anual<>'[]'                                          
 ;
-            """)
-            )
+        """
+
+@asset(
+    key_prefix=["DL_FARINTER", "dbo"],
+    tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
+    compute_kind="sqlserver",    
+    automation_condition=AutomationCondition.cron_tick_passed("@monthly") | AutomationCondition.eager(),
+    deps=[DL_Edit_CalendarioNoLaboral_Temp],
+)
+def DL_Edit_CalendarioNoLaboral(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
+    with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
+        conn.execute(dwh_farinter_dl.text(QUERY_TEMP_A_FINAL))
+
+    with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
+        conn.execute(dwh_farinter_dl.text(QUERY_ANIO_SIGUIENTE)
+        )
+
+
+all_assets = load_assets_from_current_module(group_name="web_api_externo")
+
+all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
+    lower_bound_delta=timedelta(hours=26),
+    deadline_cron="0 9 * * 1-6",
+)
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
+    assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
+    lower_bound_delta=timedelta(hours=13),
+    deadline_cron="0 10-16 * * 1-6",
+)
+
+all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_freshness_checks = (*all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks)
 
 if __name__ == "__main__":
     codigos_pais = ["HN", "NI", "CR", "SV", "GT"]  # Lista de códigos ISO2 de los países
@@ -193,21 +208,3 @@ if __name__ == "__main__":
     df_festivos = obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin)
     if df_festivos is not None:
         print(df_festivos)
-
-
-else:
-    all_assets = load_assets_from_current_module(group_name="web_api_externo")
-
-    all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
-        lower_bound_delta=timedelta(hours=26),
-        deadline_cron="0 9 * * 1-6",
-    )
-    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="any_tag_matches"),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-
-    all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
-    all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks
