@@ -26,7 +26,7 @@ def wait_if_job_running_to_execute_next_job():
 # )
 
 
-all_ops = load_assets_from_current_module()
+all_ops = tuple(load_assets_from_current_module())
 all_jobs = get_all_instances_of_class([JobDefinition])
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
 

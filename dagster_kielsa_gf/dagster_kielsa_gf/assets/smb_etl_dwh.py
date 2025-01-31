@@ -466,7 +466,7 @@ if __name__ == "__main__":
 
 
 else:
-    all_assets = load_assets_from_current_module(group_name="smb_etl_dwh")
+    all_assets = tuple(load_assets_from_current_module(group_name="smb_etl_dwh"))
 
     all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
         assets=filter_assets_by_tags(

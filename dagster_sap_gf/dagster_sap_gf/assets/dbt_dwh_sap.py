@@ -28,6 +28,6 @@ def dbt_sap_etl_dwh_assets(context: AssetExecutionContext, dbt_resource: DbtCliR
     yield from dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
 
 
-all_assets = load_assets_from_current_module()
+all_assets = tuple(load_assets_from_current_module())
 
-all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_checks: Sequence[AssetChecksDefinition] = tuple(load_asset_checks_from_current_module())

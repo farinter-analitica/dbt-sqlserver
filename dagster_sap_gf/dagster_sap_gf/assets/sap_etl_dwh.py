@@ -358,7 +358,7 @@ def DL_paSecuenciaSAP_Atributos_Cliente(
 
 
 # sp_start_job_sap_diario.with_attributes(group_names_by_key={list(sp_start_job_sap_diario.keys())[-1]: "sap_etl_dwh"})
-# all_assets = load_assets_from_current_module(group_name="sap_etl_dwh") # no se puede usar ya que importamos otros assets desde assets.py
+# all_assets = tuple(load_assets_from_current_module(group_name="sap_etl_dwh")) # no se puede usar ya que importamos otros assets desde assets.py
 # all_assets_without_group = get_all_instances_of_class([AssetsDefinition]) + store_procedure_assets
 # add group_name="sap_etl_dwh" to all_assets
 # all_assets = [*map(lambda asset: asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}), all_assets)]
@@ -367,15 +367,15 @@ def DL_paSecuenciaSAP_Atributos_Cliente(
 # como agregar atributos de grupo por ejemplo:
 # all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
 if not __name__ == "__main__":
-    all_assets = load_assets_from_current_module(
+    all_assets = tuple(load_assets_from_current_module(
         group_name="sap_etl_dwh"
-    )  # + store_procedure_assets
+    ))  # + store_procedure_assets
 
-    # all_asset_checks = load_asset_checks_from_current_module()
+    # all_asset_checks = tuple(load_asset_checks_from_current_module())
     # all_asset_checks: List[AssetChecksDefinition] = itertools.chain.from_iterable(get_all_instances_of_class([Sequence[AssetChecksDefinition]]))
-    all_asset_checks: Sequence[AssetChecksDefinition] = (
+    all_asset_checks: Sequence[AssetChecksDefinition] = tuple((
         load_asset_checks_from_current_module()
-    )
+    ))
 
 
 if __name__ == "__main__":

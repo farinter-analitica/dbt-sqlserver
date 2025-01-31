@@ -136,13 +136,13 @@ def olap_existencias_kielsa_ejecucion(
 
 
 if __name__ == "__main__":
-    all_assets = load_assets_from_current_module(group_name="analysis_services")
+    all_assets = tuple(load_assets_from_current_module(group_name="analysis_services"))
     print([asset.keys for asset in all_assets if isinstance(asset, AssetChecksDefinition)])
     print([asset.key for asset in all_assets if isinstance(asset, SourceAsset)])
 
 
 else:
-    all_assets = load_assets_from_current_module(group_name="analysis_services")
+    all_assets = tuple(load_assets_from_current_module(group_name="analysis_services"))
 
     all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
         assets=filter_assets_by_tags(

@@ -143,4 +143,4 @@ def store_procedure_asset_factory(store_procedures: Dict) -> List[AssetsDefiniti
 
 all_assets = store_procedure_asset_factory(store_procedures=store_procedures)
 
-all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_checks: Sequence[AssetChecksDefinition] = tuple(load_asset_checks_from_current_module())

@@ -1,5 +1,4 @@
 from dagster import (
-    asset,
     multi_asset,
     AssetSpec,
     AssetKey,
@@ -11,7 +10,6 @@ from dagster import (
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     filter_assets_by_tags,
-    get_all_instances_of_class,
 )
 from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 from dagster_shared_gf.shared_variables import tags_repo
@@ -77,10 +75,10 @@ def DL_paCargarKielsa_Libros(
     return None, None, None
 
 
-all_assets = load_assets_from_current_module(
+all_assets = tuple(load_assets_from_current_module(
     group_name="recetas_libros_etl_dwh",
     automation_condition=automation_hourly_delta_12_cron,
-)
+))
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(

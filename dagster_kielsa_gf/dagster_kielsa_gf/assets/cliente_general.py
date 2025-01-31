@@ -1136,7 +1136,7 @@ if __name__ == "__main__":
 
     unittest.main()
 
-all_assets = load_assets_from_current_module()
+all_assets = tuple(load_assets_from_current_module())
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(
@@ -1158,5 +1158,5 @@ all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
     )
 )
 
-all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_checks: Sequence[AssetChecksDefinition] = tuple(load_asset_checks_from_current_module())
 # all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks

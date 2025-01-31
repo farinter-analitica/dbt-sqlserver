@@ -360,7 +360,7 @@ def BI_Dim_MecanicaCanje_Kielsa(context: AssetExecutionContext
         exec(f"DROP TABLE {staging_table_name}",connection=conn)
         exec(extra_sql,connection=conn)
 
-all_assets = load_assets_from_current_module(group_name="ldcom_etl_dwh")
+all_assets = tuple(load_assets_from_current_module(group_name="ldcom_etl_dwh"))
 
 all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
     assets=filter_assets_by_tags(all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"),
@@ -374,7 +374,7 @@ all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = build_last
     deadline_cron="0 10-16 * * 1-6",
 )
 
-all_asset_checks: Sequence[AssetChecksDefinition] = load_asset_checks_from_current_module()
+all_asset_checks: Sequence[AssetChecksDefinition] = tuple(load_asset_checks_from_current_module())
 all_asset_freshness_checks = (*all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks)
 
 if __name__ == "__main__":

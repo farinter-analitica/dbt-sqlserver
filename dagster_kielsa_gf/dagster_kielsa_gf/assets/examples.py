@@ -50,4 +50,4 @@ def select_top_facturaposicion(dwh_farinter_dl: SQLServerResource):
 
 
 
-all_assets = load_assets_from_current_module(group_name="examples")
+all_assets = tuple(load_assets_from_current_module(group_name="examples"))
