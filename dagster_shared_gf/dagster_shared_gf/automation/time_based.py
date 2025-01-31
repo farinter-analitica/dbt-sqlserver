@@ -56,21 +56,38 @@ def my_cron_automation_condition(
     lookback_delta: timedelta | None = None,
 ) -> AutomationCondition:
     """
-    Returns an automation condition that checks if the cron schedule has passed and all dependencies are updated.
+    Creates an automation condition that combines cron scheduling with dependency state checks.
 
-    The condition is met if:
-    - The cron schedule has passed since the last handle.
-    - The asset is not in progress and none of its dependencies are in progress.
-    - All non ignored dependencies are updated since the last cron tick or will be requested.
-    - The asset is a root executable or has updated dependencies.
+    This condition evaluates to True when all the following criteria are met:
+    1. The current partition falls within the specified lookback window
+    2. A cron tick has occurred since the last execution OR the asset is newly missing
+    3. The asset is not currently running
+    4. No dependencies are currently running
+    5. Either:
+       - The asset is a root executable (has no dependencies)
+       - OR all non-ignored dependencies are either:
+         * Recently updated since last execution
+         * Scheduled to be updated
 
     Args:
-        cron_schedule (str): The cron schedule to use for the automation condition.
-        ignored_deps_updated_selection (AssetSelection | None, optional): The dependencies to ignore. Defaults to None.
-        lookback_delta (timedelta | None, optional): The time window to look back for updates. Defaults to None.
+        cron_schedule (str): Cron expression defining the schedule (e.g. "0 * * * *" for hourly)
+        ignored_deps_updated_selection (AssetSelection | None): Asset selection to exclude from 
+            dependency update checks. Use this to ignore specific assets or asset groups.
+        lookback_delta (timedelta | None): Maximum time window to look back for updates.
+            Helps prevent stale executions by limiting how far back to check.
 
     Returns:
-        AutomationCondition: The automation condition based on the provided cron schedule.
+        AutomationCondition: A composite condition that enforces both timing and dependency rules.
+            The condition includes descriptive labels for debugging and monitoring.
+
+    Example:
+        ```python
+        condition = my_cron_automation_condition(
+            cron_schedule="0 0 * * *",  # Daily at midnight
+            ignored_deps_updated_selection=AssetSelection.tags({"frequency": "weekly"}),
+            lookback_delta=timedelta(days=1)
+        )
+        ```
     """
     cron_timezone = default_timezone_teg
     cron_schedule_label = f"'{cron_schedule}' ({cron_timezone})"
