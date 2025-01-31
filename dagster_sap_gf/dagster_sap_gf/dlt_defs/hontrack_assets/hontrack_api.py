@@ -15,7 +15,7 @@ from dagster import (
     instance_for_test,
 )
 from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
-from dagster_embedded_elt.dlt.dlt_event_iterator import DltEventIterator, DltEventType
+from dagster_dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
 from dlt.sources.helpers.rest_client.client import RESTClient
 from dlt.sources.helpers.rest_client.paginators import (
