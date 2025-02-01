@@ -137,6 +137,8 @@ SELECT
     CONCAT(1,'-',s.Articulo_Id) AS EmpArt_Id,
     s.Plan_Id,
     s.Usuario_Id,
+    ISNULL(U.Ultimo_Vendedor_Id_Asignado,0) AS Vendedor_Id,
+    CONCAT(1,'-',ISNULL(U.Ultimo_Vendedor_Id_Asignado,0)) AS EmpVen_Id,
     s.Sucursal_Id,
     CONCAT(1,'-',s.Sucursal_Id) AS EmpSuc_Id,
     s.Tipo_Ingreso,
@@ -150,4 +152,8 @@ SELECT
     CASE WHEN s.Numero_Transaccion <= 1 THEN 'Nuevo' ELSE 'Renovacion' END AS Tipo_Suscripcion,
     s.Fecha_Actualizado
 FROM Suscripciones_Nuevas s
+LEFT JOIN {{ ref("BI_Kielsa_Dim_Usuario")}} as U
+ON s.Usuario_Id = U.Usuario_Login
+AND U.Emp_Id = 1
+
 --where s.Suscripcion_Id=76293

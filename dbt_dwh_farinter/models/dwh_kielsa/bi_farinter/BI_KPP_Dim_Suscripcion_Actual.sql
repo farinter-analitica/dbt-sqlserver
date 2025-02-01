@@ -36,6 +36,7 @@ SELECT ISNULL(A.TarjetaKC_Id COLLATE DATABASE_DEFAULT,'') AS [TarjetaKC_Id],
     A.Cobro COLLATE DATABASE_DEFAULT AS Cobro_Realizado,
     A.Origen,
     A.Usuario_Registro COLLATE DATABASE_DEFAULT AS Usuario_Registro,
+    ISNULL(U.Ultimo_Vendedor_Id_Asignado,0) AS Vendedor_Id,
     A.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT AS Articulo_Id,
     /*
     C.Monedero_Celular AS Celular,
@@ -87,6 +88,9 @@ FROM DL_FARINTER.dbo.DL_Kielsa_KPP_Suscripcion AS A -- {{ source('DL_FARINTER','
     INNER JOIN DL_FARINTER.dbo.DL_Kielsa_Sucursal AS F -- {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }}
     ON A.Sucursal_Registro = F.Sucursal_Id
     AND F.Emp_Id = C.Emp_Id
+    LEFT JOIN {{ ref("BI_Kielsa_Dim_Usuario")}} as U
+    ON A.Usuario_Registro = U.Usuario_Login
+
 WHERE C.Emp_Id = 1 AND (A.Indicador_Borrado <> 1 OR A.Indicador_Borrado IS NULL)
 {%- if is_incremental() %}
     AND A.Fecha_Actualizado >= '{{ last_date }}'
