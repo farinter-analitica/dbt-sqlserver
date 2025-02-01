@@ -89,7 +89,7 @@ FROM DL_FARINTER.dbo.DL_Kielsa_KPP_Suscripcion AS A -- {{ source('DL_FARINTER','
     ON A.Sucursal_Registro = F.Sucursal_Id
     AND F.Emp_Id = C.Emp_Id
     LEFT JOIN {{ ref("BI_Kielsa_Dim_Usuario")}} as U
-    ON A.Usuario_Registro = U.Usuario_Login
+    ON A.Usuario_Registro = U.Usuario_Login COLLATE DATABASE_DEFAULT
 
 WHERE C.Emp_Id = 1 AND (A.Indicador_Borrado <> 1 OR A.Indicador_Borrado IS NULL)
 {%- if is_incremental() %}

@@ -153,7 +153,7 @@ SELECT
     s.Fecha_Actualizado
 FROM Suscripciones_Nuevas s
 LEFT JOIN {{ ref("BI_Kielsa_Dim_Usuario")}} as U
-ON s.Usuario_Id = U.Usuario_Login
+ON s.Usuario_Id = U.Usuario_Login COLLATE DATABASE_DEFAULT
 AND U.Emp_Id = 1
 
 --where s.Suscripcion_Id=76293
