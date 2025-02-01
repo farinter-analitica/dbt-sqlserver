@@ -34,8 +34,10 @@ WITH VendedorAsignacion AS (
 SELECT 
     U.Usuario_Id,
     U.Emp_Id,
+	CONCAT(U.Emp_Id,'-',U.Usuario_Id) AS EmpUsu_Id
     U.Usuario_Nombre,
     U.Usuario_Login,
+	CONCAT(U.Emp_Id,'-',U.Usuario_Login) AS EmpLogin_Id
     U.Usuario_Email,
     LVA.Vendedor_Id as Ultimo_Vendedor_Id_Asignado,
     LVA.Ult_Fec_Actualizacion as Fecha_Actualizado
