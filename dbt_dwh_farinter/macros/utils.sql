@@ -46,7 +46,7 @@
 
 
 
-{%- macro dwh_farinter_create_dummy_data(unique_key, is_incremental=is_incremental(), show_info=False) %}
+{%- macro dwh_farinter_create_dummy_data(unique_key, is_incremental=is_incremental(), show_info=False, custom_column_values={}, loop_column_list={}) -%}
     {%- set predicates = [] %}
     {%- set all_columns_list_base_type = adapter.get_columns_in_relation(this) %}
     {#%- set merge_update_columns = config.get('merge_update_columns') -%#}
@@ -87,12 +87,39 @@
     {%- if all_columns_list_base_type %}
         {%- do log("All columns in relation: " ~ all_columns_list_base_type, info=show_info) %}
         merge into {{ this }} dbtTARGET
-        using (select
-            {%- for column in all_columns_list_base_type %}
-                {%- if not loop.first %},{%- endif -%}
-                {{ dwh_farinter_get_default_dummy_value(column) }} as {{ column.name }}
-            {%- endfor %}
+        using (
+            {%- if loop_column_list|length > 0 %}
+                {% set loop_column = loop_column_list.keys()|list|first %}
+                {% set loop_values = loop_column_list[loop_column] %}
+                select * from (
+                    {% for value in loop_values %}
+                        select 
+                        {%- for column in all_columns_list_base_type %}
+                            {%- if not loop.first %},{%- endif -%}
+                            {%- if column.name == loop_column %}
+                                CAST({{value}} AS {{column.data_type}}) as {{ column.name }}
+                            {%- elif column.name in custom_column_values %}
+                                CAST({{custom_column_values[column.name]}} AS {{column.data_type}}) as {{ column.name }}
+                            {%- else %}
+                                {{ dwh_farinter_get_default_dummy_value(column) }} as {{ column.name }}
+                            {%- endif %}
+                        {%- endfor %}
+                        {% if not loop.last %}UNION ALL{% endif %}
+                    {% endfor %}
+                ) t
+            {%- else %}
+                select
+                {%- for column in all_columns_list_base_type %}
+                    {%- if not loop.first %},{%- endif -%}
+                    {%- if column.name in custom_column_values %}
+                        CAST({{custom_column_values[column.name]}} AS {{column.data_type}}) as {{ column.name }}
+                    {%- else %}
+                        {{ dwh_farinter_get_default_dummy_value(column) }} as {{ column.name }}
+                    {%- endif %}
+                {%- endfor %}
+            {%- endif %}
         ) dbtSOURCE
+
         on {{ predicates | join(" and ") }}
         when matched and 
             exists (SELECT {%- for column in update_columns %}

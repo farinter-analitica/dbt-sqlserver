@@ -1,8 +1,10 @@
 
 {% set unique_key_list = ["Empleado_Id","Emp_Id"] %}
+{% set no_definido = "'No Definido'" %}
+
 {{ 
     config(
-		as_columnstore=false,
+		as_columnstore=true,
 		tags=["periodo/diario","periodo/por_hora"],
 		materialized="incremental",
         incremental_strategy="farinter_merge",
@@ -12,8 +14,12 @@
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
       "{{ dwh_farinter_remove_incremental_temp_table() }}",
-      "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=true, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
-      "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}"
+      "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+      "{{ dwh_farinter_create_dummy_data(
+				unique_key=" ~ unique_key_list | tojson ~ ", 
+				is_incremental=0,
+				custom_column_values={'Emp_Id':1,'Empleado_Nombre': " ~ no_definido | tojson ~ "},
+			) }}"
 		]
 		
 ) }}
