@@ -14,51 +14,46 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set deployment variables
-        id: deploy-vars
+      - name: Set deployment environment
+        id: set-env
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
           if [[ "$BRANCH" == "main" ]]; then
             echo "deploy_dir=/opt/main_dagster_prd" >> $GITHUB_OUTPUT
             echo "env_name=production" >> $GITHUB_OUTPUT
-          elif [[ "$BRANCH" == "dev" ]]; then
+          else
             echo "deploy_dir=/opt/main_dagster_dev" >> $GITHUB_OUTPUT
             echo "env_name=development" >> $GITHUB_OUTPUT
-          else
-            echo "Error: Unsupported branch $BRANCH"
-            exit 1
           fi
 
-      - name: Update deployment
-        id: deploy
+      - name: Deploy to ${{ steps.set-env.outputs.env_name }}
         run: |
-          DEPLOY_DIR="${{ steps.deploy-vars.outputs.deploy_dir }}"
+          DEPLOY_DIR="${{ steps.set-env.outputs.deploy_dir }}"
           BRANCH="${GITHUB_REF#refs/heads/}"
 
-          if [[ ! -d "$DEPLOY_DIR" ]]; then
-            echo "Error: Directory $DEPLOY_DIR not found"
-            exit 1
-          fi
+          # Set Python virtual environment path
+          export PATH="$DEPLOY_DIR/.venv_main_dagster/bin:$PATH"
 
           cd "$DEPLOY_DIR" || exit 1
-          echo "Deploying to ${{ steps.deploy-vars.outputs.env_name }}..."
           
-          git fetch origin || exit 1
-          git checkout "$BRANCH" || exit 1
-          git pull --rebase origin "$BRANCH" || exit 1
+          # Configure Git
+          export GIT_DIR="$DEPLOY_DIR/.git"
+          export GIT_WORK_TREE="$DEPLOY_DIR"
 
-          echo "Running DBT parser..."
-          # Run your Python script in the appropriate virtual environment
-          PATH="$deploy_dir/.venv_main_dagster/bin:$PATH"
-          "$DEPLOY_DIR/.venv_main_dagster/bin/python" "$DEPLOY_DIR/dbt_dwh_farinter/autoload_dbt_deploy.py"
+          # Update repository
+          git fetch origin
+          git checkout "$BRANCH"
+          git pull --rebase origin "$BRANCH"
 
-      - name: Deployment status
+          # Run DBT parser
+          python "$DEPLOY_DIR/dbt_dwh_farinter/autoload_dbt_deploy.py"
+
+      - name: Verify deployment
         if: always()
         run: |
-          if [[ ${{ steps.deploy.outcome }} == 'success' ]]; then
-            echo "✅ ${{ steps.deploy-vars.outputs.env_name }} deployment successful"
-            exit 0
+          if [[ ${{ job.status }} == 'success' ]]; then
+            echo "✅ Deployment to ${{ steps.set-env.outputs.env_name }} successful"
           else
-            echo "❌ ${{ steps.deploy-vars.outputs.env_name }} deployment failed"
+            echo "❌ Deployment to ${{ steps.set-env.outputs.env_name }} failed"
             exit 1
           fi
