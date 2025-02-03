@@ -48,6 +48,8 @@ jobs:
           git pull --rebase origin "$BRANCH" || exit 1
 
           echo "Running DBT parser..."
+          # Run your Python script in the appropriate virtual environment
+          PATH="$deploy_dir/.venv_main_dagster/bin:$PATH"
           "$DEPLOY_DIR/.venv_main_dagster/bin/python" "$DEPLOY_DIR/dbt_dwh_farinter/autoload_dbt_deploy.py"
 
       - name: Deployment status
