@@ -22,6 +22,8 @@ SELECT
 	, SUC.Sucursal_Id
 	, SUC.Sucursal_Nombre
 	, MED.nombre AS Nombre_Medico 
+	, RD.Usuario_Login as Usuario_Login
+	, RD.Vendedor_Id as Vendedor_Id
 	, RD.identidad as Identidad
 	, COALESCE(MOK.Monedero_Nombre,'N.E. (Revisar Id o Monedero)') AS Cliente_Nombre
 	, RD.articulo_id as Articulo_Id
@@ -29,6 +31,7 @@ SELECT
 	, RD.Presentación as Presentacion
 	, RD.Tipo AS Presentacion_Tipo
     , CONCAT(RD.idpais,'-',SUC.Sucursal_Id) AS EmpSuc_Id
+	, CONCAT(RD.idpais,'-',RD.Vendedor_Id) AS EmpVen_Id
     , CONCAT(RD.idpais,'-',RD.Identidad) AS EmpMon_Id
     , CONCAT(RD.idpais,'-',RD.Articulo_Id) AS EmpArt_Id
 	, ISNULL(RD.receta_id,0) AS Receta_Id
@@ -158,11 +161,14 @@ FROM
 											THEN ROUND(7.0 * RD.periodo_tratamiento, 5)
 										ELSE RD.periodo_tratamiento
 									END,0),1) AS DECIMAL(16, 4)) consumo_diario
-			,ISNULL(FACTP.Cantidad_Padre*AP.Presentación,AP.Presentación) as Comprado_Presentacion
-			,FACTP.Factura_Fecha
-			,AP.Presentación
-			,AP.Uso
-			,AP.Tipo
+		,ISNULL(FACTP.Cantidad_Padre*AP.Presentación,AP.Presentación) as Comprado_Presentacion
+		,FACTP.Factura_Fecha
+		,AP.Presentación
+		,AP.Uso
+		,AP.Tipo
+		,U.Usuario_Login as Usuario_Login
+    	,ISNULL(U.Ultimo_Vendedor_Id_Asignado,0) AS Vendedor_Id
+
 	FROM	DL_FARINTER.dbo.DL_Kielsa_RecetasDetalle RD --{{ source('DL_FARINTER', 'DL_Kielsa_RecetasDetalle') }}
 	INNER JOIN DL_FARINTER.dbo.DL_Kielsa_RecetasCabecera RC --{{ source('DL_FARINTER', 'DL_Kielsa_RecetasCabecera') }}
 		ON RD.autoid = RC.autoid 
@@ -183,6 +189,9 @@ FROM
         -- AND FACTP.AnioMes_Id =RC.AnioMes_Id
 	LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_ArticuloPresentacion AP --{{ source('BI_FARINTER',"BI_Kielsa_Dim_ArticuloPresentacion") }}
 		ON AP.Articulo_Id = RD.Articulo_Id
+    LEFT JOIN {{ ref("BI_Kielsa_Dim_Usuario")}} as U
+    ON RC.usuario_ingreso = U.Usuario_Nombre COLLATE DATABASE_DEFAULT
+    AND U.Emp_Id = 1 AND U.Numero_Por_Nombre = 1
 	WHERE RC.AnioMes_Id = YEAR(RC.fecha_receta) * 100 + MONTH(RC.fecha_receta) 
 		AND RC.fecha_Receta >= DATEADD(YEAR, -3, GETDATE())
 		) RD

@@ -36,11 +36,12 @@ SELECT
     U.Emp_Id,
 	CONCAT(U.Emp_Id,'-',U.Usuario_Id) AS EmpUsu_Id,
     U.Usuario_Nombre,
+	ROW_NUMBER() OVER(PARTITION BY U.Usuario_Nombre,U.Emp_Id ORDER BY U.Usuario_Id DESC) Numero_Por_Nombre,
     U.Usuario_Login,
 	CONCAT(U.Emp_Id,'-',U.Usuario_Login) AS EmpLogin_Id,
     U.Usuario_Email,
     LVA.Vendedor_Id as Ultimo_Vendedor_Id_Asignado,
-    LVA.Ult_Fec_Actualizacion as Fecha_Actualizado
+    COALESCE(LVA.Ult_Fec_Actualizacion,U.Usuario_Fec_Actualizacion) as Fecha_Actualizado
 FROM {{ ref("DL_Kielsa_Seg_Usuario") }} U
 LEFT JOIN VendedorAsignacion LVA ON  
     U.Usuario_Id = LVA.Usuario_Id 

@@ -13,10 +13,13 @@ SELECT
     RC.Receta_Id,
     RC.EmpRec_Id,
     RC.Linea_Id,
+    RC.Vendedor_Id,
+    RC.Identidad as Monedero_Id,
     -- Claves concatenadas según estándar
     RC.EmpSuc_Id,
     RC.EmpMon_Id,
     RC.EmpArt_Id,
+    RC.EmpVen_Id,
     -- Métricas
     RC.Cantidad_Recetada,
     RC.Dosis_Cantidad,
