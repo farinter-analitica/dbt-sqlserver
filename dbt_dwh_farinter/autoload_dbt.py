@@ -11,6 +11,9 @@ env_path = os.path.join(dbt_project_dir, '.env')
 def parse():
     autoload(command="parse")
 
+def deps():
+    autoload(command="deps")
+
 def run():
     autoload(command="run")
 
@@ -54,17 +57,17 @@ def autoload(command: str = "parse", select: str = ""):
 def ask():
     command: str = ""
     select: str = ""
-    commands: list = ["parse", "run", "compile", "build", "debug", "clean", "snapshot"]
+    commands: list = ["parse", "run", "compile", "build", "debug", "clean", "snapshot", "deps"]
     command_map = {
         'p': "parse",
         'r': "run",
         'c': "compile",
         'b': "build",
         'd': "debug",
-        's': "snapshot"
+        's': "snapshot",
     }
 
-    print("Choose one of the following commands: [p]arse, [r]un, [c]ompile, [b]uild, [d]ebug, clean, [s]napshot. Default is parse.")
+    print("Choose one of the following commands: [p]arse, [r]un, [c]ompile, [b]uild, [d]ebug, clean, [s]napshot, deps. Default is parse.")
     command = input().strip().lower()
 
     # Fix when one letter provided, check first letter and select the right one

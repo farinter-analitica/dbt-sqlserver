@@ -2,70 +2,61 @@ name: Deploy Dagster
 
 on:
   push:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
 
 jobs:
   deploy:
     runs-on: self-hosted
-
+    
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
+          fetch-depth: 0
 
-      - name: Deploy with function calls
+      - name: Set deployment variables
+        id: deploy-vars
         run: |
-          # Directory variables
-          REPO_DIR="/opt/main_dagster_bare"
-          DEPLOY_DIR_MAIN="/opt/main_dagster_prd"
-          DEPLOY_DIR_DEV="/opt/main_dagster_dev"
-
-          # Define the same function as in your post-receive script
-          update_directory() {
-              local deploy_dir=$1
-              local branch=$2
-
-              if [ -d "$deploy_dir" ]; then
-                  cd "$deploy_dir"
-                  if [ -d ".git" ]; then
-                      export GIT_DIR="$deploy_dir/.git"
-                      export GIT_WORK_TREE="$deploy_dir"
-
-                      git fetch origin
-                      git checkout "$branch"
-                      git pull --rebase origin "$branch"
-
-                      # Run your Python script in the appropriate virtual environment
-                      PATH="$deploy_dir/.venv_main_dagster/bin:$PATH"
-                      "$deploy_dir/.venv_main_dagster/bin/python" "$deploy_dir/dbt_dwh_farinter/autoload_dbt_parse.py"
-
-                      echo "Updated $deploy_dir to the latest $branch"
-                  else
-                      echo "Directory $deploy_dir is not a git repository."
-                  fi
-              else
-                  echo "Directory $deploy_dir does not exist."
-              fi
-          }
-  
-          # Navigate to the repository directory
-          cd "$REPO_DIR" || exit 1
-
-          # Extract the short branch name (e.g. main or dev)
           BRANCH="${GITHUB_REF#refs/heads/}"
-          echo "Current branch reference is $GITHUB_REF (branch: $BRANCH)"
+          if [[ "$BRANCH" == "main" ]]; then
+            echo "deploy_dir=/opt/main_dagster_prd" >> $GITHUB_OUTPUT
+            echo "env_name=production" >> $GITHUB_OUTPUT
+          elif [[ "$BRANCH" == "dev" ]]; then
+            echo "deploy_dir=/opt/main_dagster_dev" >> $GITHUB_OUTPUT
+            echo "env_name=development" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Unsupported branch $BRANCH"
+            exit 1
+          fi
 
-          case "$BRANCH" in
-            "main")
-              update_directory "$DEPLOY_DIR_MAIN" "main"
-              ;;
-            "dev")
-              update_directory "$DEPLOY_DIR_DEV" "dev"
-              ;;
-            *)
-              echo "Warning: Unknown branch '$BRANCH'. No action taken."
-              ;;
-          esac
+      - name: Update deployment
+        id: deploy
+        run: |
+          DEPLOY_DIR="${{ steps.deploy-vars.outputs.deploy_dir }}"
+          BRANCH="${GITHUB_REF#refs/heads/}"
+
+          if [[ ! -d "$DEPLOY_DIR" ]]; then
+            echo "Error: Directory $DEPLOY_DIR not found"
+            exit 1
+          fi
+
+          cd "$DEPLOY_DIR" || exit 1
+          echo "Deploying to ${{ steps.deploy-vars.outputs.env_name }}..."
+          
+          git fetch origin || exit 1
+          git checkout "$BRANCH" || exit 1
+          git pull --rebase origin "$BRANCH" || exit 1
+
+          echo "Running DBT parser..."
+          "$DEPLOY_DIR/.venv_main_dagster/bin/python" "$DEPLOY_DIR/dbt_dwh_farinter/autoload_dbt_deploy.py"
+
+      - name: Deployment status
+        if: always()
+        run: |
+          if [[ ${{ steps.deploy.outcome }} == 'success' ]]; then
+            echo "✅ ${{ steps.deploy-vars.outputs.env_name }} deployment successful"
+            exit 0
+          else
+            echo "❌ ${{ steps.deploy-vars.outputs.env_name }} deployment failed"
+            exit 1
+          fi
