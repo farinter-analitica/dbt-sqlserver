@@ -240,6 +240,7 @@ def hontrack_api_source(
     end_date: Optional[datetime] = None,
     write_disposition: TWriteDisposition | None = "merge",
 ):
+    write_disposition = write_disposition if write_disposition else "merge"
     api_key = dlt.secrets["hontrack_api_pipeline.sources.api_key"]
     v_start_date: datetime = (
         start_date
@@ -278,6 +279,7 @@ def hontrack_api_source(
             base_page=0, total_regs_path="payload.total_regs", regs_per_page=10
         ),
     )
+
 
     config: RESTAPIConfig = {
         "client": client_config,
@@ -439,6 +441,7 @@ def hontrack_api_source(
     @dlt.resource(
         name="drivers_resumen",
         primary_key=["code"],
+        write_disposition=write_disposition,
     )
     def drivers_resumen():
         for page in hontrack_client_pages.paginate(
@@ -666,8 +669,8 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2024-09-01",
-                "dagster/asset_partition_range_end": "2024-12-03",
+                "dagster/asset_partition_range_start": "2024-12-23",
+                "dagster/asset_partition_range_end": "2024-12-23",
             },
             resources=test_resources,
             instance=instance,
@@ -676,7 +679,7 @@ if __name__ == "__main__":
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            # "write_disposition": "replace",
+                            # "write_disposition": "merge",
                             # "refresh": "drop_resources",
                         }
                     }
