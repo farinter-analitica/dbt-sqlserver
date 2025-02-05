@@ -421,7 +421,7 @@ def hontrack_api_source(
         primary_key=["evtdid"],
         write_disposition=write_disposition,
     )
-    def transform_zones_resumen(doc: dict) -> dict:
+    def zones_resumen(doc: dict) -> dict:
         return {
             "evtdid": doc["evtdid"],
             "enterprise_id": "farinter",
@@ -434,7 +434,7 @@ def hontrack_api_source(
         primary_key=["_dlt_id"],
         write_disposition=write_disposition,
     )
-    def transform_zones_data(doc: dict) -> Iterator[dict]:
+    def zones_resumen_data(doc: dict) -> Iterator[dict]:
         for data in doc["data"]:
             data["evtdfch"] = pendulum.from_format(
                 data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
@@ -448,7 +448,7 @@ def hontrack_api_source(
             # data["_dlt_root_id"] = doc["evtdid"]
             yield data
 
-    transform_zones_resumen.apply_hints(
+    zones_resumen.apply_hints(
         write_disposition={"disposition": write_disposition, "strategy": "upsert"}
     )
     zones_resumen_reference: TTableReference = {
@@ -456,7 +456,7 @@ def hontrack_api_source(
         "referenced_table": "drivers_resumen",
         "referenced_columns": ["code"],
     }
-    transform_zones_data.apply_hints(
+    zones_resumen_data.apply_hints(
         write_disposition={"disposition": write_disposition, "strategy": "upsert"},
         references=[zones_resumen_reference],
     )
@@ -485,7 +485,7 @@ def hontrack_api_source(
         primary_key=["code"],
         write_disposition=write_disposition,
     )
-    def transform_drivers_resumen(doc: dict) -> dict:
+    def drivers_resumen(doc: dict) -> dict:
         return {
             "code": doc["code"],
             "name": doc["name"],
@@ -501,7 +501,7 @@ def hontrack_api_source(
         primary_key=["_dlt_id"],
         write_disposition=write_disposition,
     )
-    def transform_drivers_data(doc: dict) -> Iterator[dict]:
+    def drivers_resumen_data(doc: dict) -> Iterator[dict]:
         for data in doc["data"]:
             data["fchapl"] = pendulum.from_format(
                 data["fchapl"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
@@ -545,7 +545,7 @@ def hontrack_api_source(
 
             yield data
 
-    transform_drivers_resumen.apply_hints(
+    drivers_resumen.apply_hints(
         write_disposition={"disposition": write_disposition, "strategy": "upsert"}
     )
     drivers_resumen_reference: TTableReference = {
@@ -553,15 +553,16 @@ def hontrack_api_source(
         "referenced_table": "drivers_resumen",
         "referenced_columns": ["code"],
     }
-    transform_drivers_data.apply_hints(
+    drivers_resumen_data.apply_hints(
         write_disposition={"disposition": write_disposition, "strategy": "upsert"},
         references=[drivers_resumen_reference],
     )
 
-    source.resources.add(transform_zones_resumen)
-    source.resources.add(transform_zones_data)
-    source.resources.add(transform_drivers_resumen)
-    source.resources.add(transform_drivers_data)
+    source.resources.add(zones_resumen)
+    source.resources.add(zones_resumen_data)
+    source.resources.add(drivers_resumen)
+    source.resources.add(drivers_resumen_data)
+    source.root_key = True
 
     return source
 
@@ -707,8 +708,8 @@ if __name__ == "__main__":
         test_job = define_asset_job(
             "test_job",
             selection=(
-                # AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
-                # AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
+                AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
+                AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
                 AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
                 AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
@@ -726,8 +727,10 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2024-12-23",
-                "dagster/asset_partition_range_end": "2024-12-24",
+                # "dagster/asset_partition_range_start": "2024-12-23",
+                # "dagster/asset_partition_range_end": "2024-12-24",
+                "dagster/asset_partition_range_start": "2025-02-02",
+                "dagster/asset_partition_range_end": "2025-02-03",
             },
             resources=test_resources,
             instance=instance,
@@ -736,8 +739,8 @@ if __name__ == "__main__":
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            # "write_disposition": "merge",
-                            # "refresh": "drop_resources",
+                            "write_disposition": "replace",
+                            "refresh": "drop_resources",
                         }
                     }
                 }
