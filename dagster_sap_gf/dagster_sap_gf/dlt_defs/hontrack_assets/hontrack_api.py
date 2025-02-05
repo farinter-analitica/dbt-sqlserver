@@ -590,9 +590,10 @@ def _daily_partition_iter(
             (start + timedelta(days=i + 1) - timedelta(seconds=1)),
         )
 
+init_hontrack_api_source = hontrack_api_source()
 
 @dlt_assets(
-    dlt_source=hontrack_api_source(),
+    dlt_source=init_hontrack_api_source.with_resources(*init_hontrack_api_source.selected_resources.keys()),
     dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
     group_name="hontrack_api",
