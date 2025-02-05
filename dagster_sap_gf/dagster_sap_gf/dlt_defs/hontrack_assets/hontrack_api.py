@@ -24,7 +24,7 @@ from dlt.sources.helpers.rest_client.paginators import (
 )
 from dlt.common import jsonpath
 
-from dlt.common.schema.typing import TWriteDisposition
+from dlt.common.schema.typing import TWriteDisposition, TTableReference
 from dlt.sources.rest_api.typing import (
     RESTAPIConfig,
     PaginatorConfig,
@@ -280,7 +280,6 @@ def hontrack_api_source(
         ),
     )
 
-
     config: RESTAPIConfig = {
         "client": client_config,
         "resource_defaults": {
@@ -326,23 +325,10 @@ def hontrack_api_source(
                     "data_selector": "payload.vehicles",
                 },
             },
-            # {
-            #     "name": "drivers_resumen",
-            #     "primary_key": ["code"],
-            #     "endpoint": {
-            #         "path": "vehicles/get_drivers_resumen.php",
-            #         "method": "POST",
-            #         "json": {
-            #             "from_date": start_date_str,  # "2024-10-29 00:00:00",
-            #             "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
-            #             "api_key": api_key,
-            #         },
-            #         "data_selector": "payload.drivers",
-            #     },
-            # },
             {
-                "name": "zones_resumen",
+                "name": "zones_resumen_base",
                 "primary_key": ["evtdid"],
+                "selected": False,  # necesitamos transformar a dos tablas para poder actualizar sin reemplazar la data por fecha
                 "endpoint": {
                     "path": "zones/get_zones_resumen.php",
                     "method": "POST",
@@ -374,8 +360,6 @@ def hontrack_api_source(
             doc["date_apl"] = pendulum.from_format(
                 doc["date_apl"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
             )
-
-            # recursive data fields double dataype definition
 
             return doc
 
@@ -420,92 +404,164 @@ def hontrack_api_source(
 
     transform_sensors_resumen(source.resources["sensors_resumen"])
 
-    def transform_zones_resumen(resource: DltResource) -> None:
-        def transform_doc(doc: dict) -> dict:
-            doc["enterprise_id"] = "farinter"
-            for data in doc["data"]:
-                data["evtdfch"] = pendulum.from_format(
-                    data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
-                )
-                data["_dlt_id"] = str(
-                    hashlib.md5(
-                        f"{doc["evtdid"]}_{data["plate"]}_{data['evtdfch'].strftime("%Y%m%d%H%M%S")}".encode()
-                    ).hexdigest()
-                )
-            return doc
+    @dlt.transformer(
+        data_from=source.resources["zones_resumen_base"],
+        name="zones_resumen_base",
+        write_disposition=write_disposition,
+        selected=False,
+    )
+    def zones_resumen_base(data) -> Iterator[dict]:
+        # Use the existing endpoint configuration
+        for doc in data:
+            yield doc
 
-        resource.add_map(transform_doc)
-
-    transform_zones_resumen(source.resources["zones_resumen"])
-
-    @dlt.resource(
-        name="drivers_resumen",
-        primary_key=["code"],
+    @dlt.transformer(
+        data_from=zones_resumen_base,
+        name="zones_resumen",
+        primary_key=["evtdid"],
         write_disposition=write_disposition,
     )
-    def drivers_resumen():
+    def transform_zones_resumen(doc: dict) -> dict:
+        return {
+            "evtdid": doc["evtdid"],
+            "enterprise_id": "farinter",
+            "_dlt_id": doc["evtdid"],
+        }
+
+    @dlt.transformer(
+        data_from=zones_resumen_base,
+        name="zones_resumen_data",
+        primary_key=["_dlt_id"],
+        write_disposition=write_disposition,
+    )
+    def transform_zones_data(doc: dict) -> Iterator[dict]:
+        for data in doc["data"]:
+            data["evtdfch"] = pendulum.from_format(
+                data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+            )
+            data["_dlt_id"] = str(
+                hashlib.md5(
+                    f"{doc['evtdid']}_{data['plate']}_{data['evtdfch'].strftime('%Y%m%d%H%M%S')}".encode()
+                ).hexdigest()
+            )
+            data["zone_evtdid"] = doc["evtdid"]
+            # data["_dlt_root_id"] = doc["evtdid"]
+            yield data
+
+    transform_zones_resumen.apply_hints(
+        write_disposition={"disposition": write_disposition, "strategy": "upsert"}
+    )
+    zones_resumen_reference: TTableReference = {
+        "columns": ["driver_code"],
+        "referenced_table": "drivers_resumen",
+        "referenced_columns": ["code"],
+    }
+    transform_zones_data.apply_hints(
+        write_disposition={"disposition": write_disposition, "strategy": "upsert"},
+        references=[zones_resumen_reference],
+    )
+
+    @dlt.resource(
+        name="drivers_resumen_base",
+        write_disposition=write_disposition,
+        selected=False,  # Necesitamos dividir en dos cargar para evitar reemplazar datos temporales en data
+    )
+    def drivers_resumen_base():
         for page in hontrack_client_pages.paginate(
             path="vehicles/get_drivers_resumen.php",
             method="POST",
             json={
-                "from_date": start_date_str,  # "2024-10-29 00:00:00",
-                "to_date": end_date_str,  # "2024-11-01 23:59:59", # es inclusivo segun reunion
+                "from_date": start_date_str,
+                "to_date": end_date_str,
                 "api_key": api_key,
             },
             data_selector="payload.drivers",
         ):
-            yield page
+            yield from page
 
-    source.resources.add(drivers_resumen)
+    @dlt.transformer(
+        data_from=drivers_resumen_base,
+        name="drivers_resumen",
+        primary_key=["code"],
+        write_disposition=write_disposition,
+    )
+    def transform_drivers_resumen(doc: dict) -> dict:
+        return {
+            "code": doc["code"],
+            "name": doc["name"],
+            "group_id": doc["group_id"],
+            "group_name": doc["group_name"],
+            "enterprise_id": "farinter",
+            "_dlt_id": doc["code"],
+        }
 
-    def transform_drivers_resumen(resource: DltResource) -> None:
-        def transform_doc(doc: dict) -> dict:
-            # print(doc)
-            # new_doc = dict(next(iter(doc.values()))) #el proveedor corrigio el API
-            doc["enterprise_id"] = "farinter"
-            for data in doc["data"]:
-                data["fchapl"] = pendulum.from_format(
-                    data["fchapl"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+    @dlt.transformer(
+        data_from=drivers_resumen_base,
+        name="drivers_resumen_data",
+        primary_key=["_dlt_id"],
+        write_disposition=write_disposition,
+    )
+    def transform_drivers_data(doc: dict) -> Iterator[dict]:
+        for data in doc["data"]:
+            data["fchapl"] = pendulum.from_format(
+                data["fchapl"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+            )
+            data["start_time"] = pendulum.from_format(
+                data["start_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+            )
+            data["end_time"] = pendulum.from_format(
+                data["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+            )
+            data["_dlt_id"] = f"{doc['code']}_{data['fchapl'].strftime('%Y%m%d')}"
+            data["driver_code"] = doc["code"]
+            # data["_dlt_root_id"] = doc["code"]
+
+            for vehicle in data.get("vehicles", []):
+                vehicle["end_time"] = pendulum.from_format(
+                    vehicle["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
                 )
-                data["start_time"] = pendulum.from_format(
-                    data["start_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
+                vehicle["_dlt_id"] = hash_sha256_from_str(
+                    f"{doc['code']}_{vehicle['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['plate']}"
                 )
-                data["end_time"] = pendulum.from_format(
-                    data["end_time"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
-                )
-                data["_dlt_id"] = f"{doc["code"]}_{data['fchapl'].strftime("%Y%m%d")}"
-                data["driver_code"] = doc["code"]
-                for vehicle in data.get("vehicles", []):
-                    vehicle["end_time"] = pendulum.from_format(
-                        vehicle["end_time"],
+                vehicle["_dlt_parent_id"] = data["_dlt_id"]
+                # vehicle["_dlt_root_id"] = doc["code"]
+
+                for session in vehicle.get("Sessions", []):
+                    session["end_time"] = pendulum.from_format(
+                        session["end_time"],
                         "YYYY-MM-DD HH:mm:ss",
                         tz=default_timezone_teg,
                     )
-                    vehicle["_dlt_id"] = hash_sha256_from_str(
-                        f"{doc["code"]}_{vehicle['end_time'].strftime("%Y%m%d%H%M%S")}_{vehicle['plate']}"
+                    session["start_time"] = pendulum.from_format(
+                        session["start_time"],
+                        "YYYY-MM-DD HH:mm:ss",
+                        tz=default_timezone_teg,
                     )
-                    vehicle["_dlt_parent_id"] = data["_dlt_id"]
-                    for session in vehicle.get("Sessions", []):
-                        session["end_time"] = pendulum.from_format(
-                            session["end_time"],
-                            "YYYY-MM-DD HH:mm:ss",
-                            tz=default_timezone_teg,
-                        )
-                        session["start_time"] = pendulum.from_format(
-                            session["start_time"],
-                            "YYYY-MM-DD HH:mm:ss",
-                            tz=default_timezone_teg,
-                        )
-                        session["_dlt_id"] = hash_sha256_from_str(
-                            f"{doc['code']}_{session['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['plate']}"
-                        )
-                        session["_dlt_parent_id"] = vehicle["_dlt_id"]
+                    session["_dlt_id"] = hash_sha256_from_str(
+                        f"{doc['code']}_{session['end_time'].strftime('%Y%m%d%H%M%S')}_{vehicle['plate']}"
+                    )
+                    session["_dlt_parent_id"] = vehicle["_dlt_id"]
+                    # session["_dlt_root_id"] = doc["code"]
 
-            return doc
+            yield data
 
-        resource.add_map(transform_doc)
+    transform_drivers_resumen.apply_hints(
+        write_disposition={"disposition": write_disposition, "strategy": "upsert"}
+    )
+    drivers_resumen_reference: TTableReference = {
+        "columns": ["driver_code"],
+        "referenced_table": "drivers_resumen",
+        "referenced_columns": ["code"],
+    }
+    transform_drivers_data.apply_hints(
+        write_disposition={"disposition": write_disposition, "strategy": "upsert"},
+        references=[drivers_resumen_reference],
+    )
 
-    transform_drivers_resumen(source.resources["drivers_resumen"])
+    source.resources.add(transform_zones_resumen)
+    source.resources.add(transform_zones_data)
+    source.resources.add(transform_drivers_resumen)
+    source.resources.add(transform_drivers_data)
 
     return source
 
@@ -535,9 +591,7 @@ def _daily_partition_iter(
 
 
 @dlt_assets(
-    dlt_source=hontrack_api_source().with_resources(
-        "vehicles_resumen", "sensors_resumen", "drivers_resumen", "zones_resumen"
-    ),
+    dlt_source=hontrack_api_source(),
     dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
     group_name="hontrack_api",
@@ -565,9 +619,7 @@ def hontrack_api_assets_per_day(
         )
     )
     if first_partition is None or last_partition is None:
-        raise ValueError(
-            "Partition range not found, try a partitioned run."
-        )
+        raise ValueError("Partition range not found, try a partitioned run.")
 
     partition_iter = _daily_partition_iter(first_partition, last_partition)
     context.log.info(f"date_from: {first_partition}, date_to: {last_partition}")
@@ -654,7 +706,12 @@ if __name__ == "__main__":
         ### test job parti
         test_job = define_asset_job(
             "test_job",
-            selection=(AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),),
+            selection=(
+                # AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
+                # AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
+                AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
+                AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
+            ),
         )
         test_resources = {
             "dlt": DagsterDltResource(),
@@ -670,7 +727,7 @@ if __name__ == "__main__":
         result = test_job_def.execute_in_process(
             tags={
                 "dagster/asset_partition_range_start": "2024-12-23",
-                "dagster/asset_partition_range_end": "2024-12-23",
+                "dagster/asset_partition_range_end": "2024-12-24",
             },
             resources=test_resources,
             instance=instance,
@@ -713,12 +770,14 @@ if __name__ == "__main__":
         #     ),
         # )
 
-        print(f"Materialized:{
-            [
-                mat.step_materialization_data
-                for mat in result.get_asset_materialization_events()
-            ]
-        }")
+        print(
+            f"Materialized:{
+                [
+                    mat.step_materialization_data
+                    for mat in result.get_asset_materialization_events()
+                ]
+            }"
+        )
         ### test runs
         # hontrack_api_pipeline.drop_pending_packages()  # for dev only, to avoid conflicts in the test run
         # hontrack_api_pipeline.drop()
