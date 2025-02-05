@@ -59,6 +59,11 @@ def olap_ventas_kielsa_ejecucion(
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Calendario_Dinamico"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Sucursal"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ExistenciasHist_Kielsa"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_KPP_Hecho_Suscripcion_Hist"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_KPP_Hecho_Suscripcion_Actual"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_Regalia_Detalle"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_Receta"]),
+
     ],
     description="EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General' ó EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General_CadaHora';",
     config_schema={

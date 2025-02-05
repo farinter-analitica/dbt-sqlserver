@@ -206,7 +206,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_KPP_Suscripcion": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_KPP_Suscripcion",
-        "tags": tags_repo.Daily.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
     },
     "BI_paCargarHecho_VentasHist_Kielsa_V2": {
         "key_prefix": ["BI_FARINTER", "dbo"],
@@ -317,12 +317,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Regalia_Encabezado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Regalia_Encabezado",
-        "tags": tags_repo.Daily.tag ,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
     },
     "DL_paCargarKielsa_Regalia_Detalle": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Regalia_Detalle",
-        "tags": tags_repo.Daily.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
     },
     "DL_paCargarKielsa_Identificacion_Tributaria": {
         "key_prefix": ["DL_FARINTER", "dbo"],
