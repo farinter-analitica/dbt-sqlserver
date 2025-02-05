@@ -410,13 +410,13 @@ def hontrack_api_source(
         write_disposition=write_disposition,
         selected=False,
     )
-    def zones_resumen_base(data) -> Iterator[dict]:
+    def zones_resumen_base_to_dict(data) -> Iterator[dict]:
         # Use the existing endpoint configuration
         for doc in data:
             yield doc
 
     @dlt.transformer(
-        data_from=zones_resumen_base,
+        data_from=zones_resumen_base_to_dict,
         name="zones_resumen",
         primary_key=["evtdid"],
         write_disposition=write_disposition,
@@ -429,7 +429,7 @@ def hontrack_api_source(
         }
 
     @dlt.transformer(
-        data_from=zones_resumen_base,
+        data_from=zones_resumen_base_to_dict,
         name="zones_resumen_data",
         primary_key=["_dlt_id"],
         write_disposition=write_disposition,
@@ -562,8 +562,10 @@ def hontrack_api_source(
         references=[drivers_resumen_reference],
     )
 
+    source.resources.add(zones_resumen_base_to_dict)
     source.resources.add(zones_resumen)
     source.resources.add(zones_resumen_data)
+    source.resources.add(drivers_resumen_base)
     source.resources.add(drivers_resumen)
     source.resources.add(drivers_resumen_data)
     source.root_key = True
