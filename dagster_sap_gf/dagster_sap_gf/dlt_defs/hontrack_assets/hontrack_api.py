@@ -502,6 +502,10 @@ def hontrack_api_source(
         write_disposition=write_disposition,
     )
     def drivers_resumen_data(doc: dict) -> Iterator[dict]:
+        if doc.get("data") is None or not isinstance(doc, dict):
+            yield {}
+            return
+
         for data in doc["data"]:
             data["fchapl"] = pendulum.from_format(
                 data["fchapl"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
@@ -564,6 +568,8 @@ def hontrack_api_source(
     source.resources.add(drivers_resumen_data)
     source.root_key = True
 
+    source=source.with_resources(*source.selected_resources.keys())
+
     return source
 
 
@@ -590,10 +596,8 @@ def _daily_partition_iter(
             (start + timedelta(days=i + 1) - timedelta(seconds=1)),
         )
 
-init_hontrack_api_source = hontrack_api_source()
-
 @dlt_assets(
-    dlt_source=init_hontrack_api_source.with_resources(*init_hontrack_api_source.selected_resources.keys()),
+    dlt_source=hontrack_api_source(),
     dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
     group_name="hontrack_api",
@@ -711,8 +715,8 @@ if __name__ == "__main__":
             selection=(
                 AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
                 AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
-                AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
-                AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
+                # AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
+                # AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
         )
         test_resources = {
@@ -728,10 +732,10 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                # "dagster/asset_partition_range_start": "2024-12-23",
-                # "dagster/asset_partition_range_end": "2024-12-24",
-                "dagster/asset_partition_range_start": "2025-02-02",
-                "dagster/asset_partition_range_end": "2025-02-03",
+                "dagster/asset_partition_range_start": "2024-11-23",
+                "dagster/asset_partition_range_end": "2024-11-25",
+                # "dagster/asset_partition_range_start": "2025-02-02",
+                # "dagster/asset_partition_range_end": "2025-02-03",
             },
             resources=test_resources,
             instance=instance,
@@ -740,8 +744,8 @@ if __name__ == "__main__":
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            "write_disposition": "replace",
-                            "refresh": "drop_resources",
+                            #"write_disposition": "replace",
+                            #"refresh": "drop_resources",
                         }
                     }
                 }
