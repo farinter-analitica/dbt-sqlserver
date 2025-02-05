@@ -406,7 +406,7 @@ def hontrack_api_source(
 
     @dlt.transformer(
         data_from=source.resources["zones_resumen_base"],
-        name="zones_resumen_base",
+        name="zones_resumen_base_to_dict",
         write_disposition=write_disposition,
         selected=False,
     )
