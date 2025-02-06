@@ -38,5 +38,7 @@ FROM
 			,[Emp_Id]
 			,[Hash_EmpleadoEmp]
 			,[Sucursal_Id_Asignado_Meta]
+			,COALESCE([Sucursal_Id_Asignado_Meta],[Sucursal_Id_Ultima_Factura]) AS [Sucursal_Id_Asignado]
+			,[Bit_Activo]
 		FROM {{source ('DL_FARINTER','DL_Kielsa_Empleado')}} 
   ) A
