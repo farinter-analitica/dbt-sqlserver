@@ -53,6 +53,7 @@ hourly_condition = get_cron_eager_execution_condition("@hourly")
 def my_cron_automation_condition(
     cron_schedule: str,
     ignored_deps_updated_selection: AssetSelection | None = None,
+    allowed_deps_updated_selection: AssetSelection | None = None,
     lookback_delta: timedelta | None = None,
 ) -> AutomationCondition:
     """
@@ -71,8 +72,10 @@ def my_cron_automation_condition(
 
     Args:
         cron_schedule (str): Cron expression defining the schedule (e.g. "0 * * * *" for hourly)
-        ignored_deps_updated_selection (AssetSelection | None): Asset selection to exclude from 
+        ignored_deps_updated_selection (AssetSelection | None): Asset selection to exclude from
             dependency update checks. Use this to ignore specific assets or asset groups.
+        allowed_deps_updated_selection (AssetSelection | None): Asset selection to include in
+            dependency update checks. Use this to target specific assets or asset groups.
         lookback_delta (timedelta | None): Maximum time window to look back for updates.
             Helps prevent stale executions by limiting how far back to check.
 
@@ -104,7 +107,13 @@ def my_cron_automation_condition(
         | AutomationCondition.will_be_requested()
     )
     if ignored_deps_updated_selection:
-        deps_updated_since_cron = deps_updated_since_cron.ignore(ignored_deps_updated_selection)
+        deps_updated_since_cron = deps_updated_since_cron.ignore(
+            ignored_deps_updated_selection
+        )
+    if allowed_deps_updated_selection:
+        deps_updated_since_cron = deps_updated_since_cron.allow(
+            allowed_deps_updated_selection
+        )
     return (
         AutomationCondition.in_latest_time_window(lookback_delta=lookback_delta)
         & cron_tick_passed_since_last_handle
@@ -119,48 +128,51 @@ def my_cron_automation_condition(
     ).with_label(f"cron_schedule_passed_and_complied: {cron_schedule_label}")
 
 
-# all_daily_deps_updated = (
-#     AutomationCondition.all_deps_match(
-#         (AutomationCondition.newly_updated()).with_label("newly_updated")
-#         | AutomationCondition.will_be_requested()
-#     )
-#     .ignore(
-#         selection=(
-#             AssetSelection.all()
-#             - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
-#         )
-#     )
-#     .with_label("all_daily_deps_updated")
-# )
-
-# automation_daily_cron_prd = (
-#     AutomationCondition.cron_tick_passed(
-#         get_for_current_env({"dev": "0 1 * * *", "prd": "10 0 * * *"}),
-#         cron_timezone=default_timezone_teg,
-#     ).since_last_handled().with_label(f"Cron diario {get_for_current_env({'dev':'0 1 * * *','prd':'10 0 * * *'})}")
-#     & ~AutomationCondition.in_progress()
-#     & ~AutomationCondition.any_deps_in_progress()
-#     & all_daily_deps_updated.since_last_handled()
-# ).with_label("Cron diario condicional.")
-
 daily_cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "5 0 * * *"})
 automation_daily_delta_2_cron = my_cron_automation_condition(
     cron_schedule=daily_cron_schedule,
-    ignored_deps_updated_selection=(
-        AssetSelection.all()
-        - AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+    allowed_deps_updated_selection=(
+        AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
     ),
     lookback_delta=timedelta(days=2),
 )
-hourly_cron_schedule = get_for_current_env(  {
-            "dev": "01 23 * * *",
-            "prd": "01 6-19,23 * * *",
-        })
+hourly_cron_schedule = get_for_current_env(
+    {
+        "dev": "01 23 * * *",
+        "prd": "01 6-19,23 * * *",
+    }
+)
 automation_hourly_delta_12_cron = my_cron_automation_condition(
     cron_schedule=hourly_cron_schedule,
-    ignored_deps_updated_selection=(
-        AssetSelection.all()
-        - AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
+    allowed_deps_updated_selection=(
+        AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
     ),
     lookback_delta=timedelta(hours=12),
+)
+
+weekly_7_cron_schedule = get_for_current_env({"dev": "0 1 * * 7", "prd": "0 16 * * 7"})
+automation_weekly_7_delta_1_cron = my_cron_automation_condition(
+    cron_schedule=weekly_7_cron_schedule,
+    allowed_deps_updated_selection=(
+        AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
+    ),
+    lookback_delta=timedelta(weeks=1),
+)
+
+monthly_start_cron_schedule = get_for_current_env({"dev": "0 3 1 * *", "prd": "30 0 1 * *"})
+automation_monthly_start_delta_1_cron = my_cron_automation_condition(
+    cron_schedule=monthly_start_cron_schedule,
+    allowed_deps_updated_selection=(
+        AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
+    ),
+    lookback_delta=timedelta(days=32),
+)
+
+monthly_end_cron_schedule = get_for_current_env({"dev": "0 3 L * *", "prd": "30 0 L * *"})
+automation_monthly_end_delta_1_cron = my_cron_automation_condition(
+    cron_schedule=monthly_end_cron_schedule,
+    allowed_deps_updated_selection=(
+        AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
+    ),
+    lookback_delta=timedelta(days=32),
 )

@@ -134,6 +134,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Automation: Tags = Tags(key="automation/si", value="")
     """{"automation/si": ""}"""
 
+    Weekly: Tags = Tags(key="periodo/semanal", value="")
+    """{"periodo/semanal": ""}"""
+
 
 def get_execution_config(max_concurrent: int) -> dict:
     return {"config": {"multiprocess": {"max_concurrent": max_concurrent}}}

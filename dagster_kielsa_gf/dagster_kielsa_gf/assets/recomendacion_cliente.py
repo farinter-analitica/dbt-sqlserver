@@ -15,7 +15,7 @@ from dagster import (
     op,
 )
 
-from dagster_shared_gf.automation import automation_daily_delta_2_cron
+from dagster_shared_gf.automation import automation_monthly_start_delta_1_cron
 from dagster_shared_gf.resources.sql_server_resources import (
     SQLServerResource,
     dwh_farinter_dl,
@@ -45,7 +45,7 @@ def get_customer_purchases(
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     meses_muestra = 2
     lista_fechas_muestra = [
-        pdl.today().subtract(months=i) for i in range(1, meses_muestra)
+        pdl.today().subtract(months=i+1) for i in range(meses_muestra)
     ]
     lista_aniomes = [fecha.year * 100 + fecha.month for fecha in lista_fechas_muestra]
 
@@ -276,7 +276,7 @@ DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
         | tags_repo.UniquePeriod.tag
         | tags_repo.DetenerCarga
     },
-    # automation_conditions_by_output_name={"result": automation_daily_delta_2_cron}
+    automation_conditions_by_output_name={"result": automation_monthly_start_delta_1_cron}
 )
 
 all_assets = tuple(load_assets_from_current_module())
