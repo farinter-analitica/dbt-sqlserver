@@ -31,6 +31,13 @@ jobs:
           DEPLOY_DIR="${{ steps.set-env.outputs.deploy_dir }}"
           BRANCH="${GITHUB_REF#refs/heads/}"
 
+          # Set environment variable based on branch
+          if [[ "$BRANCH" == "main" ]]; then
+            export DAGSTER_INSTANCE_CURRENT_ENV="prd"
+          else
+            export DAGSTER_INSTANCE_CURRENT_ENV="dev"
+          fi
+
           # Set Python virtual environment path
           export PATH="$DEPLOY_DIR/.venv_main_dagster/bin:$PATH"
 

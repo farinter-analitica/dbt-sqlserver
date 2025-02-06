@@ -32,6 +32,8 @@ def deploy_service(instance_env: str, template_filename: str) -> None:
     
     # Write the rendered service file to the templates_render folder.
     output_path = os.path.join(os.path.dirname(__file__), 'templates_render', output_filename)
+    os.makedirs(output_path, exist_ok=True)
+    
     with open(output_path, "w") as f:
         f.write(rendered_service)
     print(f"Final service file written to: {output_path}")
