@@ -34,6 +34,9 @@ jobs:
           # Set Python virtual environment path
           export PATH="$DEPLOY_DIR/.venv_main_dagster/bin:$PATH"
 
+          # Activate Python virtual environment
+          source "$DEPLOY_DIR/.venv_main_dagster/bin/activate"
+
           cd "$DEPLOY_DIR" || exit 1
           
           # Configure Git
@@ -47,6 +50,9 @@ jobs:
 
           # Run DBT parser
           python "$DEPLOY_DIR/dbt_dwh_farinter/autoload_dbt_deploy.py"
+
+          # Generate and deploy systemd services
+          python "$DEPLOY_DIR/generate_dagster_service.py"
 
       - name: Verify deployment
         if: always()

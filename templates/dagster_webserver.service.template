@@ -1,0 +1,17 @@
+[Unit]
+Description=Dagster {{ env["ENVIRONMENT"] | default("development") }} Instance
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+User={{ env["DAGSTER_USER"] | default("analiticasu") }}
+Group={{ env["DAGSTER_GROUP"] | default("analitica") }}
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory={{ env["DAGSTER_HOME"] }}
+EnvironmentFile={{ env["DAGSTER_HOME"] }}/.env
+ExecStart={{ env["DAGSTER_HOME"] }}/.venv_main_dagster/bin/python -m dagster-webserver -h 0.0.0.0 -p {{ env["DAGSTER_GRAPHQL_PORT"] | default("9300") }}
+Environment="PATH={{ env["DAGSTER_HOME"] }}/.venv_main_dagster/bin/:/usr/bin"
+
+[Install]
+WantedBy=multi-user.target
