@@ -45,11 +45,12 @@ def get_customer_purchases(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     SELECT 
         DC.Monedero_Id,
         FA.ArticuloPadre_Id,
-        DC.Articulos
+        DC.Articulos,
+        COUNT(*) AS Frecuencia
     FROM
         DL_FARINTER.dbo.DL_Kielsa_FacturasPosiciones FA
     INNER JOIN
-        (SELECT --{"TOP 10000" if env_str == "local" else ""}
+        (SELECT {"TOP 10000" if env_str == "local" else ""}
             M.Monedero_Id,
             COUNT(DISTINCT ArticuloPadre_Id) AS Articulos
         FROM
@@ -76,7 +77,7 @@ def get_customer_purchases(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
         DC.Monedero_Id,
         FA.ArticuloPadre_Id,
         DC.Articulos
-    ORDER BY DC.Monedero_Id
+    ORDER BY DC.Monedero_Id, COUNT(*) DESC
     """
     return pl.read_database(sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string())
 
@@ -89,7 +90,7 @@ def generate_recommendations(df_purchases: pl.DataFrame) -> pl.DataFrame:
       1. Se crea una matriz de co-ocurrencia mediante un self-join sobre 'Monedero_Id' que cuenta cuántos 
          clientes compraron cada par de artículos (excluyendo pares idénticos).
       2. Se calcula la frecuencia con la que cada cliente compró cada artículo.
-      3. Para cada cliente se ordenan los artículos por frecuencia descendente y se limitan a los 5 más importantes;
+      3. Para cada cliente se ordenan los artículos por frecuencia descendente y se limitan a los 10 más importantes;
          además, se utiliza el artículo con mayor frecuencia como base para la recomendación.
       4. Se une la base del cliente con la matriz de co-ocurrencia y se filtran aquellos artículos ya comprados por el cliente.
       5. Se ordenan las recomendaciones por la importancia (Clientes_Compraron) y se extraen las 5 principales por cliente.
@@ -101,66 +102,68 @@ def generate_recommendations(df_purchases: pl.DataFrame) -> pl.DataFrame:
     Retorna:
         pl.DataFrame: DataFrame con las recomendaciones por cliente.
     """
-    # 1. Crear la matriz de co-ocurrencia (ordenada globalmente por importancia)
+    df_purchases_lazy = df_purchases.lazy()
+
+    # Crear la matriz de co-ocurrencia (ordenada globalmente por importancia)
     cooccurrence = (
-        df_purchases
-        .join(df_purchases, on='Monedero_Id', suffix="_right")
-        .filter(pl.col('ArticuloPadre_Id') != pl.col('ArticuloPadre_Id_right'))
-        .group_by(['ArticuloPadre_Id', 'ArticuloPadre_Id_right'])
-        .agg(pl.count().alias('Clientes_Compraron'))
+        df_purchases_lazy
+        .join(df_purchases_lazy, on='Monedero_Id', suffix="_relacionado")
+        .filter(pl.col('ArticuloPadre_Id') != pl.col('ArticuloPadre_Id_relacionado'))
+        .group_by(['ArticuloPadre_Id', 'ArticuloPadre_Id_relacionado'])
+        .agg(pl.len().alias('Clientes_Compraron'))
+        .filter(pl.col('Clientes_Compraron') >= 5)  # Se limita a pares de artículos comprados por al menos 5 clientes.
         .sort('Clientes_Compraron', descending=True)
     )
-    
-    # 2. Calcular la frecuencia de compra por cliente y artículo
-    customer_freq = (
-        df_purchases
-        .group_by(['Monedero_Id', 'ArticuloPadre_Id'])
-        .agg(pl.count().alias("freq"))
-    )
-    
-    # 3. Ordenar los artículos por frecuencia descendente y agrupar por cliente,
-    #    limitando a los 5 artículos más importantes.
-    customer_articles = (
-        customer_freq
-        .sort(["Monedero_Id", "freq"], descending=[False, True])
-        .group_by("Monedero_Id")
-        .agg([
-            # Se limita a 5 artículos y se agrupan en una lista.
-            pl.col("ArticuloPadre_Id").head(10).alias("Articulos_Id_Relacionados"),
-            # Se toma el artículo con mayor frecuencia (el primero) para usar como base.
-            pl.col("ArticuloPadre_Id").first().alias("Base_Articulo"),
-            pl.lit(0).alias("Iteration")
-        ])
-    )
-    
-    # 4. Unir con la matriz de co-ocurrencia y filtrar aquellos artículos ya comprados por el cliente.
+
+    # Unir con la matriz de co-ocurrencia y filtrar aquellos artículos ya comprados por el cliente.
+    # Se usa un anti join para descartar recomendaciones que el cliente ya posee.
     customer_recs = (
-        customer_articles
+        df_purchases_lazy
         .join(
             cooccurrence,
-            left_on="Base_Articulo",
+            left_on="ArticuloPadre_Id",
             right_on="ArticuloPadre_Id"
         )
-        .filter(~pl.col("Articulos_Id_Relacionados").list.contains(pl.col("ArticuloPadre_Id_right")))
-        # IMPORTANTE: Ordenar para asegurar que, para cada cliente, se consideren primero los relacionados
-        # con mayor 'Clientes_Compraron'.
+        .join(
+            df_purchases_lazy,
+            left_on=["Monedero_Id", "ArticuloPadre_Id_relacionado"],
+            right_on=["Monedero_Id", "ArticuloPadre_Id"],
+            how="anti"
+        )
+        # Ordenar para que primero se consideren los candidatos con mayor "Clientes_Compraron"
         .sort(["Monedero_Id", "Clientes_Compraron"], descending=[False, True])
     )
-    
-    # 5. Seleccionar las top 5 recomendaciones por cliente y expandir la lista para tener una fila por recomendación.
+
+    # Seleccionar las top 5 recomendaciones por cliente e incluir la lista de artículos relacionados (los artículos base que originaron la recomendación)
+    # Se agrupa por cliente y por el artículo recomendado, agrupando los artículos de base que dieron lugar a la recomendación.
     final_recs = (
         customer_recs
+        .with_columns(pl.col("ArticuloPadre_Id_relacionado").alias("Articulo_Id_Recomendado"))
+        .group_by(["Monedero_Id", "Articulo_Id_Recomendado"])
+        .agg([
+            # Se toma el máximo de "Clientes_Compraron" (o se podría aplicar otra agregación)
+            pl.col("Clientes_Compraron").max().alias("Clientes_Compraron"),
+            # Agrupar los artículos base que originan la recomendación (sin duplicados)
+            pl.col("ArticuloPadre_Id").unique().alias("Articulos_Id_Relacionados")
+        ])
+        .sort(["Monedero_Id", "Clientes_Compraron"], descending=[False, True])
+        # Para cada cliente, se eligen las 5 recomendaciones principales.
         .group_by("Monedero_Id")
         .agg([
-            pl.col("ArticuloPadre_Id_right").head(5).alias("Articulo_Id_Recomendado"),
+            pl.col("Articulo_Id_Recomendado").head(5).alias("Articulo_Id_Recomendado"),
             pl.col("Clientes_Compraron").head(5).alias("Clientes_Compraron"),
-            pl.col("Articulos_Id_Relacionados").first(),
-            pl.col("Iteration").first()
+            pl.col("Articulos_Id_Relacionados").head(5).alias("Articulos_Id_Relacionados")
         ])
-        .explode(["Articulo_Id_Recomendado", "Clientes_Compraron"])
+        # Explota para obtener una fila por recomendación
+        .explode(["Articulo_Id_Recomendado", "Clientes_Compraron", "Articulos_Id_Relacionados"])
+        # Convertir la lista de Articulos_Id_Relacionados a cadena separada por comas
+        .with_columns(
+            pl.col("Articulos_Id_Relacionados").list.join(",").alias("Articulos_Id_Relacionados")
+        )
+        .with_columns(pl.lit(0).alias("Iteration"))
     )
-    
-    return final_recs
+
+    return final_recs.collect()
 
 
 @op
@@ -169,6 +172,8 @@ def save_recommendations(
     recommendations: pl.DataFrame
 ) -> None:
     with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
+        if env_str == "local":
+            return
         recommendations.write_database(
             table_name='DL_Kielsa_Cliente_ArticuloRecomendado',
             connection=conn,
@@ -204,12 +209,13 @@ if __name__ == "__main__":
     with instance_for_test() as instance:
         from dagster import ResourceDefinition
         if env_str == "local":
-            warnings.warn("Running in local mode, using top 10000 rows")
+            warnings.warn("Running in local mode, using top 10000 rows and no loading to SQL Server")
         @asset(name="between_asset")
         def mock_between_asset() -> int:
             return 1
 
         mock_dwh_farinter_bi = ResourceDefinition.mock_resource()
+        mock_dwh_farinter_dl = ResourceDefinition.mock_resource()
 
         result = materialize(
             assets=[mock_between_asset, DL_Kielsa_Cliente_ArticuloRecomendado],
