@@ -37,8 +37,8 @@ from dagster_shared_gf.shared_variables import env_str
 
 @op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def get_customer_purchases(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
-    meses_muestra = 3
-    lista_fechas_muestra = [pdl.today().subtract(months=i) for i in range(meses_muestra)]
+    meses_muestra = 2
+    lista_fechas_muestra = [pdl.today().subtract(months=i) for i in range(1,meses_muestra)]
     lista_aniomes  = [fecha.year * 100 + fecha.month for fecha in lista_fechas_muestra]
 
     sql_query = f"""
@@ -50,7 +50,7 @@ def get_customer_purchases(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     FROM
         DL_FARINTER.dbo.DL_Kielsa_FacturasPosiciones FA
     INNER JOIN
-        (SELECT {"TOP 10000" if env_str == "local" else ""}
+        (SELECT {"TOP 100000" if env_str == "local" else ""}
             M.Monedero_Id,
             COUNT(DISTINCT ArticuloPadre_Id) AS Articulos
         FROM
@@ -63,7 +63,7 @@ def get_customer_purchases(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
             F.Emp_Id = 1 AND 
             F.AnioMes_Id IN ({', '.join(map(str, lista_aniomes))}) AND 
             F.TipoDoc_Id = 1 AND
-            M.Activo_Indicador = 1
+            M.Activo_Indicador = 1 
         GROUP BY
             M.Monedero_Id
         HAVING
@@ -81,8 +81,31 @@ def get_customer_purchases(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     """
     return pl.read_database(sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string())
 
+
 @op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
-def generate_recommendations(df_purchases: pl.DataFrame) -> pl.DataFrame:
+def generate_cooccurrence(df_purchases: pl.DataFrame) -> pl.DataFrame:
+    """      
+    Crea una matriz de co-ocurrencia mediante un self-join sobre 'Monedero_Id' que cuenta cuántos 
+            clientes compraron cada par de artículos (excluyendo pares idénticos).
+    """
+    df_purchases_lazy = df_purchases.lazy()
+
+    # Crear la matriz de co-ocurrencia (ordenada globalmente por importancia)
+    cooccurrence = (
+        df_purchases_lazy
+        .join(df_purchases_lazy, on='Monedero_Id', suffix="_relacionado")
+        .filter(pl.col('ArticuloPadre_Id') != pl.col('ArticuloPadre_Id_relacionado'))
+        .group_by(['ArticuloPadre_Id', 'ArticuloPadre_Id_relacionado'])
+        .agg(pl.len().alias('Clientes_Compraron'))
+        .filter(pl.col('Clientes_Compraron') >= 5)  # Se limita a pares de artículos comprados por al menos 5 clientes.
+        .sort('Clientes_Compraron', descending=True)
+    )
+
+    return cooccurrence.collect(streaming=True)
+
+
+@op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+def generate_recommendations(df_purchases: pl.DataFrame, cooccurrence: pl.DataFrame) -> pl.DataFrame:
     """
     Genera recomendaciones de productos para cada cliente basadas en la co-ocurrencia de compras.
     
@@ -103,41 +126,31 @@ def generate_recommendations(df_purchases: pl.DataFrame) -> pl.DataFrame:
         pl.DataFrame: DataFrame con las recomendaciones por cliente.
     """
     df_purchases_lazy = df_purchases.lazy()
-
-    # Crear la matriz de co-ocurrencia (ordenada globalmente por importancia)
-    cooccurrence = (
-        df_purchases_lazy
-        .join(df_purchases_lazy, on='Monedero_Id', suffix="_relacionado")
-        .filter(pl.col('ArticuloPadre_Id') != pl.col('ArticuloPadre_Id_relacionado'))
-        .group_by(['ArticuloPadre_Id', 'ArticuloPadre_Id_relacionado'])
-        .agg(pl.len().alias('Clientes_Compraron'))
-        .filter(pl.col('Clientes_Compraron') >= 5)  # Se limita a pares de artículos comprados por al menos 5 clientes.
-        .sort('Clientes_Compraron', descending=True)
-    )
+    cooccurrence_lazy = cooccurrence.lazy()
 
     # Unir con la matriz de co-ocurrencia y filtrar aquellos artículos ya comprados por el cliente.
     # Se usa un anti join para descartar recomendaciones que el cliente ya posee.
-    customer_recs = (
+    final_recs = (
         df_purchases_lazy
         .join(
-            cooccurrence,
+            cooccurrence_lazy,
             left_on="ArticuloPadre_Id",
-            right_on="ArticuloPadre_Id"
+            right_on="ArticuloPadre_Id",
+            #validate="m:m"
         )
         .join(
             df_purchases_lazy,
             left_on=["Monedero_Id", "ArticuloPadre_Id_relacionado"],
             right_on=["Monedero_Id", "ArticuloPadre_Id"],
-            how="anti"
+            how="anti",
         )
+        .filter(pl.col("ArticuloPadre_Id") != pl.col("ArticuloPadre_Id_relacionado"))
         # Ordenar para que primero se consideren los candidatos con mayor "Clientes_Compraron"
         .sort(["Monedero_Id", "Clientes_Compraron"], descending=[False, True])
-    )
 
     # Seleccionar las top 5 recomendaciones por cliente e incluir la lista de artículos relacionados (los artículos base que originaron la recomendación)
     # Se agrupa por cliente y por el artículo recomendado, agrupando los artículos de base que dieron lugar a la recomendación.
-    final_recs = (
-        customer_recs
+
         .with_columns(pl.col("ArticuloPadre_Id_relacionado").alias("Articulo_Id_Recomendado"))
         .group_by(["Monedero_Id", "Articulo_Id_Recomendado"])
         .agg([
@@ -163,7 +176,7 @@ def generate_recommendations(df_purchases: pl.DataFrame) -> pl.DataFrame:
         .with_columns(pl.lit(0).alias("Iteration"))
     )
 
-    return final_recs.collect()
+    return final_recs.collect(streaming=True)
 
 
 @op
@@ -183,7 +196,8 @@ def save_recommendations(
 @graph
 def cliente_recomendacion_graph():
     df_purchases = get_customer_purchases()
-    recommendations = generate_recommendations(df_purchases)
+    cooccurrence = generate_cooccurrence(df_purchases)
+    recommendations = generate_recommendations(df_purchases, cooccurrence)
     return save_recommendations(recommendations)
 
 DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
@@ -192,9 +206,10 @@ DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
         "result": AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Cliente_ArticuloRecomendado"])
     },
     tags_by_output_name={
-        "result": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag
+        "result": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag 
+        | tags_repo.DetenerCarga
     },
-    automation_conditions_by_output_name={"result": automation_daily_delta_2_cron}
+    #automation_conditions_by_output_name={"result": automation_daily_delta_2_cron}
 )
 
 all_assets = tuple(load_assets_from_current_module())
