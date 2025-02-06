@@ -58,7 +58,7 @@ def get_customer_purchases(
     FROM
         DL_FARINTER.dbo.DL_Kielsa_FacturasPosiciones FA WITH(NOLOCK)
     INNER JOIN
-        (SELECT {"TOP 100000" if env_str == "local" else ""}
+        (SELECT {"TOP 10000" if env_str == "local" else ""}
             M.Monedero_Id,
             COUNT(DISTINCT ArticuloPadre_Id) AS Articulos
         FROM
@@ -92,17 +92,16 @@ def get_customer_purchases(
     ).lazy().collect(streaming=True)
 
 
-    with pl.StringCache():
-        main_query = main_query.with_columns(
-            pl.col("Monedero_Id").cast(pl.Categorical).alias("Monedero_Id"),
-        )
-    with pl.StringCache():
-        main_query = main_query.with_columns(
-            pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
-        )
-
+    pl.enable_string_cache()
+    main_query = main_query.with_columns(
+        pl.col("Monedero_Id").cast(pl.Categorical).alias("Monedero_Id"),
+    )
     monederos = main_query.select(pl.col("Monedero_Id").unique().sort())
+    main_query = main_query.with_columns(
+        pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
+    )
     articulos = main_query.select(pl.col("ArticuloPadre_Id").unique().sort())
+    pl.disable_string_cache()
 
     return (main_query, monederos, articulos)
 
