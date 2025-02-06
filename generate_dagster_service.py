@@ -30,9 +30,12 @@ def deploy_service(instance_env: str, template_filename: str) -> None:
     else:
         output_filename = f"dagster_{instance_env}_{base_service_name}"
     
+    # Create templates_render directory if it doesn't exist
+    output_dir = os.path.join(os.path.dirname(__file__), 'templates_render')
+    os.makedirs(output_dir, exist_ok=True)
+
     # Write the rendered service file to the templates_render folder.
-    output_path = os.path.join(os.path.dirname(__file__), 'templates_render', output_filename)
-    os.makedirs(output_path, exist_ok=True)
+    output_path = os.path.join(output_dir, output_filename)
     
     with open(output_path, "w") as f:
         f.write(rendered_service)

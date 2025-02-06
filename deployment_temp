@@ -6,6 +6,7 @@ pip uninstall dagster_sap dagster_kielsa
 pip -V
 
 
+
 pip install --force-reinstall -e dagster_shared_gf --config-settings editable_mode=compat
 pip install -e dagster_shared_gf[dev] --config-settings editable_mode=compat
 pip install -e dagster_shared_gf --config-settings editable_mode=compat
@@ -17,6 +18,26 @@ pip install -U --upgrade-strategy eager -e dagster_shared_gf --config-settings e
 
 pip install dbt-sqlserver git+https://github.com/axellpadilla/dbt-sqlserver.git@dbt_18#egg=dbt-sqlserver
 
+
+# Advertencia 20250206: Se ha migrado a la forma correcta de correr los servicios de dagster, 
+# en dos servicios, uno es el webserver y otro el daemon.
+# dagster_{prd/dev}_webserver.service
+# dagster_{prd/dev}_daemon.service
+# Cada ubicacion de codigo tambien podria correrse en su propio servicio o servidor y python.
+
+# Comandos nuevos:
+systemctl status dagster_dev_webserver
+systemctl status dagster_dev_daemon
+systemctl status dagster_prd_webserver
+systemctl status dagster_prd_daemon
+systemctl restart dagster_dev_webserver
+systemctl restart dagster_dev_daemon
+systemctl restart dagster_prd_webserver
+systemctl restart dagster_prd_daemon
+systemctl stop dagster_dev_webserver
+systemctl stop dagster_dev_daemon
+systemctl stop dagster_prd_webserver
+systemctl stop dagster_prd_daemon
 
 restart service
 su analiticasu
@@ -30,7 +51,8 @@ sudo systemctl restart dagster_dev
 sudo systemctl stop dagster_<prd/dev>
 sudo systemctl stop dagster_prd
 sudo systemctl stop dagster_dev
-
+systemctl disable dagster_dev
+systemctl disable dagster_prd
 
 systemctl restart dagster_prd
 systemctl restart dagster_dev
