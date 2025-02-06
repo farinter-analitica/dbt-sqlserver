@@ -67,6 +67,26 @@ dbt_sources_assets: list = [
 
 all_resources = all_shared_resources
 
+asset_selection_hora = AssetSelection.tag(
+    key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
+)
+
+asset_selection_dia = (
+    AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+    - asset_selection_hora
+)
+asset_selection_semana = (
+    AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
+    - asset_selection_dia
+    - asset_selection_hora
+)
+
+asset_selection_mes = (
+    AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
+    - asset_selection_semana
+    - asset_selection_dia
+    - asset_selection_hora
+)
 
 defs = Definitions.merge(
     # dlt_defs.defs, #antes todos los subrepos
@@ -84,15 +104,19 @@ defs = Definitions.merge(
             *all_sensors,
             ACS(
                 "automation_condition_sensor",
-                target=AssetSelection.all()
-                - (
-                    AssetSelection.tag(
-                        key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
-                    )
-                    & AssetSelection.groups("recetas_libros_etl_dwh")
-                ),
+                target=asset_selection_dia,
                 use_user_code_server=True,
                 minimum_interval_seconds=60 * 5,
+                tags=tags_repo.Daily,
+                run_tags=tags_repo.Daily,
+            ),
+            ACS(
+                "automation_condition_sensor_slow",
+                target=asset_selection_mes | asset_selection_semana,
+                use_user_code_server=True,
+                minimum_interval_seconds=60 * 60,
+                tags=tags_repo.Monthly | tags_repo.Weekly,
+                run_tags=tags_repo.Monthly | tags_repo.Weekly,
             ),
             ACS(
                 "automation_condition_sensor_hourly",
@@ -102,6 +126,8 @@ defs = Definitions.merge(
                 & AssetSelection.groups("recetas_libros_etl_dwh"),
                 use_user_code_server=True,
                 minimum_interval_seconds=60,
+                tags=tags_repo.Hourly,
+                run_tags=tags_repo.Hourly,
             ),
         ),
     ),

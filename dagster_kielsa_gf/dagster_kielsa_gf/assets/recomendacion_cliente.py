@@ -272,9 +272,9 @@ DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
         )
     },
     tags_by_output_name={
-        "result": tags_repo.Daily.tag
-        | tags_repo.UniquePeriod.tag
-        | tags_repo.DetenerCarga
+        "result": tags_repo.Monthly
+        | tags_repo.UniquePeriod
+        | tags_repo.Automation
     },
     automation_conditions_by_output_name={"result": automation_monthly_start_delta_1_cron}
 )

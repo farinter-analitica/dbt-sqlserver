@@ -61,7 +61,13 @@ dbt_dwh_kielsa_marts_assets: AssetSelection = (
 dbt_dwh_kielsa_marts_job = define_asset_job(
     name="dbt_dwh_kielsa_marts_job",
     selection=dbt_dwh_kielsa_marts_assets,
-    tags=tags_repo.Daily.tag,
+    tags=tags_repo.Daily.tag | {
+        "dagster/max_runtime": (23*60 * 60)
+    },
+    run_tags=tags_repo.Daily.tag
+    | {
+        "dagster/max_runtime": (23*60 * 60)
+    },  # max 23 hours in seconds, then mark it as failed.)
     config=RunConfig(execution=execution_run_config_default),
 )
 
@@ -75,7 +81,13 @@ kielsa_etl_dwh_all_downstream_assets: AssetSelection = (
 kielsa_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_etl_dwh_all_downstream_job",
     selection=kielsa_etl_dwh_all_downstream_assets,
-    tags=tags_repo.Daily.tag,
+    tags=tags_repo.Daily.tag | {
+        "dagster/max_runtime": (23*60 * 60)
+    },
+    run_tags=tags_repo.Daily.tag
+    | {
+        "dagster/max_runtime": (23*60 * 60)
+    },  # max 23 hours in seconds, then mark it as failed.)
     config=RunConfig(execution=execution_run_config_default),
 )
 
@@ -86,9 +98,14 @@ dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="dlt_dwh_kielsa_job",
     selection=dlt_dwh_kielsa_assets,
     config=RunConfig(execution=execution_run_config_2),
-    tags=tags_repo.Daily.tag,
+    tags=tags_repo.Daily.tag | {
+        "dagster/max_runtime": (23*60 * 60)
+    },
+    run_tags=tags_repo.Daily.tag
+    | {
+        "dagster/max_runtime": (23*60 * 60)
+    },  # max 23 hours in seconds, then mark it as failed.)
 )
-
 
 # Definir assets que tengan la etiqueta por_hora y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_hourly_assets: AssetSelection = (
@@ -114,6 +131,10 @@ kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     | {
         "dagster/max_runtime": (100 * 60)
     },  # max 100 minutes in seconds, then mark it as failed.)
+    run_tags=tags_repo.Hourly.tag
+    | {
+        "dagster/max_runtime": (100 * 60)
+    }
 )
 
 # Definir assets que tengan la etiqueta mensual y todos los dependientes que no tengan la etiqueta de periodo unico
