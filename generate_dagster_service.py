@@ -57,9 +57,9 @@ def deploy_service(instance_env: str, template_filename: str) -> None:
         if existing_service is not None and existing_service == rendered_service:
             print(f"No deployment needed. {output_filename} is unchanged.")
         else:
-            subprocess.run(["sudo", "cp", output_path, system_service_path], check=True)
-            subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
-            subprocess.run(["sudo", "systemctl", "enable", "--now", output_filename], check=True)
+            subprocess.run(["cp", output_path, system_service_path], check=True)
+            subprocess.run(["systemctl", "daemon-reload"], check=True)
+            subprocess.run(["systemctl", "enable", "--now", output_filename], check=True)
             print(f"Service {output_filename} deployed and enabled.")
     else:
         print(f"Skipping deployment of {output_filename} to {instance_env} environment.")

@@ -59,7 +59,7 @@ jobs:
           python "$DEPLOY_DIR/dbt_dwh_farinter/autoload_dbt_deploy.py"
 
           # Generate and deploy systemd services
-          python "$DEPLOY_DIR/generate_dagster_service.py"
+          sudo python "$DEPLOY_DIR/generate_dagster_service.py"
 
       - name: Verify deployment
         if: always()

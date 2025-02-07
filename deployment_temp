@@ -5,6 +5,9 @@ pip uninstall dagster_sap dagster_kielsa
 
 pip -V
 
+# para desplegar y que funcione con las acciones de github debe permitirse el sudo
+sudo visudo -f /etc/sudoers.d/github-actions
+github-actions ALL=(ALL) NOPASSWD:/usr/bin/python /opt/main_dagster*/generate_dagster_service.py
 
 
 pip install --force-reinstall -e dagster_shared_gf --config-settings editable_mode=compat
