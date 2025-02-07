@@ -4,6 +4,11 @@ on:
   push:
     branches: [main, dev]
 
+env:
+  DAGSTER_INSTANCE_CURRENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prd' || 'dev' }}
+  DEPLOY_DIR: ${{ github.ref == 'refs/heads/main' && '/opt/main_dagster_prd' || '/opt/main_dagster_dev' }}
+  ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+
 jobs:
   deploy:
     runs-on: self-hosted
@@ -14,59 +19,48 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set deployment environment
-        id: set-env
+      - name: Setup Python Environment
         run: |
-          BRANCH="${GITHUB_REF#refs/heads/}"
-          if [[ "$BRANCH" == "main" ]]; then
-            echo "deploy_dir=/opt/main_dagster_prd" >> $GITHUB_OUTPUT
-            echo "env_name=production" >> $GITHUB_OUTPUT
-          else
-            echo "deploy_dir=/opt/main_dagster_dev" >> $GITHUB_OUTPUT
-            echo "env_name=development" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Deploy to ${{ steps.set-env.outputs.env_name }}
-        run: |
-          DEPLOY_DIR="${{ steps.set-env.outputs.deploy_dir }}"
-          BRANCH="${GITHUB_REF#refs/heads/}"
-
-          # Set environment variable based on branch
-          if [[ "$BRANCH" == "main" ]]; then
-            export DAGSTER_INSTANCE_CURRENT_ENV="prd"
-          else
-            export DAGSTER_INSTANCE_CURRENT_ENV="dev"
-          fi
-
-          # Set Python virtual environment path
-          export PATH="$DEPLOY_DIR/.venv_main_dagster/bin:$PATH"
-
-          # Activate Python virtual environment
-          source "$DEPLOY_DIR/.venv_main_dagster/bin/activate"
-
-          cd "$DEPLOY_DIR" || exit 1
+          # Activate virtual environment
+          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
           
-          # Configure Git
-          export GIT_DIR="$DEPLOY_DIR/.git"
-          export GIT_WORK_TREE="$DEPLOY_DIR"
+          # Check and install required packages if missing
+          python -c "import jinja2" || pip install jinja2
+          python -c "import dotenv" || pip install python-dotenv
+          
+          # Add venv to PATH
+          echo "${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin" >> $GITHUB_PATH
 
-          # Update repository
+      - name: Configure Git Repository
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+          git config --global --add safe.directory ${{ env.DEPLOY_DIR }}
+          export GIT_DIR="${{ env.DEPLOY_DIR }}/.git"
+          export GIT_WORK_TREE="${{ env.DEPLOY_DIR }}"
+
+      - name: Update Code from Repository  
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
           git fetch origin
-          git checkout "$BRANCH"
-          git pull --rebase origin "$BRANCH"
+          git checkout ${GITHUB_REF#refs/heads/}
+          git pull --rebase origin ${GITHUB_REF#refs/heads/}
 
-          # Run DBT parser
-          python "$DEPLOY_DIR/dbt_dwh_farinter/autoload_dbt_deploy.py"
+      - name: Process DBT Files
+        run: |
+          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
+          python "${{ env.DEPLOY_DIR }}/dbt_dwh_farinter/autoload_dbt_deploy.py"
 
-          # Generate and deploy systemd services
-          sudo python "$DEPLOY_DIR/generate_dagster_service.py"
+      - name: Deploy Dagster Services
+        run: |
+          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
+          sudo -E python "${{ env.DEPLOY_DIR }}/generate_dagster_service.py"
 
-      - name: Verify deployment
+      - name: Verify Deployment Status
         if: always()
         run: |
           if [[ ${{ job.status }} == 'success' ]]; then
-            echo "✅ Deployment to ${{ steps.set-env.outputs.env_name }} successful"
+            echo "✅ Deployment to ${{ env.ENV_NAME }} successful"
           else
-            echo "❌ Deployment to ${{ steps.set-env.outputs.env_name }} failed"
+            echo "❌ Deployment to ${{ env.ENV_NAME }} failed"
             exit 1
           fi
