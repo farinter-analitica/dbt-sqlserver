@@ -36,13 +36,11 @@ from dagster_shared_gf.shared_variables import env_str
 @op(
     out={
         "df_purchases": Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
-        "monederos": Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
-        "articulos": Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     }
 )
 def get_customer_purchases(
     dwh_farinter_dl: SQLServerResource,
-) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+) -> pl.DataFrame:
     meses_muestra = 2
     lista_fechas_muestra = [
         pdl.today().subtract(months=i+1) for i in range(meses_muestra)
@@ -90,25 +88,11 @@ def get_customer_purchases(
     main_query = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
     ).lazy().collect(streaming=True)
-
-
-    pl.enable_string_cache()
-    main_query = main_query.with_columns(
-        pl.col("Monedero_Id").cast(pl.Categorical).alias("Monedero_Id"),
-    )
-    monederos = main_query.select(pl.col("Monedero_Id").unique().sort())
-    main_query = main_query.with_columns(
-        pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
-    )
-    articulos = main_query.select(pl.col("ArticuloPadre_Id").unique().sort())
-    pl.disable_string_cache()
-
-    return (main_query, monederos, articulos)
-
+    return main_query
 
 @op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def generate_cooccurrence(
-    df_purchases: pl.DataFrame, df_articulos: pl.DataFrame
+    df_purchases: pl.DataFrame
 ) -> pl.DataFrame:
     """
     Crea una matriz de co-ocurrencia mediante un self-join sobre 'Monedero_Id' que cuenta cuántos
@@ -135,7 +119,7 @@ def generate_cooccurrence(
 
 @op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
 def generate_recommendations(
-    df_purchases: pl.DataFrame, cooccurrence: pl.DataFrame, df_monederos: pl.DataFrame
+    df_purchases: pl.DataFrame, cooccurrence: pl.DataFrame
 ) -> pl.DataFrame:
     """
     Genera recomendaciones de productos para cada cliente basadas en la co-ocurrencia de compras.
@@ -156,8 +140,22 @@ def generate_recommendations(
     Retorna:
         pl.DataFrame: DataFrame con las recomendaciones por cliente.
     """
+
     df_purchases_lazy = df_purchases.lazy()
     cooccurrence_lazy = cooccurrence.lazy()
+    with pl.StringCache():   
+        df_purchases_lazy = df_purchases_lazy.with_columns(
+            pl.col("Monedero_Id").cast(pl.Categorical).alias("Monedero_Id"),
+        )
+    with pl.StringCache():
+        df_purchases_lazy = df_purchases_lazy.with_columns(
+            pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
+        )
+        cooccurrence_lazy = cooccurrence_lazy.with_columns(
+            pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
+            pl.col("ArticuloPadre_Id_relacionado").cast(pl.Categorical).alias("ArticuloPadre_Id_relacionado"),
+        )
+    df_monederos = df_purchases_lazy.select(pl.col("Monedero_Id").unique().sort()).collect(streaming=True)
 
     final_recs: pl.DataFrame | None = None
     for client_chunk in df_monederos.iter_slices(n_rows=10000):
@@ -237,6 +235,7 @@ def generate_recommendations(
             final_recs = inter.collect(streaming=True)
         else:
             final_recs = pl.concat([final_recs, inter.collect(streaming=True)])
+    pl.disable_string_cache()
 
     return final_recs if final_recs is not None else pl.DataFrame()
 
@@ -257,9 +256,9 @@ def save_recommendations(
 
 @graph
 def cliente_recomendacion_graph():
-    df_purchases, df_monederos, df_articulos = get_customer_purchases()
-    cooccurrence = generate_cooccurrence(df_purchases, df_articulos)
-    recommendations = generate_recommendations(df_purchases, cooccurrence, df_monederos)
+    df_purchases = get_customer_purchases()
+    cooccurrence = generate_cooccurrence(df_purchases)
+    recommendations = generate_recommendations(df_purchases, cooccurrence)
     return save_recommendations(recommendations)
 
 
