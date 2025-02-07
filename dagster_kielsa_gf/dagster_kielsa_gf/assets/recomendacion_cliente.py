@@ -1,3 +1,4 @@
+from collections import deque
 import warnings
 from datetime import datetime
 from typing import Sequence
@@ -145,6 +146,9 @@ def compute_cooccurrence_matrix(
     Cada elemento (i, j) indica la suma de las coocurrencias (ponderadas por Frecuencia)
     entre el artículo i y el artículo j.
     """
+    if user_item_matrix.shape is None:
+        raise ValueError("La matriz de usuario-artículo está vacía.")
+
     n_items = user_item_matrix.shape[1]
     # Inicializar la matriz de coocurrencia en formato LIL (fácil de modificar)
     cooccurrence = sp.lil_matrix((n_items, n_items), dtype=np.int32)
@@ -161,7 +165,7 @@ def compute_cooccurrence_matrix(
     cooccurrence = cooccurrence.tocsr()
     cooccurrence.setdiag(0)
 
-    return cooccurrence
+    return cooccurrence # type: ignore
 
 
 @op
@@ -178,6 +182,9 @@ def compute_lift_matrix(
       - frecuencia(i) es el número (ponderado) de usuarios que compraron el artículo i.
       - total_usuarios es el número total de clientes.
     """
+    if user_item_matrix.shape is None:
+        raise ValueError("La matriz de usuario-artículo está vacía.")
+
     total_users = user_item_matrix.shape[0]
     # Calcular la frecuencia de cada artículo (suma de los pesos por columna)
     item_counts = np.array(
@@ -186,7 +193,7 @@ def compute_lift_matrix(
 
     # Convertir la matriz de coocurrencia a formato COO para iterar sobre sus elementos no nulos
     cooc_coo = cooccurrence.tocoo()
-    lift_data = []
+    lift_data = deque()
 
     for i, j, observed in zip(cooc_coo.row, cooc_coo.col, cooc_coo.data):
         # Calcular la coocurrencia esperada si fueran independientes
@@ -199,7 +206,7 @@ def compute_lift_matrix(
     lift_matrix = sp.coo_matrix(
         (lift_data, (cooc_coo.row, cooc_coo.col)), shape=cooccurrence.shape
     )
-    return lift_matrix.tocsr()
+    return lift_matrix.tocsr() # type: ignore
 
 
 @op(
@@ -223,7 +230,9 @@ def generate_recommendations(
       - Clientes_Compraron: Suma de las coocurrencias (ponderadas por frecuencia) entre los artículos
         que el cliente ya compró y el artículo candidato.
 
-    Se filtran aquellas asociaciones cuyo lift sea inferior al umbral (por defecto 1.0).
+    Se filtran aquellas asociaciones cuyo lift sea inferior al umbral (por defecto 1.0) y, además, se
+    descartan recomendaciones cuya métrica 'Clientes_Compraron' sea menor que el percentil 10 de todos los
+    valores no cero o 5, lo que sea mayor.
     """
     # Construir la matriz usuario–artículo y obtener los mapeos
     user_item_matrix, user_to_idx, item_to_idx = create_user_item_matrix(purchases_df)
@@ -247,11 +256,20 @@ def generate_recommendations(
     lift_matrix.eliminate_zeros()
     # ----------------------------
 
+    # Calcular el umbral global para 'Clientes_Compraron':
+    # Se toma el percentil 10 de los valores no cero de la matriz de coocurrencia y se compara con 5.
+    nonzero_cooccur = cooccurrence.data
+    if nonzero_cooccur.size > 0:
+        p10 = int(np.percentile(nonzero_cooccur, 10))
+    else:
+        p10 = 0
+    min_cooccur_threshold = max(5, p10)
+
     # Crear diccionarios inversos para la salida final
     idx_to_user = {i: uid for uid, i in user_to_idx.items()}
     idx_to_item = {i: iid for iid, i in item_to_idx.items()}
 
-    recommendations = []
+    recommendations = deque()
     n_users = user_item_matrix.shape[0]
 
     # Procesar usuarios en bloques para mantener escalabilidad
@@ -273,37 +291,30 @@ def generate_recommendations(
                 continue  # Saltar usuarios sin compras
 
             # Excluir los artículos ya comprados (asignar puntaje negativo)
-            batch_lift_scores[i, user_items] = -1
+            batch_lift_scores[i, user_items] = -1  
             batch_cooccur_scores[i, user_items] = -1
 
             # Seleccionar los mejores n_recommendations basados en lift
             if n_recommendations < batch_lift_scores.shape[1]:
-                top_unsorted = np.argpartition(
-                    -batch_lift_scores[i], n_recommendations
-                )[:n_recommendations]
-                top_item_indices = top_unsorted[
-                    np.argsort(batch_lift_scores[i][top_unsorted])[::-1]
-                ]
+                top_unsorted = np.argpartition(-batch_lift_scores[i], n_recommendations)[:n_recommendations]
+                top_item_indices = top_unsorted[np.argsort(batch_lift_scores[i][top_unsorted])[::-1]]
             else:
-                top_item_indices = np.argsort(batch_lift_scores[i])[::-1][
-                    :n_recommendations
-                ]
+                top_item_indices = np.argsort(batch_lift_scores[i])[::-1][:n_recommendations]
 
+            # Evaluar cada recomendación candidata
             for item_idx in top_item_indices:
                 lift_score = batch_lift_scores[i, item_idx]
                 if lift_score > 0:
                     cooccur_count = int(batch_cooccur_scores[i, item_idx])
-                    recommendations.append(
-                        {
+                    # Solo incluir recomendaciones con Clientes_Compraron >= umbral
+                    if cooccur_count >= min_cooccur_threshold:
+                        recommendations.append({
                             "Monedero_Id": idx_to_user[user_idx],
                             "Articulo_Id_Recomendado": idx_to_item[item_idx],
-                            "Lift": lift_score,
+                            "Lift_Score": lift_score,
                             "Clientes_Compraron": cooccur_count,
-                            "Articulos_Id_Relacionados": ",".join(
-                                str(idx_to_item[j]) for j in user_items
-                            ),
-                        }
-                    )
+                            "Articulos_Id_Relacionados": ",".join(str(idx_to_item[j]) for j in user_items)
+                        })
 
     return pl.DataFrame(recommendations)
 
