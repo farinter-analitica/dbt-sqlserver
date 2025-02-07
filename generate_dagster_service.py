@@ -69,7 +69,7 @@ if __name__ == "__main__":
     instance_env = os.environ.get("DAGSTER_INSTANCE_CURRENT_ENV", "default")
     if instance_env == "default":
         print("Loading default environment variables from .env")
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ""))
         env_file = os.path.join(repo_root, '.env')
         load_dotenv(dotenv_path=env_file)
         instance_env = os.environ.get("DAGSTER_INSTANCE_CURRENT_ENV", "default")
