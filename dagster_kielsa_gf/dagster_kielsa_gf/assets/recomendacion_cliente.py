@@ -43,7 +43,7 @@ def get_customer_purchases(
 ) -> pl.DataFrame:
     meses_muestra = 2
     lista_fechas_muestra = [
-        pdl.today().subtract(months=i+1) for i in range(meses_muestra)
+        pdl.today().subtract(months=i + 1) for i in range(meses_muestra)
     ]
     lista_aniomes = [fecha.year * 100 + fecha.month for fecha in lista_fechas_muestra]
 
@@ -56,7 +56,7 @@ def get_customer_purchases(
     FROM
         DL_FARINTER.dbo.DL_Kielsa_FacturasPosiciones FA WITH(NOLOCK)
     INNER JOIN
-        (SELECT {"TOP 10000" if env_str == "local" else ""}
+        (SELECT {"TOP 100000" if env_str == "local" else ""}
             M.Monedero_Id,
             COUNT(DISTINCT ArticuloPadre_Id) AS Articulos
         FROM
@@ -85,15 +85,16 @@ def get_customer_purchases(
         DC.Articulos
     ORDER BY DC.Monedero_Id, COUNT(*) DESC
     """
-    main_query = pl.read_database(
-        sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).lazy().collect(streaming=True)
+    main_query = (
+        pl.read_database(sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string())
+        .lazy()
+        .collect(streaming=True)
+    )
     return main_query
 
+
 @op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
-def generate_cooccurrence(
-    df_purchases: pl.DataFrame
-) -> pl.DataFrame:
+def generate_cooccurrence(df_purchases: pl.DataFrame) -> pl.DataFrame:
     """
     Crea una matriz de co-ocurrencia mediante un self-join sobre 'Monedero_Id' que cuenta cuántos
             clientes compraron cada par de artículos (excluyendo pares idénticos).
@@ -141,26 +142,31 @@ def generate_recommendations(
         pl.DataFrame: DataFrame con las recomendaciones por cliente.
     """
 
-    df_purchases_lazy = df_purchases.lazy()
-    cooccurrence_lazy = cooccurrence.lazy()
-    with pl.StringCache():   
-        df_purchases_lazy = df_purchases_lazy.with_columns(
-            pl.col("Monedero_Id").cast(pl.Categorical).alias("Monedero_Id"),
-        )
-    with pl.StringCache():
-        df_purchases_lazy = df_purchases_lazy.with_columns(
-            pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
-        )
-        cooccurrence_lazy = cooccurrence_lazy.with_columns(
-            pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
-            pl.col("ArticuloPadre_Id_relacionado").cast(pl.Categorical).alias("ArticuloPadre_Id_relacionado"),
-        )
-    df_monederos = df_purchases_lazy.select(pl.col("Monedero_Id").unique().sort()).collect(streaming=True)
+    df_purchases_lazy = df_purchases
+    cooccurrence_lazy = cooccurrence
+    pl.enable_string_cache()
+    df_purchases_lazy = df_purchases_lazy.with_columns(
+        pl.col("Monedero_Id").cast(pl.Categorical).alias("Monedero_Id"),
+    )
+
+    df_purchases_lazy = df_purchases_lazy.with_columns(
+        pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
+    )
+    cooccurrence_lazy = cooccurrence_lazy.with_columns(
+        pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
+        pl.col("ArticuloPadre_Id_relacionado")
+        .cast(pl.Categorical)
+        .alias("ArticuloPadre_Id_relacionado"),
+    )
+    df_monederos = df_purchases_lazy.select(
+        pl.col("Monedero_Id").unique().sort()
+    ) #.collect(streaming=True)
 
     final_recs: pl.DataFrame | None = None
     for client_chunk in df_monederos.iter_slices(n_rows=10000):
         chunk_rows = df_purchases_lazy.join(
-            client_chunk.lazy(), on="Monedero_Id", how="inner"
+            client_chunk #.lazy()
+            , on="Monedero_Id", how="inner"
         )
 
         # Unir con la matriz de co-ocurrencia y filtrar aquellos artículos ya comprados por el cliente.
@@ -232,9 +238,11 @@ def generate_recommendations(
         )
 
         if final_recs is None:
-            final_recs = inter.collect(streaming=True)
+            final_recs = inter #.collect(streaming=True)
         else:
-            final_recs = pl.concat([final_recs, inter.collect(streaming=True)])
+            final_recs = pl.concat([final_recs, inter #.collect(streaming=True)
+                                    ]
+                                   )
     pl.disable_string_cache()
 
     return final_recs if final_recs is not None else pl.DataFrame()
@@ -270,11 +278,11 @@ DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
         )
     },
     tags_by_output_name={
-        "result": tags_repo.Monthly
-        | tags_repo.UniquePeriod
-        | tags_repo.Automation
+        "result": tags_repo.Monthly | tags_repo.UniquePeriod | tags_repo.Automation
     },
-    automation_conditions_by_output_name={"result": automation_monthly_start_delta_1_cron}
+    automation_conditions_by_output_name={
+        "result": automation_monthly_start_delta_1_cron
+    },
 )
 
 all_assets = tuple(load_assets_from_current_module())
