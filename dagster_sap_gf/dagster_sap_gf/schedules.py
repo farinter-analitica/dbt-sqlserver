@@ -1,20 +1,38 @@
-from dagster import ScheduleDefinition, DefaultScheduleStatus, RunsFilter, DagsterRunStatus, ScheduleEvaluationContext
+from dagster import (
+    ScheduleDefinition,
+    DefaultScheduleStatus,
+    RunsFilter,
+    DagsterRunStatus,
+    ScheduleEvaluationContext,
+)
 from dagster_sap_gf import jobs
-from dagster_shared_gf.shared_functions import (get_all_instances_of_class, get_for_current_env)
+from dagster_shared_gf.shared_functions import (
+    get_all_instances_of_class,
+    get_for_current_env,
+)
 from dagster_shared_gf import shared_variables as shared_vars
+
 # cron: minute hour day month day_of_week, example daily at midnight: 0 0 * * *
 # cron example daily at midnight mon-fri with numbers: 0 0 * * 1-5
 # cron template: hour minute day month day_of_week
-env_str:str=shared_vars.env_str
+env_str: str = shared_vars.env_str
 
 default_timezone: str = "America/Tegucigalpa"
 # running_default_schedule_status: DefaultScheduleStatus = (lambda x= {"local":DefaultScheduleStatus.STOPPED,"dev":DefaultScheduleStatus.RUNNING,"prd":DefaultScheduleStatus.RUNNING}: x.get(env_str,x.get("dev")))
-running_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"local":DefaultScheduleStatus.STOPPED
-                                                                              ,"dev":DefaultScheduleStatus.RUNNING
-                                                                              ,"prd":DefaultScheduleStatus.RUNNING})
-stopped_default_schedule_status: DefaultScheduleStatus = get_for_current_env({"local":DefaultScheduleStatus.STOPPED
-                                                                              ,"dev":DefaultScheduleStatus.STOPPED
-                                                                              ,"prd":DefaultScheduleStatus.STOPPED})
+running_default_schedule_status: DefaultScheduleStatus = get_for_current_env(
+    {
+        "local": DefaultScheduleStatus.STOPPED,
+        "dev": DefaultScheduleStatus.RUNNING,
+        "prd": DefaultScheduleStatus.RUNNING,
+    }
+)
+stopped_default_schedule_status: DefaultScheduleStatus = get_for_current_env(
+    {
+        "local": DefaultScheduleStatus.STOPPED,
+        "dev": DefaultScheduleStatus.STOPPED,
+        "prd": DefaultScheduleStatus.STOPPED,
+    }
+)
 
 # Define the schedule
 # dbt_dwh_sap_mart_datos_maestros_schedule = ScheduleDefinition(
@@ -85,6 +103,10 @@ dbt_dwh_sap_marts_all_orphan_job_schedule = ScheduleDefinition(
     default_status=running_default_schedule_status,
 )
 
+clean_storage_job_schedule = ScheduleDefinition(
+    cron_schedule=get_for_current_env({"dev": "5 22 * * 6", "prd": "5 22 * * 7"}),
+    job=jobs.clean_storage_job,
+    default_status=running_default_schedule_status,
+)
 
 all_schedules = get_all_instances_of_class([ScheduleDefinition])
-

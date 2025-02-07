@@ -1,25 +1,18 @@
 from dagster import (
-    define_asset_job,
     AssetSelection,
-    asset,
-    job,
-    AssetKey,
+    RunConfig,
     JobDefinition,
-    ConfigMapping,
-    ConfigSchema,
+    define_asset_job,
 )
+
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
-    env_str,
     UnresolvedAssetJobDefinition,
     tags_repo,
 )
-from typing import List, Any, Mapping
+from dagster_shared_gf.utils import clean_storage
 
-ExecutorConfig = ConfigSchema
-workflows_run_config_secuential: ExecutorConfig = {
-    "execution": {"config": {"multiprocess": {"max_concurrent": 1}}}
-}
+clean_storage_job = clean_storage.clean_storage_job
 
 shared_daily_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Daily.key, value=tags_repo.Daily.value
@@ -49,21 +42,16 @@ shared_hourly_assets_job: UnresolvedAssetJobDefinition = define_asset_job(
     },  # max 100 minutes in seconds, then mark it as failed.)
 )
 
-shared_assets_not_scheduled: AssetSelection = (
-    shared_daily_assets
-    - shared_hourly_assets
-)
+shared_assets_not_scheduled: AssetSelection = shared_daily_assets - shared_hourly_assets
 shared_assets_not_scheduled_job = define_asset_job(
     name="shared_assets_not_scheduled_job",
     selection=shared_assets_not_scheduled,
     tags=tags_repo.Daily.tag,
 )
 
-
 all_jobs = get_all_instances_of_class(
     class_type_list=[JobDefinition, UnresolvedAssetJobDefinition]
 )
-
 
 if __name__ == "__main__":
     print(shared_assets_not_scheduled)

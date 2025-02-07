@@ -57,8 +57,8 @@ defs = Definitions(
         *dbt_dwh_global.all_assets,
         *dbt_sources.all_assets,
     ),
-    jobs=all_jobs,
-    schedules=all_schedules,
+    jobs=(*all_jobs,),
+    schedules=(*all_schedules,),
     asset_checks=(
         *dias_festivos.all_asset_checks,
         *dias_festivos.all_asset_freshness_checks,

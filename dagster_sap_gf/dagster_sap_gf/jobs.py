@@ -7,6 +7,9 @@ from dagster_shared_gf.shared_variables import (
     get_execution_config,
     tags_repo,
 )
+from dagster_shared_gf.utils import clean_storage
+
+clean_storage_job = clean_storage.clean_storage_graph.to_job(name="clean_storage_job")
 
 # Define the job and add to definitions on main __init__.py
 
@@ -25,14 +28,14 @@ dbt_dwh_sap_marts_job = define_asset_job(
         "dbt_dwh_sap_mart_finanzas",
         "dbt_dwh_sap_mart_mm",
     ),
-    config=RunConfig(execution=execution_run_config_default),
+    config=execution_run_config_default,
 )
 
 
 dbt_dwh_sap_etl_dwh_job = define_asset_job(
     name="dbt_dwh_sap_etl_dwh_job",
     selection=AssetSelection.groups("sap_etl_dwh").tag_string("dagster_sap_gf/dbt"),
-    config=RunConfig(execution=execution_run_config_default),
+    config=execution_run_config_default,
 )
 
 dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
@@ -40,7 +43,7 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
     selection=AssetSelection.groups("sap_etl_dwh").tag_string("dagster_sap_gf/dbt"),
     config=RunConfig(
         {"dbt_sap_etl_dwh_assets": MyDbtConfig(full_refresh=True)},
-        execution=execution_run_config_default,
+        execution=execution_run_config_default.execution,
     ),
 )
 
@@ -63,7 +66,7 @@ sap_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
         "dagster/max_runtime": (4 * 60 * 60)
     }  # max 4 hours in seconds, then mark it as failed.
     | tags_repo.Daily.tag,
-    config=RunConfig(execution=execution_run_config_default),
+    config=execution_run_config_default,
 )
 
 # Definir assets que tenga la etiqueta por_hora y todos los dependientes que no tengan la etiqueta de periodo unico
@@ -85,7 +88,7 @@ sap_dwh_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
         "dagster/max_runtime": (100 * 60)
     }  # max 100 minutes in seconds, then mark it as failed.
     | tags_repo.Hourly.tag,
-    config=RunConfig(execution=execution_run_config_default),
+    config=execution_run_config_default,
 )
 
 dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = (
@@ -97,8 +100,9 @@ dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = (
 dbt_dwh_sap_marts_all_orphan_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="dbt_dwh_sap_marts_all_orphan_job",
     selection=dbt_dwh_sap_marts_all_orphan_assets,
-    config=RunConfig(execution=execution_run_config_default),
+    config=execution_run_config_default,
 )
+
 
 all_jobs: tuple[JobDefinition | UnresolvedAssetJobDefinition,...] = get_all_instances_of_class(
     class_type_list=[JobDefinition, UnresolvedAssetJobDefinition], namespace=globals()

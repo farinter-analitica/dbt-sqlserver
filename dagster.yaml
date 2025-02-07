@@ -43,3 +43,13 @@ run_queue: #dagster\_core\run_coordinator\queued_run_coordinator.py
 
 concurrency:
   default_op_concurrency_limit: 1
+
+# Configures how long Dagster keeps sensor / schedule tick data
+retention:
+  schedule:
+    purge_after_days: 90 # sets retention policy for schedule ticks of all types
+  sensor:
+    purge_after_days:
+      skipped: 7
+      failure: 30
+      success: 90 # keep success ticks indefinitely

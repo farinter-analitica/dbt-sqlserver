@@ -138,8 +138,8 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     """{"periodo/semanal": ""}"""
 
 
-def get_execution_config(max_concurrent: int) -> dict:
-    return {"config": {"multiprocess": {"max_concurrent": max_concurrent}}}
+def get_execution_config(max_concurrent: int) -> RunConfig:
+    return RunConfig(execution={"multiprocess": {"max_concurrent": max_concurrent}})
 
 
 tags_repo = TagsRepositoryGF()
