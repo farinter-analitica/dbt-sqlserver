@@ -1,8 +1,11 @@
-from datetime import datetime, timedelta
-from typing import Sequence
 import warnings
+from datetime import datetime
+from typing import Sequence
+
+import numpy as np
 import pendulum as pdl
 import polars as pl
+import scipy.sparse as sp
 from dagster import (
     AssetChecksDefinition,
     AssetKey,
@@ -10,27 +13,22 @@ from dagster import (
     Out,
     asset,
     graph,
+    instance_for_test,
     load_asset_checks_from_current_module,
     load_assets_from_current_module,
+    materialize,
     op,
 )
 
 from dagster_shared_gf.automation import automation_monthly_start_delta_1_cron
+from dagster_shared_gf.resources.smb_resources import (
+    smb_resource_staging_dagster_dwh,
+)
 from dagster_shared_gf.resources.sql_server_resources import (
     SQLServerResource,
     dwh_farinter_dl,
 )
-from dagster_shared_gf.shared_variables import tags_repo
-
-from dagster import (
-    instance_for_test,
-    materialize,
-)
-
-from dagster_shared_gf.resources.smb_resources import (
-    smb_resource_staging_dagster_dwh,
-)
-from dagster_shared_gf.shared_variables import env_str
+from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
 @op(
@@ -93,159 +91,221 @@ def get_customer_purchases(
     return main_query
 
 
-@op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
-def generate_cooccurrence(df_purchases: pl.DataFrame) -> pl.DataFrame:
+@op
+def create_user_item_matrix(
+    purchases_df: pl.DataFrame,
+) -> tuple[sp.csr_matrix, dict, dict]:
     """
-    Crea una matriz de co-ocurrencia mediante un self-join sobre 'Monedero_Id' que cuenta cuántos
-            clientes compraron cada par de artículos (excluyendo pares idénticos).
-    """
-    df_purchases_lazy = df_purchases.lazy()
+    Convierte los datos de compras en una matriz dispersa usuario–artículo.
 
-    # Crear la matriz de co-ocurrencia (ordenada globalmente por importancia)
-    cooccurrence = (
-        df_purchases_lazy.join(
-            df_purchases_lazy, on="Monedero_Id", suffix="_relacionado"
-        )
-        .filter(pl.col("ArticuloPadre_Id") != pl.col("ArticuloPadre_Id_relacionado"))
-        .group_by(["ArticuloPadre_Id", "ArticuloPadre_Id_relacionado"])
-        .agg(pl.len().alias("Clientes_Compraron"))
-        .filter(
-            pl.col("Clientes_Compraron") >= 5
-        )  # Se limita a pares de artículos comprados por al menos 5 clientes.
-        .sort("Clientes_Compraron", descending=True)
+    Se utilizan los campos:
+      - Monedero_Id (identificador del cliente)
+      - ArticuloPadre_Id (identificador del artículo)
+      - Frecuencia (cantidad de compras; se utiliza como peso en la matriz)
+
+    Se asume que los IDs son textos.
+    """
+    # Extraer los IDs únicos y ordenados de usuario y artículo
+    user_ids = purchases_df.get_column("Monedero_Id").unique().sort().to_numpy()
+    item_ids = purchases_df.get_column("ArticuloPadre_Id").unique().sort().to_numpy()
+
+    # Convertir las columnas originales a arrays de NumPy
+    monedero_array = purchases_df.get_column("Monedero_Id").to_numpy()
+    articulo_array = purchases_df.get_column("ArticuloPadre_Id").to_numpy()
+    # Utilizar la columna "Frecuencia" para asignar el peso de cada compra
+    frecuencia_array = purchases_df.get_column("Frecuencia").to_numpy()
+
+    # Mapeo vectorizado: usar np.searchsorted ya que los arrays están ordenados
+    user_indices = np.searchsorted(user_ids, monedero_array)
+    item_indices = np.searchsorted(item_ids, articulo_array)
+
+    # Utilizar la frecuencia real (convertida a int32)
+    data = frecuencia_array.astype(np.int32)
+
+    # Construir la matriz dispersa (filas: usuarios, columnas: artículos)
+    matrix = sp.csr_matrix(
+        (data, (user_indices, item_indices)),
+        shape=(len(user_ids), len(item_ids)),
+        dtype=np.int32,
     )
 
-    return cooccurrence.collect(streaming=True)
+    # Crear diccionarios de mapeo para búsquedas inversas
+    user_to_idx = {uid: i for i, uid in enumerate(user_ids)}
+    item_to_idx = {iid: i for i, iid in enumerate(item_ids)}
+
+    return matrix, user_to_idx, item_to_idx
 
 
-@op(out=Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"))
+@op
+def compute_cooccurrence_matrix(
+    user_item_matrix: sp.csr_matrix, chunk_size: int = 10_000
+) -> sp.csr_matrix:
+    """
+    Calcula la matriz de coocurrencia de artículos de forma eficiente en memoria.
+    Cada elemento (i, j) indica la suma de las coocurrencias (ponderadas por Frecuencia)
+    entre el artículo i y el artículo j.
+    """
+    n_items = user_item_matrix.shape[1]
+    # Inicializar la matriz de coocurrencia en formato LIL (fácil de modificar)
+    cooccurrence = sp.lil_matrix((n_items, n_items), dtype=np.int32)
+
+    # Procesar en bloques para gestionar la memoria
+    for i in range(0, n_items, chunk_size):
+        end = min(i + chunk_size, n_items)
+        # Obtener un bloque de la matriz transpuesta (artículos)
+        chunk = user_item_matrix.T[i:end]
+        # Acumular la coocurrencia multiplicando por la matriz original
+        cooccurrence[i:end] = chunk @ user_item_matrix
+
+    # Convertir a CSR para operaciones rápidas y poner a cero la diagonal (sin auto-coocurrencia)
+    cooccurrence = cooccurrence.tocsr()
+    cooccurrence.setdiag(0)
+
+    return cooccurrence
+
+
+@op
+def compute_lift_matrix(
+    user_item_matrix: sp.csr_matrix, cooccurrence: sp.csr_matrix
+) -> sp.csr_matrix:
+    """
+    Calcula la matriz de lift a partir de la matriz de coocurrencia.
+
+    La fórmula utilizada es:
+       lift(i, j) = (coocurrencia observada para i y j) / ((frecuencia(i) * frecuencia(j)) / total_usuarios)
+
+    Donde:
+      - frecuencia(i) es el número (ponderado) de usuarios que compraron el artículo i.
+      - total_usuarios es el número total de clientes.
+    """
+    total_users = user_item_matrix.shape[0]
+    # Calcular la frecuencia de cada artículo (suma de los pesos por columna)
+    item_counts = np.array(
+        user_item_matrix.sum(axis=0)
+    ).ravel()  # Vector de frecuencias
+
+    # Convertir la matriz de coocurrencia a formato COO para iterar sobre sus elementos no nulos
+    cooc_coo = cooccurrence.tocoo()
+    lift_data = []
+
+    for i, j, observed in zip(cooc_coo.row, cooc_coo.col, cooc_coo.data):
+        # Calcular la coocurrencia esperada si fueran independientes
+        expected = (item_counts[i] * item_counts[j]) / total_users
+        # Evitar división por cero
+        lift_value = observed / expected if expected > 0 else 0
+        lift_data.append(lift_value)
+
+    # Reconstruir la matriz de lift en formato COO y convertir a CSR
+    lift_matrix = sp.coo_matrix(
+        (lift_data, (cooc_coo.row, cooc_coo.col)), shape=cooccurrence.shape
+    )
+    return lift_matrix.tocsr()
+
+
+@op(
+    out={
+        "recommendations": Out(
+            pl.DataFrame, io_manager_key="polars_parquet_io_manager"
+        ),
+    }
+)
 def generate_recommendations(
-    df_purchases: pl.DataFrame, cooccurrence: pl.DataFrame
+    purchases_df: pl.DataFrame,
+    n_recommendations: int = 5,
+    batch_size: int = 1000,
+    lift_threshold: float = 1.0,
 ) -> pl.DataFrame:
     """
-    Genera recomendaciones de productos para cada cliente basadas en la co-ocurrencia de compras.
+    Genera recomendaciones de productos para cada cliente basadas en lo que otros han comprado.
 
-    El proceso es el siguiente:
-      1. Se crea una matriz de co-ocurrencia mediante un self-join sobre 'Monedero_Id' que cuenta cuántos
-         clientes compraron cada par de artículos (excluyendo pares idénticos).
-      2. Se calcula la frecuencia con la que cada cliente compró cada artículo.
-      3. Para cada cliente se ordenan los artículos por frecuencia descendente y se limitan a los 10 más importantes;
-         además, se utiliza el artículo con mayor frecuencia como base para la recomendación.
-      4. Se une la base del cliente con la matriz de co-ocurrencia y se filtran aquellos artículos ya comprados por el cliente.
-      5. Se ordenan las recomendaciones por la importancia (Clientes_Compraron) y se extraen las 5 principales por cliente.
+    Se utilizan dos métricas:
+      - Lift: Mide la fuerza de la asociación entre artículos.
+      - Clientes_Compraron: Suma de las coocurrencias (ponderadas por frecuencia) entre los artículos
+        que el cliente ya compró y el artículo candidato.
 
-    Parámetros:
-        df_purchases (pl.DataFrame): DataFrame que debe contener al menos las columnas
-                                     'Monedero_Id' y 'ArticuloPadre_Id'.
-
-    Retorna:
-        pl.DataFrame: DataFrame con las recomendaciones por cliente.
+    Se filtran aquellas asociaciones cuyo lift sea inferior al umbral (por defecto 1.0).
     """
+    # Construir la matriz usuario–artículo y obtener los mapeos
+    user_item_matrix, user_to_idx, item_to_idx = create_user_item_matrix(purchases_df)
 
-    df_purchases_lazy = df_purchases
-    cooccurrence_lazy = cooccurrence
-    pl.enable_string_cache()
-    df_purchases_lazy = df_purchases_lazy.with_columns(
-        pl.col("Monedero_Id").cast(pl.Categorical).alias("Monedero_Id"),
+    # Calcular la matriz de coocurrencia
+    cooccurrence = compute_cooccurrence_matrix(user_item_matrix)
+
+    # Calcular la matriz de lift a partir de la coocurrencia
+    lift_matrix = compute_lift_matrix(user_item_matrix, cooccurrence)
+
+    # ----------------------------
+    # Filtrar asociaciones débiles: descartar aquellas con lift inferior al umbral.
+    # Se trabaja en formato COO para filtrar de forma vectorizada.
+    lift_coo = lift_matrix.tocoo()
+    mask = lift_coo.data >= lift_threshold
+    filtered_data = np.where(mask, lift_coo.data, 0)
+    lift_matrix = sp.coo_matrix(
+        (filtered_data, (lift_coo.row, lift_coo.col)), shape=lift_coo.shape
     )
+    lift_matrix = lift_matrix.tocsr()
+    lift_matrix.eliminate_zeros()
+    # ----------------------------
 
-    df_purchases_lazy = df_purchases_lazy.with_columns(
-        pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
-    )
-    cooccurrence_lazy = cooccurrence_lazy.with_columns(
-        pl.col("ArticuloPadre_Id").cast(pl.Categorical).alias("ArticuloPadre_Id"),
-        pl.col("ArticuloPadre_Id_relacionado")
-        .cast(pl.Categorical)
-        .alias("ArticuloPadre_Id_relacionado"),
-    )
-    df_monederos = df_purchases_lazy.select(
-        pl.col("Monedero_Id").unique().sort()
-    ) #.collect(streaming=True)
+    # Crear diccionarios inversos para la salida final
+    idx_to_user = {i: uid for uid, i in user_to_idx.items()}
+    idx_to_item = {i: iid for iid, i in item_to_idx.items()}
 
-    final_recs: pl.DataFrame | None = None
-    for client_chunk in df_monederos.iter_slices(n_rows=10000):
-        chunk_rows = df_purchases_lazy.join(
-            client_chunk #.lazy()
-            , on="Monedero_Id", how="inner"
-        )
+    recommendations = []
+    n_users = user_item_matrix.shape[0]
 
-        # Unir con la matriz de co-ocurrencia y filtrar aquellos artículos ya comprados por el cliente.
-        # Se usa un anti join para descartar recomendaciones que el cliente ya posee.
-        inter = (
-            chunk_rows.join(
-                cooccurrence_lazy,
-                left_on="ArticuloPadre_Id",
-                right_on="ArticuloPadre_Id",
-                # validate="m:m"
-            )
-            .join(
-                chunk_rows,
-                left_on=["Monedero_Id", "ArticuloPadre_Id_relacionado"],
-                right_on=["Monedero_Id", "ArticuloPadre_Id"],
-                how="anti",
-            )
-            .filter(
-                pl.col("ArticuloPadre_Id") != pl.col("ArticuloPadre_Id_relacionado")
-            )
-            # Ordenar para que primero se consideren los candidatos con mayor "Clientes_Compraron"
-            .sort(["Monedero_Id", "Clientes_Compraron"], descending=[False, True])
-            # Seleccionar las top 5 recomendaciones por cliente e incluir la lista de artículos relacionados (los artículos base que originaron la recomendación)
-            # Se agrupa por cliente y por el artículo recomendado, agrupando los artículos de base que dieron lugar a la recomendación.
-            .with_columns(
-                pl.col("ArticuloPadre_Id_relacionado").alias("Articulo_Id_Recomendado")
-            )
-            .group_by(["Monedero_Id", "Articulo_Id_Recomendado"])
-            .agg(
-                [
-                    # Se toma el máximo de "Clientes_Compraron" (o se podría aplicar otra agregación)
-                    pl.col("Clientes_Compraron").max().alias("Clientes_Compraron"),
-                    # Agrupar los artículos base que originan la recomendación (sin duplicados)
-                    pl.col("ArticuloPadre_Id")
-                    .unique()
-                    .alias("Articulos_Id_Relacionados"),
+    # Procesar usuarios en bloques para mantener escalabilidad
+    for batch_start in range(0, n_users, batch_size):
+        batch_end = min(batch_start + batch_size, n_users)
+        batch_matrix = user_item_matrix[batch_start:batch_end]
+
+        # Calcular los puntajes de lift para cada usuario en el bloque
+        batch_lift_scores = batch_matrix.dot(lift_matrix).toarray()
+        # Calcular los puntajes de coocurrencia (Clientes_Compraron) para el bloque
+        batch_cooccur_scores = batch_matrix.dot(cooccurrence).toarray()
+
+        # Para cada usuario en el bloque
+        for i in range(batch_end - batch_start):
+            user_idx = batch_start + i
+            # Obtener los índices de los artículos que ya compró el usuario
+            user_items = batch_matrix[i].nonzero()[1]
+            if user_items.size == 0:
+                continue  # Saltar usuarios sin compras
+
+            # Excluir los artículos ya comprados (asignar puntaje negativo)
+            batch_lift_scores[i, user_items] = -1
+            batch_cooccur_scores[i, user_items] = -1
+
+            # Seleccionar los mejores n_recommendations basados en lift
+            if n_recommendations < batch_lift_scores.shape[1]:
+                top_unsorted = np.argpartition(
+                    -batch_lift_scores[i], n_recommendations
+                )[:n_recommendations]
+                top_item_indices = top_unsorted[
+                    np.argsort(batch_lift_scores[i][top_unsorted])[::-1]
                 ]
-            )
-            .sort(["Monedero_Id", "Clientes_Compraron"], descending=[False, True])
-            # Para cada cliente, se eligen las 5 recomendaciones principales.
-            .group_by("Monedero_Id")
-            .agg(
-                [
-                    pl.col("Articulo_Id_Recomendado")
-                    .head(5)
-                    .alias("Articulo_Id_Recomendado"),
-                    pl.col("Clientes_Compraron").head(5).alias("Clientes_Compraron"),
-                    pl.col("Articulos_Id_Relacionados")
-                    .head(5)
-                    .alias("Articulos_Id_Relacionados"),
+            else:
+                top_item_indices = np.argsort(batch_lift_scores[i])[::-1][
+                    :n_recommendations
                 ]
-            )
-            # Explota para obtener una fila por recomendación
-            .explode(
-                [
-                    "Articulo_Id_Recomendado",
-                    "Clientes_Compraron",
-                    "Articulos_Id_Relacionados",
-                ]
-            )
-            # Convertir la lista de Articulos_Id_Relacionados a cadena separada por comas
-            .with_columns(
-                pl.col("Articulos_Id_Relacionados")
-                .list.eval(pl.element().cast(pl.Utf8))
-                .list.join(",")
-                .alias("Articulos_Id_Relacionados")
-            )
-            .with_columns(pl.lit(0).alias("Iteration"))
-        )
 
-        if final_recs is None:
-            final_recs = inter #.collect(streaming=True)
-        else:
-            final_recs = pl.concat([final_recs, inter #.collect(streaming=True)
-                                    ]
-                                   )
-    pl.disable_string_cache()
+            for item_idx in top_item_indices:
+                lift_score = batch_lift_scores[i, item_idx]
+                if lift_score > 0:
+                    cooccur_count = int(batch_cooccur_scores[i, item_idx])
+                    recommendations.append(
+                        {
+                            "Monedero_Id": idx_to_user[user_idx],
+                            "Articulo_Id_Recomendado": idx_to_item[item_idx],
+                            "Lift": lift_score,
+                            "Clientes_Compraron": cooccur_count,
+                            "Articulos_Id_Relacionados": ",".join(
+                                str(idx_to_item[j]) for j in user_items
+                            ),
+                        }
+                    )
 
-    return final_recs if final_recs is not None else pl.DataFrame()
+    return pl.DataFrame(recommendations)
 
 
 @op
@@ -265,8 +325,7 @@ def save_recommendations(
 @graph
 def cliente_recomendacion_graph():
     df_purchases = get_customer_purchases()
-    cooccurrence = generate_cooccurrence(df_purchases)
-    recommendations = generate_recommendations(df_purchases, cooccurrence)
+    recommendations = generate_recommendations(df_purchases)
     return save_recommendations(recommendations)
 
 
