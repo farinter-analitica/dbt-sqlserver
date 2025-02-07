@@ -21,7 +21,7 @@ from dagster import (
     op,
 )
 
-from dagster_shared_gf.automation import automation_monthly_start_delta_1_cron
+from dagster_shared_gf.automation import automation_weekly_7_delta_1_cron
 from dagster_shared_gf.resources.smb_resources import (
     smb_resource_staging_dagster_dwh,
 )
@@ -42,7 +42,7 @@ def get_customer_purchases(
 ) -> pl.DataFrame:
     meses_muestra = 2
     lista_fechas_muestra = [
-        pdl.today().subtract(months=i + 1) for i in range(meses_muestra)
+        pdl.today().subtract(months=i) for i in range(meses_muestra+1)
     ]
     lista_aniomes = [fecha.year * 100 + fecha.month for fecha in lista_fechas_muestra]
 
@@ -55,7 +55,7 @@ def get_customer_purchases(
     FROM
         DL_FARINTER.dbo.DL_Kielsa_FacturasPosiciones FA WITH(NOLOCK)
     INNER JOIN
-        (SELECT {"TOP 100000" if env_str == "local" else ""}
+        (SELECT {"TOP 10000" if env_str == "local" else ""}
             M.Monedero_Id,
             COUNT(DISTINCT ArticuloPadre_Id) AS Articulos
         FROM
@@ -66,17 +66,19 @@ def get_customer_purchases(
             AND F.Emp_Id = M.Emp_Id
         WHERE
             F.Emp_Id = 1 AND 
-            F.AnioMes_Id IN ({", ".join(map(str, lista_aniomes))}) AND 
+            F.AnioMes_Id IN ({", ".join(map(str, lista_aniomes))}) AND
+            F.Factura_Fecha >= '{min(lista_fechas_muestra).strftime('%Y%m%d')}' AND
             F.TipoDoc_Id = 1 AND
             M.Activo_Indicador = 1 
         GROUP BY
             M.Monedero_Id
-        HAVING
-            COUNT(DISTINCT ArticuloPadre_Id) > 1) DC 
+        HAVING COUNT(DISTINCT ArticuloPadre_Id) > 1
+        ) DC 
     ON FA.MonederoTarj_Id_Limpio = DC.Monedero_Id
     WHERE
         FA.Emp_Id = 1 AND 
         FA.AnioMes_Id IN ({", ".join(map(str, lista_aniomes))}) AND 
+        FA.Factura_Fecha >= '{min(lista_fechas_muestra).strftime('%Y%m%d')}' AND
         FA.TipoDoc_Id = 1
     GROUP BY
         DC.Monedero_Id,
@@ -121,7 +123,7 @@ def create_user_item_matrix(
     # Utilizar la columna "Frecuencia" para asignar el peso de cada compra
     frecuencia_array = purchases_df.get_column("Frecuencia").to_numpy()
     # Utilizar la frecuencia real (convertida a int32)
-    data =  (frecuencia_array > 1).astype(np.int32)
+    data =  (frecuencia_array > 0).astype(np.int32)
 
     # Construir la matriz dispersa (filas: usuarios, columnas: artículos)
     matrix = sp.csr_matrix(
@@ -167,6 +169,23 @@ def compute_cooccurrence_matrix(
 
     return cooccurrence # type: ignore
 
+@op
+def filter_cooccurrence(cooccurrence: sp.csr_matrix, min_cooccur_count: int = 3) -> sp.csr_matrix:
+    """
+    Elimina pares (i, j) cuya co-ocurrencia sea < min_cooccur_count.
+    El primer filtro (en la matriz global) se asegura de no incluir pares (i, j) con evidencia muy escasa en toda la data (menos de X clientes).
+    """
+
+    cooc_coo = cooccurrence.tocoo()
+    mask = cooc_coo.data >= min_cooccur_count
+
+    cooc_filtered = sp.coo_matrix(
+        (cooc_coo.data[mask], (cooc_coo.row[mask], cooc_coo.col[mask])),
+        shape=cooc_coo.shape
+    ).tocsr()
+
+    cooc_filtered.eliminate_zeros()
+    return cooc_filtered # type: ignore
 
 @op
 def compute_lift_matrix(
@@ -220,7 +239,8 @@ def generate_recommendations(
     purchases_df: pl.DataFrame,
     n_recommendations: int = 5,
     batch_size: int = 1000,
-    lift_threshold: float = 1.0,
+    lift_threshold: float = 1.0, # Lo normal es 1.0, pero soportaremos menores con una co-ocurrencia alta para obtener mas resultados
+    min_cooccur_threshold: int = 5,
 ) -> pl.DataFrame:
     """
     Genera recomendaciones de productos para cada cliente basadas en lo que otros han comprado.
@@ -230,15 +250,23 @@ def generate_recommendations(
       - Clientes_Compraron: Suma de las coocurrencias (ponderadas por frecuencia) entre los artículos
         que el cliente ya compró y el artículo candidato.
 
-    Se filtran aquellas asociaciones cuyo lift sea inferior al umbral (por defecto 1.0) y, además, se
+    Se filtran u ordenan aquellas asociaciones cuyo lift sea inferior al umbral (por defecto 1.0) y, además, se
     descartan recomendaciones cuya métrica 'Clientes_Compraron' sea menor que el percentil 10 de todos los
     valores no cero o 5, lo que sea mayor.
     """
     # Construir la matriz usuario–artículo y obtener los mapeos
     user_item_matrix, user_to_idx, item_to_idx = create_user_item_matrix(purchases_df)
-
+    raw_cooccurrence = compute_cooccurrence_matrix(user_item_matrix)
+    # -- Determinar umbral de co-ocurrencia: tomamos p10 de valores no cero o 5, lo que sea mayor --
+    nonzero_cooccur = raw_cooccurrence.data
+    if nonzero_cooccur.size > 0:
+        p10 = int(np.percentile(nonzero_cooccur, 10))
+    else:
+        p10 = 0
+    min_cooccur_threshold = max(min_cooccur_threshold, p10)  
     # Calcular la matriz de coocurrencia
-    cooccurrence = compute_cooccurrence_matrix(user_item_matrix)
+    cooccurrence = filter_cooccurrence(raw_cooccurrence, min_cooccur_count = min_cooccur_threshold)
+
 
     # Calcular la matriz de lift a partir de la coocurrencia
     lift_matrix = compute_lift_matrix(user_item_matrix, cooccurrence)
@@ -256,14 +284,6 @@ def generate_recommendations(
     lift_matrix.eliminate_zeros()
     # ----------------------------
 
-    # Calcular el umbral global para 'Clientes_Compraron':
-    # Se toma el percentil 10 de los valores no cero de la matriz de coocurrencia y se compara con 5.
-    nonzero_cooccur = cooccurrence.data
-    if nonzero_cooccur.size > 0:
-        p10 = int(np.percentile(nonzero_cooccur, 10))
-    else:
-        p10 = 0
-    min_cooccur_threshold = max(5, p10)
 
     # Crear diccionarios inversos para la salida final
     idx_to_user = {i: uid for uid, i in user_to_idx.items()}
@@ -277,43 +297,43 @@ def generate_recommendations(
         batch_end = min(batch_start + batch_size, n_users)
         batch_matrix = user_item_matrix[batch_start:batch_end]
 
-        # Calcular los puntajes de lift para cada usuario en el bloque
+        # Puntajes de lift y coocurrencia para este bloque de usuarios
         batch_lift_scores = batch_matrix.dot(lift_matrix).toarray()
-        # Calcular los puntajes de coocurrencia (Clientes_Compraron) para el bloque
         batch_cooccur_scores = batch_matrix.dot(cooccurrence).toarray()
 
-        # Para cada usuario en el bloque
+        # Por cada usuario en el bloque
         for i in range(batch_end - batch_start):
             user_idx = batch_start + i
-            # Obtener los índices de los artículos que ya compró el usuario
+            # Artículos que ya compró
             user_items = batch_matrix[i].nonzero()[1]
-            if user_items.size == 0:
-                continue  # Saltar usuarios sin compras
+            if user_items.size < 2:
+                continue  # no tiene compras suficientes, no sugerimos nada
 
-            # Excluir los artículos ya comprados (asignar puntaje negativo)
-            batch_lift_scores[i, user_items] = -1  
+            # Quitar los artículos ya comprados (asignar -1)
+            batch_lift_scores[i, user_items] = -1
             batch_cooccur_scores[i, user_items] = -1
 
-            # Seleccionar los mejores n_recommendations basados en lift
+            # Escoger los mejores N (top N) por lift
             if n_recommendations < batch_lift_scores.shape[1]:
                 top_unsorted = np.argpartition(-batch_lift_scores[i], n_recommendations)[:n_recommendations]
                 top_item_indices = top_unsorted[np.argsort(batch_lift_scores[i][top_unsorted])[::-1]]
             else:
                 top_item_indices = np.argsort(batch_lift_scores[i])[::-1][:n_recommendations]
 
-            # Evaluar cada recomendación candidata
+            # Validar cada artículo recomendado
             for item_idx in top_item_indices:
                 lift_score = batch_lift_scores[i, item_idx]
                 if lift_score > 0:
                     cooccur_count = int(batch_cooccur_scores[i, item_idx])
-                    # Solo incluir recomendaciones con Clientes_Compraron >= umbral
+                    # Exigir que la coocurrencia sea >= min_cooccur_threshold
+                    # (ya filtramos globalmente, pero aquí puedes reforzar la verificación)
                     if cooccur_count >= min_cooccur_threshold:
                         recommendations.append({
                             "Monedero_Id": idx_to_user[user_idx],
                             "Articulo_Id_Recomendado": idx_to_item[item_idx],
                             "Lift_Score": lift_score,
                             "Clientes_Compraron": cooccur_count,
-                            "Articulos_Id_Relacionados": ",".join(str(idx_to_item[j]) for j in user_items)
+                            "Articulos_Id_Relacionados": ",".join(str(idx_to_item[j]) for j in user_items),
                         })
 
     return pl.DataFrame(recommendations)
@@ -323,6 +343,7 @@ def generate_recommendations(
 def save_recommendations(
     dwh_farinter_dl: SQLServerResource, recommendations: pl.DataFrame
 ) -> None:
+    print(f"Por guardar {len(recommendations)} recomendaciones")
     with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
         if env_str == "local":
             return
@@ -348,10 +369,10 @@ DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
         )
     },
     tags_by_output_name={
-        "result": tags_repo.Monthly | tags_repo.UniquePeriod | tags_repo.Automation
+        "result": tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.Automation
     },
     automation_conditions_by_output_name={
-        "result": automation_monthly_start_delta_1_cron
+        "result": automation_weekly_7_delta_1_cron
     },
 )
 
