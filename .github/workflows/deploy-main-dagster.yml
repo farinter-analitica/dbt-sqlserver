@@ -53,7 +53,10 @@ jobs:
       - name: Deploy Dagster Services
         run: |
           source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
-          sudo -E python "${{ env.DEPLOY_DIR }}/generate_dagster_service.py"
+          sudo DAGSTER_INSTANCE_CURRENT_ENV="${{ env.DAGSTER_INSTANCE_CURRENT_ENV }}" \
+               DEPLOY_DIR="${{ env.DEPLOY_DIR }}" \
+               ENV_NAME="${{ env.ENV_NAME }}" \
+               python "${{ env.DEPLOY_DIR }}/generate_dagster_service.py"
 
       - name: Verify Deployment Status
         if: always()
