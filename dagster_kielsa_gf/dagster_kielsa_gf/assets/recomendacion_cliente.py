@@ -113,15 +113,15 @@ def create_user_item_matrix(
     # Convertir las columnas originales a arrays de NumPy
     monedero_array = purchases_df.get_column("Monedero_Id").to_numpy()
     articulo_array = purchases_df.get_column("ArticuloPadre_Id").to_numpy()
-    # Utilizar la columna "Frecuencia" para asignar el peso de cada compra
-    frecuencia_array = purchases_df.get_column("Frecuencia").to_numpy()
 
     # Mapeo vectorizado: usar np.searchsorted ya que los arrays están ordenados
     user_indices = np.searchsorted(user_ids, monedero_array)
     item_indices = np.searchsorted(item_ids, articulo_array)
 
+    # Utilizar la columna "Frecuencia" para asignar el peso de cada compra
+    frecuencia_array = purchases_df.get_column("Frecuencia").to_numpy()
     # Utilizar la frecuencia real (convertida a int32)
-    data = frecuencia_array.astype(np.int32)
+    data =  (frecuencia_array > 1).astype(np.int32)
 
     # Construir la matriz dispersa (filas: usuarios, columnas: artículos)
     matrix = sp.csr_matrix(
