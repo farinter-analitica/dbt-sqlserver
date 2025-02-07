@@ -364,7 +364,7 @@ def hontrack_api_source(
             return doc
 
         for resource_name in resources:
-            source.resources[resource_name].add_map(transform_doc, 1)
+            source.resources[resource_name].add_map(transform_doc)
 
     transform_common(("vehicles_resumen", "sensors_resumen"))
 
@@ -400,7 +400,7 @@ def hontrack_api_source(
             doc["data"] = transormed
             return doc
 
-        resource.add_map(transform_doc, 2)
+        resource.add_map(transform_doc)
 
     transform_sensors_resumen(source.resources["sensors_resumen"])
 
