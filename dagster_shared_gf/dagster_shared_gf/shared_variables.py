@@ -139,7 +139,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
 
 
 def get_execution_config(max_concurrent: int) -> RunConfig:
-    return RunConfig(execution={"multiprocess": {"max_concurrent": max_concurrent}})
+    return RunConfig(
+        execution={"config": {"multiprocess": {"max_concurrent": max_concurrent}}}
+    )
 
 
 tags_repo = TagsRepositoryGF()
