@@ -27,6 +27,7 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
     merge_dlt_dagster_metadata,
 )
 from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.shared_variables import Tags
 from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
 
 snake_case_normalizer = NamingConvention()
@@ -75,6 +76,7 @@ class DltResourceCollectionConfig:
     import_schema_path: Optional[str] = None
     export_schema_path: Optional[str] = None
     schema_contract: Optional[TSchemaContractDict] = None
+    tags: Optional[Tags] = None
     """
     You can control the following schema entities:
 
@@ -202,6 +204,11 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
     def get_export_schema_path(self, resource: DltResource) -> str | None:
         if self.collection:
             return self.collection.export_schema_path
+    
+    def get_tags(self, resource: DltResource) -> Mapping[str, str] | None:
+        if self.collection:
+            return self.collection.tags
+        return super().get_tags(resource)
 
 
 class ComparableFunction:
