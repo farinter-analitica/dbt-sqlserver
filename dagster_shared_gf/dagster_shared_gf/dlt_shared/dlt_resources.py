@@ -35,7 +35,7 @@ dlt.secrets["dwh_farinter_dl"] = (
 
 mssql_dwh_destination = dlt.destinations.mssql(
     credentials=dlt.secrets["dwh_farinter_dl"],
-    create_indexes=True,
+    # create_indexes=True, #esto tiene bug, prefiero no usarlo y ver despues si el rendimiento lo requiere crear indices en un proceso
 )
 fn_extract_resource_metadata = DagsterDltResource().extract_resource_metadata
 ExtractedResourceMetadata = Mapping[str, Any]
@@ -104,13 +104,14 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
                 del doc[column_name]
 
         return doc
-    
+
     def get_tags(self, resource: DltResource) -> Mapping[str, str]:
         default_tags = super().get_tags(resource)
         if self.tags:
             return {**default_tags, **self.tags}
         else:
             return default_tags
+
 
 class BaseDltPipeline(ConfigurableResource):
     write_disposition: str | None = Field(
