@@ -135,6 +135,7 @@ class ExcelFileProcessor:
         context: AssetExecutionContext,
         smb_resource: SMBResource,
         dwh_resource: SQLServerResource,
+        move_processed_files_to_folder: bool = True,
         add_metadata_columns: bool = True,
         filename_column: str = "nombre_archivo",
         date_loaded_column: str = "fecha_carga",
@@ -149,6 +150,7 @@ class ExcelFileProcessor:
         self.dwh_resource = dwh_resource
         self.v_metadata: dict[str, Any] = {"Archivos": {}}
         self.drop_table_count = 0
+        self.move_processed_files_to_folder = move_processed_files_to_folder
         self.add_metadata_columns = add_metadata_columns
         self.filename_column = filename_column
         self.date_loaded_column = date_loaded_column
@@ -156,7 +158,7 @@ class ExcelFileProcessor:
 
     def process_files(self, single_file: str | None = None) -> MaterializeResult:
         """
-        Process all Excel files in the directory. 
+        Process all Excel files in the directory.
         Leaves log of errors and successes in a txt file.
         Moves processed files to a folder if configured.
         Args:
@@ -334,12 +336,13 @@ class ExcelFileProcessor:
             )
 
     def _move_processed_file(self, current_file_path: PureWindowsPath, file_descriptor):
-        if env_str in ["prd"] and self.schema_config.move_processed_files_to_folder:
-            self.smb_resource.move_server_file(
+        if env_str in ["prd"]:
+            self.smb_resource.copy_server_file(
                 file_path=current_file_path,
                 new_path=current_file_path.parent.joinpath(
                     self.schema_config.loaded_files_folder
                 ).joinpath(clean_filename(file_descriptor.name)),
+                move=self.move_processed_files_to_folder,
             )
 
     def _handle_known_error(
@@ -380,11 +383,10 @@ class ExcelFileProcessor:
             path=current_file_path.parent.joinpath("logs_carga.txt"), mode="a"
         ) as file:
             file.write(log_message)
-        
+
     def _add_metadata_columns(self, df: pl.DataFrame, file_descriptor) -> pl.DataFrame:
         return df.with_columns(
             pl.lit(clean_filename(file_descriptor.name)).alias(self.filename_column),
             pl.lit(datetime.now()).alias(self.date_loaded_column),
             pl.lit(datetime.now()).alias(self.date_updated_column),
         )
-    

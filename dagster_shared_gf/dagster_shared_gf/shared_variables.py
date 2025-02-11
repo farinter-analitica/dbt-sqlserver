@@ -177,10 +177,6 @@ class ExcelProcessConfig(Config):
     loaded_files_folder: str = Field(
         description="Loaded files folder", default="cargados"
     )
-    move_processed_files_to_folder: bool = Field(
-        description="Move processed files to folder", default=True
-    )
-
     primary_keys: tuple[str, ...] = Field(
         description="Primary keys", default_factory=tuple
     )

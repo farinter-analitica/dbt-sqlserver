@@ -1,6 +1,5 @@
 from pathlib import PureWindowsPath
 
-from dagster_shared_gf.shared_ops import ExcelFileProcessor
 import polars as pl
 from dagster import (
     AssetExecutionContext,
@@ -13,6 +12,7 @@ from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     normalize_string,
 )
+from dagster_shared_gf.shared_ops import ExcelFileProcessor
 from dagster_shared_gf.shared_variables import (
     ExcelProcessConfig,
     tags_repo,
@@ -148,6 +148,7 @@ def DL_Kielsa_Horario_Temp(
         context=context,
         smb_resource=smb_resource_analitica_nasgftgu02,
         dwh_resource=dwh_farinter_dl,
+        move_processed_files_to_folder=False,
     )
 
     return processor.process_files()

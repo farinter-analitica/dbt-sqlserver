@@ -182,13 +182,14 @@ class SMBResource(ConfigurableResource):
         # Start scanning the directory from depth 0
         return _scan_dir(directory, 0)
 
-    def move_server_file(self, file_path: PureWindowsPath, new_path: PureWindowsPath):
+    def copy_server_file(self, file_path: PureWindowsPath, new_path: PureWindowsPath, move: bool=False):
         """
-        Moves a file from one current server share location to another.
+        Copies or Moves a file from one current server share location to another.
 
         Args:
             file_path (PureWindowsPath): The path of the file to be moved, no server needed.
             new_path (PureWindowsPath): The new path where the file will be moved, no server needed.
+            move (bool): Whether to move the file or copy it. Defaults to False.
 
         Returns:
             None
@@ -215,7 +216,11 @@ class SMBResource(ConfigurableResource):
             type="info",
             message=f"Moving {str(file_path.as_posix())} to {str(new_path.as_posix())}",
         )
-        self.client.renames(file_path.as_posix(), new_path.as_posix())
+        if move:
+            self.client.renames(file_path.as_posix(), new_path.as_posix())
+        else:
+            self.client.makedirs(new_path.parent.as_posix(), exist_ok=True)
+            self.client.copyfile(file_path.as_posix(), new_path.as_posix())
 
     class SMBDirEntry(smb_os.SMBDirEntry):
         pass

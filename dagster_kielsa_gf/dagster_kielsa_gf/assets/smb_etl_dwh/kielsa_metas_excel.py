@@ -1,6 +1,5 @@
-from datetime import datetime
 from pathlib import PureWindowsPath
-from dagster_shared_gf.shared_functions import clean_filename
+
 import polars as pl
 import polars.selectors as cs
 from dagster import (
@@ -8,13 +7,14 @@ from dagster import (
     asset,
     materialize_to_memory,
 )
-from dagster_shared_gf.shared_ops import ExcelFileProcessor
+
 from dagster_shared_gf.resources.smb_resources import SMBResource
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
+from dagster_shared_gf.shared_ops import ExcelFileProcessor
 from dagster_shared_gf.shared_variables import (
+    ErrorsOccurred,
     ExcelProcessConfig,
     tags_repo,
-    ErrorsOccurred,
 )
 
 KIELSA_METAS_SCHEMA = pl.Schema(
@@ -263,6 +263,7 @@ def DL_Kielsa_MetaHist_Temp(
         filename_column="Nombre_Archivo",
         date_loaded_column="Fecha_Carga",
         date_updated_column="Fecha_Actualizado",
+        move_processed_files_to_folder=True,
     )
 
     return processor.process_files()
