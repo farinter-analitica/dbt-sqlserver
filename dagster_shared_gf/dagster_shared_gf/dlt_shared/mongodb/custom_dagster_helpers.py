@@ -23,7 +23,7 @@ from dlt.extract import DltResource, DltSource
 from pydantic import Field, dataclasses
 
 from dagster_shared_gf.dlt_shared.dlt_resources import (
-    BaseDltPipeline,
+    DltPipelineDestMssqlDwh,
     merge_dlt_dagster_metadata,
 )
 from dagster_shared_gf.shared_functions import get_for_current_env
@@ -470,7 +470,7 @@ def create_dlt_asset(
         automation_condition=dlt_t.get_automation_condition(dlt_resource),
     )
     def compute_dlt_asset(
-        context: AssetExecutionContext, dlt_pipeline_dest_mssql_dwh: BaseDltPipeline
+        context: AssetExecutionContext, dlt_pipeline_dest_mssql_dwh: DltPipelineDestMssqlDwh
     ):
         target_pipeline_name = pipeline_name
         new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
