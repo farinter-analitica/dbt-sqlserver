@@ -88,6 +88,14 @@ asset_selection_mes = (
     - asset_selection_hora
 )
 
+asset_selection_restante = (
+    AssetSelection.all()
+    - asset_selection_mes
+    - asset_selection_semana
+    - asset_selection_dia
+    - asset_selection_hora
+)
+
 defs = Definitions.merge(
     # dlt_defs.defs, #antes todos los subrepos
     Definitions(
@@ -112,7 +120,7 @@ defs = Definitions.merge(
             ),
             ACS(
                 "automation_condition_sensor_slow",
-                target=asset_selection_mes | asset_selection_semana,
+                target=asset_selection_mes | asset_selection_semana | asset_selection_restante,
                 use_user_code_server=True,
                 minimum_interval_seconds=60 * 60,
                 tags=tags_repo.Monthly | tags_repo.Weekly,
