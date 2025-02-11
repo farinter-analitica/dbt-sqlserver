@@ -406,10 +406,9 @@ def clean_filename(filename: str) -> str:
     # Reattach the file extension
     return clean_name + ext.lower()
 
-def clean_string_to_key(string: str) -> str:
+def clean_filename_to_key(string: str) -> str:
     """
-    Cleans a string by removing or replacing unsafe characters and reducing multiple underscores to one,
-    without altering the file extension.
+    Cleans a filename by removing or replacing unsafe characters and reducing multiple underscores to one.
     """
 
     # Clean using a normalizer
@@ -431,6 +430,62 @@ def clean_string_to_key(string: str) -> str:
         clean_string = 'file'
 
     return clean_string
+
+def normalize_string(string: str) -> str:
+    """
+    Cleans a string by removing or replacing unsafe characters and reducing multiple underscores to one.
+    """
+
+    # Clean using a normalizer
+    clean_string = normalize_str_to_snake_case(str(string))
+
+    # Replace multiple underscores with a single underscore
+    clean_string = re.sub(r'_+', '_', clean_string)
+
+    # Ensure no trailing underscore 
+    if clean_string.endswith('_'):
+        clean_string = clean_string[:-1]
+
+    # Ensure no leading underscore
+    if clean_string.startswith('_'):
+        clean_string = clean_string[1:]
+
+    return clean_string
+
+def clean_phone_number(phone: str, country_code: str = "HN") -> str:
+    """
+    Clean phone numbers based on country patterns
+    
+    Args:
+        phone: Phone number to clean
+        country_code: Two letter country code (HN, GT, NI, CR, SV, PA)
+    
+    Returns:
+        Cleaned phone number or empty string if invalid
+    """
+    patterns = {
+        "HN": r"^(?:\+?504[-\s]?[23789]\d{7}|[23789]\d{7})$",
+        "GT": r"^(?:\+?502[-\s]?\d{8}|[234567]\d{7})$", 
+        "NI": r"^(?:\+?505[-\s]?\d{8}|[23578]\d{7})$",
+        "CR": r"^(?:\+?506[-\s]?\d{8}|[245678]\d{7})$",
+        "SV": r"^(?:\+?503[-\s]?\d{8}|[67]\d{7})$",
+        "PA": r"^(?:\+?507[-\s]?\d{8}|[26]\d{7})$"
+    }
+    
+    if not phone:
+        return ""
+        
+    # Remove any non-digit characters
+    cleaned = re.sub(r'\D', '', str(phone))
+    
+    # Check if matches country pattern
+    pattern = patterns.get(country_code.upper())
+    if pattern and re.match(pattern, cleaned):
+        return cleaned
+        
+    return ""
+
+
 
 def get_function_path(func):
     return f"{func.__module__}.{func.__qualname__}"

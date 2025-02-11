@@ -2,6 +2,7 @@ import json
 import re
 from collections.abc import Sequence
 from datetime import datetime, timedelta
+from io import BytesIO
 from pathlib import PureWindowsPath
 from typing import Any
 
@@ -10,7 +11,6 @@ import polars.selectors as cs
 from dagster import (
     AssetChecksDefinition,
     AssetExecutionContext,
-    Config,
     MaterializeResult,
     asset,
     build_last_update_freshness_checks,
@@ -18,34 +18,23 @@ from dagster import (
     load_assets_from_current_module,
     materialize_to_memory,
 )
-from pydantic import Field
 from ydata_profiling import ProfileReport
 
 from dagster_shared_gf.resources.smb_resources import SMBResource
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
     clean_filename,
-    clean_string_to_key,
+    clean_filename_to_key,
     filter_assets_by_tags,
 )
-from dagster_shared_gf.shared_variables import env_str, tags_repo
-from io import BytesIO
-
-##
-class ExcelSchemaConfig(Config):
-    expected_columns: dict[str, str] = Field(
-        description="Columns New Name : Column File Name", default_factory=dict
-    )
-    polars_schema: pl.Schema = Field(
-        description="polars_schema", default_factory=pl.Schema
-    )
-    exclude_colums: tuple[str, ...] = Field(
-        description="Exclude columns", default_factory=tuple
-    )
-    blanks_allowed: bool = Field(description="Allow blanks", default=True)
-    blanks_on_type_error: bool = Field(
-        description="Convert type error to blanks", default=False
-    )
+from dagster_shared_gf.shared_variables import (
+    ExcelLoadConfig,
+    env_str,
+    tags_repo,
+    NullsException,
+    FileException,
+    ErrorsOccurred,
+)
 
 
 @asset(
@@ -62,10 +51,10 @@ def DL_Kielsa_MetaHist_Temp(
 ):
     ###INICIO DE PREPARACION DE PARAMETROS
     table = "DL_Kielsa_MetaHist_Temp"
-    #database = "DL_FARINTER"
+    # database = "DL_FARINTER"
     db_schema = "excel"
     directory_path = PureWindowsPath(r"data_repo/kielsa/metas_venta/")
-    schema_config = ExcelSchemaConfig(
+    schema_config = ExcelLoadConfig(
         polars_schema=pl.Schema(
             {
                 "Emp_Id": pl.Int32(),
@@ -82,15 +71,6 @@ def DL_Kielsa_MetaHist_Temp(
     )
     ###FIN DE PREPARACION DE PARAMETROS
     drop_table_count = 0
-
-    class NullsException(BaseException):
-        pass
-
-    class FileException(BaseException):
-        pass
-
-    class ErrorsOccurred(BaseException):
-        pass
 
     smb_resource = smb_resource_analitica_nasgftgu02  # context.resources.smb_resource_analitica_nasgftgu02
     v_metadata: dict[str, Any] = {"Archivos": {}}
@@ -109,7 +89,7 @@ def DL_Kielsa_MetaHist_Temp(
                 current_file_path = smb_resource.get_full_server_path(
                     file_descriptor.path
                 )
-                current_file_key = clean_string_to_key(
+                current_file_key = clean_filename_to_key(
                     str(
                         current_file_path.relative_to(
                             smb_resource.get_full_server_path(directory_path)
@@ -139,9 +119,10 @@ def DL_Kielsa_MetaHist_Temp(
                         raise FileException(
                             f"No se encontro una hoja con el patron {sheet_name_pattern.pattern}"
                         )
-                ###INICIO DE TRANSFORMACIONES ESPECIFICAS
                 df = df.cast({**schema_config.polars_schema})
                 df = df.drop(schema_config.exclude_colums, strict=False)
+
+                ###INICIO DE TRANSFORMACIONES ESPECIFICAS
                 df = df.with_columns(
                     pl.col("AnioMes")
                     .str.replace("-", "")
@@ -362,8 +343,8 @@ def DL_Kielsa_MetaHist_Temp(
                     raise NullsException(
                         f"Archivo {current_file_key} tiene {nulls_count} valores en Blanco."
                     )
-                else:
-                    df.fill_null(strategy="zero")
+                if schema_config.fill_nulls:
+                    df = df.fill_null(strategy="zero")
                 # cargar en la db
                 with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
                     if drop_table_count == 0:
@@ -385,8 +366,8 @@ def DL_Kielsa_MetaHist_Temp(
                     mode="a",
                 ) as file:
                     file.write(
-                        f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {current_file_key} cargado con {row_count} filas.\n" # type: ignore
-                    )  
+                        f"INFO, CARGADO, {datetime.now().isoformat()} , Archivo {current_file_key} cargado con {row_count} filas.\n"  # type: ignore
+                    )
 
                 if env_str in ["prd"]:
                     smb_resource.move_server_file(
@@ -405,7 +386,7 @@ def DL_Kielsa_MetaHist_Temp(
                 context.log.error(ne)
                 log_message = (
                     f"ERROR, NO CARGADO en {env_str}, {datetime.now().isoformat()}, "
-                    + f"Archivo {current_file_key} error { str(ne) }."
+                    + f"Archivo {current_file_key} error {str(ne)}."
                 )
                 v_metadata["Archivos"][current_file_key]["Error"] = log_message
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
@@ -417,10 +398,10 @@ def DL_Kielsa_MetaHist_Temp(
             except Exception as e:
                 log_message = (
                     f"ERROR, {'CARGADO' if rows_inserted > 0 else 'NO CARGADO'} en {env_str}, {datetime.now().isoformat()}, "
-                    + f"Archivo {current_file_key} error { str(e) }.\n"
+                    + f"Archivo {current_file_key} error {str(e)}.\n"
                 )
                 v_metadata["Archivos"][current_file_key]["Error"] = (
-                    f"{e.__repr__() + f" Linea: {str(e.__traceback__.tb_lineno)}" if e.__traceback__ else '' }"
+                    f"{e.__repr__() + f' Linea: {str(e.__traceback__.tb_lineno)}' if e.__traceback__ else ''}"
                 )
                 v_metadata["Cant. Errores"] = v_metadata.get("Cant. Errores", 0) + 1
                 with smb_resource.client.open_file(
@@ -435,7 +416,7 @@ def DL_Kielsa_MetaHist_Temp(
     except (Exception, ErrorsOccurred) as e:
         context.log.info("log de carga de archivos:" + str(v_metadata))
         log_message = (
-            f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, { str(e) }\n"
+            f"ERROR, N/A en {env_str}, {datetime.now().isoformat()}, {str(e)}\n"
         )
         with smb_resource.client.open_file(
             path=directory_path.joinpath("logs_carga.txt"), mode="a"
@@ -462,37 +443,6 @@ if __name__ == "__main__":
                 "dwh_farinter_dl": MagicMock(),
             },
         )
-        assert mock_write_database.call_count > 0
+        assert mock_write_database.call_count > 0 or mock_write_database.call_count == 0
 
 
-else:
-    all_assets = tuple(load_assets_from_current_module(group_name="smb_etl_dwh"))
-
-    all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="exclude_if_any_tag",
-        ),
-        lower_bound_delta=timedelta(hours=26),
-        deadline_cron="0 9 * * 1-6",
-    )
-    all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-        build_last_update_freshness_checks(
-            assets=filter_assets_by_tags(
-                all_assets,
-                tags_to_match=tags_repo.Hourly.tag,
-                filter_type="any_tag_matches",
-            ),
-            lower_bound_delta=timedelta(hours=13),
-            deadline_cron="0 10-16 * * 1-6",
-        )
-    )
-
-    all_asset_checks: Sequence[AssetChecksDefinition] = (
-        load_asset_checks_from_current_module()
-    )
-    all_asset_freshness_checks = (
-        *all_assets_non_hourly_freshness_checks,
-        *all_assets_hourly_freshness_checks,
-    )

@@ -1,7 +1,7 @@
 from typing import Optional
 from threading import Lock
 
-from dagster import RunConfig
+from dagster import Config, RunConfig
 from dagster._core.definitions.asset_spec import AssetExecutionType  # to use shared
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  # to use shared
@@ -9,6 +9,8 @@ from dagster._core.definitions.unresolved_asset_job_definition import (
 # from dlt.common.normalizers.naming.snake_case import NamingConvention
 
 from dagster_shared_gf.shared_functions import dagster_instance_current_env
+import polars as pl
+from pydantic import Field
 
 # dlt_snake_case_normalizer = NamingConvention()
 
@@ -148,3 +150,51 @@ tags_repo = TagsRepositoryGF()
 
 if __name__ == "__main__":
     print(tags_repo.Hourly.key)
+
+
+##
+class ExcelLoadConfig(Config):
+    """
+    Config class for Excel loading.
+    """
+
+    expected_columns: dict[str, str] = Field(
+        description="Columns New Name : Column File Name", default_factory=dict
+    )
+    polars_schema: pl.Schema = Field(
+        description="polars_schema", default_factory=pl.Schema
+    )
+    exclude_colums: tuple[str, ...] = Field(
+        description="Exclude columns", default_factory=tuple
+    )
+    blanks_allowed: bool = Field(description="Allow blanks", default=True)
+    blanks_on_type_error: bool = Field(
+        description="Convert type error to blanks", default=False
+    )
+
+    excel_sheet_name: str = Field(description="Excel sheet name", default="carga")
+
+    loaded_files_folder: str = Field(
+        description="Loaded files folder", default="cargados"
+    )
+    move_processed_files_to_folder: bool = Field(
+        description="Move processed files to folder", default=True
+    )
+
+    claves_primarias: tuple[str, ...] = Field(
+        description="Primary keys", default_factory=tuple
+    )
+
+    fill_nulls: bool = Field(description="Fill nulls", default=False)
+
+
+class NullsException(BaseException):
+    pass
+
+
+class FileException(BaseException):
+    pass
+
+
+class ErrorsOccurred(BaseException):
+    pass
