@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from collections.abc import Iterator
 from pathlib import PureWindowsPath
@@ -94,6 +95,7 @@ class SMBResource(ConfigurableResource):
 
     All functions accept a `path` parameter, which is the path to operate on, and `kwargs`, which are common arguments used to build the SMB Session.
     """
+
     def setup_for_execution(self, context: InitResourceContext):
         self._context = context
         self._is_initialized = True
@@ -182,7 +184,9 @@ class SMBResource(ConfigurableResource):
         # Start scanning the directory from depth 0
         return _scan_dir(directory, 0)
 
-    def copy_server_file(self, file_path: PureWindowsPath, new_path: PureWindowsPath, move: bool=False):
+    def copy_server_file(
+        self, file_path: PureWindowsPath, new_path: PureWindowsPath, move: bool = False
+    ):
         """
         Copies or Moves a file from one current server share location to another.
 
@@ -197,7 +201,9 @@ class SMBResource(ConfigurableResource):
 
         def get_unique_dst_path(dst_path: PureWindowsPath):
             counter = 1
-            new_dst_path = dst_path
+            new_dst_path = dst_path.with_name(
+                f"{dst_path.stem}_{datetime.now().strftime('%Y%m%d%')}{dst_path.suffix}"
+            )
 
             # Check if file already exists
             while self.path.exists(new_dst_path):
@@ -210,7 +216,7 @@ class SMBResource(ConfigurableResource):
 
         file_path = self.get_full_server_path(file_path)
         new_path = self.get_full_server_path(new_path)
-        # if exists add a number
+        # add date and if exists add a number
         new_path = get_unique_dst_path(new_path)
         self.log_event(
             type="info",
@@ -227,8 +233,6 @@ class SMBResource(ConfigurableResource):
 
     class SMBDirEntryInformation(smb_os.SMBDirEntryInformation):
         pass
-
-
 
 
 smb_resource_analitica_nasgftgu02 = SMBResource(
@@ -262,6 +266,6 @@ if __name__ == "__main__":
 
     print(
         smb_resource_independent_dagster_dwh.client.listdir(
-            f"\\{all_servers["DWH"]}\staging_dagster"
+            f"\\{all_servers['DWH']}\staging_dagster"
         )
     )
