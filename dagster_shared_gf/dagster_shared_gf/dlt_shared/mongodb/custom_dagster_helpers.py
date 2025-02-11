@@ -453,7 +453,6 @@ def create_dlt_asset(
     collections_config_dict: dict[str, DltResourceCollectionConfig],
     pipeline_name: str,
     group_name: str | None = None,
-    tags: Mapping[str, str] | None = None,
 ) -> AssetsDefinition:
     @asset(
         key=dlt_t.get_asset_key(dlt_resource),
@@ -467,7 +466,7 @@ def create_dlt_asset(
             "mongodb",
             "sql_server",
         },
-        tags=tags,
+        tags=dlt_t.get_tags(dlt_resource),
         automation_condition=dlt_t.get_automation_condition(dlt_resource),
     )
     def compute_dlt_asset(
