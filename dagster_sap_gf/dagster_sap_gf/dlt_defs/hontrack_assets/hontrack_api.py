@@ -40,7 +40,7 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
     dlt_pipeline_dest_mssql_dwh,
     DltPipelineDestMssqlDwh,
 )
-from dagster_shared_gf.shared_variables import default_timezone_teg
+from dagster_shared_gf.shared_variables import default_timezone_teg, tags_repo
 from dagster_shared_gf.partitions.time_based import get_daily_partition_def_to_today
 import pendulum
 from requests import Request, Response
@@ -606,6 +606,7 @@ def _daily_partition_iter(
     dagster_dlt_translator=MyDagsterDltTranslator(
         automation_condition=automation_daily_delta_2_cron,
         prefix_key=["DL_FARINTER", "hontrack_api"],
+        tags=tags_repo.Daily | tags_repo.Automation,
     ),
     partitions_def=daily_partitions_def,
 )

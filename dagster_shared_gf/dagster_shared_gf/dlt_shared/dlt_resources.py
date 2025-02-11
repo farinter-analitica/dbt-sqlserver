@@ -23,7 +23,7 @@ from dlt.extract import DltResource
 from pydantic import Field, dataclasses
 
 from dagster_shared_gf.resources import sql_server_resources
-from dagster_shared_gf.shared_variables import env_str
+from dagster_shared_gf.shared_variables import env_str, Tags
 
 new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
@@ -45,6 +45,7 @@ ExtractedResourceMetadata = Mapping[str, Any]
 class MyDagsterDltTranslator(DagsterDltTranslator):
     automation_condition: AutomationCondition | None = None
     prefix_key: Optional[Sequence[str]] = None
+    tags: Optional[Tags | Mapping[str, str]] = None
 
     def get_asset_key(self, resource: DltResource) -> AssetKey:
         """Defines asset key for a given dlt resource key and dataset name.
@@ -103,7 +104,13 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
                 del doc[column_name]
 
         return doc
-
+    
+    def get_tags(self, resource: DltResource) -> Mapping[str, str]:
+        default_tags = super().get_tags(resource)
+        if self.tags:
+            return {**default_tags, **self.tags}
+        else:
+            return default_tags
 
 class BaseDltPipeline(ConfigurableResource):
     write_disposition: str | None = Field(

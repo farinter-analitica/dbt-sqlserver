@@ -106,6 +106,7 @@ collections_config = (
         collection_name="orders",
         primary_key="_id",
         automation_condition=automation_daily_delta_2_cron,
+        tags = tags_repo.Daily | tags_repo.Automation,
         # columns_hints={
         #     "dataRoutes" : {"nullable" : True, "data_type": "json"},
         #     "address" : {"nullable" : True},

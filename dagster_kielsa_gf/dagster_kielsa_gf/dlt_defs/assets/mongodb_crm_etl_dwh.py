@@ -58,70 +58,71 @@ read_source_config_updated_at: ColConfigs = (
         columns_to_remove=("created_at",),
         incrementals=(IncConfig(cursor_path="updatedAt"),),
         automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.Hourly,
     ),
     DLTRColl(
         collection_name="clientToCall",
         incrementals=(IncConfig(cursor_path="updatedAt"),),
         automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.Hourly,
     ),
     DLTRColl(
         collection_name="crm_list",
         incrementals=(IncConfig(cursor_path="updatedAt"),),
     ),
-   
 )
 
 collection_person_hints = {
-        "id": {"data_type": "bigint"},
-        "treatment": {"data_type": "text"},
-        "first_name": {"data_type": "text"},
-        "middle_name": {"data_type": "text"},
-        "last_name": {"data_type": "text"},
-        "second_last_name": {"data_type": "text"},
-        "email": {"data_type": "text"},
-        "dni": {"data_type": "text"},
-        "phone_number": {"data_type": "text"},
-        "landline": {"data_type": "text"},
-        "address": {"data_type": "text"},
-        "gender": {"data_type": "text"},
-        "code": {"data_type": "text"},
-        "sap_company_name": {"data_type": "text"},
-        "country_code": {"data_type": "text"},
-        "country_name": {"data_type": "text"},
-        "department_code": {"data_type": "text"},
-        "department_name": {"data_type": "text"},
-        "municipality_code": {"data_type": "text"},
-        "town_code": {"data_type": "text"},
-        "neighborhood_code": {"data_type": "text"},
-        "class_name": {"data_type": "text"},
-        "business_name": {"data_type": "text"},
-        "category_client": {"data_type": "text"},
-        "company_id": {"data_type": "bigint"},
-        "notes": {"data_type": "text"},
-        "sap_company_code": {"data_type": "text"},
-        "sap_zone_code": {"data_type": "text"},
-        "sap_zone_name": {"data_type": "text"},
-        "_id": {"data_type": "text"},
-        "birth_date": {"data_type": "date"},
-        "created_at": {"data_type": "timestamp"},
-        "updated_at": {"data_type": "timestamp"},
-        "sap_username": {"data_type": "text"},
-        "user_id": {"data_type": "bigint"},
-        "sapusercode": {"data_type": "text"},
-        "number": {"data_type": "text"},
-        "sellers": {"data_type": "json"},
-        "seller_id": {"data_type": "text"},
-        "custom_fields": {"data_type": "json"},
-        "debt_collectors": {"data_type": "json"},
-        "facebook_username": {"data_type": "text"},
-        "facebook_id": {"data_type": "text"},
-        "twitter_username": {"data_type": "text"},
-        "twitter_id": {"data_type": "text"},
-        "linkedin_username": {"data_type": "text"},
-        "instagram_username": {"data_type": "text"},
-        "fecha_ingreso": {"data_type": "timestamp"},
-        "doctors": {"data_type": "json"},
-    }
+    "id": {"data_type": "bigint"},
+    "treatment": {"data_type": "text"},
+    "first_name": {"data_type": "text"},
+    "middle_name": {"data_type": "text"},
+    "last_name": {"data_type": "text"},
+    "second_last_name": {"data_type": "text"},
+    "email": {"data_type": "text"},
+    "dni": {"data_type": "text"},
+    "phone_number": {"data_type": "text"},
+    "landline": {"data_type": "text"},
+    "address": {"data_type": "text"},
+    "gender": {"data_type": "text"},
+    "code": {"data_type": "text"},
+    "sap_company_name": {"data_type": "text"},
+    "country_code": {"data_type": "text"},
+    "country_name": {"data_type": "text"},
+    "department_code": {"data_type": "text"},
+    "department_name": {"data_type": "text"},
+    "municipality_code": {"data_type": "text"},
+    "town_code": {"data_type": "text"},
+    "neighborhood_code": {"data_type": "text"},
+    "class_name": {"data_type": "text"},
+    "business_name": {"data_type": "text"},
+    "category_client": {"data_type": "text"},
+    "company_id": {"data_type": "bigint"},
+    "notes": {"data_type": "text"},
+    "sap_company_code": {"data_type": "text"},
+    "sap_zone_code": {"data_type": "text"},
+    "sap_zone_name": {"data_type": "text"},
+    "_id": {"data_type": "text"},
+    "birth_date": {"data_type": "date"},
+    "created_at": {"data_type": "timestamp"},
+    "updated_at": {"data_type": "timestamp"},
+    "sap_username": {"data_type": "text"},
+    "user_id": {"data_type": "bigint"},
+    "sapusercode": {"data_type": "text"},
+    "number": {"data_type": "text"},
+    "sellers": {"data_type": "json"},
+    "seller_id": {"data_type": "text"},
+    "custom_fields": {"data_type": "json"},
+    "debt_collectors": {"data_type": "json"},
+    "facebook_username": {"data_type": "text"},
+    "facebook_id": {"data_type": "text"},
+    "twitter_username": {"data_type": "text"},
+    "twitter_id": {"data_type": "text"},
+    "linkedin_username": {"data_type": "text"},
+    "instagram_username": {"data_type": "text"},
+    "fecha_ingreso": {"data_type": "timestamp"},
+    "doctors": {"data_type": "json"},
+}
 
 collection_person = DLTRColl(
     collection_name="crm_person",
@@ -207,12 +208,22 @@ read_source_config_multi_column: ColConfigs = (
 read_source_config_full_refresh: ColConfigs = (
     DLTRColl(collection_name="campaignActivity"),
     DLTRColl(collection_name="crm_budget_header"),
-    DLTRColl(collection_name="crm_budget",  limit=get_for_current_env({"local":20000},)),
-    DLTRColl(collection_name="crm_seller_planification",
-                automation_condition=automation_hourly_delta_12_cron,),
-    DLTRColl(collection_name="appVisita", 
-                automation_condition=automation_hourly_delta_12_cron,),
-
+    DLTRColl(
+        collection_name="crm_budget",
+        limit=get_for_current_env(
+            {"local": 20000},
+        ),
+    ),
+    DLTRColl(
+        collection_name="crm_seller_planification",
+        automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.Hourly,
+    ),
+    DLTRColl(
+        collection_name="appVisita",
+        automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.Hourly,
+    ),
 )
 
 
@@ -287,7 +298,7 @@ mongodb_crm_hn_full_refresh_assets = dlt_mongodb_asset_factory(
     base_pipeline_name="mongodb_crm_hn_full_refresh",
 )
 
-#Enlistar todos los assets
+# Enlistar todos los assets
 all_mongodb_hn_assets = (
     *mongodb_crm_hn_updated_at_assets,
     *mongodb_crm_hn_person_assets,
@@ -390,14 +401,14 @@ if __name__ == "__main__":
     def test_all_assets_loaded():
         configured_total = 0
         configured_total += len(read_source_config_updated_at)
-        configured_total += 1 #collection_person
+        configured_total += 1  # collection_person
         configured_total += len(read_source_config_multi_column)
         configured_total += len(read_source_config_full_refresh)
 
         loaded_total = len(all_mongodb_hn_assets)
-        assert (
-            configured_total == loaded_total
-        ), f"Expected {configured_total} assets, but loaded {loaded_total} assets"
+        assert configured_total == loaded_total, (
+            f"Expected {configured_total} assets, but loaded {loaded_total} assets"
+        )
 
     test_all_assets_loaded()
 
@@ -418,9 +429,7 @@ if __name__ == "__main__":
                 asset
                 for asset in all_assets
                 if asset.key
-                in (
-                    AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),
-                )
+                in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),)
             )
             assert asset_to_test
             result = materialize(
@@ -432,7 +441,7 @@ if __name__ == "__main__":
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
                                 "write_disposition": "replace",
-                                "refresh": "drop_resources"
+                                "refresh": "drop_resources",
                             }
                         }
                     }
@@ -444,9 +453,11 @@ if __name__ == "__main__":
             # )
             # print(check_result)
 
-            print(f"Materialized:{
-                [
-                    mat.step_materialization_data
-                    for mat in result.get_asset_materialization_events()
-                ]
-            }")
+            print(
+                f"Materialized:{
+                    [
+                        mat.step_materialization_data
+                        for mat in result.get_asset_materialization_events()
+                    ]
+                }"
+            )

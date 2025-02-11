@@ -76,7 +76,7 @@ class DltResourceCollectionConfig:
     import_schema_path: Optional[str] = None
     export_schema_path: Optional[str] = None
     schema_contract: Optional[TSchemaContractDict] = None
-    tags: Optional[Tags] = None
+    tags: Optional[Tags | Mapping[str, str]] = None
     """
     You can control the following schema entities:
 
