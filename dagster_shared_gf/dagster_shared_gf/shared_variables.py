@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
 
 ##
-class ExcelLoadConfig(Config):
+class ExcelProcessConfig(Config):
     """
     Config class for Excel loading.
     """
@@ -181,7 +181,7 @@ class ExcelLoadConfig(Config):
         description="Move processed files to folder", default=True
     )
 
-    claves_primarias: tuple[str, ...] = Field(
+    primary_keys: tuple[str, ...] = Field(
         description="Primary keys", default_factory=tuple
     )
 
