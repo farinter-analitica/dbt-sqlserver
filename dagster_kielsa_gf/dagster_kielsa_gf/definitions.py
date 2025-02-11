@@ -131,7 +131,7 @@ defs = Definitions.merge(
                 target=AssetSelection.tag(
                     key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
                 )
-                & AssetSelection.groups("recetas_libros_etl_dwh"),
+                | AssetSelection.groups("recetas_libros_etl_dwh"),
                 use_user_code_server=True,
                 minimum_interval_seconds=60,
                 tags=tags_repo.Hourly,
