@@ -150,7 +150,7 @@ mongodb_ecommerce_hn = mongodb(
     connection_url=dlt.secrets["sources.mdb_ecommerce_hn.connection_url"],
     database=dlt.secrets["sources.mdb_ecommerce_hn.database"],
     collection_names=[c.collection_name for c in collections_config],
-    write_disposition="replace",
+    write_disposition="merge",
     parallel=True,
 )
 
