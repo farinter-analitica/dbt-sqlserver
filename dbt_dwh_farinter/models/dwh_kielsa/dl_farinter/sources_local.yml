@@ -142,3 +142,25 @@ sources:
       - name: DL_Kielsa_Regalia_Encabezado
       - name: DL_Kielsa_Regalia_Detalle
       - name: DL_Kielsa_Monedero_Tarjetas_Replica
+      - name: DL_Kielsa_eCommerceTipoPago
+      - name: DL_Kielsa_eCommerceFormaPago
+      - name: DL_Kielsa_eCommerceOrigen
+      - name: DL_Kielsa_Exp_Factura_Express
+
+
+  - name: DL_FARINTER_mdb_ecommerce_hn
+    description: "Base de tablas cargadas (Data Lake)"
+    database: DL_FARINTER
+    schema: mdb_ecommerce_hn
+    freshness: # default freshness
+        warn_after: {count: 28, period: hour}
+        error_after: {count: 72, period: hour}
+    loaded_at_field: Fecha_Actualizado
+    meta:
+        dagster:
+            group: "ldcom_etl_dwh"
+    tables:
+      - name: orders
+      - name: orders__shopping_cart
+     
+      

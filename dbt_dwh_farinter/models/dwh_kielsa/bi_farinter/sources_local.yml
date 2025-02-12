@@ -43,6 +43,8 @@ sources:
         meta:
             dagster:
                 group: "dbt_dwh_kielsa_mart_datos_maestros"
+      - name: BI_Hecho_ProyeccionVentaseCommerce_Kielsa
+      
 
 
 
