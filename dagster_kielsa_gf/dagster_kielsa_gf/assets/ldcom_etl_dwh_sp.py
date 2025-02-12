@@ -487,10 +487,10 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": ["AN_Param_PesoseCommerce_Kielsa"],
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
         "deps": [
-            AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentaseCommerceResumenHist_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Hecho_VentaseCommerceResumenHist_Kielsa"]),
             AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
             AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"]),
-            AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentaseCommerceHist_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Hecho_VentaseCommerceHist_Kielsa"]),
         ],
     },
     "BI_paCargarHecho_ProyeccionVentaseCommerce_Kielsa": {
