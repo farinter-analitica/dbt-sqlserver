@@ -116,16 +116,16 @@ collections_config = (
                 ),
                 lag=15,  # days
             ),
-            IncConfig(
-                cursor_path="modificatedDateAt",
-                initial_value=get_for_current_env(
-                    {
-                        "local": pendulum.now().subtract(days=30),
-                        "dev": pendulum.now().subtract(days=30),
-                    }
-                ),
-                lag=15,  # days
-            ),
+            # IncConfig(
+            #     cursor_path="modificatedDateAt",
+            #     initial_value=get_for_current_env(
+            #         {
+            #             "local": pendulum.now().subtract(days=30),
+            #             "dev": pendulum.now().subtract(days=30),
+            #         }
+            #     ),
+            #     lag=15,  # days
+            # ),
         ),
         automation_condition=automation_daily_delta_2_cron,
         tags=tags_repo.Daily | tags_repo.Automation | tags_repo.UniquePeriod,
@@ -150,8 +150,8 @@ mongodb_ecommerce_hn = mongodb(
     connection_url=dlt.secrets["sources.mdb_ecommerce_hn.connection_url"],
     database=dlt.secrets["sources.mdb_ecommerce_hn.database"],
     collection_names=[c.collection_name for c in collections_config],
-    write_disposition="merge",
-    parallel=True,
+    write_disposition="replace",
+    parallel=False,
 )
 
 created_mongodb_assets = dlt_mongodb_asset_factory(
