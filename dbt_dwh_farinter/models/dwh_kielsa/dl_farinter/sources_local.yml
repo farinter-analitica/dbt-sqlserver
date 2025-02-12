@@ -145,7 +145,6 @@ sources:
       - name: DL_Kielsa_eCommerceTipoPago
       - name: DL_Kielsa_eCommerceFormaPago
       - name: DL_Kielsa_eCommerceOrigen
-      - name: DL_Kielsa_Exp_Factura_Express
 
 
   - name: DL_FARINTER_mdb_ecommerce_hn

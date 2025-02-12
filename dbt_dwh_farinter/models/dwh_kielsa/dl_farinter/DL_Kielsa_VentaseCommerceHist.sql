@@ -65,7 +65,7 @@ FROM(
 		FROM DL_FARINTER.mdb_ecommerce_hn.orders AS A -- {{ source('DL_FARINTER_mdb_ecommerce_hn', 'orders') }}
 			INNER JOIN DL_FARINTER.mdb_ecommerce_hn.orders__shopping_cart AS B ON A._dlt_id = B._dlt_parent_id -- {{ source('DL_FARINTER_mdb_ecommerce_hn', 'orders__shopping_cart') }}
 	) AS A
-	LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Exp_Factura_Express AS B -- {{ source('DL_FARINTER', 'DL_Kielsa_Exp_Factura_Express') }}
+	LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Exp_Factura_Express AS B -- {{ ref('DL_Kielsa_Exp_Factura_Express') }}
 	ON A.Emp_Id = B.Emp_Id
 	AND A.CC_Id = B.CC_Id
 	AND A.OrdenExp_Id = B.Orden_Id
