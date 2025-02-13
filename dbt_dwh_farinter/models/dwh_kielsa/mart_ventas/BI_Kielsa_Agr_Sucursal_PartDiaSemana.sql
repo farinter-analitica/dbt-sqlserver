@@ -50,7 +50,9 @@ AS
     WHERE Factura_Fecha >= '{{ v_fecha_inicio }}' AND Factura_Fecha < '{{ v_fecha_fin }}' AND AnioMes_Id >= {{ v_anio_mes_inicio }}
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio
     GROUP BY Emp_Id, Suc_Id, Dia_de_la_Semana
-)
+),
+Metricas AS
+(
 SELECT 
     ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Suc_Id,0) AS Suc_Id,
@@ -81,5 +83,17 @@ SELECT
     ISNULL(CAST(Sum_Conteo_Transacciones / NULLIF(SUM(Sum_Conteo_Transacciones) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Conteo_Transacciones
 --INTO #Temp
 FROM ResumenBase
-
-
+)
+SELECT *,
+    Part_Cantidad_Padre*7 AS Peso_Cantidad_Padre,
+    Part_Valor_Bruto*7 AS Peso_Valor_Bruto,
+    Part_Valor_Neto*7 AS Peso_Valor_Neto,
+    Part_Valor_Costo*7 AS Peso_Valor_Costo,
+    Part_Valor_Descuento*7 AS Peso_Valor_Descuento,
+    Part_Valor_Descuento_Financiero*7 AS Peso_Valor_Descuento_Financiero,
+    Part_Valor_Acum_Monedero*7 AS Peso_Valor_Acum_Monedero,
+    Part_Valor_Descuento_Cupon*7 AS Peso_Valor_Descuento_Cupon,
+    Part_Valor_Descuento_Proveedor*7 AS Peso_Valor_Descuento_Proveedor,
+    Part_Valor_Descuento_Tercera_Edad*7 AS Peso_Valor_Descuento_Tercera_Edad,
+    Part_Conteo_Transacciones*7 AS Peso_Conteo_Transacciones
+FROM Metricas

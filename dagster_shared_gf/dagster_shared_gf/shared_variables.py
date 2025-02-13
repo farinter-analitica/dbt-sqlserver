@@ -1,7 +1,7 @@
 from typing import Optional
 from threading import Lock
 
-from dagster import Config, RunConfig
+from dagster import Config, RunConfig, AutomationCondition
 from dagster._core.definitions.asset_spec import AssetExecutionType  # to use shared
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  # to use shared
@@ -56,20 +56,56 @@ class SingletonMeta(type):
 
 class Tags(dict[str, str]):
     """
-    A class that represents a single tag, inheriting from dict.
+    A class that represents a single or multiple tags, inheriting from dict, with some extra methods.
+    Optionally automation condition to each schedule tag (starts with 'periodo/').
+
+    Example:
+        Tags({"periodo/diario": ""})
+        Tags(key="periodo/diario", value="")
     """
 
+    @staticmethod
+    def _validate_key(key: str) -> bool:
+        # Check key is not empty and has no spaces
+        if not key or key.strip() != key or "__" in key:
+            return False
+        # Split by / and verify each part contains only letters, numbers and single underscores
+        parts = key.split("/")
+        return all(part.replace("_", "").isalnum() for part in parts if part)
+
+    @staticmethod
+    def _validate_dict(d: dict[str, str]) -> None:
+        if not all(isinstance(k, str) and isinstance(v, str) for k, v in d.items()):
+            raise ValueError("All keys and values must be strings")
+        if not all(Tags._validate_key(k) for k in d.keys()):
+            raise ValueError(
+                "Keys must contain only alphanumeric characters between '/'"
+            )
+
     def __init__(
-        self, key: Optional[str] = None, value: Optional[str] = None, **kwargs
+        self,
+        dict_tags: dict[str, str] | None = None,
+        key: str | None = None,
+        value: str | None = None,
+        automation_condition: AutomationCondition | None = None,
     ):
         if key is not None and value is not None:
-            super().__init__({key: value})
-        elif kwargs:
-            super().__init__(kwargs)
+            tags = {key: value}
+        elif dict_tags is not None:
+            tags = dict_tags
         else:
             raise ValueError(
-                "Tag must be initialized with either a key-value pair or kwargs"
+                "Tag must be initialized with either a key-value pair or dict"
             )
+
+        self._validate_dict(tags)
+        super().__init__(tags)
+
+        self._is_all_schedule = all(k.startswith("periodo/") for k in self.keys())
+        self._is_schedule = self._is_all_schedule or any(
+            k.startswith("periodo/") for k in self.keys()
+        )
+        self._automation = automation_condition
         self._frozen = True
 
     def __setattr__(self, key, value):
@@ -104,6 +140,20 @@ class Tags(dict[str, str]):
             return dict(self)
         raise ValueError("Tag contains more than one item.")
 
+    @property
+    def is_schedule(self) -> bool:
+        """
+        Returns true if tags contains any schedule tag.
+        """
+        return self._is_schedule
+
+    @property
+    def is_all_schedule(self) -> bool:
+        """
+        Returns true if all tags contains schedule tags.
+        """
+        return self._is_all_schedule
+
 
 class TagsRepositoryGF(metaclass=SingletonMeta):
     Hourly: Tags = Tags(key="periodo/por_hora", value="")
@@ -122,7 +172,13 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     """{"smb_data_repository/data_repo": ""}"""
 
     Monthly: Tags = Tags(key="periodo/mensual", value="")
-    """{"periodo/mensual": ""}"""
+    """{"periodo/mensual": ""} inicio del mes generalmente o cualquier dia. """
+
+    MonthlyEnd: Tags = Tags(key="periodo/mensual/fin", value="")
+    """{"periodo/mensual/fin": ""} fin del mes."""
+
+    MonthlyStart: Tags = Tags(key="periodo/mensual/inicio", value="")
+    """{"periodo/mensual/inicio": ""} inicio del mes."""
 
     HourlyAdditional: Tags = Tags(key="periodo/por_hora_adicional", value="")
     """{"periodo/por_hora_adicional": ""}"""
@@ -137,7 +193,25 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     """{"automation/si": ""}"""
 
     Weekly: Tags = Tags(key="periodo/semanal", value="")
-    """{"periodo/semanal": ""}"""
+    """{"periodo/semanal": ""} Domingos generalmente o cualquier dia."""
+
+    Weekly7: Tags = Tags(key="periodo/semanal/7", value="")
+    """{"periodo/semanal/7": ""} Domingos"""
+
+    Weekly1: Tags = Tags(key="periodo/semanal/1", value="")
+    """{"periodo/semanal/1": ""} Lunes"""
+
+
+
+    def get_schedule_tags(self) -> tuple[Tags, ...]:
+        """
+        Returns all tags that are schedule-related (start with 'periodo/').
+        """
+        return tuple(
+            getattr(self, name)
+            for name in dir(self)
+            if isinstance(getattr(self, name), Tags) and getattr(self, name).is_schedule
+        )
 
 
 def get_execution_config(max_concurrent: int) -> RunConfig:

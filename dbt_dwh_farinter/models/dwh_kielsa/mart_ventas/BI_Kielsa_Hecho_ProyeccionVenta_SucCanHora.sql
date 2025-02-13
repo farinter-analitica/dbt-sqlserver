@@ -19,6 +19,7 @@
 {% set v_fecha_fin = (modules.datetime.datetime.now() + modules.datetime.timedelta(days=60)).strftime('%Y%m%d') %}
 
 /*
+TODO: Corregir nombre BI_Kielsa_Hecho_ProyeccionVenta_SucCanHora a BI_Kielsa_Hecho_ProyeccionVenta_SucHora
 --1. Pesos de cada dia de la semana por sucursal, valor y peso
 DECLARE @Inicio AS DATE = GETDATE()
 DECLARE @SemanasPonderacion AS INT = 12

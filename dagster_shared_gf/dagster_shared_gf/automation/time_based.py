@@ -154,7 +154,16 @@ weekly_7_cron_schedule = get_for_current_env({"dev": "0 1 * * 7", "prd": "0 16 *
 automation_weekly_7_delta_1_cron = my_cron_automation_condition(
     cron_schedule=weekly_7_cron_schedule,
     allowed_deps_updated_selection=(
-        AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
+        AssetSelection.tag(key=tags_repo.Weekly7.key, value=tags_repo.Weekly7.value)
+    ),
+    lookback_delta=timedelta(weeks=1),
+)
+
+weekly_1_cron_schedule = get_for_current_env({"dev": "0 4 * * 1", "prd": "0 3 * * 1"})
+automation_weekly_1_delta_1_cron = my_cron_automation_condition(
+    cron_schedule=weekly_1_cron_schedule,
+    allowed_deps_updated_selection=(
+        AssetSelection.tag(key=tags_repo.Weekly1.key, value=tags_repo.Weekly1.value)
     ),
     lookback_delta=timedelta(weeks=1),
 )

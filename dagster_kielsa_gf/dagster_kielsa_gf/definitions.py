@@ -76,13 +76,25 @@ asset_selection_dia = (
     - asset_selection_hora
 )
 asset_selection_semana = (
-    AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
+    (
+        AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
+        | AssetSelection.tag(key=tags_repo.Weekly1.key, value=tags_repo.Weekly1.value)
+        | AssetSelection.tag(key=tags_repo.Weekly7.key, value=tags_repo.Weekly7.value)
+    )
     - asset_selection_dia
     - asset_selection_hora
 )
 
 asset_selection_mes = (
-    AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
+    (
+        AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
+        | AssetSelection.tag(
+            key=tags_repo.MonthlyStart.key, value=tags_repo.MonthlyStart.value
+        )
+        | AssetSelection.tag(
+            key=tags_repo.MonthlyEnd.key, value=tags_repo.MonthlyEnd.value
+        )
+    )
     - asset_selection_semana
     - asset_selection_dia
     - asset_selection_hora
@@ -120,7 +132,9 @@ defs = Definitions.merge(
             ),
             ACS(
                 "automation_condition_sensor_slow",
-                target=asset_selection_mes | asset_selection_semana | asset_selection_restante,
+                target=asset_selection_mes
+                | asset_selection_semana
+                | asset_selection_restante,
                 use_user_code_server=True,
                 minimum_interval_seconds=60 * 60,
                 tags=tags_repo.Monthly | tags_repo.Weekly,
