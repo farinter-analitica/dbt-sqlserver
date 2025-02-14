@@ -1037,6 +1037,7 @@ BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
     tags_by_output_name={
         "result": tags_repo.Daily.tag
         | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag
         | {f"dagster/kind/{kind}": "" for kind in ("sql_server", "polars", "smb")}
     },
     automation_conditions_by_output_name={"result": automation_daily_delta_2_cron},

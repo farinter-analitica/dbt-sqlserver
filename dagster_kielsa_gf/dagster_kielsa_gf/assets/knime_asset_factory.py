@@ -141,8 +141,9 @@ def fetch_knime_workflows(
         "MDBCRM_ETL_LlamadasConsolidado": {
             **tags_repo.Hourly.tag,
             **tags_repo.Daily.tag,
+            **tags_repo.Automation.tag,
         },
-        "DWHFP_SalidaExportarAExcel": tags_repo.Monthly | tags_repo.Automation,
+        "DWHFP_SalidaExportarAExcel": tags_repo.Monthly | tags_repo.AutomationOnly,
         "Knime_Workflows_Placeholder": tags_repo.Monthly,  # Para prevenir error en el job
     }
     automation_conditions = {

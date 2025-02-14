@@ -58,13 +58,13 @@ read_source_config_updated_at: ColConfigs = (
         columns_to_remove=("created_at",),
         incrementals=(IncConfig(cursor_path="updatedAt"),),
         automation_condition=automation_hourly_delta_12_cron,
-        tags=tags_repo.Hourly,
+        tags=tags_repo.Hourly | tags_repo.Automation,
     ),
     DLTRColl(
         collection_name="clientToCall",
         incrementals=(IncConfig(cursor_path="updatedAt"),),
         automation_condition=automation_hourly_delta_12_cron,
-        tags=tags_repo.Hourly,
+        tags=tags_repo.Hourly | tags_repo.Automation,
     ),
     DLTRColl(
         collection_name="crm_list",
@@ -217,12 +217,12 @@ read_source_config_full_refresh: ColConfigs = (
     DLTRColl(
         collection_name="crm_seller_planification",
         automation_condition=automation_hourly_delta_12_cron,
-        tags=tags_repo.Hourly,
+        tags=tags_repo.Hourly | tags_repo.Automation,
     ),
     DLTRColl(
         collection_name="appVisita",
         automation_condition=automation_hourly_delta_12_cron,
-        tags=tags_repo.Hourly,
+        tags=tags_repo.Hourly | tags_repo.Automation,
     ),
 )
 

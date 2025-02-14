@@ -9,9 +9,10 @@ from dagster import (
     SourceAsset,
 )
 
-from dagster_kielsa_gf import defs
+from dagster_shared_gf import defs
 from dagster_shared_gf.shared_functions import import_variable_from_module
-from dagster_shared_gf.shared_variables import tags_repo, seleccion_no_programar
+from dagster_shared_gf.shared_variables import tags_repo
+
 
 # def test_all_assets_loaded():
 #     assert all_assets.__len__()==load_assets_from_package_module(assets).__len__() , "All assets should be loaded"
@@ -69,12 +70,7 @@ def count_assetkeys(data: Any) -> int:
 
 all_assets: tuple[AssetsDefinition | SourceAsset, ...] = apply_function_to_submodules(
     import_variable_from_module,
-    module_name="dagster_kielsa_gf.assets",
-    variable_name="all_assets",
-)
-all_assets += apply_function_to_submodules(
-    import_variable_from_module,
-    module_name="dagster_kielsa_gf.dlt_defs.assets",
+    module_name="dagster_shared_gf.assets",
     variable_name="all_assets",
 )
 all_sources_assets_keys = tuple(

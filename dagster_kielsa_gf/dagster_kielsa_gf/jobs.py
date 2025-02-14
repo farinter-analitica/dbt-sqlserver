@@ -68,7 +68,7 @@ dbt_dwh_kielsa_marts_job = define_asset_job(
 kielsa_etl_dwh_all_downstream_assets: AssetSelection = (
     AssetSelection.groups("ldcom_etl_dwh", "recetas_libros_etl_dwh").downstream()
     - AssetSelection.tag(
-        key=tags_repo.Partitioned.key, value=tags_repo.Partitioned.value
+        key=tags_repo.PartitionedAuto.key, value=tags_repo.PartitionedAuto.value
     )
     - seleccion_no_programar
 )

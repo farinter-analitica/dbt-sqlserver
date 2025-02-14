@@ -30,10 +30,15 @@ dbt_project_dir = Path(base_path).joinpath("dbt_dwh_farinter").resolve()
 dbt_target = get_for_current_env(
     {"dev": "dev", "prd": "prd"}
 )  # resuelve el target dependiendo de la variable de ambiente
+
+
 # print(os.fspath(dbt_project_dir))
 # dbt_project_dir="/opt/main_dagster_dev/dbt_dwh_farinter"
 class MyDbtCliResource(DbtCliResource):
-    full_refresh: Optional[bool] = Field(default=False, description="Refresh full dbt models")
+    full_refresh: Optional[bool] = Field(
+        default=False, description="Refresh full dbt models"
+    )
+
 
 dbt_resource = MyDbtCliResource(
     project_dir=os.fspath(dbt_project_dir),
@@ -76,8 +81,12 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         if dbt_resource_props["resource_type"] == "source":
             tags = dbt_resource_props.get("config", {}).get("tags", [])
             return normalize_tags({tag: "" for tag in tags})
-
-        return super().get_tags(dbt_resource_props)
+        tags = dbt_resource_props.get("tags", [])
+        return (
+            normalize_tags({tag: "" for tag in tags})
+            if tags
+            else super().get_tags(dbt_resource_props)
+        )
 
     def get_asset_key(self, dbt_resource_props: Mapping[str, Any]) -> AssetKey:
         """
@@ -136,12 +145,17 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
     ) -> Optional[AutomationCondition]:
         tags = self.get_tags(dbt_resource_props)
         auto_tags_keys = (
-            shared_vars.tags_repo.Automation.key, shared_vars.tags_repo.Partitioned.key
+            shared_vars.tags_repo.AutomationOnly.key,
+            shared_vars.tags_repo.PartitionedAuto.key,
         )
-        
+
         all_automations = super().get_automation_condition(dbt_resource_props)
         if any(item in tags.keys() for item in auto_tags_keys):
             for tag, automation in tag_automation_mapping.items():
                 if tag in tags:
-                    all_automations = automation if all_automations is None else all_automations | automation
+                    all_automations = (
+                        automation
+                        if all_automations is None
+                        else all_automations | automation
+                    )
         return all_automations

@@ -25,15 +25,15 @@ dl_farinter_assets_prefix = ["DL_FARINTER", "dbo"]
     specs=[
         AssetSpec(
             key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_RecetasCabecera"]),
-            tags=tags_repo.Hourly | tags_repo.Automation,  # check automation condition on load_assets_from_current_module
+            tags=tags_repo.Hourly | tags_repo.AutomationOnly,  # check automation condition on load_assets_from_current_module
         ),
         AssetSpec(
             key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_RecetasDetalle"]),
-            tags=tags_repo.Hourly | tags_repo.Automation,  # check automation condition on load_assets_from_current_module
+            tags=tags_repo.Hourly | tags_repo.AutomationOnly,  # check automation condition on load_assets_from_current_module
         ),
         AssetSpec(
             key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_RecetasMedicos"]),
-            tags=tags_repo.Hourly | tags_repo.Automation,  # check automation condition on load_assets_from_current_module
+            tags=tags_repo.Hourly | tags_repo.AutomationOnly,  # check automation condition on load_assets_from_current_module
         ),
     ],
     op_tags=tags_repo.Hourly,  # check automation condition on load_assets_from_current_module
@@ -52,15 +52,15 @@ def DL_paCargarKielsa_Recetas(
     specs=[
         AssetSpec(
             key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_Libros_Cliente"]),
-            tags=tags_repo.Hourly | tags_repo.Automation,  # check automation condition on load_assets_from_current_module
+            tags=tags_repo.Hourly | tags_repo.AutomationOnly,  # check automation condition on load_assets_from_current_module
         ),
         AssetSpec(
             key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_Libros_Historico"]),
-            tags=tags_repo.Hourly | tags_repo.Automation,  # check automation condition on load_assets_from_current_module
+            tags=tags_repo.Hourly | tags_repo.AutomationOnly,  # check automation condition on load_assets_from_current_module
         ),
         AssetSpec(
             key=AssetKey(dl_farinter_assets_prefix + ["DL_Kielsa_Libros_Tipo"]),
-            tags=tags_repo.Hourly | tags_repo.Automation,  # check automation condition on load_assets_from_current_module
+            tags=tags_repo.Hourly | tags_repo.AutomationOnly,  # check automation condition on load_assets_from_current_module
         ),
     ],
     op_tags=tags_repo.Hourly,  # check automation condition on load_assets_from_current_module

@@ -33,7 +33,7 @@ class MyDbtConfig(Config):
 @dbt_assets(
     manifest=dbt_manifest,
     select="tag:dagster_kielsa_gf/dbt",
-    exclude="tag:particionado/si",
+    exclude=f"tag:{tags_repo.PartitionedAuto.key}",
     dagster_dbt_translator=MyDbtSourceTranslator(),
 )
 def dbt_dwh_kielsa_mart_datos_maestros_assets(
@@ -50,7 +50,7 @@ def dbt_dwh_kielsa_mart_datos_maestros_assets(
 
 @dbt_assets(
     manifest=dbt_manifest,
-    select="tag:dagster_kielsa_gf/dbt,tag:particionado/si",
+    select="tag:dagster_kielsa_gf/dbt,tag:particionado/auto",
     dagster_dbt_translator=MyDbtSourceTranslator(),
     partitions_def=diario_desde_360_dias_atras_hasta_hoy,
     backfill_policy=BackfillPolicy.single_run(),

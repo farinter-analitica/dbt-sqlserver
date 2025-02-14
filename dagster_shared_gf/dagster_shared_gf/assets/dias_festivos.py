@@ -86,9 +86,9 @@ def obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin) -> pl.DataFrame
 # Escribir en base de datos
 @asset(
     key_prefix=["DL_FARINTER", "web_api"],
-    tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
+    tags=tags_repo.SmbDataRepository.tag | tags_repo.AutomationOnly | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
     compute_kind="polars",    
-    automation_condition=AutomationCondition.on_cron("@monthly")
+    automation_condition=AutomationCondition.on_cron("@monthly") #solo funciona bien sin upstreams ojo
 )
 def DL_Edit_CalendarioNoLaboral_Temp(context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource):
     table = "DL_Edit_CalendarioNoLaboral_Temp"
@@ -169,7 +169,7 @@ AND CALN.json_paises_fijo_anual IS NOT NULL AND ISJSON(CALN.json_paises_fijo_anu
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.SmbDataRepository.tag | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
+    tags=tags_repo.SmbDataRepository.tag | tags_repo.AutomationOnly | {"dagster/storage_kind": "sqlserver", "data_source_kind": "web_api"},
     compute_kind="sqlserver",    
     automation_condition=AutomationCondition.cron_tick_passed("@monthly") | AutomationCondition.eager(),
     deps=[DL_Edit_CalendarioNoLaboral_Temp],

@@ -166,14 +166,17 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     HourlyAdditional: Tags = Tags(key="periodo/por_hora_adicional", value="")
     """{"periodo/por_hora_adicional": ""}"""
 
-    Partitioned: Tags = Tags(key="particionado/si", value="")
-    """{"particionado/si": ""}"""
+    PartitionedAuto: Tags = Tags(key="particionado/auto", value="")
+    """{"particionado/auto": ""} Usar para definir solo por automatizacion no por jobs."""
 
     DetenerCarga: Tags = Tags(key="detener_carga/si", value="")
-    """{"detener_carga/si": ""}"""
+    """{"detener_carga/si": ""} Usar para detener la carga por cualquier motivo."""
 
     Automation: Tags = Tags(key="automation/si", value="")
-    """{"automation/si": ""}"""
+    """{"automation/si": ""} Usar para definir que tiene automatizacion pero puede usarse en jobs."""
+
+    AutomationOnly: Tags = Tags(key="automation/only", value="")
+    """{"automation/only": ""} Usar para definir solo por automatizacion no por jobs."""
 
     Weekly: Tags = Tags(key="periodo/semanal", value="")
     """{"periodo/semanal": ""} Domingos generalmente o cualquier dia."""
@@ -184,7 +187,8 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Weekly1: Tags = Tags(key="periodo/semanal_1", value="")
     """{"periodo/semanal_1": ""} Lunes"""
 
-
+    MultipleTags: Tags = Tags({"multiple/tags": "", "automation/only": ""})
+    """{"multiple/tags": "", "automation/only": ""}"""
 
     def get_schedule_tags(self) -> tuple[Tags, ...]:
         """
@@ -194,6 +198,34 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
             getattr(self, name)
             for name in dir(self)
             if isinstance(getattr(self, name), Tags) and getattr(self, name).is_schedule
+        )
+    
+    def get_automation_tags(self) -> tuple[Tags, ...]:
+        """
+        Returns all tags that are automation-related (start with 'automation/' or 'particionado/auto').
+        """
+        return tuple(
+            getattr(self, name)
+            for name in dir(self)
+            if isinstance(getattr(self, name), Tags) and any(
+                k.startswith("automation/") or k.startswith("particionado/auto")
+                for k in getattr(self, name).keys()
+            )
+        )
+
+    def get_unselected_for_jobs_tags(self) -> tuple[Tags, ...]:
+        """
+        Returns all tags that are not selected for jobs (start with 'detener_carga/si' or 'particionado/auto' or 'automation/only').
+        """
+        return tuple(
+            getattr(self, name)
+            for name in dir(self)
+            if isinstance(getattr(self, name), Tags) and any(
+                k.startswith("detener_carga/si")
+                or k.startswith("particionado/auto")
+                or k.startswith("automation/only")
+                for k in getattr(self, name).keys()
+            )
         )
 
 
@@ -255,4 +287,4 @@ class ErrorsOccurred(BaseException):
 
 seleccion_no_programar: AssetSelection = AssetSelection.tag(
     key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
-) | AssetSelection.tag(key=tags_repo.Automation.key, value=tags_repo.Automation.value)
+) | AssetSelection.tag(key=tags_repo.AutomationOnly.key, value=tags_repo.AutomationOnly.value)
