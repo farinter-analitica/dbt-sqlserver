@@ -6,8 +6,9 @@ from dagster import (
 
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
-    get_execution_config,
     UnresolvedAssetJobDefinition,
+    get_execution_config,
+    seleccion_no_programar,
     tags_repo,
 )
 from dagster_shared_gf.utils import clean_storage
@@ -32,10 +33,6 @@ ldcom_etl_dwh_job = define_asset_job(
     config=execution_run_config_default,
 )
 
-
-seleccion_no_programar: AssetSelection = AssetSelection.tag(
-    key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
-) | AssetSelection.tag(key=tags_repo.Automation.key, value=tags_repo.Automation.value)
 
 examples_assets_job = define_asset_job(
     name="examples_assets_job",

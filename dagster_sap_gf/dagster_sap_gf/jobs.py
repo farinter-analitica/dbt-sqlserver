@@ -5,6 +5,7 @@ from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
     UnresolvedAssetJobDefinition,
     get_execution_config,
+    seleccion_no_programar,
     tags_repo,
 )
 from dagster_shared_gf.utils import clean_storage
@@ -27,7 +28,8 @@ dbt_dwh_sap_marts_job = define_asset_job(
         "dbt_dwh_sap_mart_datos_maestros",
         "dbt_dwh_sap_mart_finanzas",
         "dbt_dwh_sap_mart_mm",
-    ),
+    )
+    - seleccion_no_programar,
     config=execution_run_config_default,
 )
 
@@ -40,7 +42,8 @@ dbt_dwh_sap_etl_dwh_job = define_asset_job(
 
 dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
     name="dbt_dwh_sap_etl_dwh_full_refresh_job",
-    selection=AssetSelection.groups("sap_etl_dwh").tag_string("dagster_sap_gf/dbt"),
+    selection=AssetSelection.groups("sap_etl_dwh").tag_string("dagster_sap_gf/dbt")
+    - seleccion_no_programar,
     config=RunConfig(
         {"dbt_sap_etl_dwh_assets": MyDbtConfig(full_refresh=True)},
         execution=execution_run_config_default.execution,
@@ -51,14 +54,17 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
 sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups(
     "sap_etl_dwh"
 ).tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
-sap_etl_dwh_all_downstream_assets = sap_etl_dwh_all_downstream_assets | (
-    sap_etl_dwh_all_downstream_assets.downstream()
-    - (
-        sap_etl_dwh_all_downstream_assets.tag(
-            key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+sap_etl_dwh_all_downstream_assets = (
+    sap_etl_dwh_all_downstream_assets
+    | (
+        sap_etl_dwh_all_downstream_assets.downstream()
+        - (
+            sap_etl_dwh_all_downstream_assets.tag(
+                key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+            )
         )
     )
-)
+) - seleccion_no_programar
 sap_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="sap_etl_dwh_all_downstream_job",
     selection=sap_etl_dwh_all_downstream_assets,
@@ -73,14 +79,17 @@ sap_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
 sap_dwh_hourly_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
 )
-sap_dwh_hourly_assets = sap_dwh_hourly_assets | (
-    sap_dwh_hourly_assets.upstream()
-    - (
-        sap_dwh_hourly_assets.tag(
-            key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+sap_dwh_hourly_assets = (
+    sap_dwh_hourly_assets
+    | (
+        sap_dwh_hourly_assets.upstream()
+        - (
+            sap_dwh_hourly_assets.tag(
+                key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+            )
         )
     )
-)
+) - seleccion_no_programar
 sap_dwh_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="sap_dwh_hourly_job",
     selection=sap_dwh_hourly_assets,
@@ -95,6 +104,7 @@ dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = (
     AssetSelection.groups(
         "dbt_dwh_sap_mart_datos_maestros", "dbt_dwh_sap_mart_finanzas"
     )
+    - seleccion_no_programar
     - sap_etl_dwh_all_downstream_assets
 )
 dbt_dwh_sap_marts_all_orphan_job: UnresolvedAssetJobDefinition = define_asset_job(
@@ -104,8 +114,11 @@ dbt_dwh_sap_marts_all_orphan_job: UnresolvedAssetJobDefinition = define_asset_jo
 )
 
 
-all_jobs: tuple[JobDefinition | UnresolvedAssetJobDefinition,...] = get_all_instances_of_class(
-    class_type_list=[JobDefinition, UnresolvedAssetJobDefinition], namespace=globals()
+all_jobs: tuple[JobDefinition | UnresolvedAssetJobDefinition, ...] = (
+    get_all_instances_of_class(
+        class_type_list=[JobDefinition, UnresolvedAssetJobDefinition],
+        namespace=globals(),
+    )
 )
 
 if __name__ == "__main__":

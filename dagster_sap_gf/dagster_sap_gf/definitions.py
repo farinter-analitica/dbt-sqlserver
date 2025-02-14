@@ -11,17 +11,22 @@ from dagster import (
     build_last_update_freshness_checks,
     build_sensor_for_freshness_checks,
 )
+from dagster_shared_gf.shared_constants import (
+    hourly_freshness_lbound_per_environ,
+    hourly_freshness_seconds_per_environ,
+    only_prd_running_default_sensor_status,
+    running_default_sensor_status,
+)
 from dagster_shared_gf.shared_variables import tags_repo
 from dagster_sap_gf.jobs import all_jobs
 from dagster_sap_gf.schedules import all_schedules
 from dagster_sap_gf.sensors import (
     all_sensors,
-    only_prd_running_default_sensor_status,
-    running_default_sensor_status,
-    hourly_freshness_lbound_per_environ,
-    hourly_freshness_seconds_per_environ,
 )
-from dagster_shared_gf import all_shared_resources
+from dagster_shared_gf import (
+    all_shared_resources,
+    all_shared_sensors,
+)
 from dagster_sap_gf.dlt_defs.definitions import (
     all_assets as dlt_all_assets,
     all_resources as dlt_all_resources,
@@ -119,11 +124,7 @@ defs = Definitions(
     jobs=all_jobs,
     sensors=(
         *all_sensors,
-        ACS(
-            "automation_condition_sensor",
-            target=AssetSelection.all(),
-            use_user_code_server=True,
-        ),
+        *all_shared_sensors,
         all_assets_non_hourly_freshness_checks_sensor,
         all_assets_hourly_freshness_checks_sensor,
     ),

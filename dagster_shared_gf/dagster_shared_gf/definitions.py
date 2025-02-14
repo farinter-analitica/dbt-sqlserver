@@ -1,10 +1,14 @@
 import warnings
 
 from dagster import (
+    AssetSelection,
     Definitions,
     ExperimentalWarning,
     FilesystemIOManager,
     InMemoryIOManager,
+)
+from dagster import (
+    AutomationConditionSensorDefinition as ACS,
 )
 from dagster_polars import PolarsParquetIOManager
 
@@ -18,6 +22,8 @@ from dagster_shared_gf.resources import (
     sql_server_resources,
 )
 from dagster_shared_gf.schedules import all_schedules
+from dagster_shared_gf.shared_constants import running_default_sensor_status
+from dagster_shared_gf.shared_variables import tags_repo
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
@@ -51,6 +57,79 @@ all_shared_resources = {
     "polars_parquet_io_manager": PolarsParquetIOManager(),
 }
 
+asset_selection_hora = AssetSelection.tag(
+    key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
+)
+
+asset_selection_dia = (
+    AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+    - asset_selection_hora
+)
+asset_selection_semana = (
+    (
+        AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
+        | AssetSelection.tag(key=tags_repo.Weekly1.key, value=tags_repo.Weekly1.value)
+        | AssetSelection.tag(key=tags_repo.Weekly7.key, value=tags_repo.Weekly7.value)
+    )
+    - asset_selection_dia
+    - asset_selection_hora
+)
+
+asset_selection_mes = (
+    (
+        AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
+        | AssetSelection.tag(
+            key=tags_repo.MonthlyStart.key, value=tags_repo.MonthlyStart.value
+        )
+        | AssetSelection.tag(
+            key=tags_repo.MonthlyEnd.key, value=tags_repo.MonthlyEnd.value
+        )
+    )
+    - asset_selection_semana
+    - asset_selection_dia
+    - asset_selection_hora
+)
+
+asset_selection_restante = (
+    AssetSelection.all()
+    - asset_selection_mes
+    - asset_selection_semana
+    - asset_selection_dia
+    - asset_selection_hora
+)
+
+all_shared_sensors = (
+    ACS(
+        "automation_condition_sensor",
+        target=asset_selection_dia,
+        use_user_code_server=True,
+        minimum_interval_seconds=60 * 5,
+        tags=tags_repo.Daily,
+        run_tags=tags_repo.Daily,
+        default_status=running_default_sensor_status,
+    ),
+    ACS(
+        "automation_condition_sensor_slow",
+        target=asset_selection_mes | asset_selection_semana | asset_selection_restante,
+        use_user_code_server=True,
+        minimum_interval_seconds=60 * 60,
+        tags=tags_repo.Monthly | tags_repo.Weekly,
+        run_tags=tags_repo.Monthly | tags_repo.Weekly,
+        default_status=running_default_sensor_status,
+    ),
+    ACS(
+        "automation_condition_sensor_hourly",
+        target=AssetSelection.tag(
+            key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
+        ),
+        use_user_code_server=True,
+        minimum_interval_seconds=60,
+        tags=tags_repo.Hourly,
+        run_tags=tags_repo.Hourly,
+        default_status=running_default_sensor_status,
+    ),
+)
+
 defs = Definitions(
     assets=(
         *dias_festivos.all_assets,
@@ -63,5 +142,6 @@ defs = Definitions(
         *dias_festivos.all_asset_checks,
         *dias_festivos.all_asset_freshness_checks,
     ),
+    sensors=all_shared_sensors,
     resources=all_shared_resources,
 )

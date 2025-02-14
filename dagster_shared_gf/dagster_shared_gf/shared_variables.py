@@ -1,7 +1,7 @@
 from typing import Optional
 from threading import Lock
 
-from dagster import Config, RunConfig, AutomationCondition
+from dagster import AssetSelection, Config, RunConfig, AutomationCondition
 from dagster._core.definitions.asset_spec import AssetExecutionType  # to use shared
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  # to use shared
@@ -251,3 +251,8 @@ class FileException(BaseException):
 
 class ErrorsOccurred(BaseException):
     pass
+
+
+seleccion_no_programar: AssetSelection = AssetSelection.tag(
+    key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
+) | AssetSelection.tag(key=tags_repo.Automation.key, value=tags_repo.Automation.value)

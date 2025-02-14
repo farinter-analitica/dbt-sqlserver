@@ -24,7 +24,11 @@ from dagster_kielsa_gf.assets import (
 )
 from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
-from dagster_shared_gf import all_shared_resources
+from dagster_shared_gf import (
+    all_shared_resources,
+    all_shared_sensors,
+)
+
 from dagster_shared_gf.shared_variables import tags_repo
 
 all_assets = (
@@ -67,46 +71,6 @@ dbt_sources_assets: list = [
 
 all_resources = all_shared_resources
 
-asset_selection_hora = AssetSelection.tag(
-    key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
-)
-
-asset_selection_dia = (
-    AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
-    - asset_selection_hora
-)
-asset_selection_semana = (
-    (
-        AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
-        | AssetSelection.tag(key=tags_repo.Weekly1.key, value=tags_repo.Weekly1.value)
-        | AssetSelection.tag(key=tags_repo.Weekly7.key, value=tags_repo.Weekly7.value)
-    )
-    - asset_selection_dia
-    - asset_selection_hora
-)
-
-asset_selection_mes = (
-    (
-        AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
-        | AssetSelection.tag(
-            key=tags_repo.MonthlyStart.key, value=tags_repo.MonthlyStart.value
-        )
-        | AssetSelection.tag(
-            key=tags_repo.MonthlyEnd.key, value=tags_repo.MonthlyEnd.value
-        )
-    )
-    - asset_selection_semana
-    - asset_selection_dia
-    - asset_selection_hora
-)
-
-asset_selection_restante = (
-    AssetSelection.all()
-    - asset_selection_mes
-    - asset_selection_semana
-    - asset_selection_dia
-    - asset_selection_hora
-)
 
 defs = Definitions.merge(
     # dlt_defs.defs, #antes todos los subrepos
@@ -122,35 +86,7 @@ defs = Definitions.merge(
         schedules=all_schedules,
         sensors=(
             *all_sensors,
-            ACS(
-                "automation_condition_sensor",
-                target=asset_selection_dia,
-                use_user_code_server=True,
-                minimum_interval_seconds=60 * 5,
-                tags=tags_repo.Daily,
-                run_tags=tags_repo.Daily,
-            ),
-            ACS(
-                "automation_condition_sensor_slow",
-                target=asset_selection_mes
-                | asset_selection_semana
-                | asset_selection_restante,
-                use_user_code_server=True,
-                minimum_interval_seconds=60 * 60,
-                tags=tags_repo.Monthly | tags_repo.Weekly,
-                run_tags=tags_repo.Monthly | tags_repo.Weekly,
-            ),
-            ACS(
-                "automation_condition_sensor_hourly",
-                target=AssetSelection.tag(
-                    key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
-                )
-                | AssetSelection.groups("recetas_libros_etl_dwh"),
-                use_user_code_server=True,
-                minimum_interval_seconds=60,
-                tags=tags_repo.Hourly,
-                run_tags=tags_repo.Hourly,
-            ),
+            *all_shared_sensors,
         ),
     ),
     gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos
