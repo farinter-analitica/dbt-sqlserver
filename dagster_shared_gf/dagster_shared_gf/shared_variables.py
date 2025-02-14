@@ -6,7 +6,8 @@ from dagster._core.definitions.asset_spec import AssetExecutionType  # to use sh
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  # to use shared
 )
-# from dlt.common.normalizers.naming.snake_case import NamingConvention
+# from dlt.common.normalizers.naming.snake_case import NamingCo1nvention
+from dagster._utils.tags import normalize_tags
 
 from dagster_shared_gf.shared_functions import dagster_instance_current_env
 import polars as pl
@@ -64,24 +65,6 @@ class Tags(dict[str, str]):
         Tags(key="periodo/diario", value="")
     """
 
-    @staticmethod
-    def _validate_key(key: str) -> bool:
-        # Check key is not empty and has no spaces
-        if not key or key.strip() != key or "__" in key:
-            return False
-        # Split by / and verify each part contains only letters, numbers and single underscores
-        parts = key.split("/")
-        return all(part.replace("_", "").isalnum() for part in parts if part)
-
-    @staticmethod
-    def _validate_dict(d: dict[str, str]) -> None:
-        if not all(isinstance(k, str) and isinstance(v, str) for k, v in d.items()):
-            raise ValueError("All keys and values must be strings")
-        if not all(Tags._validate_key(k) for k in d.keys()):
-            raise ValueError(
-                "Keys must contain only alphanumeric characters between '/'"
-            )
-
     def __init__(
         self,
         dict_tags: dict[str, str] | None = None,
@@ -98,7 +81,7 @@ class Tags(dict[str, str]):
                 "Tag must be initialized with either a key-value pair or dict"
             )
 
-        self._validate_dict(tags)
+        normalize_tags(tags, strict=True)
         super().__init__(tags)
 
         self._is_all_schedule = all(k.startswith("periodo/") for k in self.keys())
@@ -174,11 +157,11 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Monthly: Tags = Tags(key="periodo/mensual", value="")
     """{"periodo/mensual": ""} inicio del mes generalmente o cualquier dia. """
 
-    MonthlyEnd: Tags = Tags(key="periodo/mensual/fin", value="")
-    """{"periodo/mensual/fin": ""} fin del mes."""
+    MonthlyEnd: Tags = Tags(key="periodo/mensual_fin", value="")
+    """{"periodo/mensual_fin": ""} fin del mes."""
 
-    MonthlyStart: Tags = Tags(key="periodo/mensual/inicio", value="")
-    """{"periodo/mensual/inicio": ""} inicio del mes."""
+    MonthlyStart: Tags = Tags(key="periodo/mensual_inicio", value="")
+    """{"periodo/mensual_inicio": ""} inicio del mes."""
 
     HourlyAdditional: Tags = Tags(key="periodo/por_hora_adicional", value="")
     """{"periodo/por_hora_adicional": ""}"""
@@ -195,11 +178,11 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Weekly: Tags = Tags(key="periodo/semanal", value="")
     """{"periodo/semanal": ""} Domingos generalmente o cualquier dia."""
 
-    Weekly7: Tags = Tags(key="periodo/semanal/7", value="")
-    """{"periodo/semanal/7": ""} Domingos"""
+    Weekly7: Tags = Tags(key="periodo/semanal_7", value="")
+    """{"periodo/semanal_7": ""} Domingos"""
 
-    Weekly1: Tags = Tags(key="periodo/semanal/1", value="")
-    """{"periodo/semanal/1": ""} Lunes"""
+    Weekly1: Tags = Tags(key="periodo/semanal_1", value="")
+    """{"periodo/semanal_1": ""} Lunes"""
 
 
 

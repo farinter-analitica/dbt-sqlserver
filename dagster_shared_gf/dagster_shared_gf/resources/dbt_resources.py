@@ -6,7 +6,7 @@ from typing import Any, Mapping, Optional
 
 # from ...dbt_kielsa
 from dagster import AssetKey, AutomationCondition, ExperimentalWarning
-from dagster._utils.tags import is_valid_tag_key
+from dagster._utils.tags import is_valid_tag_key, normalize_tags
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource
 
 from dagster_shared_gf import shared_variables as shared_vars
@@ -75,7 +75,7 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         """
         if dbt_resource_props["resource_type"] == "source":
             tags = dbt_resource_props.get("config", {}).get("tags", [])
-            return {tag: "" for tag in tags if is_valid_tag_key(tag)}
+            return normalize_tags({tag: "" for tag in tags})
 
         return super().get_tags(dbt_resource_props)
 
@@ -135,12 +135,12 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         self, dbt_resource_props
     ) -> Optional[AutomationCondition]:
         tags = self.get_tags(dbt_resource_props)
-        auto_tags = {
-            **shared_vars.tags_repo.Automation.tag, **shared_vars.tags_repo.Partitioned.tag
-        }
+        auto_tags_keys = (
+            shared_vars.tags_repo.Automation.key, shared_vars.tags_repo.Partitioned.key
+        )
         
         all_automations = super().get_automation_condition(dbt_resource_props)
-        if any(item in tags.items() for item in auto_tags.items()):
+        if any(item in tags.keys() for item in auto_tags_keys):
             for tag, automation in tag_automation_mapping.items():
                 if tag in tags:
                     all_automations = automation if all_automations is None else all_automations | automation
