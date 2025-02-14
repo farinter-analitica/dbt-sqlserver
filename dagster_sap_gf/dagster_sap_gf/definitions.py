@@ -6,15 +6,12 @@ from dagster import (
     AssetChecksDefinition,
     AssetsDefinition,
     Definitions,
-    AutomationConditionSensorDefinition as ACS,
-    AssetSelection,
     build_last_update_freshness_checks,
     build_sensor_for_freshness_checks,
 )
 from dagster_shared_gf.shared_constants import (
     hourly_freshness_lbound_per_environ,
     hourly_freshness_seconds_per_environ,
-    only_prd_running_default_sensor_status,
     running_default_sensor_status,
 )
 from dagster_shared_gf.shared_variables import tags_repo
