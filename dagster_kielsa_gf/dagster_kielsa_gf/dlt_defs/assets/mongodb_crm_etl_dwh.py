@@ -70,6 +70,12 @@ read_source_config_updated_at: ColConfigs = (
         collection_name="crm_list",
         incrementals=(IncConfig(cursor_path="updatedAt"),),
     ),
+    DLTRColl(
+        collection_name="hrm_area",
+    ),
+    DLTRColl(
+        collection_name="hrm_department",
+    ),
 )
 
 collection_person_hints = {
@@ -202,6 +208,36 @@ read_source_config_multi_column: ColConfigs = (
             IncConfig(cursor_path="createdAt"),
         ),
     ),
+    DLTRColl(
+        collection_name="crm_approach",
+        incrementals=(
+            IncConfig(
+                cursor_path="updated_at",
+                initial_value=pendulum.now().subtract(months=1),
+            ),
+            IncConfig(cursor_path="created_at"),
+        ),
+    ),
+    DLTRColl(
+        collection_name="mc_office",
+        incrementals=(
+            IncConfig(
+                cursor_path="updated_at",
+                initial_value=pendulum.now().subtract(months=1),
+            ),
+            IncConfig(cursor_path="created_at"),
+        ),
+    ),
+    DLTRColl(
+        collection_name="hrm_channel",
+        incrementals=(
+            IncConfig(
+                cursor_path="updated_at",
+                initial_value=pendulum.now().subtract(months=1),
+            ),
+            IncConfig(cursor_path="created_at"),
+        ),
+    ),
 )
 
 
@@ -223,6 +259,15 @@ read_source_config_full_refresh: ColConfigs = (
         collection_name="appVisita",
         automation_condition=automation_hourly_delta_12_cron,
         tags=tags_repo.Hourly | tags_repo.Automation,
+    ),
+    DLTRColl(
+         collection_name="crm_company"
+    ),
+    DLTRColl(
+         collection_name="hrm_area_companies"
+    ),
+    DLTRColl(
+         collection_name="hrm_department_companies"
     ),
 )
 
@@ -429,7 +474,7 @@ if __name__ == "__main__":
                 asset
                 for asset in all_assets
                 if asset.key
-                in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),)
+                in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "hrm_area")),)
             )
             assert asset_to_test
             result = materialize(
