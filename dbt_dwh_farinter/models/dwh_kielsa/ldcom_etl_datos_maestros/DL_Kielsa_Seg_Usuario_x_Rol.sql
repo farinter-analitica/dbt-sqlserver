@@ -1,10 +1,11 @@
 
-{%- set unique_key_list = ["Usuario_Id","Emp_Id"] -%}
+{%- set unique_key_list = ["Usuario_Id","Rol_Id","Emp_Id"] -%}
+{# Esta tabla no puede ser incremental por fecha ya que no tiene indicador de eliminacion.#}
 {{ 
     config(
 		as_columnstore=true,
 		tags=["periodo/diario"],
-		materialized="incremental",
+		materialized="table",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
@@ -41,33 +42,19 @@ AS
 	UNION ALL{%- endif %}
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
 		, ISNULL(CAST(Usuario_Id AS INT),0) AS [Usuario_Id]
-		,[Rol_Id]
-		,[Usuario_Nombre]
-		,[Usuario_Login]
-		,[Usuario_Corporativo]
-		,[Usuario_Email]
-		,[Usuario_Expira]
-		,[Usuario_Fec_Actualizacion]
-		,[Usuario_Cuenta_Deshabilitada]
-		,[Usuario_Cuenta_Bloqueada]
-		,[Usuario_Cuenta_Bloqueada_Hasta]
-		,[Consecutivo]
-		,[Usuario_Muestra_Costos]
-		,[Usuario_Muestra_Precio]
-		,[Usuario_Fec_Creacion]
-		,[Usuario_Fec_Deshabilitado]
-		,[Usuario_Fec_Eliminado]
-		,[Usuario_Eliminado]
-	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.[Seg_Usuario] 
+		, ISNULL(CAST(Rol_Id AS INT),0) AS [Rol_Id]
+		, [Fec_Actualizacion]
+		, [Consecutivo]
+	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.[Seg_Usuario_x_Rol] 
 	--WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 	{%- if is_incremental() %}
-	WHERE Usuario_Fec_Actualizacion >= '{{last_date}}'
+	WHERE Fec_Actualizacion >= '{{last_date}}'
 	{%- endif %}
 	
 {% endfor -%}
 )
 SELECT *
-	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') as Hash_UsuEmp
+	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') as Hash_UsuRolEmp
 	, GETDATE() AS [Fecha_Carga]
 	, GETDATE() AS [Fecha_Actualizado]
 FROM datosBase
