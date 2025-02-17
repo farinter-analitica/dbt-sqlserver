@@ -9,7 +9,7 @@
     config(
 		as_columnstore=false,
 		tags=["periodo/diario", "periodo/por_hora"],
-		materialized="table",
+		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
