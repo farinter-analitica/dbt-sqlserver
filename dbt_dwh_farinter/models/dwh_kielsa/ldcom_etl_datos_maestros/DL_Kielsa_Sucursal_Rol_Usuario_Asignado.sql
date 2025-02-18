@@ -38,7 +38,7 @@ WITH rol_supervisor AS (
 		(
 			CASE
 				WHEN Emp_Id = 5
-				AND Rol_Nombre LIKE 'Supervisor de Zona' THEN 'Supervisor'
+				AND Rol_Nombre IN ('Supervisor de Zona','Supervisor de Operaciones') THEN 'Supervisor'
 				WHEN Emp_Id = 3
 				AND Rol_Nombre LIKE 'Supervisor de Operaciones' THEN 'Supervisor'
 				WHEN Rol_Nombre LIKE 'Supervisor de Operaciones' THEN 'Supervisor'
