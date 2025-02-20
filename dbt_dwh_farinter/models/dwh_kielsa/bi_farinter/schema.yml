@@ -6,13 +6,13 @@ models:
     columns:
       - name: Id_Usuario
         description: "Primary key - Unique identifier for users"
-        tests:
+        data_tests:
           - unique
           - not_null
 
       - name: Fecha_Creado
         description: "Creation date of the user record"
-        tests:
+        data_tests:
           - check_last_date_recency:
                 max_days: 7
                 severity: warn
