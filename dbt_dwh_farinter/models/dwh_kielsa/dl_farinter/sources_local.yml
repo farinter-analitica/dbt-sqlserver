@@ -164,3 +164,20 @@ sources:
       - name: orders__shopping_cart
      
       
+
+
+  - name: DL_FARINTER_excel
+    description: "Base de tablas cargadas (Data Lake)"
+    database: DL_FARINTER
+    schema: excel
+    freshness: # default freshness
+        warn_after: {count: 28, period: hour}
+        error_after: {count: 72, period: hour}
+    loaded_at_field: Fecha_Actualizado
+    meta:
+        dagster:
+            group: "ldcom_etl_dwh"
+    tables:
+      - name: DL_Kielsa_Horario_Temp
+     
+      
