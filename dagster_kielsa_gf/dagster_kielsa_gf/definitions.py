@@ -1,8 +1,6 @@
 from dagster import (
-    AssetSelection,
     AssetsDefinition,
     Definitions,
-    AutomationConditionSensorDefinition as ACS,
 )
 import dagster_kielsa_gf.dlt_defs.definitions as dlt_defs
 import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
@@ -21,6 +19,7 @@ from dagster_kielsa_gf.assets import (
     recetas_libros_etl_dwh,
     smb_etl_dwh,
     recomendacion_cliente,
+    recomendacion_articulo,
 )
 from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
@@ -28,9 +27,6 @@ from dagster_shared_gf import (
     all_shared_resources,
     all_shared_sensors,
 )
-
-from dagster_shared_gf.shared_variables import tags_repo
-
 all_assets = (
     *examples.all_assets,
     *dbt_example.all_assets,
@@ -43,6 +39,7 @@ all_assets = (
     *smb_etl_dwh.all_assets,
     *cliente_general.all_assets,
     *recomendacion_cliente.all_assets,
+    *recomendacion_articulo.all_assets,
 )
 all_asset_checks = (
     *dbt_example.all_asset_checks,
@@ -54,6 +51,7 @@ all_asset_checks = (
     *ldcom_etl_dwh.all_asset_checks,
     *smb_etl_dwh.all_asset_checks,
     *recomendacion_cliente.all_asset_checks,
+    *recomendacion_articulo.all_asset_checks,
 )
 
 # Extract the asset keys from the AssetsDefinition instances
