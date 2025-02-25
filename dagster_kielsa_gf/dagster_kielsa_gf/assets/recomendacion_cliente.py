@@ -45,7 +45,7 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
         "df_purchases": Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     },
 )
-def get_customer_purchases(
+def get_customer_purchases_for_recom(
     dwh_farinter_dl: SQLServerResource,
 ) -> pl.DataFrame:
     meses_muestra = 2
@@ -247,7 +247,7 @@ def compute_lift_matrix(
         ),
     }
 )
-def generate_recommendations(
+def generate_customer_recommendations(
     purchases_df: pl.DataFrame,
     n_recommendations: int = 5,
     batch_size: int = 1000,
@@ -362,7 +362,7 @@ def generate_recommendations(
 
 
 @op
-def save_recommendations(
+def save_customer_recommendations(
     dwh_farinter_dl: SQLServerResource, recommendations: pl.DataFrame
 ) -> None:
     db_table_name = "DL_Kielsa_Cliente_ArticuloRecomendado"
@@ -407,9 +407,9 @@ def save_recommendations(
 
 @graph(tags=tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly)
 def cliente_recomendacion_graph():
-    df_purchases = get_customer_purchases()
-    recommendations = generate_recommendations(df_purchases)
-    return save_recommendations(recommendations)
+    df_purchases = get_customer_purchases_for_recom()
+    recommendations = generate_customer_recommendations(df_purchases)
+    return save_customer_recommendations(recommendations)
 
 
 DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(

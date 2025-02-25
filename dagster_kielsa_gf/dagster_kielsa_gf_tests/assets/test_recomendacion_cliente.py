@@ -9,16 +9,9 @@ from dagster_kielsa_gf.assets.recomendacion_cliente import (
     compute_cooccurrence_matrix,
     compute_lift_matrix,
     filter_cooccurrence,
-    generate_recommendations,
+    generate_customer_recommendations,
 )
-# Aquí asumiré que las funciones las importas de tu código real:
-# from your_module import (
-#     create_user_item_matrix,
-#     compute_cooccurrence_matrix,
-#     compute_lift_matrix,
-#     filter_cooccurrence,
-#     generate_recommendations,
-# )
+
 
 def test_create_user_item_matrix():
     """
@@ -46,6 +39,7 @@ def test_create_user_item_matrix():
     assert row_u1[idx_b] == 1
     assert row_u1[idx_c] == 0  # U1 no tiene C
 
+
 def test_compute_cooccurrence_matrix():
     """
     Probar que la co-ocurrencia se calcule correctamente en un ejemplo controlado.
@@ -57,20 +51,20 @@ def test_compute_cooccurrence_matrix():
     # Esperamos co-ocurrencia(A,B)=1 (de U1), co-ocurrencia(B,C)=1 (U2), etc.
 
     # Directamente creamos la matriz:
-    data = np.array([1,1,1,1,1])  # 5 "1"s, 
-    row_indices = np.array([0,0,1,1,2]) # user
-    col_indices = np.array([0,1,1,2,0]) # item
-    # Interpretemos: 
+    data = np.array([1, 1, 1, 1, 1])  # 5 "1"s,
+    row_indices = np.array([0, 0, 1, 1, 2])  # user
+    col_indices = np.array([0, 1, 1, 2, 0])  # item
+    # Interpretemos:
     # user0 => items(0,1) => A,B
     # user1 => items(1,2) => B,C
     # user2 => item(0) => A
 
-    user_item = sp.csr_matrix((data, (row_indices, col_indices)), shape=(3,3))
+    user_item = sp.csr_matrix((data, (row_indices, col_indices)), shape=(3, 3))
 
     coocc = compute_cooccurrence_matrix(user_item)
     # coocc debería ser 3x3 (items x items)
 
-    # coocc(A,B) => item0 vs item1: 
+    # coocc(A,B) => item0 vs item1:
     # A = col0, B= col1
     # Cuántos usuarios compraron ambos? => user0
     # => coocc(0,1)= 1
@@ -80,23 +74,24 @@ def test_compute_cooccurrence_matrix():
 
     # coocc(0,0)=0, coocc(1,1)=0, coocc(2,2)=0 (diagonal en 0)
     coocc_array = coocc.toarray()
-    assert coocc_array.shape == (3,3)
-    assert coocc_array[0,1] == 1  # A,B
-    assert coocc_array[1,0] == 1
-    assert coocc_array[0,2] == 0  # A,C
-    assert coocc_array[1,2] == 1  # B,C
-    assert coocc_array[2,1] == 1  # C,B
-    assert coocc_array[2,0] == 0  # C,A
+    assert coocc_array.shape == (3, 3)
+    assert coocc_array[0, 1] == 1  # A,B
+    assert coocc_array[1, 0] == 1
+    assert coocc_array[0, 2] == 0  # A,C
+    assert coocc_array[1, 2] == 1  # B,C
+    assert coocc_array[2, 1] == 1  # C,B
+    assert coocc_array[2, 0] == 0  # C,A
+
 
 def test_compute_lift_matrix():
     """
     Validar lift en un caso controlado.
     """
     # Reusamos la matriz del test anterior:
-    data = np.array([1,1,1,1,1])  
-    row_indices = np.array([0,0,1,1,2]) 
-    col_indices = np.array([0,1,1,2,0]) 
-    user_item = sp.csr_matrix((data, (row_indices, col_indices)), shape=(3,3))
+    data = np.array([1, 1, 1, 1, 1])
+    row_indices = np.array([0, 0, 1, 1, 2])
+    col_indices = np.array([0, 1, 1, 2, 0])
+    user_item = sp.csr_matrix((data, (row_indices, col_indices)), shape=(3, 3))
     coocc = compute_cooccurrence_matrix(user_item)
 
     # freq(A) => user0, user2 => 2
@@ -112,11 +107,12 @@ def test_compute_lift_matrix():
     arr_lift = lift.toarray()
 
     # Revisar (A,B) => (0,1)
-    assert arr_lift[0,1] == pytest.approx(0.75, 0.00001)
+    assert arr_lift[0, 1] == pytest.approx(0.75, 0.00001)
     # Revisar (B,C) => (1,2)
-    assert arr_lift[1,2] == pytest.approx(1.5, 0.00001)
+    assert arr_lift[1, 2] == pytest.approx(1.5, 0.00001)
     # Revisar diagonal=0
-    assert arr_lift[0,0] == 0
+    assert arr_lift[0, 0] == 0
+
 
 def test_filter_cooccurrence():
     """
@@ -124,11 +120,11 @@ def test_filter_cooccurrence():
     """
     # Creamos coocurrencia "ficticia" 4x4
     # item(0,1,2,3)
-    coocc_data = np.array([1,2,3,1])
-    rows = np.array([0,1,1,2])
-    cols = np.array([1,0,2,3])
+    coocc_data = np.array([1, 2, 3, 1])
+    rows = np.array([0, 1, 1, 2])
+    cols = np.array([1, 0, 2, 3])
     # coocc(0,1)=1, coocc(1,0)=2, coocc(1,2)=3, coocc(2,3)=1
-    coocc_m = sp.coo_matrix((coocc_data,(rows, cols)), shape=(4,4)).tocsr()
+    coocc_m = sp.coo_matrix((coocc_data, (rows, cols)), shape=(4, 4)).tocsr()
 
     filtered = filter_cooccurrence(coocc_m, min_cooccur_count=2)
     arr_f = filtered.toarray()
@@ -137,10 +133,11 @@ def test_filter_cooccurrence():
     # coocc(1,2)=3 se conserve
     # coocc(2,3)=1 se elimine
 
-    assert arr_f[0,1] == 0
-    assert arr_f[1,0] == 2
-    assert arr_f[1,2] == 3
-    assert arr_f[2,3] == 0
+    assert arr_f[0, 1] == 0
+    assert arr_f[1, 0] == 2
+    assert arr_f[1, 2] == 3
+    assert arr_f[2, 3] == 0
+
 
 def test_generate_recommendations():
     """
@@ -160,16 +157,19 @@ def test_generate_recommendations():
     # U3 compra A y C
     # U4 compra B (únicamente, se descarta por tener <2 compras)
     # U5 compra A, B y C (se descarta por tener todos los ítems)
-    monederos = ["U1", "U1",    # U1: A, B
-                 "U2", "U2",    # U2: B, C
-                 "U3", "U3",    # U3: A, C
-                 "U4",          # U4: B
-                 "U5", "U5", "U5"]  # U5: A, B, C
-    articulos = ["A", "B",
-                 "B", "C",
-                 "A", "C",
-                 "B",
-                 "A", "B", "C"]
+    monederos = [
+        "U1",
+        "U1",  # U1: A, B
+        "U2",
+        "U2",  # U2: B, C
+        "U3",
+        "U3",  # U3: A, C
+        "U4",  # U4: B
+        "U5",
+        "U5",
+        "U5",
+    ]  # U5: A, B, C
+    articulos = ["A", "B", "B", "C", "A", "C", "B", "A", "B", "C"]
     frecuencias = [1, 1, 1, 1, 1, 1, 2, 1, 1, 1]
 
     # Agregar usuarios U6 a U10 que compran "X" (esto aumenta total_users a 10)
@@ -189,11 +189,8 @@ def test_generate_recommendations():
     # - n_recommendations=2 (aunque se espera solo 3 recomendaciones en total)
     # - min_cooccur_threshold=2
     # - lift_threshold=10.0 (valor alto que esperamos que se supere para los pares entre A, B y C)
-    recs = generate_recommendations(
-        df,
-        n_recommendations=2,
-        min_cooccur_threshold=2,
-        lift_threshold=1.0
+    recs = generate_customer_recommendations(
+        df, n_recommendations=2, min_cooccur_threshold=2, lift_threshold=1.0
     )
 
     # Se espera que se generen recomendaciones únicamente para U1, U2 y U3 (3 filas en total)
@@ -202,7 +199,12 @@ def test_generate_recommendations():
     )
 
     # Validamos que existan las columnas esperadas
-    for col in ["Monedero_Id", "Articulo_Id_Recomendado", "Lift_Score", "Clientes_Compraron"]:
+    for col in [
+        "Monedero_Id",
+        "Articulo_Id_Recomendado",
+        "Lift_Score",
+        "Clientes_Compraron",
+    ]:
         assert col in recs.columns, f"Falta la columna '{col}' en la salida."
 
     # Se espera que:
