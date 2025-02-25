@@ -396,14 +396,14 @@ def save_recommendations(
 
 
 @graph(tags=tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly)
-def cliente_recomendacion_graph():
+def articulo_recomendacion_graph():
     df_purchases = get_article_purchases()
     recommendations = generate_recommendations(df_purchases)
     return save_recommendations(recommendations)
 
 
 DL_Kielsa_Articulo_ArticuloRelacionado = AssetsDefinition.from_graph(
-    graph_def=cliente_recomendacion_graph,
+    graph_def=articulo_recomendacion_graph,
     keys_by_output_name={
         "result": AssetKey(
             ["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_ArticuloRelacionado"]
