@@ -485,8 +485,8 @@ if __name__ == "__main__":
                     resources={
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
-                                "write_disposition": "replace",
-                                "refresh": "drop_resources",
+                                #"write_disposition": "replace",
+                                #"refresh": "drop_resources",
                             }
                         }
                     }

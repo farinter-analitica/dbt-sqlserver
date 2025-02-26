@@ -64,7 +64,7 @@ def get_user_databases_tuples(sql_server: SQLServerNonRuntimeResource) -> list[R
     if cached_data:
         return cached_data
 
-    with sql_server.get_connection(database='master') as conn:
+    with sql_server.get_connection(database='master', engine="pyodbc") as conn:
         query = """
         SELECT database_id, name 
         FROM sys.databases  WITH (NOLOCK)
@@ -72,7 +72,7 @@ def get_user_databases_tuples(sql_server: SQLServerNonRuntimeResource) -> list[R
         """
         result = sql_server.query(query, connection=conn)
         set_cache_data(cache_key, result)
-        return result
+        return result if result is not None else []
     
 def get_server_name_str(sql_server: SQLServerNonRuntimeResource) -> str:
     cache_key = "server_name"
@@ -80,7 +80,7 @@ def get_server_name_str(sql_server: SQLServerNonRuntimeResource) -> str:
     if cached_data:
         return cached_data
     
-    with sql_server.get_connection(database='master') as conn:
+    with sql_server.get_connection(database='master', engine="pyodbc") as conn:
         query = """
         SELECT CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255))
         """
@@ -99,7 +99,7 @@ def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: 
         return cached_data
     
     global PRINTING_EVENTS
-    with sql_server.get_connection(database=db_name) as conn:
+    with sql_server.get_connection(database=db_name, engine="pyodbc") as conn:
         query = f"""
         SELECT 
             CONCAT(referencing_server_name, '.', referencing_database_name, '.', referencing_schema, '.', referencing_object_name) AS referencing_relation_path,
@@ -132,7 +132,7 @@ def get_all_dependencies_tuples(sql_server: SQLServerNonRuntimeResource, db_id: 
 #print(get_all_dependencies_tuples(dwh_farinter_database_admin, 6, "BI_FARINTER")[0])
 
 def get_all_object_definitions_tuples(sql_server: SQLServerNonRuntimeResource, db_name: str) -> list[Row | tuple]:
-    with sql_server.get_connection(database=db_name) as conn:
+    with sql_server.get_connection(database=db_name, engine="pyodbc") as conn:
         query = f"""
         SELECT 
             CONCAT(CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255)), '.', '{db_name}', '.', SCHEMA_NAME(o.schema_id), '.', name) AS referencing_relation_path
@@ -220,7 +220,7 @@ def get_object_dependencies_tuples_by_definition(sql_server: SQLServerNonRuntime
     """
 
     if connection is None:
-        with sql_server.get_connection(database=db_name) as conn:
+        with sql_server.get_connection(database=db_name, engine="pyodbc") as conn:
             return sql_server.query(query, connection=conn)
     else:
         return sql_server.query(query, connection=connection)

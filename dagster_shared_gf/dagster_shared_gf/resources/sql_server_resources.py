@@ -2,7 +2,7 @@ import base64
 import contextlib
 import os
 from enum import Enum
-from typing import Any, Generator, List, Literal, Type, Union
+from typing import Any, Generator, Literal, Type, Union
 import urllib.parse
 
 import pyodbc
@@ -14,7 +14,7 @@ from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
 
-Row = pyodbc.Row
+Row = pyodbc.Row | sqlalchemy.Row
 encode_url = urllib.parse.quote
 
 
@@ -27,7 +27,11 @@ class EngineType(str, Enum):
 
 
 # For type hints
-ENGINES = Union[EngineType, str]
+ENGINES = Union[
+    Literal[EngineType.PYODBC, EngineType.SQLALCHEMY, EngineType.ARROW_ODBC],
+    Literal["pyodbc", "sqlalchemy", "arrow-odbc"]
+]
+
 Connection = Union[pyodbc.Connection, sqlalchemy.Connection]
 
 
@@ -75,7 +79,7 @@ p_driver = os.environ.get("DAGSTER_SQL_SERVER_ODBC_DRIVER")
 
 class SQLServerResource(ConfigurableResource):
     server: str
-    databases: list[str]  # List of databases
+    databases: list[str]  # list of databases
     username: str
     password: str
     default_database: str  # Default database
@@ -93,7 +97,7 @@ class SQLServerResource(ConfigurableResource):
         self,
         database: str | None = None,
         autocommit: bool = False,
-        engine: ENGINES = EngineType.PYODBC,
+        engine: ENGINES = EngineType.SQLALCHEMY,
         timeout: int = 30,
         connection_attrs: dict | None = None,
     ) -> Generator[Connection, None, None]:
@@ -103,7 +107,7 @@ class SQLServerResource(ConfigurableResource):
         Args:
             database (str, optional): The name of the database to connect to. If not provided, the default database will be used.
             autocommit (bool, optional): Whether to enable autocommit. Defaults to False.
-            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.PYODBC.
+            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.SQLALCHEMY.
             timeout (int, optional): Connection timeout in seconds. Defaults to 30.
             connection_attrs (dict, optional): Additional connection attributes or tags.
 
@@ -190,14 +194,14 @@ class SQLServerResource(ConfigurableResource):
     def get_connection_string(
         self,
         database: str | None = None,
-        engine: ENGINES = EngineType.PYODBC,
+        engine: ENGINES = EngineType.SQLALCHEMY,
     ) -> str | sqlalchemy.URL:
         """
         Generates a connection string for the specified database.
 
         Args:
             database (str, optional): The name of the database to connect to. Defaults to None.
-            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.PYODBC.
+            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.SQLALCHEMY.
 
         Raises:
             ValueError: If the specified database is not in the allowed list.
@@ -251,7 +255,7 @@ class SQLServerResource(ConfigurableResource):
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
 
-    def cursor_fetch_first_result(self, cursor: pyodbc.Cursor, fetch_val: bool = False):
+    def _cursor_fetch_first_result(self, cursor: pyodbc.Cursor, fetch_val: bool = False):
         result = None
         try:
             result = cursor.fetchval() if fetch_val else cursor.fetchall()
@@ -265,7 +269,13 @@ class SQLServerResource(ConfigurableResource):
                 continue
 
         return result
-
+    
+    def _ensure_text(self, query_obj: Union[str, Any]) -> Any:
+        """Ensure the query is wrapped in text() if it's a string."""
+        if isinstance(query_obj, str):
+            return sqlalchemy.text(query_obj)
+        return query_obj
+        
     def query(
         self,
         query: str,
@@ -273,7 +283,8 @@ class SQLServerResource(ConfigurableResource):
         database: str = "",
         fetch_val: bool = False,
         autocommit: bool = True,
-    ) -> List[Row] | Any:
+        engine: ENGINES = EngineType.SQLALCHEMY,
+    ) -> list[Row] | Any:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows or single row,
         this doesn't work well for return values, use a select and optional fetch_val = true instead.
@@ -287,9 +298,11 @@ class SQLServerResource(ConfigurableResource):
                 will be used.
             fetch_one (bool, optional): Whether to fetch only one row. Defaults to False.
             autocommit (bool, optional): Whether to enable autocommit. Defaults to True.
+            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.SQLALCHEMY.
+            If you provide a connection, engine will be ignored.
 
         Returns:
-            List[pyodbc.Row]: A list of rows returned by the query.
+            list[pyodbc.Row]: A list of rows returned by the query.
 
         Raises:
             RuntimeError: If there is an error executing the query.
@@ -297,34 +310,40 @@ class SQLServerResource(ConfigurableResource):
         Example:
             >>> query = "SELECT * FROM table"
             >>> connection = pyodbc.connect(connection_string)
-            >>> result = query(query, connection)
+            >>> result = query(query, connection)  # Returns all rows
             >>> print(result)
             [('value1',), ('value2',), ...]
+            
+            >>> result = query(query, connection, fetch_val=True)  # Returns first column of first row
+            >>> print(result)
+            'value1'
         """
+        if engine not in EngineType:
+            raise ValueError(f"Engine {engine} is not supported.")
         try:
             if connection is None:
                 with self.get_connection(
-                    database=database, autocommit=autocommit
+                    database=database, autocommit=autocommit, engine=engine
                 ) as new_conn:
                     if isinstance(new_conn, pyodbc.Connection):
                         cursor = new_conn.cursor()
                         cursor.execute(query)
-                        return self.cursor_fetch_first_result(
+                        return self._cursor_fetch_first_result(
                             cursor=cursor, fetch_val=fetch_val
                         )
                     elif isinstance(new_conn, sqlalchemy.Connection):
-                        result = new_conn.execute(sqlalchemy.text(query))
-                        return result.fetchone() if fetch_val else result.fetchall()
+                        result = new_conn.execute(self._ensure_text(query))
+                        return result.scalar() if fetch_val else result.all()
             else:
                 if isinstance(connection, pyodbc.Connection):
                     cursor = connection.cursor()
                     cursor.execute(query)
-                    return self.cursor_fetch_first_result(
+                    return self._cursor_fetch_first_result(
                         cursor=cursor, fetch_val=fetch_val
                     )
                 elif isinstance(connection, sqlalchemy.Connection):
-                    result = connection.execute(sqlalchemy.text(query))
-                    return result.fetchone() if fetch_val else result.fetchall()
+                    result = connection.execute(self._ensure_text(query))
+                    return result.scalar() if fetch_val else result.all()
         except pyodbc.DatabaseError as opex:
             if opex.args[0] == "42S02":
                 self.log_event(
@@ -361,7 +380,7 @@ class SQLServerResource(ConfigurableResource):
                 except Exception:
                     pass
         elif isinstance(conn, sqlalchemy.Connection):
-            conn.execute(sqlalchemy.text(query))
+            conn.execute(self._ensure_text(query))
             if not autocommit and conn.in_transaction():
                 conn.commit()
 
@@ -371,7 +390,7 @@ class SQLServerResource(ConfigurableResource):
         connection: Connection | None = None,
         database: str = "",
         autocommit: bool = True,
-        engine: Literal["pyodbc", "sqlalchemy"] = "pyodbc",
+        engine: ENGINES = EngineType.SQLALCHEMY,
     ):
         """
         Executes an SQL query on a database connection.
@@ -383,11 +402,14 @@ class SQLServerResource(ConfigurableResource):
             database (str, optional): The name of the database to connect to. If not provided, the default database
                 will be used.
             autocommit (bool, optional): Whether to enable autocommit. Defaults to True.
-            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.PYODBC.
+            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.SQLALCHEMY.
+            If you provide a connection, engine will be ignored.
 
         Raises:
             Exception: If there is an error executing and committing the query.
         """
+        if engine not in EngineType:
+            raise ValueError(f"Engine {engine} is not supported.")
         try:
             if connection is None:
                 with self.get_connection(
@@ -417,8 +439,10 @@ class SQLServerResource(ConfigurableResource):
     def get_sqlalchemy_url(self) -> sqlalchemy.URL:
         """Get the SQLAlchemy URL for the SQL Server resource."""
         passw = self.password
-        if hasattr(passw, "get_value"):
-            v_password: str = passw.get_value()
+        if hasattr(passw, "get_value") and isinstance(passw,EnvVar):
+            pass_val = passw.get_value()
+            if pass_val:
+                v_password: str = pass_val
         else:
             v_password: str = str(self.password)
         return sqlalchemy.URL.create(
@@ -746,7 +770,7 @@ if __name__ == "__main__":
             default_database="test_default_database",
             allow_any_database=True,
         )
-        with resource.get_connection() as connection:
+        with resource.get_connection(engine=EngineType.PYODBC) as connection:
             assert (
                 connection is mock_conn
             )  # Assert that the connection is the mock connection object
