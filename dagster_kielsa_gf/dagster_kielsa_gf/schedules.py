@@ -96,15 +96,15 @@ ldcom_etl_dwh_job_schedule = ScheduleDefinition(
 dlt_etl_dwh_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "0 4 * * *", "prd": "30 1 * * *"}),
     execution_timezone=default_timezone,
-    job=jobs.dlt_dwh_kielsa_all_downstream_job,
+    job=jobs.dlt_dwh_kielsa_job,
     default_status=running_default_schedule_status,
 )
 
-kielsa_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
+kielsa_daily_downstream_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "0 1 * * *", "prd": "10 0 * * *"}),
-    description=f"Selection: {str(jobs.kielsa_etl_dwh_all_downstream_job.selection)}",
+    description=f"Selection: {str(jobs.kielsa_daily_downstream_job.selection)}",
     execution_timezone=default_timezone,
-    job=jobs.kielsa_etl_dwh_all_downstream_job,
+    job=jobs.kielsa_daily_downstream_job,
     default_status=running_default_schedule_status,
 )
 

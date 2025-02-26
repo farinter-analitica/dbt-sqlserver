@@ -6,6 +6,7 @@ from dagster._core.definitions.asset_spec import AssetExecutionType  # to use sh
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  # to use shared
 )
+
 # from dlt.common.normalizers.naming.snake_case import NamingCo1nvention
 from dagster._utils.tags import normalize_tags
 
@@ -199,7 +200,7 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
             for name in dir(self)
             if isinstance(getattr(self, name), Tags) and getattr(self, name).is_schedule
         )
-    
+
     def get_automation_tags(self) -> tuple[Tags, ...]:
         """
         Returns all tags that are automation-related (start with 'automation/' or 'particionado/auto').
@@ -207,7 +208,8 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
         return tuple(
             getattr(self, name)
             for name in dir(self)
-            if isinstance(getattr(self, name), Tags) and any(
+            if isinstance(getattr(self, name), Tags)
+            and any(
                 k.startswith("automation/") or k.startswith("particionado/auto")
                 for k in getattr(self, name).keys()
             )
@@ -220,7 +222,8 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
         return tuple(
             getattr(self, name)
             for name in dir(self)
-            if isinstance(getattr(self, name), Tags) and any(
+            if isinstance(getattr(self, name), Tags)
+            and any(
                 k.startswith("detener_carga/si")
                 or k.startswith("particionado/auto")
                 or k.startswith("automation/only")
@@ -285,6 +288,14 @@ class ErrorsOccurred(BaseException):
     pass
 
 
-seleccion_no_programar: AssetSelection = AssetSelection.tag(
-    key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
-) | AssetSelection.tag(key=tags_repo.AutomationOnly.key, value=tags_repo.AutomationOnly.value)
+seleccion_no_programar: AssetSelection = (
+    AssetSelection.tag(
+        key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
+    )
+    | AssetSelection.tag(
+        key=tags_repo.AutomationOnly.key, value=tags_repo.AutomationOnly.value
+    )
+    | AssetSelection.tag(
+        key=tags_repo.PartitionedAuto.key, value=tags_repo.PartitionedAuto.value
+    )
+)
