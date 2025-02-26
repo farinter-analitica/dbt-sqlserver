@@ -13,6 +13,7 @@ from dagster import (
     AssetsDefinition,
     In,
     Nothing,
+    OpExecutionContext,
     Out,
     asset,
     graph,
@@ -21,6 +22,7 @@ from dagster import (
     load_assets_from_current_module,
     materialize,
     op,
+    Field
 )
 
 from dagster_shared_gf.automation import automation_weekly_7_delta_1_cron
@@ -29,7 +31,6 @@ from dagster_shared_gf.resources.smb_resources import (
 )
 from dagster_shared_gf.resources.sql_server_resources import (
     SQLServerResource,
-    dwh_farinter_dl,
 )
 from dagster_shared_gf.shared_functions import SQLScriptGenerator
 from dagster_shared_gf.shared_variables import env_str, tags_repo
@@ -51,11 +52,13 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
     out={
         "df_purchases": Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     },
+    config_schema = {"meses_muestra": Field(int, is_required=False, default_value=6)},
 )
 def get_article_purchases_for_recom(
+    context: OpExecutionContext,
     dwh_farinter_dl: SQLServerResource,
 ) -> pl.DataFrame:
-    meses_muestra = 2
+    meses_muestra = context.op_config["meses_muestra"]
     lista_fechas_muestra = [
         pdl.today().subtract(months=i) for i in range(meses_muestra + 1)
     ]
@@ -387,9 +390,7 @@ def save_article_recommendations(
             sg.primary_key_table_sql_script(temp=True), connection=conn
         )
 
-        dwh_farinter_dl.execute_and_commit(
-            sg.swap_table_with_temp(), connection=conn
-        )
+        dwh_farinter_dl.execute_and_commit(sg.swap_table_with_temp(), connection=conn)
 
 
 @graph(tags=tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly)
@@ -421,6 +422,9 @@ all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
 if __name__ == "__main__":
     from dagster import instance_for_test
     from dagster_polars import PolarsParquetIOManager
+    from dagster_shared_gf.resources.sql_server_resources import (
+        dwh_farinter_dl,
+    )
 
     start_time = datetime.now()
     with instance_for_test() as instance:

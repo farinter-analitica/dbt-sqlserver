@@ -108,7 +108,7 @@ def create_user_item_matrix(
     purchases_df: pl.DataFrame,
 ) -> tuple[sp.csr_matrix, dict, dict]:
     """
-    Convierte los datos de compras en una matriz dispersa usuario–artículo.
+    Convierte los datos de compras en una matriz dispersa usuario-artículo.
 
     Se utilizan los campos:
       - Monedero_Id (identificador del cliente)
