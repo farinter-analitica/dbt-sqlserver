@@ -26,13 +26,6 @@ ldcom_etl_dwh_job = define_asset_job(
     selection=AssetSelection.groups("ldcom_etl_dwh"),
     config=execution_run_config_default,
 )
-# Define the job and add to definitions on main __init__.py
-ldcom_etl_dwh_job = define_asset_job(
-    name="ldcom_etl_dwh_job",
-    selection=AssetSelection.groups("ldcom_etl_dwh"),
-    config=execution_run_config_default,
-)
-
 
 examples_assets_job = define_asset_job(
     name="examples_assets_job",
@@ -65,41 +58,49 @@ dbt_dwh_kielsa_marts_job = define_asset_job(
     config=execution_run_config_default,
 )
 
-knime_workflows_start_of_month_assets: AssetSelection = (
-    AssetSelection.groups("knime_workflows")
-    & AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
-).downstream() - seleccion_no_programar  ##Schedule differently
-knime_workflows_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
-    name="knime_workflows_start_of_month_job",
-    selection=knime_workflows_start_of_month_assets,
-    config=execution_config_secuential,
-    tags=tags_repo.Monthly.tag,
-    description="Este Job solo ejecuta los assets del grupo knime_workflows\n\
-    pero no sus dependientes ya que podrian estar ligados con otros jobs, usar automation unica para esos assets.\n\
-El job solo ejecuta 1 proceso al mismo tiempo.\n\
-    ",
-)
-
-knime_workflows_all_downstream_assets: AssetSelection = (
-    AssetSelection.groups("knime_workflows") - knime_workflows_start_of_month_assets
+knime_workflows_daily_assets: AssetSelection = (
+    AssetSelection.groups("knime_workflows").tag(
+        key=tags_repo.Daily.key, value=tags_repo.Daily.value
+    )
 ) - seleccion_no_programar
-knime_workflows_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
-    name="knime_workflows_all_downstream_job",
-    selection=knime_workflows_all_downstream_assets,
+
+
+knime_workflows_daily_job: UnresolvedAssetJobDefinition = define_asset_job(
+    name="knime_workflows_daily_job",
+    selection=knime_workflows_daily_assets,
     config=execution_config_secuential,
     tags=tags_repo.Daily.tag,
 )
 
-kielsa_daily_assets: AssetSelection = (
+dlt_dwh_kielsa_daily_assets: AssetSelection = (
+    AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh").tag(
+        key=tags_repo.Daily.key, value=tags_repo.Daily.value
+    )
+    - seleccion_no_programar
+)
+dlt_dwh_kielsa_daily_job: UnresolvedAssetJobDefinition = define_asset_job(
+    name="dlt_dwh_kielsa_daily_job",
+    selection=dlt_dwh_kielsa_daily_assets,
+    config=execution_run_config_2,
+    tags=tags_repo.Daily.tag,
+    description="Este Job solo ejecuta los assets del grupo dlt_mongo_db_crm_hn_etl_dwh\n\
+    pero no sus dependientes ya que podrian estar ligados con otros grupos, usar automation unica para esos assets.\n\
+El job solo ejecuta 2 procesos maximo al mismo tiempo.\n\
+    ",
+)
+
+
+kielsa_daily_downstream_assets: AssetSelection = (
     AssetSelection.tag(
         key=tags_repo.Daily.key, value=tags_repo.Daily.value
     ).downstream()
     - seleccion_no_programar
-    - AssetSelection.groups("knime_workflows")
+    - knime_workflows_daily_assets
+    - dlt_dwh_kielsa_daily_assets
 )
 kielsa_daily_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_daily_downstream_job",
-    selection=kielsa_daily_assets,
+    selection=kielsa_daily_downstream_assets,
     tags=tags_repo.Daily.tag | {"dagster/max_runtime": (18 * 60 * 60)},
     run_tags=tags_repo.Daily.tag
     | {
@@ -186,37 +187,16 @@ kielsa_hourly_additional_job: UnresolvedAssetJobDefinition = define_asset_job(
     },  # max 45 minutes in seconds, then mark it as failed.)
 )
 
-dlt_dwh_kielsa_assets: AssetSelection = (
-    AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh") - seleccion_no_programar
-)
-dlt_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(
-    name="dlt_dwh_kielsa_job",
-    selection=dlt_dwh_kielsa_assets,
-    config=execution_run_config_2,
-    tags=tags_repo.Daily.tag,
-    description="Este Job solo ejecuta los assets del grupo dlt_mongo_db_crm_hn_etl_dwh\n\
-    pero no sus dependientes ya que podrian estar ligados con otros grupos, usar automation unica para esos assets.\n\
-El job solo ejecuta 2 procesos maximo al mismo tiempo.\n\
-    ",
-)
-
 dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = (
-    dbt_dwh_kielsa_marts_assets - kielsa_daily_assets - dlt_dwh_kielsa_assets
+    dbt_dwh_kielsa_marts_assets
+    - kielsa_daily_downstream_assets
+    - dlt_dwh_kielsa_daily_assets
 ) - seleccion_no_programar
-dbt_dwh_kielsa_marts_orphan_assets_job = define_asset_job(
-    name="dbt_dwh_kielsa_marts_orphan_assets_job",
-    selection=dbt_dwh_kielsa_marts_assets_not_in_downstream,
-    config=execution_run_config_default,
-    tags=tags_repo.Daily.tag,
-)
 
-
-smb_etl_dwh_kielsa_all_downstream_assets: AssetSelection = AssetSelection.groups(
-    "smb_etl_dwh"
-).downstream()
-smb_etl_dwh_kielsa_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
+smb_etl_dwh_kielsa_assets: AssetSelection = AssetSelection.groups("smb_etl_dwh")
+smb_etl_dwh_kielsa_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="smb_etl_dwh_kielsa_all_downstream_job",
-    selection=smb_etl_dwh_kielsa_all_downstream_assets,
+    selection=smb_etl_dwh_kielsa_assets,
     config=execution_run_config_default,
     # , tags= {"dagster/max_runtime": (4*60*60)} # max 4 hours in seconds, then mark it as failed.
 )

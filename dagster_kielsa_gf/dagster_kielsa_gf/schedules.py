@@ -75,29 +75,21 @@ dbt_dwh_kielsa_marts_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "0 3 * * *", "prd": "0 2 * * *"}),
     execution_timezone=default_timezone,
     job=jobs.dbt_dwh_kielsa_marts_job,
-    default_status=stopped_default_schedule_status,  # Se ejecutaran los orphan
-)
-
-# Define the schedule, name defaults to the name of the job + _schedule
-dbt_dwh_kielsa_marts_orphan_assets_job_schedule = ScheduleDefinition(
-    cron_schedule=get_for_current_env({"dev": "0 3 * * *", "prd": "0 2 * * *"}),
-    execution_timezone=default_timezone,
-    job=jobs.dbt_dwh_kielsa_marts_orphan_assets_job,
-    default_status=running_default_schedule_status,
+    default_status=stopped_default_schedule_status,  # Se ejecutan de acuerdo a la etiqueta de periodicidad
 )
 
 ldcom_etl_dwh_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "0 2 * * *", "prd": "0 1 * * *"}),
     execution_timezone=default_timezone,
     job=jobs.ldcom_etl_dwh_job,
-    default_status=stopped_default_schedule_status,  # Se ejecutaran con los downstream jobs
+    default_status=stopped_default_schedule_status,  # Se ejecutan de acuerdo a la etiqueta de periodicidad
 )
 
-dlt_etl_dwh_job_schedule = ScheduleDefinition(
+dlt_dwh_kielsa_daily_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "0 4 * * *", "prd": "30 1 * * *"}),
     execution_timezone=default_timezone,
-    job=jobs.dlt_dwh_kielsa_job,
-    default_status=running_default_schedule_status,
+    job=jobs.dlt_dwh_kielsa_daily_job,
+    default_status=running_default_schedule_status,  # Los separamos debido a los problemas constantes de dlt
 )
 
 kielsa_daily_downstream_job_schedule = ScheduleDefinition(
@@ -108,19 +100,13 @@ kielsa_daily_downstream_job_schedule = ScheduleDefinition(
     default_status=running_default_schedule_status,
 )
 
-knime_workflows_all_downstream_job_schedule = ScheduleDefinition(
+knime_workflows_daily_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "20 4 * * 1-6", "prd": "15 2 * * 1-6"}),
     execution_timezone=default_timezone,
-    job=jobs.knime_workflows_all_downstream_job,
+    job=jobs.knime_workflows_daily_job,
     default_status=running_default_schedule_status,
 )
 
-knime_workflows_start_of_month_job_schedule = ScheduleDefinition(
-    cron_schedule=get_for_current_env({"dev": "0 5 1 * *", "prd": "30 5 1 * *"}),
-    execution_timezone=default_timezone,
-    job=jobs.knime_workflows_start_of_month_job,
-    default_status=only_prd_default_schedule_status,  # Solo en PRD es necesario, destino unico por el momento.
-)
 
 comprobar_sinc_replicas_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "30 7-18 * * *", "prd": "35 7-18 * * *"}),
@@ -194,20 +180,6 @@ kielsa_hourly_additional_job_schedule = ScheduleDefinition(
     default_status=stopped_default_schedule_status,
     should_execute=should_exec_kielsa_hourly_additional_job_run,
 )
-
-# Migrado a PRD
-# kielsa_olap_kielsa_general_temp_dev_job_schedule = ScheduleDefinition(
-#     cron_schedule=get_for_current_env(
-#         dict={
-#             "dev": ["05 6-19 * * *", "05 23 * * *"],
-#             "prd": ["05 6-19 * * *", "05 23 * * *"],
-#         }
-#     ),  # cron template: hour minute day month day_of_week
-#     execution_timezone=default_timezone,
-#     job=kielsa_olap_kielsa_general_temp_dev_job,
-#     default_status=only_dev_default_schedule_status,
-#     should_execute=should_exec_kielsa_hourly_job_run,
-# )
 
 clean_storage_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env({"dev": "5 20 * * 6", "prd": "5 20 * * 7"}),

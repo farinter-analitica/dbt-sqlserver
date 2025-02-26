@@ -1,6 +1,6 @@
+import decimal
 from collections.abc import Generator
 from datetime import datetime
-import decimal
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
@@ -26,9 +26,9 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
     DltPipelineDestMssqlDwh,
     merge_dlt_dagster_metadata,
 )
-from dagster_shared_gf.shared_functions import get_for_current_env
-from dagster_shared_gf.shared_variables import Tags
 from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
+from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.shared_variables import Tags, tags_repo
 
 snake_case_normalizer = NamingConvention()
 # logger = get_dagster_logger()
@@ -75,8 +75,10 @@ class DltResourceCollectionConfig:
     force_columns_type: Optional[dict[str, Any]] = None
     import_schema_path: Optional[str] = None
     export_schema_path: Optional[str] = None
+    tags: Optional[Tags | Mapping[str, str]] = Field(
+        default_factory=lambda: tags_repo.Daily.tag
+    )
     schema_contract: Optional[TSchemaContractDict] = None
-    tags: Optional[Tags | Mapping[str, str]] = None
     """
     You can control the following schema entities:
 
@@ -94,6 +96,17 @@ class DltResourceCollectionConfig:
     {"tables": "freeze", "columns": "freeze", "data_type": "freeze"}
     https://dlthub.com/docs/general-usage/schema-contracts
     """
+
+    def __post_init__(self):
+        if self.automation_condition and (
+            not self.tags
+            or not any(
+                tag.key in self.tags.keys() for tag in tags_repo.get_automation_tags()
+            )
+        ):
+            raise ValueError(
+                "Si se define automatizacion, se debe definir una etiqueta de automatizacion y periodiciadad."
+            )
 
     def get_all_configs_dict(self) -> Mapping[str, str]:
         return {key: value for key, value in self.__dict__.items() if value is not None}
@@ -204,7 +217,7 @@ class DagsterDltTranslatorMongodb(DagsterDltTranslator):
     def get_export_schema_path(self, resource: DltResource) -> str | None:
         if self.collection:
             return self.collection.export_schema_path
-    
+
     def get_tags(self, resource: DltResource) -> Mapping[str, str] | None:
         if self.collection:
             return self.collection.tags
@@ -318,7 +331,7 @@ def remove_collection_columns(
 
 def include_collection_columns(
     doc: Dict, include_columns: Optional[Sequence[str]] = None
-): #-> Dict:
+):  # -> Dict:
     """
     Removes the specified columns from the given document.
 
@@ -341,9 +354,8 @@ def include_collection_columns(
     yield {
         key: doc[key]
         for key in doc.keys()
-        if key in include_columns
-        or str(key).startswith("_dlt")    
-        }
+        if key in include_columns or str(key).startswith("_dlt")
+    }
 
 
 ColConfigs = tuple[DltResourceCollectionConfig, ...]
@@ -470,7 +482,8 @@ def create_dlt_asset(
         automation_condition=dlt_t.get_automation_condition(dlt_resource),
     )
     def compute_dlt_asset(
-        context: AssetExecutionContext, dlt_pipeline_dest_mssql_dwh: DltPipelineDestMssqlDwh
+        context: AssetExecutionContext,
+        dlt_pipeline_dest_mssql_dwh: DltPipelineDestMssqlDwh,
     ):
         target_pipeline_name = pipeline_name
         new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(

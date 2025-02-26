@@ -173,7 +173,7 @@ def fetch_knime_workflows(
                 knime_workflow=row[2],
                 # cron_text=row[3],
                 workflow_directory=row[4],
-                tags=tags.get(row[2], None),
+                tags=tags.get(row[2], tags_repo.Daily.tag),
                 automation_condition=automation_conditions.get(row[2], None),
                 asset_keys=row[5],
             )
