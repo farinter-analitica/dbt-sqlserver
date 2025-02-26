@@ -15,7 +15,7 @@ def test_decode_password():
 # Mock the pyodbc connection and cursor
 @patch('pyodbc.connect')
 def test_get_connection(mock_connect):
-    mock_conn = MagicMock()
+    mock_conn = MagicMock(spec=pyodbc.Connection)
     mock_connect.return_value = mock_conn
 
     with dwh_farinter_database_admin.get_connection(database='DL_FARINTER') as conn:
