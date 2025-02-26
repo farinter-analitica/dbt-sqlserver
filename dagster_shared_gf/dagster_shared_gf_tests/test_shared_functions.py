@@ -302,3 +302,13 @@ print("All tests passed!")
 if __name__ == "__main__":
     TSQL = TestSQLScriptGenerator()
     TSQL.test_create_table_sql_script()
+
+
+def test_chi_square_threshold():
+    """
+    Probar que se calcule correctamente el umbral chi-cuadrado a partir del nivel de confianza.
+    """
+    # Para niveles de confianza comunes, verificamos valores aproximados
+    assert sf.get_chi_square_threshold(95.0) > 3.8
+    assert sf.get_chi_square_threshold(90.0) > 2.7
+    assert sf.get_chi_square_threshold(80.0) > 1.6

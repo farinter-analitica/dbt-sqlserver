@@ -11,6 +11,7 @@ from dagster import (
     AssetChecksDefinition,
     AssetKey,
     AssetsDefinition,
+    Field,
     In,
     Nothing,
     OpExecutionContext,
@@ -22,8 +23,8 @@ from dagster import (
     load_assets_from_current_module,
     materialize,
     op,
-    Field
 )
+from dagster._core.definitions.input import InputDefinition
 
 from dagster_shared_gf.automation import automation_weekly_7_delta_1_cron
 from dagster_shared_gf.resources.smb_resources import (
@@ -32,7 +33,10 @@ from dagster_shared_gf.resources.smb_resources import (
 from dagster_shared_gf.resources.sql_server_resources import (
     SQLServerResource,
 )
-from dagster_shared_gf.shared_functions import SQLScriptGenerator
+from dagster_shared_gf.shared_functions import (
+    SQLScriptGenerator,
+    get_chi_square_threshold,
+)
 from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
@@ -52,7 +56,7 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
     out={
         "df_purchases": Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     },
-    config_schema = {"meses_muestra": Field(int, is_required=False, default_value=6)},
+    config_schema={"meses_muestra": Field(int, is_required=False, default_value=6)},
 )
 def get_article_purchases_for_recom(
     context: OpExecutionContext,
@@ -79,26 +83,28 @@ def get_article_purchases_for_recom(
         FROM
             BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaPosicion F WITH(NOLOCK)
         INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A 
-        ON F.Articulo_Id = A.Articulo_Id
-        AND F.Emp_Id = A.Emp_Id
+            ON F.Articulo_Id = A.Articulo_Id
+            AND F.Emp_Id = A.Emp_Id
         WHERE
             F.Emp_Id = 1 AND 
             F.AnioMes_Id IN ({", ".join(map(str, lista_aniomes))}) AND
             F.Factura_Fecha >= '{min(lista_fechas_muestra).strftime("%Y%m%d")}' AND
-            F.TipoDoc_Id = 1
+            F.TipoDoc_Id = 1 AND
+            A.Articulo_Activo = 1
         GROUP BY
             F.EmpSucDocCajFac_Id
         HAVING COUNT(DISTINCT A.Articulo_Codigo_Padre) > 1
         ) DC 
-    ON FA.EmpSucDocCajFac_Id = DC.EmpSucDocCajFac_Id
+        ON FA.EmpSucDocCajFac_Id = DC.EmpSucDocCajFac_Id
     INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A 
-    ON FA.Articulo_Id = A.Articulo_Id
-    AND FA.Emp_Id = A.Emp_Id
+        ON FA.Articulo_Id = A.Articulo_Id
+        AND FA.Emp_Id = A.Emp_Id
     WHERE
         FA.Emp_Id = 1 AND 
         FA.AnioMes_Id IN ({", ".join(map(str, lista_aniomes))}) AND 
         FA.Factura_Fecha >= '{min(lista_fechas_muestra).strftime("%Y%m%d")}' AND
-        FA.TipoDoc_Id = 1
+        FA.TipoDoc_Id = 1 AND
+        A.Articulo_Activo = 1
     GROUP BY
         FA.EmpSucDocCajFac_Id,
         A.Articulo_Codigo_Padre,
@@ -125,6 +131,16 @@ def create_invoice_item_matrix(
       - Frecuencia (cantidad de compras; se utiliza como peso en la matriz)
 
     Se asume que los IDs son textos.
+
+    Parameters
+    ----------
+    purchases_df : pl.DataFrame
+        Dataframe de compras.
+
+    Returns
+    -------
+    tuple[sp.csr_matrix, dict, dict]
+        Matriz dispersa factura-artículo, diccionario de mapeo de factura a índice, diccionario de mapeo de artículo a índice.
     """
     # Extraer los IDs únicos y ordenados de usuario y artículo
     fact_ids = purchases_df.get_column("Factura_Id").unique().sort().to_numpy()
@@ -257,21 +273,41 @@ def compute_lift_matrix(
 )
 def generate_article_recommendations(
     purchases_df: pl.DataFrame,
-    n_recommendations: int = 5,
+    max_n_recommendations: int = 20,
     batch_size: int = 1000,
-    lift_threshold: float = 1.0,
+    min_lift_threshold: float = 1.0,
     min_cooccur_threshold: int = 5,
+    min_confidence_level: float = 90.0,
 ) -> pl.DataFrame:
     """
     Genera recomendaciones de productos relacionados basados en compras conjuntas en facturas.
 
-    Se utilizan dos métricas:
-      - Lift: Mide la fuerza de la asociación entre artículos.
-      - Facturas_Conjuntas: Número de facturas en las que ambos artículos aparecen juntos.
+    Se utilizan estas metricas:
+    - Lift: Mide la fuerza de la asociación entre artículos.
+    - Facturas_Conjuntas: Número de facturas en las que ambos artículos aparecen juntos.
+    - Significance_Score: Medida estadística (chi-cuadrado) que indica cuán significativa
+      es la asociación considerando el tamaño de la muestra.
 
     Se filtran asociaciones cuyo lift sea inferior al umbral (por defecto 1.0) y se
     descartan recomendaciones con menos de min_cooccur_threshold facturas conjuntas.
+
+    Parameters
+    ----------
+    purchases_df : pl.DataFrame
+        Dataframe de compras.
+    n_recommendations : int, optional
+        Número de recomendaciones a generar, por defecto 5.
+    batch_size : int, optional
+        Tamaño del lote para procesar la matriz, por defecto 1000.
+    min_lift_threshold : float, optional
+        Umbral mínimo para el lift, por defecto 1.0.
+    min_cooccur_threshold : int, optional
+        Umbral mínimo para el número de facturas conjuntas, por defecto 5.
+    min_confidence_level : float, optional
+        Nivel de confianza para el cálculo de la significancia, por defecto 70.0.
     """
+    min_significance = get_chi_square_threshold(min_confidence_level)
+
     # Construir la matriz factura-artículo y obtener los mapeos
     invoice_item_matrix, invoice_to_idx, item_to_idx = create_invoice_item_matrix(
         purchases_df
@@ -294,9 +330,28 @@ def generate_article_recommendations(
     # Calcular la matriz de lift a partir de la coocurrencia
     lift_matrix = compute_lift_matrix(invoice_item_matrix, cooccurrence)
 
+    # Calculate significance scores using Chi-Square statistics
+    significance_matrix = sp.lil_matrix(lift_matrix.shape, dtype=np.float32)
+    item_frequencies = np.array(invoice_item_matrix.sum(axis=0)).ravel()
+    total_invoices = invoice_item_matrix.shape[0]
+
+    # Convert to COO for easier iteration
+    cooc_coo = cooccurrence.tocoo()
+    for i, j, observed in zip(cooc_coo.row, cooc_coo.col, cooc_coo.data):
+        # Expected co-occurrence under independence assumption
+        expected = (item_frequencies[i] * item_frequencies[j]) / total_invoices
+
+        # Chi-square statistic: (O-E)²/E
+        if expected > 0:
+            chi_square = ((observed - expected) ** 2) / expected
+            # Store significance score
+            significance_matrix[i, j] = chi_square
+
+    significance_matrix = significance_matrix.tocsr()
+
     # Filtrar asociaciones débiles: descartar aquellas con lift inferior al umbral
     lift_coo = lift_matrix.tocoo()
-    mask = lift_coo.data >= lift_threshold
+    mask = lift_coo.data >= min_lift_threshold
     filtered_data = np.where(mask, lift_coo.data, 0)
     lift_matrix = sp.coo_matrix(
         (filtered_data, (lift_coo.row, lift_coo.col)), shape=lift_coo.shape
@@ -309,6 +364,7 @@ def generate_article_recommendations(
     recommendations = deque()
     n_items = lift_matrix.shape[0] if lift_matrix.shape is not None else 0
 
+    fecha_generacion = datetime.now().date()
     # Procesar artículos en bloques para mantener escalabilidad
     for batch_start in range(0, n_items, batch_size):
         batch_end = min(batch_start + batch_size, n_items)
@@ -322,43 +378,103 @@ def generate_article_recommendations(
             if related_items.size == 0:
                 continue  # No hay artículos relacionados
 
-            # Obtener puntajes de lift y coocurrencia
+            # Obtener puntajes de lift, coocurrencia y significancia
             lift_scores = item_row[0, related_items].toarray().flatten()
             cooccur_scores = cooccurrence[item_idx, related_items].toarray().flatten()
+            significance_scores = (
+                significance_matrix[item_idx, related_items].toarray().flatten()
+            )
 
-            # Ordenar por lift score
-            if n_recommendations < related_items.size:
-                top_unsorted = np.argpartition(-lift_scores, n_recommendations)[
-                    :n_recommendations
-                ]
-                sorted_indices = top_unsorted[np.argsort(-lift_scores[top_unsorted])]
+            # Create combined score: normalize each factor and use weighted sum
+            # First normalize to [0,1] range
+            if lift_scores.size > 0:
+                norm_lift = (
+                    lift_scores / lift_scores.max()
+                    if lift_scores.max() > 0
+                    else lift_scores
+                )
+                norm_cooccur = (
+                    cooccur_scores / cooccur_scores.max()
+                    if cooccur_scores.max() > 0
+                    else cooccur_scores
+                )
+                norm_signif = (
+                    significance_scores / significance_scores.max()
+                    if significance_scores.max() > 0
+                    else significance_scores
+                )
+
+                # Weighted combined score (adjust weights as needed)
+                combined_scores = (
+                    3 * norm_lift + 4 * norm_cooccur + 3 * norm_signif
+                ) / 10.0
             else:
-                sorted_indices = np.argsort(-lift_scores)
+                combined_scores = np.array([])
+
+            # Ordenar por combined score
+            if max_n_recommendations < related_items.size:
+                top_unsorted = np.argpartition(-combined_scores, max_n_recommendations)[
+                    :max_n_recommendations
+                ]
+                sorted_indices = top_unsorted[
+                    np.argsort(-combined_scores[top_unsorted])
+                ]
+            else:
+                sorted_indices = (
+                    np.argsort(-combined_scores)
+                    if combined_scores.size > 0
+                    else np.array([])
+                )
 
             # Para cada artículo relacionado en el top N
-            for idx in sorted_indices[:n_recommendations]:
+            for idx in sorted_indices[:max_n_recommendations]:
                 related_item_idx = related_items[idx]
                 lift_score = lift_scores[idx]
                 cooccur_count = int(cooccur_scores[idx])
+                significance_score = float(significance_scores[idx])
+                combined_score = float(combined_scores[idx])
 
-                if lift_score > 0 and cooccur_count >= min_cooccur_threshold:
+                if (
+                    lift_score > min_lift_threshold
+                    and cooccur_count >= min_cooccur_threshold
+                    and significance_score >= min_significance
+                ):
                     recommendations.append(
                         {
                             "Articulo_Id": idx_to_item[item_idx],
                             "Articulo_Id_Relacionado": idx_to_item[related_item_idx],
                             "Lift_Score": float(lift_score),
                             "Facturas_Conjuntas": cooccur_count,
-                            "Fecha_Generacion": datetime.now().strftime("%Y-%m-%d"),
+                            "Significance_Score": significance_score,
+                            "Combined_Score": combined_score,
+                            "Fecha_Generacion": fecha_generacion,
                         }
                     )
 
-    return pl.DataFrame(recommendations)
+    df_recommendations = pl.DataFrame(recommendations)
+
+    if df_recommendations.is_empty():
+        raise ValueError("No se encontraron recomendaciones.")
+
+    return df_recommendations.with_columns(
+        pl.col("Combined_Score")
+        .rank("ordinal", descending=True)
+        .over("Articulo_Id")
+        .alias("Rank")
+    )
 
 
 @op
 def save_article_recommendations(
     dwh_farinter_dl: SQLServerResource, recommendations: pl.DataFrame
 ) -> None:
+    if env_str == "local":
+        with pl.Config() as c:
+            c.set_tbl_rows(-1)
+            c.set_tbl_cols(-1)
+            print(recommendations.head(10))
+            print(recommendations.describe())
+        return
     print(f"Por guardar {len(recommendations)} recomendaciones entre artículos")
     with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
         sg = SQLScriptGenerator(
@@ -393,9 +509,27 @@ def save_article_recommendations(
         dwh_farinter_dl.execute_and_commit(sg.swap_table_with_temp(), connection=conn)
 
 
-@graph(tags=tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly)
-def articulo_recomendacion_graph():
-    df_purchases = get_article_purchases_for_recom()
+@graph(
+    tags=tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly,
+    input_defs=[
+        InputDefinition(
+            name="BI_Kielsa_Hecho_FacturaPosicion",
+            dagster_type=Nothing,
+            description="Fact table with invoice positions",
+            asset_key=AssetKey(
+                ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaPosicion"]
+            ),
+        ),
+        InputDefinition(
+            name="BI_Kielsa_Dim_Articulo",
+            dagster_type=Nothing,
+            description="Dim table with articles",
+            asset_key=AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Articulo"]),
+        ),
+    ],
+)
+def articulo_recomendacion_graph(**kwargs):
+    df_purchases = get_article_purchases_for_recom(**kwargs)
     recommendations = generate_article_recommendations(df_purchases)
     return save_article_recommendations(recommendations)
 
@@ -422,10 +556,12 @@ all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
 if __name__ == "__main__":
     from dagster import instance_for_test
     from dagster_polars import PolarsParquetIOManager
+
     from dagster_shared_gf.resources.sql_server_resources import (
         dwh_farinter_dl,
     )
 
+    # print(DL_Kielsa_Articulo_ArticuloRelacionado.asset_deps)
     start_time = datetime.now()
     with instance_for_test() as instance:
         from dagster import ResourceDefinition
@@ -460,3 +596,15 @@ if __name__ == "__main__":
     print(
         f"Tiempo de ejecución: {end_time - start_time}, desde {start_time}, hasta {end_time}"
     )
+
+    # SELECT TOP (1000) AR.*
+    # 		,A.Articulo_Nombre
+    # 	    ,A2.Articulo_Nombre AS Relacionado
+    #   FROM [DL_FARINTER].[dbo].[DL_Kielsa_Articulo_ArticuloRelacionado] AR
+    #   INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A
+    #   ON A.Emp_Id=1
+    #   AND AR.Articulo_Id = A.Articulo_Id
+    #     INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A2
+    #   ON A2.Emp_Id=1
+    #   AND AR.Articulo_Id_Relacionado = A2.Articulo_Id
+    #   WHERE A.Articulo_Id = '1110000125'

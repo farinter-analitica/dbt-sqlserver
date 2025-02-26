@@ -28,6 +28,7 @@ import requests
 from dagster import AssetsDefinition, config_from_files
 from dagster_graphql import DagsterGraphQLClient
 from dlt.common import pendulum
+from scipy import stats
 from trycast import isassignable
 
 from dagster_shared_gf.utils.snake_case_normalizer import SnakeCase
@@ -720,53 +721,57 @@ class SQLScriptGenerator:
         # Initialize the SQL script
         sql_script = f"CREATE TABLE {schema_table_relation} (\n"
 
+        TYPE_MAPPING = {
+            pl.Int8: "TINYINT",
+            pl.Int16: "SMALLINT",
+            pl.Int32: "INT",
+            pl.Int64: "BIGINT",
+            pl.Float32: "FLOAT(24)",
+            pl.Float64: "FLOAT(53)",
+            pl.Boolean: "BIT",
+            pl.Date: "DATE",
+            pl.UInt8: "TINYINT",
+            pl.UInt16: "SMALLINT",
+            pl.UInt32: "INT",
+            pl.UInt64: "BIGINT",
+        }
+
         # Iterate over the columns in the schema
         for col_name, col_type in schema.items():
             # Map the Polars data type to a SQL Server data type
-            if col_type == pl.Int8:
-                sql_type = "TINYINT"
-            elif col_type == pl.Int16:
-                sql_type = "SMALLINT"
-            elif col_type == pl.Int32:
-                sql_type = "INT"
-            elif col_type == pl.Int64:
-                sql_type = "BIGINT"
-            elif col_type == pl.Float32:
-                sql_type = "FLOAT(24)"
-            elif col_type == pl.Float64:
-                sql_type = "FLOAT(53)"
-            elif col_type == pl.Utf8:
-                string_lenght = df.get_column(col_name).str.len_chars().max()  # type: ignore
-                string_lenght: int = string_lenght if string_lenght else 0
-                if col_name in primary_keys and not string_lenght > 50:
-                    sql_type = "NVARCHAR(50)"
-                elif string_lenght <= 100:
-                    sql_type = "NVARCHAR(100)"
-                elif string_lenght <= 255:
-                    # Use NVARCHAR for string columns with a maximum length of 255
-                    sql_type = "NVARCHAR(255)"
-                elif col_name in primary_keys:
-                    raise ValueError(
-                        f"Primary key {col_name} shouldn't be longer than 255 characters"
-                    )
+            # Get the basic type mapping first
+            sql_type = TYPE_MAPPING.get(col_type)
+
+            # Handle special cases
+            if sql_type is None:
+                if col_type == pl.Utf8:
+                    string_lenght = df.get_column(col_name).str.len_chars().max()  # type: ignore
+                    string_lenght: int = string_lenght if string_lenght else 0
+                    if col_name in primary_keys and not string_lenght > 50:
+                        sql_type = "NVARCHAR(50)"
+                    elif string_lenght <= 100:
+                        sql_type = "NVARCHAR(100)"
+                    elif string_lenght <= 255:
+                        # Use NVARCHAR for string columns with a maximum length of 255
+                        sql_type = "NVARCHAR(255)"
+                    elif col_name in primary_keys:
+                        raise ValueError(
+                            f"Primary key {col_name} shouldn't be longer than 255 characters"
+                        )
+                    else:
+                        sql_type = "NVARCHAR(MAX)"
+                elif col_type == pl.Datetime:
+                    if col_type.time_zone is not None:  # type: ignore
+                        sql_type = "DATETIMEOFFSET(0)"
+                    else:
+                        sql_type = "DATETIME2(0)"
+                elif col_type == pl.Decimal:
+                    # Use DECIMAL with precision and scale
+                    precision = col_type.precision  # type: ignore
+                    scale = col_type.scale  # type: ignore
+                    sql_type = f"DECIMAL({precision}, {scale})"
                 else:
-                    sql_type = "NVARCHAR(MAX)"
-            elif col_type == pl.Boolean:
-                sql_type = "BIT"
-            elif col_type == pl.Datetime:
-                if col_type.time_zone is not None:  # type: ignore
-                    sql_type = "DATETIMEOFFSET(0)"
-                else:
-                    sql_type = "DATETIME2(0)"
-            elif col_type == pl.Date:
-                sql_type = "DATE"
-            elif col_type == pl.Decimal:
-                # Use DECIMAL with precision and scale
-                precision = col_type.precision  # type: ignore
-                scale = col_type.scale  # type: ignore
-                sql_type = f"DECIMAL({precision}, {scale})"
-            else:
-                raise ValueError(f"Unsupported data type: {col_type}")
+                    raise ValueError(f"Unsupported data type: {col_type}")
 
             # Add the column definition to the SQL script
             sql_script += f"    [{col_name}] {sql_type}"
@@ -961,3 +966,22 @@ def pendulum_dt_to_datetime(dt: pendulum.DateTime) -> datetime:
         dt.microsecond,
         tz_info,
     )
+
+
+def get_chi_square_threshold(confidence_level: float) -> float:
+    """
+    Calculate the chi-square critical value from a confidence level percentage.
+
+    Args:
+        confidence_level: Confidence level as percentage (e.g., 95 for 95%)
+
+    Returns:
+        Chi-square critical value
+    """
+    # Convert confidence percentage to probability
+    probability = confidence_level / 100
+
+    # Get chi-square critical value for 1 degree of freedom
+    critical_value = float(stats.chi2.ppf(probability, df=1))
+
+    return critical_value

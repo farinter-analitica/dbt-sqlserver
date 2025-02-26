@@ -18,8 +18,7 @@ from dagster_kielsa_gf.assets import (
     ldcom_etl_dwh_sp,
     recetas_libros_etl_dwh,
     smb_etl_dwh,
-    recomendacion_cliente,
-    recomendacion_articulo,
+    recomendaciones,
 )
 from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
@@ -38,8 +37,7 @@ all_assets = (
     *ldcom_etl_dwh.all_assets,
     *smb_etl_dwh.all_assets,
     *cliente_general.all_assets,
-    *recomendacion_cliente.all_assets,
-    *recomendacion_articulo.all_assets,
+    *recomendaciones.all_assets,
 )
 all_asset_checks = (
     *dbt_example.all_asset_checks,
@@ -50,8 +48,7 @@ all_asset_checks = (
     *analysis_services.all_asset_checks,
     *ldcom_etl_dwh.all_asset_checks,
     *smb_etl_dwh.all_asset_checks,
-    *recomendacion_cliente.all_asset_checks,
-    *recomendacion_articulo.all_asset_checks,
+    *recomendaciones.all_asset_checks,
 )
 
 # Extract the asset keys from the AssetsDefinition instances

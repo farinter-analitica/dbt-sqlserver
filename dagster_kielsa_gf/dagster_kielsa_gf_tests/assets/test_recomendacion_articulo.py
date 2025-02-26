@@ -4,7 +4,8 @@ import pytest
 import polars as pl
 import numpy as np
 import scipy.sparse as sp
-from dagster_kielsa_gf.assets.recomendacion_articulo import (
+from datetime import datetime, date
+from dagster_kielsa_gf.assets.recomendaciones.articulo import (
     create_invoice_item_matrix,
     compute_cooccurrence_matrix,
     compute_lift_matrix,
@@ -15,7 +16,7 @@ from dagster_kielsa_gf.assets.recomendacion_articulo import (
 
 def test_create_invoice_item_matrix():
     """
-    Validamos que la matriz se construya correctamente para un dataset pequeño.
+    Validate that the matrix is correctly constructed for a small dataset.
     """
     data = {
         "Factura_Id": ["F1", "F1", "F2", "F2", "F3"],
@@ -25,69 +26,66 @@ def test_create_invoice_item_matrix():
     df = pl.DataFrame(data)
     mat, fact2idx, item2idx = create_invoice_item_matrix(df)
 
-    assert mat.shape == (3, 3)  # 3 facturas (F1,F2,F3) x 3 artículos (A,B,C)
-    # Revisa la fila de F1
+    assert mat.shape == (3, 3)  # 3 invoices (F1,F2,F3) x 3 items (A,B,C)
+    
+    # Check F1 row
     idx_f1 = fact2idx["F1"]
     idx_a = item2idx["A"]
     idx_b = item2idx["B"]
     idx_c = item2idx["C"]
 
-    # Revisar que F1 contiene A y B (freq>0 =>1)
+    # Verify that F1 contains A and B (binary presence, not frequency)
     row_f1 = mat[idx_f1].toarray().ravel()
     assert row_f1[idx_a] == 1
     assert row_f1[idx_b] == 1
-    assert row_f1[idx_c] == 0  # F1 no tiene C
+    assert row_f1[idx_c] == 0  # F1 doesn't have C
 
 
 def test_compute_cooccurrence_matrix():
     """
-    Probar que la co-ocurrencia se calcule correctamente en un ejemplo controlado.
+    Test that co-occurrence is calculated correctly in a controlled example.
     """
-    # Simulamos 3 facturas x 3 items
+    # Simulate 3 invoices x 3 items
     #   F1 -> A,B
     #   F2 -> B,C
     #   F3 -> A
-    # Esperamos co-ocurrencia(A,B)=1 (de F1), co-ocurrencia(B,C)=1 (F2), etc.
-
-    # Directamente creamos la matriz:
     data = np.array([1, 1, 1, 1, 1])  # 5 "1"s
-    row_indices = np.array([0, 0, 1, 1, 2])  # factura
+    row_indices = np.array([0, 0, 1, 1, 2])  # invoice
     col_indices = np.array([0, 1, 1, 2, 0])  # item
-    # Interpretemos:
-    # factura0 => items(0,1) => A,B
-    # factura1 => items(1,2) => B,C
-    # factura2 => item(0) => A
-
+    
     fact_item = sp.csr_matrix((data, (row_indices, col_indices)), shape=(3, 3))
 
     coocc = compute_cooccurrence_matrix(fact_item)
-    # coocc debería ser 3x3 (items x items)
-
+    
     coocc_array = coocc.toarray()
     assert coocc_array.shape == (3, 3)
     assert coocc_array[0, 1] == 1  # A,B
-    assert coocc_array[1, 0] == 1
+    assert coocc_array[1, 0] == 1  # B,A
     assert coocc_array[0, 2] == 0  # A,C
     assert coocc_array[1, 2] == 1  # B,C
     assert coocc_array[2, 1] == 1  # C,B
     assert coocc_array[2, 0] == 0  # C,A
+    # Diagonal should be zero
+    assert coocc_array[0, 0] == 0
+    assert coocc_array[1, 1] == 0
+    assert coocc_array[2, 2] == 0
 
 
 def test_compute_lift_matrix():
     """
-    Validar lift en un caso controlado.
+    Validate lift calculation in a controlled case.
     """
-    # Reusamos la matriz del test anterior:
+    # Reuse matrix from previous test
     data = np.array([1, 1, 1, 1, 1])
     row_indices = np.array([0, 0, 1, 1, 2])
     col_indices = np.array([0, 1, 1, 2, 0])
     fact_item = sp.csr_matrix((data, (row_indices, col_indices)), shape=(3, 3))
     coocc = compute_cooccurrence_matrix(fact_item)
 
-    # freq(A) => factura0, factura2 => 2
-    # freq(B) => factura0, factura1 => 2
-    # freq(C) => factura1 => 1
-    # total_facturas = 3
+    # freq(A) => invoice0, invoice2 => 2
+    # freq(B) => invoice0, invoice1 => 2
+    # freq(C) => invoice1 => 1
+    # total_invoices = 3
 
     # coocc(A,B)=1 => expected(A,B)= (2*2)/3 = 4/3 => lift= 1/(4/3) = 3/4=0.75
     # coocc(B,C)=1 => freq(B)=2, freq(C)=1 => expected= (2*1)/3=2/3 => lift= (1)/(2/3)=1.5
@@ -96,20 +94,22 @@ def test_compute_lift_matrix():
     lift = compute_lift_matrix(fact_item, coocc)
     arr_lift = lift.toarray()
 
-    # Revisar (A,B) => (0,1)
+    # Check (A,B) => (0,1)
     assert arr_lift[0, 1] == pytest.approx(0.75, 0.00001)
-    # Revisar (B,C) => (1,2)
+    # Check (B,C) => (1,2)
     assert arr_lift[1, 2] == pytest.approx(1.5, 0.00001)
-    # Revisar diagonal=0
+    # Check diagonal is zero
     assert arr_lift[0, 0] == 0
+    assert arr_lift[1, 1] == 0
+    assert arr_lift[2, 2] == 0
 
 
 def test_filter_cooccurrence():
     """
-    Probar el filtro de co-ocurrencia: eliminamos pares con < 2 coocurrencia
+    Test co-occurrence filtering: remove pairs with < min_threshold co-occurrence
     """
-    # Creamos coocurrencia "ficticia" 4x4
-    # item(0,1,2,3)
+    # Create "fictitious" 4x4 co-occurrence matrix
+    # items (0,1,2,3)
     coocc_data = np.array([1, 2, 3, 1])
     rows = np.array([0, 1, 1, 2])
     cols = np.array([1, 0, 2, 3])
@@ -118,10 +118,11 @@ def test_filter_cooccurrence():
 
     filtered = filter_cooccurrence(coocc_m, min_cooccur_count=2)
     arr_f = filtered.toarray()
-    # Esperamos que coocc(0,1)=1 se elimine
-    # coocc(1,0)=2 se conserve
-    # coocc(1,2)=3 se conserve
-    # coocc(2,3)=1 se elimine
+    
+    # We expect coocc(0,1)=1 to be removed 
+    # coocc(1,0)=2 to be kept
+    # coocc(1,2)=3 to be kept
+    # coocc(2,3)=1 to be removed
 
     assert arr_f[0, 1] == 0
     assert arr_f[1, 0] == 2
@@ -129,146 +130,158 @@ def test_filter_cooccurrence():
     assert arr_f[2, 3] == 0
 
 
-def test_generate_article_recommendations():
+def test_generate_article_recommendations_complex():
     """
-    Verificar el comportamiento de generate_article_recommendations con un dataset
-    que permite generar hasta 5 recomendaciones por artículo, como en el caso real.
+    Verify the behavior of generate_article_recommendations with a dataset
+    that allows generating up to 5 recommendations per article, as in the real case.
     """
-    # Dataset expandido con relaciones más complejas entre artículos
-    # Creamos 10 facturas con diferentes combinaciones de 7 artículos (A-G)
+    # Expanded dataset with more complex relationships between articles
     data = {
         "Factura_Id": [
-            # Facturas con pares de artículos
-            "F1",
-            "F1",  # A+B
-            "F2",
-            "F2",  # A+C
-            "F3",
-            "F3",  # A+D
-            "F4",
-            "F4",  # B+C
-            "F5",
-            "F5",  # B+D
-            "F6",
-            "F6",  # C+D
-            # Facturas con ternas de artículos
-            "F7",
-            "F7",
-            "F7",  # A+E+F
-            "F8",
-            "F8",
-            "F8",  # B+E+G
-            "F9",
-            "F9",
-            "F9",  # C+F+G
-            # Factura con múltiples artículos
-            "F10",
-            "F10",
-            "F10",
-            "F10",
-            "F10",  # A+B+C+D+E
+            # Invoices with pairs of articles
+            "F1", "F1",  # A+B
+            "F2", "F2",  # A+C
+            "F3", "F3",  # A+D
+            "F4", "F4",  # B+C
+            "F5", "F5",  # B+D
+            "F6", "F6",  # C+D
+            "F1", "F1",  # A+B
+            "F2", "F2",  # A+C
+            "F3", "F3",  # A+D
+            "F4", "F4",  # B+C
+            "F5", "F5",  # B+D
+            "F6", "F6",  # C+D
+            # Invoices with triplets of articles
+            "F7", "F7", "F7",  # A+E+F
+            "F8", "F8", "F8",  # B+E+G
+            "F9", "F9", "F9",  # C+F+G
+            # Invoice with multiple articles
+            "F10", "F10", "F10", "F10", "F10",  # A+B+C+D+E
         ],
         "ArticuloPadre_Id": [
-            # Pares
-            "A",
-            "B",
-            "A",
-            "C",
-            "A",
-            "D",
-            "B",
-            "C",
-            "B",
-            "D",
-            "C",
-            "D",
-            # Ternas
-            "A",
-            "E",
-            "F",
-            "B",
-            "E",
-            "G",
-            "C",
-            "F",
-            "G",
-            # Múltiples
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
+            # Pairs
+            "A", "B",
+            "A", "C",
+            "A", "D",
+            "B", "C",
+            "B", "D",
+            "C", "D", 
+            "A", "B",
+            "A", "C",
+            "A", "D",
+            "B", "C",
+            "B", "D",
+            "C", "D",
+            # Triplets
+            "A", "E", "F",
+            "B", "E", "G",
+            "C", "F", "G",
+            # Multiple
+            "A", "B", "C", "D", "E",
         ],
-        "Frecuencia": [1] * 26,  # 26 registros total
+        "Frecuencia": [1] * 38,  # 26 records total
     }
     df = pl.DataFrame(data)
 
-    # Ejecutar la función con parámetros adecuados para este dataset
+    # Execute the function with appropriate parameters for this dataset
     recs = generate_article_recommendations(
         df,
-        n_recommendations=5,  # Solicitamos 5 recomendaciones por artículo
-        min_cooccur_threshold=1,  # Umbral mínimo de coocurrencia
-        lift_threshold=0.1,  # Umbral de lift bajo para este test
+        max_n_recommendations=5,  # Request 5 recommendations per article
+        min_cooccur_threshold=2,  # Minimum co-occurrence threshold
+        min_lift_threshold=0.01,  # Low lift threshold for this test
+        min_confidence_level=0.01,  # Low significance threshold for this test
     )
 
-    # Verificaciones básicas
-    assert not recs.is_empty(), "No se generaron recomendaciones"
+    # Basic verifications
+    assert not recs.is_empty(), "No recommendations were generated"
 
-    # Verificar columnas
+    # Verify columns
     required_columns = [
-        "Articulo_Id",
-        "Articulo_Id_Relacionado",
-        "Lift_Score",
+        "Articulo_Id", 
+        "Articulo_Id_Relacionado", 
+        "Lift_Score", 
         "Facturas_Conjuntas",
-        "Fecha_Generacion",
+        "Fecha_Generacion"
     ]
-    assert all(col in recs.columns for col in required_columns), (
-        "Faltan columnas requeridas"
-    )
+    assert all(col in recs.columns for col in required_columns), "Missing required columns"
 
-    # Organizar recomendaciones por artículo
+    # Organize recommendations by article
     rec_dict = {}
     for row in recs.select(["Articulo_Id", "Articulo_Id_Relacionado"]).iter_rows():
         if row[0] not in rec_dict:
             rec_dict[row[0]] = []
         rec_dict[row[0]].append(row[1])
 
-    # Verificar artículos clave
-    # Artículo A aparece en 5 facturas con B, C, D, E, F - debería tener 5 recomendaciones
+    # Check key articles
+    # Article A appears in 5 invoices with B, C, D, E, F - should have 5 recommendations
     if "A" in rec_dict:
-        # Verificar que A tenga recomendaciones
-        assert len(rec_dict["A"]) > 0, "El artículo A no tiene recomendaciones"
-        # Verificar que A recomiende algunos de los artículos esperados
+        # Verify A has recommendations
+        assert len(rec_dict["A"]) > 0, "Article A has no recommendations"
+        # Verify A recommends some of the expected articles
         expected_for_A = {"B", "C", "D", "E", "F"}
         actual_for_A = set(rec_dict["A"])
         assert len(actual_for_A.intersection(expected_for_A)) > 0, (
-            f"A debería recomendar algunos de {expected_for_A}, pero recomienda: {actual_for_A}"
+            f"A should recommend some of {expected_for_A}, but recommends: {actual_for_A}"
         )
 
-    # Verificar que se generan múltiples recomendaciones para algunos artículos
-    articles_with_multiple_recs = [
-        art for art, recs in rec_dict.items() if len(recs) > 1
-    ]
-    assert len(articles_with_multiple_recs) > 0, (
-        "Ningún artículo tiene múltiples recomendaciones"
-    )
+    # Verify multiple recommendations are generated for some articles
+    articles_with_multiple_recs = [art for art, recs in rec_dict.items() if len(recs) > 1]
+    assert len(articles_with_multiple_recs) > 0, "No article has multiple recommendations"
 
-    # Verificar que algunos artículos tengan cerca de 5 recomendaciones
+    # Verify some articles have close to 5 recommendations
     max_recs_count = max([len(recs) for recs in rec_dict.values()], default=0)
     assert max_recs_count > 2, (
-        f"El máximo de recomendaciones por artículo es {max_recs_count}, esperábamos cerca de 5"
+        f"The maximum number of recommendations per article is {max_recs_count}, expected close to 5"
     )
 
-    # Verificar validez de los puntajes
-    assert all(recs["Lift_Score"] > 0), "Hay recomendaciones con Lift_Score <= 0"
-    assert all(recs["Facturas_Conjuntas"] > 0), (
-        "Hay recomendaciones con Facturas_Conjuntas <= 0"
+    # Verify validity of scores
+    assert all(recs["Lift_Score"] > 0), "There are recommendations with Lift_Score <= 0"
+    assert all(recs["Facturas_Conjuntas"] > 0), "There are recommendations with Facturas_Conjuntas <= 0"
+    
+    # Verify Fecha_Generacion is a valid date
+    assert all(isinstance(_date_, date) for _date_ in recs["Fecha_Generacion"].to_list()), (
+        "Fecha_Generacion contains invalid dates"
     )
 
-    # Opcional: Imprimir un resumen de recomendaciones para diagnóstico
-    print(f"Total de recomendaciones generadas: {len(recs)}")
-    print(f"Artículos con recomendaciones: {len(rec_dict)}")
-    print(
-        f"Artículos con 5 recomendaciones: {sum(1 for recs in rec_dict.values() if len(recs) == 5)}"
-    )
-    print(f"Máximo de recomendaciones por artículo: {max_recs_count}")
+
+def test_generate_article_recommendations_empty():
+    """
+    Test behavior with an empty dataset.
+    """
+    df = pl.DataFrame({
+        "Factura_Id": [],
+        "ArticuloPadre_Id": [],
+        "Frecuencia": []
+    })
+    
+    # Llamar a la función con un umbral alto para asegurar que no haya recomendaciones
+    with pytest.raises(ValueError):
+        generate_article_recommendations(
+            df, 
+            max_n_recommendations=1, 
+            min_cooccur_threshold=100, 
+            min_lift_threshold=100.0,
+            min_confidence_level=99.99
+        )
+
+
+def test_generate_article_recommendations_single_item():
+    """
+    Test behavior with a dataset where each invoice has only one item.
+    """
+    data = {
+        "Factura_Id": ["F1", "F2", "F3"],
+        "ArticuloPadre_Id": ["A", "B", "C"],
+        "Frecuencia": [1, 1, 1]
+    }
+    df = pl.DataFrame(data)
+    
+    # Llamar a la función con un umbral alto para asegurar que no haya recomendaciones
+    with pytest.raises(ValueError):
+        generate_article_recommendations(
+            df, 
+            max_n_recommendations=1, 
+            min_cooccur_threshold=100, 
+            min_lift_threshold=100.0,
+            min_confidence_level=99.99
+        )

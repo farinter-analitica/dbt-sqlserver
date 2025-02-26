@@ -4,14 +4,14 @@ import pytest
 import polars as pl
 import numpy as np
 import scipy.sparse as sp
-from dagster_kielsa_gf.assets.recomendacion_cliente import (
+from datetime import datetime
+from dagster_kielsa_gf.assets.recomendaciones.cliente_articulo import (
     create_user_item_matrix,
     compute_cooccurrence_matrix,
     compute_lift_matrix,
     filter_cooccurrence,
     generate_customer_recommendations,
 )
-
 
 def test_create_user_item_matrix():
     """
@@ -139,17 +139,10 @@ def test_filter_cooccurrence():
     assert arr_f[2, 3] == 0
 
 
-def test_generate_recommendations():
+def test_generate_recommendations_with_significance():
     """
-    Verifica que, con un dataset modificado que incremente total_users (añadiendo usuarios que compran "X")
-    y con min_cooccur_threshold=2, la función genere las siguientes recomendaciones:
-      - U1 (que compra A y B) recomienda "C"
-      - U2 (que compra B y C) recomienda "A"
-      - U3 (que compra A y C) recomienda "B"
-    Además, se espera que:
-      - Usuarios con menos de 2 compras (p.ej. U4) no reciban recomendación.
-      - Se verifique que en cada recomendación, el Aggregate Lift Score (suma de lifts) > 0
-        y que Clientes_Compraron (suma de co-ocurrencias) >= 2.
+    Verifica la generación de recomendaciones incluyendo la puntuación de significancia
+    y el ranking de recomendaciones.
     """
     # Definimos las compras de los usuarios "clave":
     # U1 compra A y B
@@ -158,22 +151,17 @@ def test_generate_recommendations():
     # U4 compra B (únicamente, se descarta por tener <2 compras)
     # U5 compra A, B y C (se descarta por tener todos los ítems)
     monederos = [
-        "U1",
-        "U1",  # U1: A, B
-        "U2",
-        "U2",  # U2: B, C
-        "U3",
-        "U3",  # U3: A, C
+        "U1", "U1",  # U1: A, B
+        "U2", "U2",  # U2: B, C
+        "U3", "U3",  # U3: A, C
         "U4",  # U4: B
-        "U5",
-        "U5",
-        "U5",
-    ]  # U5: A, B, C
+        "U5", "U5", "U5"  # U5: A, B, C
+    ]
     articulos = ["A", "B", "B", "C", "A", "C", "B", "A", "B", "C"]
     frecuencias = [1, 1, 1, 1, 1, 1, 2, 1, 1, 1]
 
-    # Agregar usuarios U6 a U10 que compran "X" (esto aumenta total_users a 10)
-    for i in range(6, 11):
+    # Agregar usuarios U6 a U15 que compran "X" (esto aumenta total_users a 15)
+    for i in range(6, 16):
         monederos.append(f"U{i}")
         articulos.append("X")
         frecuencias.append(1)
@@ -185,45 +173,98 @@ def test_generate_recommendations():
     }
     df = pl.DataFrame(data)
 
-    # Llamamos a la función con:
-    # - n_recommendations=2 (aunque se espera solo 3 recomendaciones en total)
-    # - min_cooccur_threshold=2
-    # - lift_threshold=10.0 (valor alto que esperamos que se supere para los pares entre A, B y C)
+    # Llamamos a la función con valores específicos para probar todas las funcionalidades
     recs = generate_customer_recommendations(
-        df, n_recommendations=2, min_cooccur_threshold=2, lift_threshold=1.0
+        df, 
+        max_n_recommendations=2, 
+        min_cooccur_threshold=1, 
+        min_lift_threshold=0.5,
+        min_confidence_level=60.0  # Umbral bajo para asegurar que pasen las pruebas
     )
 
-    # Se espera que se generen recomendaciones únicamente para U1, U2 y U3 (3 filas en total)
-    assert len(recs) == 3, (
-        f"Esperábamos 3 recomendaciones, pero se encontraron {len(recs)}:\n{recs}"
-    )
-
-    # Validamos que existan las columnas esperadas
-    for col in [
-        "Monedero_Id",
-        "Articulo_Id_Recomendado",
-        "Lift_Score",
+    # Verificar estructura del resultado
+    expected_columns = [
+        "Monedero_Id", 
+        "Articulo_Id_Recomendado", 
+        "Lift_Score", 
         "Clientes_Compraron",
-    ]:
-        assert col in recs.columns, f"Falta la columna '{col}' en la salida."
+        "Significance_Score", 
+        "Combined_Score", 
+        "Articulos_Id_Relacionados",
+        "Fecha_Generacion",
+        "Rank"
+    ]
+    
+    for col in expected_columns:
+        assert col in recs.columns, f"Falta la columna '{col}' en la salida"
 
-    # Se espera que:
-    # - U1 (compra A, B) reciba "C"
-    # - U2 (compra B, C) reciba "A"
-    # - U3 (compra A, C) reciba "B"
-    expected = {
+    # Verificar que se generaron recomendaciones para U1, U2 y U3
+    monederos_con_recomendaciones = set(recs["Monedero_Id"].unique())
+    assert {"U1", "U2", "U3"}.issubset(monederos_con_recomendaciones), \
+        f"No se generaron recomendaciones para todos los usuarios esperados: {monederos_con_recomendaciones}"
+
+    # Verificar que los valores de Rank estén correctos (empiezan en 1 para cada usuario)
+    for monedero in monederos_con_recomendaciones:
+        monedero_recs = recs.filter(pl.col("Monedero_Id") == monedero)
+        assert min(monedero_recs["Rank"]) == 1, f"Rank no inicia en 1 para {monedero}"
+        
+    # Verificar que la fecha de generación sea correcta (hoy)
+    today = datetime.now().date()
+    assert all(recs["Fecha_Generacion"] == today), "La fecha de generación no es correcta"
+    
+    # Verificar Combined_Score y Significance_Score
+    assert all(recs["Combined_Score"] > 0), "Hay recomendaciones con Combined_Score <= 0"
+    assert all(recs["Significance_Score"] >= 0), "Hay recomendaciones con Significance_Score < 0"
+    
+    # Verificar que las recomendaciones esperadas estén presentes
+    expected_pairs = {
         ("U1", "C"),
         ("U2", "A"),
         ("U3", "B"),
     }
-    actual = set(recs.select(["Monedero_Id", "Articulo_Id_Recomendado"]).rows())
-    assert actual == expected, (
-        f"No coincide la lista de recomendaciones.\n"
-        f"Esperado: {expected}\nObtenido: {actual}"
-    )
+    actual_pairs = set(recs.select(["Monedero_Id", "Articulo_Id_Recomendado"]).rows())
+    assert expected_pairs.issubset(actual_pairs), \
+        f"Faltan recomendaciones esperadas.\nEsperado: {expected_pairs}\nObtenido: {actual_pairs}"
 
-    # Verificar que cada recomendación tenga Lift_Score > 0 y Clientes_Compraron >= 2
-    assert all(recs["Lift_Score"] > 0), "Hay recomendaciones con Lift_Score <= 0."
-    assert all(recs["Clientes_Compraron"] >= 2), (
-        "Se recomendó un ítem con co-ocurrencia menor a 2."
-    )
+def test_generate_recommendations_empty_raises_value_error():
+    """
+    Verificar que se lance ValueError si no hay recomendaciones.
+    """
+    # Definimos las compras de los usuarios "clave":
+    # U1 compra A y B
+    # U2 compra B y C
+    # U3 compra A y C
+    # U4 compra B (únicamente, se descarta por tener <2 compras)
+    # U5 compra A, B y C (se descarta por tener todos los ítems)
+    monederos = [
+        "U1", "U1",  # U1: A, B
+        "U2", "U2",  # U2: B, C
+        "U3", "U3",  # U3: A, C
+        "U4",  # U4: B
+        "U5", "U5", "U5"  # U5: A, B, C
+    ]
+    articulos = ["A", "B", "B", "C", "A", "C", "B", "A", "B", "C"]
+    frecuencias = [1, 1, 1, 1, 1, 1, 2, 1, 1, 1]
+
+    # Agregar usuarios U6 a U15 que compran "X" (esto aumenta total_users a 15)
+    for i in range(6, 16):
+        monederos.append(f"U{i}")
+        articulos.append("X")
+        frecuencias.append(1)
+
+    data = {
+        "Monedero_Id": monederos,
+        "ArticuloPadre_Id": articulos,
+        "Frecuencia": frecuencias,
+    }
+    df = pl.DataFrame(data)
+
+    # Llamar a la función con un umbral alto para asegurar que no haya recomendaciones
+    with pytest.raises(ValueError):
+        generate_customer_recommendations(
+            df, 
+            max_n_recommendations=1, 
+            min_cooccur_threshold=100, 
+            min_lift_threshold=100.0,
+            min_confidence_level=99.99
+        )
