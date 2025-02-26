@@ -1,3 +1,4 @@
+import textwrap
 import unittest
 import warnings
 from datetime import datetime, timedelta
@@ -9,8 +10,8 @@ from dagster import (
     AssetChecksDefinition,
     AssetKey,
     AssetsDefinition,
-    In,
     GraphIn,
+    In,
     Nothing,
     OpExecutionContext,
     Out,
@@ -35,16 +36,15 @@ from dagster_shared_gf.resources.sql_server_resources import (
     dwh_farinter_dl,
 )
 from dagster_shared_gf.shared_constants import (
-    EMAIL_REGEX_PATTERN_RUST_CRATES,
     EMAIL_REGEX_INVALID_DOTS_PATTERN,
+    EMAIL_REGEX_PATTERN_RUST_CRATES,
 )
 from dagster_shared_gf.shared_functions import (
     SQLScriptGenerator,
     filter_assets_by_tags,
     get_for_current_env,
 )
-from dagster_shared_gf.shared_variables import tags_repo
-from dagster_shared_gf.shared_variables import env_str
+from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 if __name__ == "__main__":
     from dagster_polars import PolarsParquetIOManager
@@ -183,7 +183,7 @@ def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     ).with_columns(
         pl.col("Emp_Id").cast(pl.Int32),
         pl.col("Monedero_Id").str.to_uppercase().str.strip_chars(),
-        #pl.col("Monedero_Id").str.to_uppercase().alias("Identidad_Limpia"),
+        # pl.col("Monedero_Id").str.to_uppercase().alias("Identidad_Limpia"),
     )
 
     return df_monedero
@@ -265,7 +265,10 @@ def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Execute the SQL query and store the result in a Polars DataFrame
     df_cliente = pl.read_database(
         sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string()
-    ).with_columns(pl.col("Emp_Id").cast(pl.Int32), pl.col("Cedula").str.to_uppercase().str.strip_chars())
+    ).with_columns(
+        pl.col("Emp_Id").cast(pl.Int32),
+        pl.col("Cedula").str.to_uppercase().str.strip_chars(),
+    )
     print(df_cliente.columns)
 
     return df_cliente
@@ -363,7 +366,9 @@ def process_dfs_clientes(
             pl.col("email_principal").alias("Correo"),
             (
                 pl.col("email_principal").str.contains(EMAIL_REGEX_PATTERN_RUST_CRATES)
-                & pl.col("email_principal").str.contains(EMAIL_REGEX_INVALID_DOTS_PATTERN).not_()
+                & pl.col("email_principal")
+                .str.contains(EMAIL_REGEX_INVALID_DOTS_PATTERN)
+                .not_()
             )
             .cast(pl.Boolean)
             .alias("Correo_Valido"),
@@ -773,7 +778,9 @@ def process_dfs_clientes(
     )
 
     # Union the DataFrames
-    df_clientes_final = df_clientes1.vstack(df_clientes2).vstack(df_clientes3).vstack(df_clientes4)
+    df_clientes_final = (
+        df_clientes1.vstack(df_clientes2).vstack(df_clientes3).vstack(df_clientes4)
+    )
     df_clientes_final = (
         df_clientes_final.unique(subset=["Identidad_Limpia", "Emp_Id"])
         .drop_nulls(subset=["Identidad_Limpia", "Emp_Id"])
@@ -786,7 +793,7 @@ def process_dfs_clientes(
             pl.col("Nombre_Completo").str.to_titlecase(),
         )
     )
-    
+
     return df_clientes_final
 
 
@@ -848,6 +855,7 @@ def get_phone_number_valid_df_pattern(
         pl.col("pattern"),
     )
 
+
 @op(
     out={"file_path": Out(str)},
 )
@@ -903,82 +911,48 @@ def bulk_load_to_sql_server(
     #     for _ in range(5):
     #         print(f.readline().strip()[:1000])
 
-    sql_script = f"""
+    sql_script = textwrap.dedent(f"""
         SET XACT_ABORT ON;
         SET NOCOUNT ON;
 
         BEGIN TRY
 
-            -- Drop the view if it exists
-            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES t
-                WHERE t.TABLE_NAME = '{sg.table_name}' and t.TABLE_SCHEMA = '{sg.db_schema}' 
-                and t.TABLE_TYPE = 'VIEW')
-                DROP VIEW [{sg.db_schema}].[{sg.table_name}];
+            -- Drop the NEW temp table if it exists
+            {sg.drop_table_sql_script(temp=True)};
 
-            -- Drop the NEW table if it exists
-            DROP TABLE IF EXISTS {sg.schema_temp_table_relation};
-
-            -- Drop the old table
+            -- Drop the old table if it exists
             DROP TABLE IF EXISTS [{sg.db_schema}].[{sg.table_name}_OLD];
 
-            -- Create a new table with the same structure as the existing one
-            {sg.create_table_sql_script()}
+            -- Create a new temp table with the same structure as the existing one
+            {sg.create_table_sql_script(temp=True)}
             
             -- Bulk load the data into the new table
-            BULK INSERT {sg.schema_temp_table_relation}
-            FROM '{file_path}'
-            WITH (
-                CODEPAGE = '65001', -- UTF-8
-                FORMAT = 'CSV',
-                --DATAFILETYPE = 'char',
-                --FIRSTROW = 2,
-                TABLOCK,
-                --ROWTERMINATOR = '\\r\\n',
-                --FIELDTERMINATOR = ',',
-                --FIELDQUOTE = '"',
-                --BATCHSIZE = 1048576, -- 1MB
-                --ROWS_PER_BATCH = 1048576, -- 1MB
-                MAXERRORS = 0 --,
-                --ORDER (key_column_1, key_column_2) -- Replace with actual key columns
-                --FORMATFILE = '{format_file_path}'
-                --ERRORFILE = '{file_path.replace('.csv', '_error.csv') }'
-            );
-
+            {
+        sg.bulk_insert_sql_script(
+            file_path=file_path,
+            temp=True,
+            format_file_path=format_file_path,
+            error_file_path=file_path.replace(".csv", "_error.csv"),
+        )
+    }
             -- Convert the new table to columnstore
-            {sg.columnstore_table_sql_script()}
+            {sg.columnstore_table_sql_script(temp=True)}
 
             -- Add primary key
-            {sg.primary_key_table_sql_script()}
+            {sg.primary_key_table_sql_script(temp=True)}
             
+            -- Drop a view if it exists
+            {sg.drop_view_sql_script()}
+
             -- Swap the tables
-            BEGIN TRANSACTION;
-            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES t
-                WHERE t.TABLE_NAME = '{sg.table_name}' and t.TABLE_SCHEMA = '{sg.db_schema}')
-                EXEC sp_rename '{sg.db_schema}.{sg.table_name}', '{sg.table_name}_OLD';
-            EXEC sp_rename '{sg.schema_temp_table_relation}', '{sg.table_name}';
-            COMMIT TRANSACTION;
-            --SELECT TOP 0 * INTO [{sg.db_schema}].[{sg.table_name}_OLD]
-            --FROM [{sg.db_schema}].[{sg.table_name}] WITH (NOLOCK);
-
-            -- Convert the OLD table to columnstore
-            --CREATE CLUSTERED COLUMNSTORE INDEX cci_dl_kielsa_clientegeneral_OLD ON {sg.table_name}_OLD;
-
-            --ALTER TABLE [{sg.db_schema}].[{sg.table_name}] SWITCH TO [{sg.db_schema}].[{sg.table_name}]_OLD 
-            --    WITH ( WAIT_AT_LOW_PRIORITY ( MAX_DURATION = 1 MINUTES, ABORT_AFTER_WAIT = BLOCKERS )); 
-            --ALTER TABLE {sg.schema_temp_table_relation} SWITCH TO [{sg.db_schema}].[{sg.table_name}];
-
-            -- Drop the old table
-            DROP TABLE IF EXISTS [{sg.db_schema}].[{sg.table_name}_OLD];
-
-            -- Drop the NEW table
-            DROP TABLE IF EXISTS {sg.schema_temp_table_relation};
+            {sg.swap_table_with_temp()}
 
         END TRY
         BEGIN CATCH
             IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
             THROW;
         END CATCH;
-    """
+    """)
     # print(sql_script)
     with dwh_farinter_bi.get_sqlalchemy_conn(autocommit=True) as conn:
         # df_clientes.limit(100).write_database(table_name=f"{table_name}_dagster_temp_base", connection=conn, if_table_exists='replace')
@@ -1023,9 +997,7 @@ def BI_Kielsa_Dim_ClienteGeneral_graph(**kwargs):
     )
     filepath = create_file_on_smb(df_clientes=df_clientes_finales)
 
-    return bulk_load_to_sql_server(
-        file_path=filepath, df_clientes=df_clientes_finales
-    )
+    return bulk_load_to_sql_server(file_path=filepath, df_clientes=df_clientes_finales)
 
 
 BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
@@ -1110,8 +1082,10 @@ if __name__ == "__main__":
     start_time = datetime.now()
     with instance_for_test() as instance:
         from dagster import ResourceDefinition
+
         if env_str == "local":
             warnings.warn("Running in local mode, using top 1000 rows")
+
         @asset(name="between_asset")
         def mock_between_asset() -> int:
             return 1
@@ -1159,5 +1133,7 @@ all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
     )
 )
 
-all_asset_checks: Sequence[AssetChecksDefinition] = tuple(load_asset_checks_from_current_module())
+all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
+    load_asset_checks_from_current_module()
+)
 # all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks

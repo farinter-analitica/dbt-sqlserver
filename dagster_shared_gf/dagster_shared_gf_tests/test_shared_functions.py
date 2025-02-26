@@ -37,6 +37,7 @@ EXPECTED_SQL_CREATE_TABLE_TEMP_TABLE_NAME = """CREATE TABLE [dbo].[people_TEMP] 
 );
 """
 
+
 def my_schedule_function():
     pass
 
@@ -211,20 +212,24 @@ class TestSQLScriptGenerator:
         columnstore = sg.columnstore_table_sql_script()
         print(df.schema.items())
 
-        assert (
-            generated_script == EXPECTED_SQL_CREATE_TABLE
-        ), f"The generated SQL script:\n {generated_script} does not match the expected output."
+        assert generated_script == EXPECTED_SQL_CREATE_TABLE, (
+            f"The generated SQL script:\n {generated_script} does not match the expected output."
+        )
         assert (
             primary_key
             == "ALTER TABLE [dbo].[people] ADD CONSTRAINT [pk_people_20220101T120000000000] PRIMARY KEY NONCLUSTERED (id, name);\n"
-        ), f"The generated SQL script:\n {primary_key} does not match the expected output."
+        ), (
+            f"The generated SQL script:\n {primary_key} does not match the expected output."
+        )
         assert (
             columnstore
             == "CREATE CLUSTERED COLUMNSTORE INDEX [idx_people_20220101T120000000000] ON [dbo].[people];\n"
-        ), f"The generated SQL script:\n {columnstore} does not match the expected output."
+        ), (
+            f"The generated SQL script:\n {columnstore} does not match the expected output."
+        )
 
     def test_raises_error(self):
-        with pytest.raises(ValueError): # missing primary keys
+        with pytest.raises(ValueError):  # missing primary keys
             sg = sf.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1]}),
                 db_schema="dbo",
@@ -233,43 +238,41 @@ class TestSQLScriptGenerator:
             )
             sg.create_table_sql_script()
 
-        with pytest.raises(ValueError): # missing keys
+        with pytest.raises(ValueError):  # missing keys
             sg = sf.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1, None]}),
-                db_schema="dbo",
-                table_name="people",
-                primary_keys=("id"),
-            )
-            sg.primary_key_table_sql_script()
-            
-        with pytest.raises(ValueError): # duplicate keys
-            sg = sf.SQLScriptGenerator(
-                df=pl.DataFrame({"id": [1,1,1]}),
                 db_schema="dbo",
                 table_name="people",
                 primary_keys=("id",),
             )
             sg.primary_key_table_sql_script()
 
-        with pytest.raises(ValueError): # duplicate composed keys
+        with pytest.raises(ValueError):  # duplicate keys
             sg = sf.SQLScriptGenerator(
-                df=pl.DataFrame({"id": [1,1,5], "name": ["a", "a", "c"]}),
+                df=pl.DataFrame({"id": [1, 1, 1]}),
                 db_schema="dbo",
                 table_name="people",
-                primary_keys=("id","name"),
+                primary_keys=("id",),
             )
             sg.primary_key_table_sql_script()
 
-        with pytest.raises(ValueError): # missing composed primary keys
+        with pytest.raises(ValueError):  # duplicate composed keys
             sg = sf.SQLScriptGenerator(
-                df=pl.DataFrame({"id": [1,None,3], "name": ["a", "b", "c"]}),
+                df=pl.DataFrame({"id": [1, 1, 5], "name": ["a", "a", "c"]}),
                 db_schema="dbo",
                 table_name="people",
-                primary_keys=("id","name"),
+                primary_keys=("id", "name"),
             )
             sg.primary_key_table_sql_script()
 
-
+        with pytest.raises(ValueError):  # missing composed primary keys
+            sg = sf.SQLScriptGenerator(
+                df=pl.DataFrame({"id": [1, None, 3], "name": ["a", "b", "c"]}),
+                db_schema="dbo",
+                table_name="people",
+                primary_keys=("id", "name"),
+            )
+            sg.primary_key_table_sql_script()
 
     def test_temp_table_name(self):
         sg = sf.SQLScriptGenerator(
@@ -279,18 +282,17 @@ class TestSQLScriptGenerator:
             primary_keys=("id",),
             temp_table_name="people_TEMP",
         )
-        generated_script = sg.create_table_sql_script()
+        generated_script = sg.create_table_sql_script(temp=True)
         print(generated_script)
-        assert (
-            generated_script
-            == EXPECTED_SQL_CREATE_TABLE_TEMP_TABLE_NAME
-        ), f"The generated SQL script:\n {generated_script} does not match the expected output."
-        assert (
-            sg.primary_key_table_sql_script()
-            == "ALTER TABLE [dbo].[people_TEMP] ADD CONSTRAINT [pk_people_20220101T120000000000] PRIMARY KEY NONCLUSTERED (id);\n"	
+        assert generated_script == EXPECTED_SQL_CREATE_TABLE_TEMP_TABLE_NAME, (
+            f"The generated SQL script:\n {generated_script} does not match the expected output."
         )
         assert (
-            sg.columnstore_table_sql_script()
+            sg.primary_key_table_sql_script(temp=True)
+            == "ALTER TABLE [dbo].[people_TEMP] ADD CONSTRAINT [pk_people_20220101T120000000000] PRIMARY KEY NONCLUSTERED (id);\n"
+        )
+        assert (
+            sg.columnstore_table_sql_script(temp=True)
             == "CREATE CLUSTERED COLUMNSTORE INDEX [idx_people_20220101T120000000000] ON [dbo].[people_TEMP];\n"
         )
 

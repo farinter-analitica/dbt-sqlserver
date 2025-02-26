@@ -1,5 +1,5 @@
-from collections import deque
 import warnings
+from collections import deque
 from datetime import datetime
 from typing import Sequence
 
@@ -31,6 +31,7 @@ from dagster_shared_gf.resources.sql_server_resources import (
     SQLServerResource,
     dwh_farinter_dl,
 )
+from dagster_shared_gf.shared_functions import SQLScriptGenerator
 from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
@@ -365,43 +366,42 @@ def generate_customer_recommendations(
 def save_customer_recommendations(
     dwh_farinter_dl: SQLServerResource, recommendations: pl.DataFrame
 ) -> None:
-    db_table_name = "DL_Kielsa_Cliente_ArticuloRecomendado"
     print(f"Por guardar {len(recommendations)} recomendaciones")
     with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
         if env_str == "local":
             return
 
+        sg = SQLScriptGenerator(
+            primary_keys=("Monedero_Id", "Articulo_Id_Recomendado"),
+            db_schema="dbo",
+            table_name="DL_Kielsa_Cliente_ArticuloRecomendado",
+            df=recommendations,
+            temp_table_name="DL_Kielsa_Cliente_ArticuloRecomendado_NEW",
+        )
+
+        dwh_farinter_dl.execute_and_commit(
+            sg.drop_table_sql_script(temp=True), connection=conn
+        )
+        dwh_farinter_dl.execute_and_commit(
+            sg.create_table_sql_script(temp=True), connection=conn
+        )
+        dwh_farinter_dl.execute_and_commit(
+            sg.columnstore_table_sql_script(temp=True), connection=conn
+        )
+
         # First write as regular table
         recommendations.write_database(
-            table_name=db_table_name,
+            table_name=sg.temp_table_name,
             connection=conn,
-            if_table_exists="replace",
+            if_table_exists="append",
         )
 
-        # Then convert to columnstore
-        conn.execute(
-            dwh_farinter_dl.text(f"""
-        IF NOT EXISTS (
-            SELECT 1 FROM sys.indexes 
-            WHERE name = 'CCI_{db_table_name}' 
-            AND object_id = OBJECT_ID('{db_table_name}')
+        dwh_farinter_dl.execute_and_commit(
+            sg.primary_key_table_sql_script(temp=True), connection=conn
         )
-        BEGIN
-            CREATE CLUSTERED COLUMNSTORE INDEX CCI_{db_table_name}
-            ON [{db_table_name}]
-        END
 
-        IF NOT EXISTS (
-            SELECT 1 FROM sys.indexes 
-            WHERE name = 'PK_{db_table_name}' 
-            AND object_id = OBJECT_ID('{db_table_name}')
-        )
-        BEGIN
-            ALTER TABLE [{db_table_name}] 
-            ADD CONSTRAINT PK_{db_table_name} 
-            PRIMARY KEY NONCLUSTERED (Articulo_Id, Articulo_Id_Relacionado)
-        END
-        """)
+        dwh_farinter_dl.execute_and_commit(
+            sg.swap_table_with_temp(), connection=conn
         )
 
 
