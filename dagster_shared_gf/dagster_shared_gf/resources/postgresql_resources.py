@@ -1,16 +1,18 @@
 import contextlib
 import os
-from typing import Any, List
+from typing import Any, List, Sequence, Union, Generator
 
-import psycopg
+import sqlalchemy
+from sqlalchemy import text, create_engine, TextClause, Row
+from sqlalchemy.engine import Connection as SQLAConnection
+from sqlalchemy.pool import QueuePool
 from dagster import ConfigurableResource, EnvVar, get_dagster_logger
 
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
-import psycopg.conninfo
 
-Connection = Any
-Row_Tuple = tuple[Any, ...]
+Connection = SQLAConnection
+Row_Tuple = Row
 dagster_logger = get_dagster_logger(name='Independent')
 
 if not os.environ.get("DAGSTER_PG_USERNAME"):
@@ -30,29 +32,39 @@ class PostgreSQLResource(ConfigurableResource):
     independent_instance: bool = False
     """Allow to run without a dagster instance"""
 
-
     def __post_init__(self):
         if not self.databases:
             raise ValueError("databases list cannot be empty")
         if self.default_database not in self.databases:
             raise ValueError(f"default_database {self.default_database} is not in the allowed list of databases")
 
-    @contextlib.contextmanager
-    def get_connection(self,  database: str = ""):
-        if database == "":
-            database = self.default_database
+    def get_engine(self, database: str):
+        """Create and return a SQLAlchemy engine for the specified database."""
         if database not in self.databases:
             raise ValueError(f"Database {database} is not in the allowed list.")
         
-        connection_dict = {
-            "host":self.server,
-            "dbname":database,
-            "user":self.user,
-            }
+        conn_str = f"postgresql://{self.user}"
         if self.password:
-            connection_dict["password"] = self.password
-        conninfo=psycopg.conninfo.make_conninfo(conninfo='', **connection_dict)
-        conn = psycopg.connect(conninfo=conninfo)
+            conn_str += f":{self.password}"
+        conn_str += f"@{self.server}/{database}"
+        
+        return create_engine(
+            conn_str, 
+            poolclass=QueuePool,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+            pool_size=5,
+            max_overflow=10
+        )
+
+    @contextlib.contextmanager
+    def get_connection(self, database: str = "") -> Generator[Connection, None, None]:
+        """Get a connection to the specified database."""
+        if database == "":
+            database = self.default_database
+            
+        engine = self.get_engine(database)
+        conn = engine.connect()
         
         try:
             yield conn
@@ -61,104 +73,93 @@ class PostgreSQLResource(ConfigurableResource):
                 self.close_connection(conn)
 
     def close_connection(self, connection: Connection):
+        """Close the provided connection."""
         try:
-            connection.close()
-        except psycopg.Error as e:
-            # Add proper logging here
-            raise RuntimeError(f"Error closing connection: {e}")
+            if not connection.closed:
+                connection.close()
+        except Exception as e:
+            msg = f"Error closing connection: {e}"
+            self.custom_logging.error(msg)
+            raise RuntimeError(msg)
+    
+    def _ensure_text(self, query_obj: Union[str, Any]) -> Any:
+        """Ensure the query is wrapped in text() if it's a string."""
+        if isinstance(query_obj, str):
+            return text(query_obj)
+        return query_obj
         
-    def query(self, query: str, connection: Connection = None, database: str = "") -> List[Row_Tuple] | None:
+    def query(self, query: Union[str, TextClause], connection: Connection| None = None, database: str = "") -> Sequence[Row_Tuple] | None:
         """
         Executes a SQL query on a database connection and returns the result as a list of rows.
+        Automatically converts string queries to SQLAlchemy text objects.
 
         Args:
-            query (str): The SQL query to execute.
-            connection (pyodbc.Connection, optional): The database connection to use. If not provided, a new connection
-                will be created using the default database.
-            database (str, optional): The name of the database to connect to. If not provided, the default database
-                will be used.
+            query: The SQL query to execute (str or SQLAlchemy query object)
+            connection: The database connection to use (optional)
+            database: The name of the database to connect to (optional)
 
         Returns:
-            List[pyodbc.Row]: A list of rows returned by the query.
-
-        Raises:
-            RuntimeError: If there is an error executing the query.
-
-        Example:
-            >>> query = "SELECT * FROM table"
-            >>> connection = pyodbc.connect(connection_string)
-            >>> result = query(query, connection)
-            >>> print(result)
-            [('value1',), ('value2',), ...]
+            List of result rows or None if an error occurs
         """
+        query_obj = self._ensure_text(query)
+        
         try:
             if connection is None:
                 with self.get_connection(database) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(query)
-                    return cursor.fetchall()
+                    result = conn.execute(query_obj)
+                    return result.all()
             else:
-                cursor = connection.cursor()
-                cursor.execute(query)
-                return cursor.fetchall()
-        except psycopg.DatabaseError as opex:           
-            if opex.args[0] == '42S02':
+                result = connection.execute(query_obj)
+                return result.all()
+                
+        except sqlalchemy.exc.ProgrammingError as e:
+            if 'relation' in str(e) and 'does not exist' in str(e):
                 msg = "Table does not exist error handling. Returning None to caller."
                 self.custom_logging.error(msg)
                 return None
-                # Handle the error specific to table not existing
             else:
-                msg = f"An unexpected database error occurred: {str(opex)}. Returning None to caller."
+                msg = f"An unexpected database error occurred: {str(e)}. Returning None to caller."
                 self.custom_logging.error(msg)
                 return None
-        except psycopg.Error as e:
-            msg=f"An unexpected error occurred:: {str(e)}. Returning None to caller."
+        except Exception as e:
+            msg = f"An unexpected error occurred: {str(e)}. Returning None to caller."
             self.custom_logging.error(msg)
-#            print(f"An unexpected error occurred: {str(e)}")
+            return None
 
-    def execute_and_commit(self, query: str, connection: Connection = None, database: str = ""):
+    def execute_and_commit(self, query: Union[str, Any], connection: Connection = None, database: str = ""):
         """
         Executes a SQL query on a database connection and commits the changes.
+        Automatically converts string queries to SQLAlchemy text objects.
 
         Args:
-            query (str): The SQL query to execute.
-            connection (pyodbc.Connection, optional): The database connection to use. If not provided, a new connection
-                will be created using the default database.
-            database (str, optional): The name of the database to connect to. If not provided, the default database
-                will be used.
-
-        Raises:
-            RuntimeError: If there is an error executing and committing the query.
-
-        Example:
-            >>> query = "INSERT INTO table (column1, column2) VALUES ('value1', 'value2')"
-            >>> connection = pyodbc.connect(connection_string)
-            >>> execute_and_commit(query, connection)
+            query: The SQL query to execute (str or SQLAlchemy query object)
+            connection: The database connection to use (optional)
+            database: The name of the database to connect to (optional)
         """
+        query_obj = self._ensure_text(query)
+        
         try:
             if connection is None:
                 with self.get_connection(database) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(query)
+                    conn.execute(query_obj)
                     conn.commit()
             else:
-                cursor = connection.cursor()
-                cursor.execute(query)
-                connection.commit()
+                connection.execute(query_obj)
+                if not connection.in_transaction():
+                    connection.commit()
                 
-        except psycopg.Error as e:
-            # Add proper logging here
-            msg=f"Error executing and committing query: {str(e.args)}."
+        except Exception as e:
+            msg = f"Error executing and committing query: {str(e)}."
             self.custom_logging.error(msg)
-
+            raise
 
     @property
     def custom_logging(self):
+        """Return the appropriate logger based on instance configuration."""
         if self.independent_instance:
             return dagster_logger
         else:
-            return get_dagster_logger().log
-       
+            return get_dagster_logger().log       
 
 db_analitica_etl = PostgreSQLResource(
     server= p_server,
