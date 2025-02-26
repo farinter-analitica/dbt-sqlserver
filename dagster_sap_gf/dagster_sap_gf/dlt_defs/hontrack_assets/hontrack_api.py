@@ -570,8 +570,6 @@ def hontrack_api_source(
     source.resources.add(drivers_resumen_data)
     source.root_key = True
 
-    source=source.with_resources(*source.selected_resources.keys())
-
     return source
 
 
