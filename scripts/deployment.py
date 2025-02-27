@@ -48,7 +48,17 @@ def generate_service(python_bin, deploy_dir):
         python_bin,
         os.path.join(deploy_dir, "scripts", "generate_dagster_service.py"),
     ]
-    subprocess.run(cmd, check=True)
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        sys.stdout.write(result.stdout)
+    except subprocess.CalledProcessError as e:
+        error_message = (
+            f"Error executing command: {' '.join(cmd)}\n"
+            f"Return code: {e.returncode}\n"
+            f"Standard Output:\n{e.stdout}\n"
+            f"Standard Error:\n{e.stderr}"
+        )
+        raise Exception(error_message) from e
 
 
 def upgrade_pip(pip_bin):
