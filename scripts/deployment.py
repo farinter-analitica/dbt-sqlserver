@@ -71,7 +71,21 @@ def upgrade_pip(pip_bin):
 def install_deps(pip_bin):
     """Install all required dependencies."""
     print("Installing dependencies...")
+    # Check and install required packages if missing
+    #   python -c "import jinja2" || pip install jinja2
+    #   python -c "import dotenv" || pip install python-dotenv
+
     cmds = [
+        [
+            pip_bin,
+            "install",
+            "jinja2",
+        ],
+        [
+            pip_bin,
+            "install",
+            "python-dotenv",
+        ],
         [
             pip_bin,
             "install",
@@ -150,9 +164,9 @@ def deploy_full():
     check_os()
     env, deploy_dir, venv, python_bin, pip_bin = set_vars()
     print("Performing full deployment (service template, Python, and dependencies)...")
-    generate_service(python_bin, deploy_dir)
     upgrade_pip(pip_bin)
     install_deps(pip_bin)
+    generate_service(python_bin, deploy_dir)
     restart_services(env)
 
 
