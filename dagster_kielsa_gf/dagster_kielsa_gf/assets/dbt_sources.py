@@ -1,9 +1,15 @@
 from typing import Mapping, Any, Sequence
-from dagster import AssetsDefinition, AssetSpec, load_assets_from_modules
-from dagster_dbt import DagsterDbtTranslator, DbtCliResource
-from dagster_shared_gf.resources.dbt_resources import dbt_resource, dbt_manifest, MyDbtSourceTranslator
+from dagster import AssetSpec
+from dagster_dbt import DagsterDbtTranslator
+from dagster_shared_gf.resources.dbt_resources import (
+    dbt_manifest,
+    MyDbtSourceTranslator,
+)
 
-def build_dbt_sources(manifest: Mapping[str, Any], dagster_dbt_translator: DagsterDbtTranslator) -> Sequence[AssetSpec]:
+
+def build_dbt_sources(
+    manifest: Mapping[str, Any], dagster_dbt_translator: DagsterDbtTranslator
+) -> Sequence[AssetSpec]:
     """
     This function builds a list of AssetSpec objects based on the manifest and dbt_cli_resource.
     It filters the source assets based on certain conditions related to the dbt resources.
@@ -19,17 +25,24 @@ def build_dbt_sources(manifest: Mapping[str, Any], dagster_dbt_translator: Dagst
             tags=dagster_dbt_translator.get_tags(dbt_resource_props),
             description=dagster_dbt_translator.get_description(dbt_resource_props),
             metadata=dagster_dbt_translator.get_metadata(dbt_resource_props),
-            freshness_policy=dagster_dbt_translator.get_freshness_policy(dbt_resource_props),  
+            freshness_policy=dagster_dbt_translator.get_freshness_policy(
+                dbt_resource_props
+            ),
         )
         for dbt_resource_props in manifest["sources"].values()
-        if any(tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys() for tag in required_tags)
+        if any(
+            tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys()
+            for tag in required_tags
+        )
     ]
-    
 
-source_assets: Sequence[AssetSpec] = build_dbt_sources(dbt_manifest, MyDbtSourceTranslator()) 
-all_assets: Sequence[AssetSpec]  = source_assets
+
+source_assets: Sequence[AssetSpec] = build_dbt_sources(
+    dbt_manifest, MyDbtSourceTranslator()
+)
+all_assets: Sequence[AssetSpec] = source_assets
 
 if __name__ == "__main__":
-    #print(source_assets)
-    #print([asset.tags.keys() for asset in source_assets])
+    # print(source_assets)
+    # print([asset.tags.keys() for asset in source_assets])
     print([asset.key for asset in source_assets])

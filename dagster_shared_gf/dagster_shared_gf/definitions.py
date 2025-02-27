@@ -154,7 +154,7 @@ all_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
 )
 
 defs = Definitions(
-    assets=(*assets_repo.all_assets,),
+    assets=(*assets_repo.all_assets, *dbt_sources_assets),
     jobs=(*all_jobs,),
     schedules=(*all_schedules,),
     asset_checks=(*assets_repo.all_asset_checks,),

@@ -10,6 +10,7 @@ from dagster import (
 )
 from dagster._annotations import public
 from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
+
 from dagster_open_platform.dlt.sources.buildkite import pipelines
 from dagster_open_platform.dlt.sources.github import github_reactions
 from dagster_open_platform.dlt.sources.hubspot import hubspot
@@ -20,7 +21,9 @@ from dlt.extract.resource import DltResource
 
 
 class ThinkificDagsterDltTranslator(DagsterDltTranslator):
-    def get_auto_materialize_policy(self, resource: DltResource) -> Optional[AutoMaterializePolicy]:
+    def get_auto_materialize_policy(
+        self, resource: DltResource
+    ) -> Optional[AutoMaterializePolicy]:
         return AutoMaterializePolicy.eager().with_rules(
             AutoMaterializeRule.materialize_on_cron("0 1 * * *")
         )
@@ -49,7 +52,9 @@ thinkific_source_assets = [
 
 class HubspotDagsterDltTranslator(DagsterDltTranslator):
     @public
-    def get_auto_materialize_policy(self, resource: DltResource) -> Optional[AutoMaterializePolicy]:
+    def get_auto_materialize_policy(
+        self, resource: DltResource
+    ) -> Optional[AutoMaterializePolicy]:
         return AutoMaterializePolicy.eager().with_rules(
             AutoMaterializeRule.materialize_on_cron("0 0 * * *")
         )
@@ -81,7 +86,9 @@ dlt_configuration = yaml.safe_load(open(dlt_configuration_path))
 
 class GithubDagsterDltTranslator(DagsterDltTranslator):
     @public
-    def get_auto_materialize_policy(self, resource: DltResource) -> Optional[AutoMaterializePolicy]:
+    def get_auto_materialize_policy(
+        self, resource: DltResource
+    ) -> Optional[AutoMaterializePolicy]:
         return AutoMaterializePolicy.eager().with_rules(
             AutoMaterializeRule.materialize_on_cron("0 0 * * *")
         )
@@ -103,18 +110,23 @@ class GithubDagsterDltTranslator(DagsterDltTranslator):
     group_name="github",
     dagster_dlt_translator=GithubDagsterDltTranslator(),
 )
-def github_reactions_dagster_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
+def github_reactions_dagster_assets(
+    context: AssetExecutionContext, dlt: DagsterDltResource
+):
     yield from dlt.run(context=context)
 
 
 github_source_assets = [
-    AssetSpec(key, group_name="github") for key in github_reactions_dagster_assets.dependency_keys
+    AssetSpec(key, group_name="github")
+    for key in github_reactions_dagster_assets.dependency_keys
 ]
 
 
 class BuildkiteDltTranslator(DagsterDltTranslator):
     @public
-    def get_auto_materialize_policy(self, resource: DltResource) -> Optional[AutoMaterializePolicy]:
+    def get_auto_materialize_policy(
+        self, resource: DltResource
+    ) -> Optional[AutoMaterializePolicy]:
         return AutoMaterializePolicy.eager().with_rules(
             AutoMaterializeRule.materialize_on_cron("0 0 * * *")
         )

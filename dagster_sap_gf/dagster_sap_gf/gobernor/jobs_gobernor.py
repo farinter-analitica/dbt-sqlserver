@@ -3,7 +3,6 @@ from dagster import (
     Definitions,
     JobDefinition,
     ScheduleDefinition,
-    job,
     load_assets_from_current_module,
 )
 

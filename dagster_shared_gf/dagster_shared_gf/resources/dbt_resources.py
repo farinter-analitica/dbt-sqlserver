@@ -6,7 +6,7 @@ from typing import Any, Mapping, Optional
 
 # from ...dbt_kielsa
 from dagster import AssetKey, AutomationCondition, ExperimentalWarning
-from dagster._utils.tags import is_valid_tag_key, normalize_tags
+from dagster._utils.tags import normalize_tags
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource
 
 from dagster_shared_gf import shared_variables as shared_vars

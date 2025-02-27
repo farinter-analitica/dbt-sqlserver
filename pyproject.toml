@@ -1,0 +1,4 @@
+[tool.pyright]
+venvPath = "."
+venv = ".venv_main_dagster"
+typeCheckingMode = "off"

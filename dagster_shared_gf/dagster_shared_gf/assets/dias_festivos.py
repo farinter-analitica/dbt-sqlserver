@@ -113,7 +113,7 @@ def DL_Edit_CalendarioNoLaboral_Temp(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ):
     table = "DL_Edit_CalendarioNoLaboral_Temp"
-    database = "DL_FARINTER"
+    # database = "DL_FARINTER"
     schema = "web_api"
 
     codigos_pais = ["HN", "NI", "CR", "SV", "GT"]  # Lista de códigos ISO2 de los países

@@ -1,4 +1,3 @@
-
 def define_interest_rate(account_type):
     """
     Defines interest rate based on account type
@@ -26,6 +25,3 @@ def calculate_interest(account_type, balance):
     """
     rate = define_interest_rate(account_type)
     return balance * rate
-
-
-

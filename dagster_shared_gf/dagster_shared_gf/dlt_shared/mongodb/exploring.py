@@ -1,29 +1,9 @@
-import os
 import dlt
-from dagster_dlt import (
-    DagsterDltResource,
-)
 from dlt.common import pendulum
 
-from dagster_shared_gf.dlt_shared.dlt_resources import (
-    dlt_pipeline_dest_mssql_dwh,
-)
 from dagster_shared_gf.dlt_shared.mongodb import mongodb
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
-    DltIncrementalPartialConfig as IncConfig,
-)
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
-    DltResourceCollectionConfig as DLTRColl,
-)
-from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
-    dlt_mongodb_asset_factory,
-)
-from dagster_shared_gf.shared_functions import (
-    get_for_current_env,
-)
-default_schema= dlt.Schema(
-    name="mdb_ecommerce_hn"
-)
+
+default_schema = dlt.Schema(name="mdb_ecommerce_hn")
 mdb_ecommerce_hn = mongodb
 print(mdb_ecommerce_hn)
 mongodb_ecommerce_hn = mdb_ecommerce_hn(
@@ -32,7 +12,7 @@ mongodb_ecommerce_hn = mdb_ecommerce_hn(
     collection_names=["orders"],
     write_disposition="replace",
     parallel=True,
-    #data_item_format="arrow",
+    # data_item_format="arrow",
     # limit=100,
     # incremental=dlt.sources.incremental(
     #     cursor_path="createdAt",

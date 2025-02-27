@@ -1,14 +1,12 @@
 import warnings
 from collections import deque
 from datetime import datetime
-from typing import Sequence
 
 import numpy as np
 import pendulum as pdl
 import polars as pl
 import scipy.sparse as sp
 from dagster import (
-    AssetChecksDefinition,
     AssetKey,
     AssetsDefinition,
     Field,
@@ -19,8 +17,6 @@ from dagster import (
     asset,
     graph,
     instance_for_test,
-    load_asset_checks_from_current_module,
-    load_assets_from_current_module,
     materialize,
     op,
 )

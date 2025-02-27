@@ -1,7 +1,11 @@
 from typing import Mapping, Any, Sequence
-from dagster import AssetSpec, load_assets_from_modules
-from dagster_dbt import DagsterDbtTranslator, DbtCliResource
-from dagster_shared_gf.resources.dbt_resources import dbt_resource, dbt_manifest, MyDbtSourceTranslator
+from dagster import AssetSpec
+from dagster_dbt import DagsterDbtTranslator
+from dagster_shared_gf.resources.dbt_resources import (
+    dbt_manifest,
+    MyDbtSourceTranslator,
+)
+
 
 def build_dbt_sources(
     manifest: Mapping[str, Any], dagster_dbt_translator: DagsterDbtTranslator
@@ -26,11 +30,16 @@ def build_dbt_sources(
             ),
         )
         for dbt_resource_props in manifest["sources"].values()
-        if any(tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys() for tag in required_tags)
+        if any(
+            tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys()
+            for tag in required_tags
+        )
     ]
 
 
-source_assets: Sequence[AssetSpec] = build_dbt_sources(dbt_manifest, MyDbtSourceTranslator()) #empezo a funcionar en nueva version
+source_assets: Sequence[AssetSpec] = build_dbt_sources(
+    dbt_manifest, MyDbtSourceTranslator()
+)  # empezo a funcionar en nueva version
 all_assets = source_assets
 
 if __name__ == "__main__":

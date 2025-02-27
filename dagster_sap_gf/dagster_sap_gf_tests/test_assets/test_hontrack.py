@@ -1,6 +1,9 @@
 import datetime
 import unittest
-from dagster_sap_gf.dlt_defs.hontrack_assets.hontrack_api import _daily_partition_iter  # replace with the actual module name
+from dagster_sap_gf.dlt_defs.hontrack_assets.hontrack_api import (
+    _daily_partition_iter,
+)  # replace with the actual module name
+
 
 class TestDailyPartitionIter(unittest.TestCase):
     def test_single_day(self):
@@ -41,6 +44,7 @@ class TestDailyPartitionIter(unittest.TestCase):
         ]
         partitions = list(_daily_partition_iter(start, end))
         self.assertEqual(partitions, expected_partitions)
+
 
 if __name__ == "__main__":
     unittest.main()

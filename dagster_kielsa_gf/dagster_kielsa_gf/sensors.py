@@ -2,21 +2,13 @@ from dagster import (
     DagsterRunStatus,
     RunRequest,
     SensorDefinition,
-    build_sensor_for_freshness_checks,
     sensor,
 )
 
 import dagster_kielsa_gf.jobs as jobs
-from dagster_kielsa_gf.assets import (
-    dbt_dwh_kielsa,
-    knime_asset_factory,
-    ldcom_etl_dwh_sp,
-    recetas_libros_etl_dwh,
-)
 from dagster_shared_gf import shared_failed_sensors
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.shared_constants import (
-    running_default_sensor_status,
     stopped_default_sensor_status,
 )
 from dagster_shared_gf.shared_functions import (

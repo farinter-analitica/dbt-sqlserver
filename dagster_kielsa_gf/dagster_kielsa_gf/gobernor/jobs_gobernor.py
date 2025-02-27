@@ -19,7 +19,9 @@ wait_if_job_running_to_execute_next_op = wait_if_job_running_to_execute_next_op(
 # Define the job and add to definitions on main __init__.py
 def wait_if_job_running_to_execute_next_job():
     """Wait for the job to finish before executing the next job"""
-    wait_if_job_running_to_execute_next_op(current_location_name=dagster_kielsa_gf.__name__)
+    wait_if_job_running_to_execute_next_op(
+        current_location_name=dagster_kielsa_gf.__name__
+    )
 
 
 # dbt_dwh_kielsa_marts_wait_schedule = ScheduleDefinition(

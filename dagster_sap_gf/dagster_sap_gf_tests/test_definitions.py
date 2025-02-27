@@ -137,24 +137,35 @@ def test_automated_assets_have_required_tags():
     """Test that all assets with automation conditions have required tags"""
     automation_tags = tags_repo.get_automation_tags()
     automation_tag_keys = {key for tags in automation_tags for key in tags.keys()}
-    
+
     problem_keys = [
-        (asset, key) 
+        (asset, key)
         for asset in all_assets
-        if isinstance(asset, AssetsDefinition) and hasattr(asset, 'automation_conditions_by_key')
+        if isinstance(asset, AssetsDefinition)
+        and hasattr(asset, "automation_conditions_by_key")
         for key in asset.keys
-        if asset.automation_conditions_by_key.get(key) is not None 
-        and not any(tag_key in asset.tags_by_key.get(key, {}) for tag_key in automation_tag_keys)
+        if asset.automation_conditions_by_key.get(key) is not None
+        and not any(
+            tag_key in asset.tags_by_key.get(key, {}) for tag_key in automation_tag_keys
+        )
     ]
-    
+
     assert len(problem_keys) == 0, f"""
-    Found {len(problem_keys)} assets with automation conditions missing required automation tags:
-    {[{
-        'asset_key': str(key),
-        'tags': ', '.join(sorted(asset.tags_by_key[key].keys())),
-        'automation': asset.automation_conditions_by_key[key].get_label()
-    } for asset, key in problem_keys]}
+    Found {
+        len(problem_keys)
+    } assets with automation conditions missing required automation tags:
+    {
+        [
+            {
+                "asset_key": str(key),
+                "tags": ", ".join(sorted(asset.tags_by_key[key].keys())),
+                "automation": asset.automation_conditions_by_key[key].get_label(),
+            }
+            for asset, key in problem_keys
+        ]
+    }
     """
+
 
 if __name__ == "__main__":
     test_all_assets_loaded()
