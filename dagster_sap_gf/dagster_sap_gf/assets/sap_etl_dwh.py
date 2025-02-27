@@ -227,7 +227,7 @@ def sp_start_job_sap_cadahora(
     final_query = f"""
     SET NOCOUNT ON;
     DECLARE @job_result int = 0; 
-    {f"EXECUTE @job_result = msdb.dbo.sp_start_job @job_name = '{job_name}';" if env_str == "prd" else "SET @job_result = 0;"}
+    EXECUTE @job_result = msdb.dbo.sp_start_job @job_name = '{job_name}';
     SELECT @job_result as job_result, '{job_name}' as job_name ;
     """
     results = dwh_farinter_dl.query(final_query, fetch_val=True)
@@ -396,7 +396,7 @@ if __name__ == "__main__":
 
     # tests1()
     #
-    # tests2()
+    tests2()
     # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
     # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
     # print("type " +  str(type(all_assets_hourly_freshness_checks)))

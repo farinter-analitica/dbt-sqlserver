@@ -258,25 +258,26 @@ class SQLServerResource(ConfigurableResource):
     def _cursor_fetch_first_result(
         self, cursor: pyodbc.Cursor, fetch_val: bool = False
     ):
-        result = None
-        try:
-            result = cursor.fetchval() if fetch_val else cursor.fetchall()
-        except pyodbc.ProgrammingError as e:
-            self.log_event("info", "Skipping non rs message: {}".format(e))
-            while cursor.nextset():
-                try:
-                    result = cursor.fetchval() if fetch_val else cursor.fetchall()
-                except pyodbc.ProgrammingError as e:
-                    self.log_event("info", "Skipping non rs message: {}".format(e))
-                continue
+        """Fetch the first valid result set from the cursor, skipping any non‐result sets."""
+        if cursor.description is not None:
+            return cursor.fetchval() if fetch_val else cursor.fetchall()
+        else:
+            self.log_event("info", "Skipping non-result set (no description available)")
 
-        return result
+        while cursor.nextset():
+            if cursor.description is not None:
+                return cursor.fetchval() if fetch_val else cursor.fetchall()
+            else:
+                self.log_event(
+                    "info", "Skipping non-result set (no description available)"
+                )
+        raise ValueError("No result sets found.")
 
-    def _ensure_text(self, query_obj: Union[str, Any]) -> Any:
+    def _ensure_text(
+        self, query_obj: Union[str, sqlalchemy.TextClause]
+    ) -> sqlalchemy.TextClause:
         """Ensure the query is wrapped in text() if it's a string."""
-        if isinstance(query_obj, str):
-            return sqlalchemy.text(query_obj)
-        return query_obj
+        return sqlalchemy.text(query_obj) if isinstance(query_obj, str) else query_obj
 
     def query(
         self,
@@ -288,41 +289,28 @@ class SQLServerResource(ConfigurableResource):
         engine: ENGINES = EngineType.SQLALCHEMY,
     ) -> list[Row] | Any:
         """
-        Executes a SQL query on a database connection and returns the result as a list of rows or single row,
-        this doesn't work well for return values, use a select and optional fetch_val = true instead.
-        beware, by default is autocommit when using auto generated connection instead of a provided connection.
-
-        Args:
-            query (str): The SQL query to execute.
-            connection (Connection, optional): The database connection to use. If not provided, a new connection
-                will be created using the default database.
-            database (str, optional): The name of the database to connect to. If not provided, the default database
-                will be used.
-            fetch_one (bool, optional): Whether to fetch only one row. Defaults to False.
-            autocommit (bool, optional): Whether to enable autocommit. Defaults to True.
-            engine (ENGINES, optional): The database engine to use. Defaults to EngineType.SQLALCHEMY.
-            If you provide a connection, engine will be ignored.
-
-        Returns:
-            list[pyodbc.Row]: A list of rows returned by the query.
-
-        Raises:
-            RuntimeError: If there is an error executing the query.
-
-        Example:
-            >>> query = "SELECT * FROM table"
-            >>> connection = pyodbc.connect(connection_string)
-            >>> result = query(query, connection)  # Returns all rows
-            >>> print(result)
-            [('value1',), ('value2',), ...]
-
-            >>> result = query(query, connection, fetch_val=True)  # Returns first column of first row
-            >>> print(result)
-            'value1'
+        Executes a SQL query on a database connection and returns the result as a list of rows or single row.
+        [docstring truncated for brevity]
         """
         if engine not in EngineType:
             raise ValueError(f"Engine {engine} is not supported.")
         try:
+            # Helper to extract results using pyodbc cursor from SQLAlchemy result
+            def _fetch_from_sqlalchemy(conn: sqlalchemy.Connection) -> Any:
+                result = (
+                    conn.engine.raw_connection()
+                    .cursor()
+                    .execute(self._ensure_text(query).text)
+                )
+                cursor = result if isinstance(result, pyodbc.Cursor) else None
+                if not cursor:
+                    raise ValueError(
+                        f"Cursor is not available or implemented. Cursor: {result}"
+                    )
+                return self._cursor_fetch_first_result(
+                    cursor=cursor, fetch_val=fetch_val
+                )
+
             if connection is None:
                 with self.get_connection(
                     database=database, autocommit=autocommit, engine=engine
@@ -334,8 +322,7 @@ class SQLServerResource(ConfigurableResource):
                             cursor=cursor, fetch_val=fetch_val
                         )
                     elif isinstance(new_conn, sqlalchemy.Connection):
-                        result = new_conn.execute(self._ensure_text(query))
-                        return result.scalar() if fetch_val else result.all()
+                        return _fetch_from_sqlalchemy(new_conn)
             else:
                 if isinstance(connection, pyodbc.Connection):
                     cursor = connection.cursor()
@@ -344,8 +331,7 @@ class SQLServerResource(ConfigurableResource):
                         cursor=cursor, fetch_val=fetch_val
                     )
                 elif isinstance(connection, sqlalchemy.Connection):
-                    result = connection.execute(self._ensure_text(query))
-                    return result.scalar() if fetch_val else result.all()
+                    return _fetch_from_sqlalchemy(connection)
         except pyodbc.DatabaseError as opex:
             if opex.args[0] == "42S02":
                 self.log_event(
