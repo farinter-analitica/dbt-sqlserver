@@ -1,21 +1,22 @@
-from collections.abc import Sequence
-from datetime import timedelta
-from itertools import chain
-from decimal import Decimal
 import os
+from collections.abc import Sequence
+from decimal import Decimal
+from itertools import chain
 
 import dlt
+import dlt.normalize
+import dlt.normalize.items_normalizers
 from dagster import (
     AssetChecksDefinition,
-    SourceAsset,
-    build_last_update_freshness_checks,
+    AssetSpec,
     load_asset_checks_from_current_module,
 )
-from dagster_embedded_elt.dlt import (
+from dagster_dlt import (
     DagsterDltResource,
 )
 from dlt.common import pendulum
 
+from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.dlt_shared.dlt_resources import (
     dlt_pipeline_dest_mssql_dwh,
 )
@@ -30,13 +31,9 @@ from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
     dlt_mongodb_asset_factory,
 )
 from dagster_shared_gf.shared_functions import (
-    filter_assets_by_tags,
     get_for_current_env,
 )
 from dagster_shared_gf.shared_variables import tags_repo
-from dagster_shared_gf.automation import automation_daily_delta_2_cron
-import dlt.normalize
-import dlt.normalize.items_normalizers
 
 # type mapping
 type_mongodb_python_mapping = {
@@ -166,7 +163,7 @@ all_mongodb_hn_assets = (*created_mongodb_assets,)
 
 
 all_mongodb_hn_source_assets = list(
-    SourceAsset(
+    AssetSpec(
         key,
         group_name="mongodb_crm_hn_etl_dwh_sources",
         tags={"dagster/storage_kind": "mongodb"},
@@ -180,45 +177,19 @@ all_mongodb_hn_source_assets = list(
 )
 all_assets = all_mongodb_hn_assets
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(
-        all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"
-    ),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-    build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="any_tag_matches",
-        ),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-)
-
 all_assets = (*all_assets, *all_mongodb_hn_source_assets)
 all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
-all_asset_freshness_checks = (
-    *all_assets_non_hourly_freshness_checks,
-    *all_assets_hourly_freshness_checks,
-)
-
-
 if __name__ == "__main__":
     print(all_assets)
 
     from dagster import (
         AssetKey,
+        RunConfig,
         build_resources,
         instance_for_test,
         materialize,
-        RunConfig,
     )
 
     from dagster_shared_gf.dlt_shared.dlt_resources import dlt_pipeline_dest_mssql_dwh

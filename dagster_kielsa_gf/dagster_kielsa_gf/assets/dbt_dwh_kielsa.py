@@ -8,7 +8,6 @@ from dagster import (
     AssetExecutionContext,
     BackfillPolicy,
     Config,
-    build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
     load_assets_from_current_module,
 )
@@ -22,7 +21,6 @@ from dagster_shared_gf.resources.dbt_resources import (
     MyDbtSourceTranslator,
     dbt_manifest,
 )
-from dagster_shared_gf.shared_functions import filter_assets_by_tags
 from dagster_shared_gf.shared_variables import tags_repo
 
 
@@ -48,6 +46,7 @@ def dbt_dwh_kielsa_mart_datos_maestros_assets(
         dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
     )
 
+
 @dbt_assets(
     manifest=dbt_manifest,
     select="tag:dagster_kielsa_gf/dbt,tag:particionado/auto",
@@ -59,7 +58,9 @@ def CRM_Kielsa_RecetasContactarHist(
     context: AssetExecutionContext, dbt_resource: DbtCliResource, config: MyDbtConfig
 ):
     dbt_run_args: deque[str] = deque(("build",))
-    v_date_from: str = (datetime.now().date() - timedelta(days=360)).replace(day=1).strftime("%Y%m%d")
+    v_date_from: str = (
+        (datetime.now().date() - timedelta(days=360)).replace(day=1).strftime("%Y%m%d")
+    )
     v_date_to: str = (datetime.now().date() + timedelta(days=1)).strftime("%Y%m%d")
     if config.full_refresh or not context.has_partition_key_range:
         dbt_run_args.append("--full-refresh")
@@ -81,31 +82,9 @@ def CRM_Kielsa_RecetasContactarHist(
         dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
     )
 
-all_assets = tuple(load_assets_from_current_module())
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(
-        all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"
-    ),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-    build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="any_tag_matches",
-        ),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-)
+all_assets = tuple(load_assets_from_current_module())
 
 all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
-)
-all_asset_freshness_checks = (
-    [*all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks]
 )

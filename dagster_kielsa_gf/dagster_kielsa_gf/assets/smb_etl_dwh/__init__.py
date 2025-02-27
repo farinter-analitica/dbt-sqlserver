@@ -2,8 +2,8 @@ from dagster import (
     load_assets_from_modules,
     load_asset_checks_from_modules,
 )
-from . import kielsa_metas_excel
-from . import kielsa_horarios
+from dagster_kielsa_gf.assets.smb_etl_dwh import kielsa_metas_excel
+from dagster_kielsa_gf.assets.smb_etl_dwh import kielsa_horarios
 
 all_assets = (
     *load_assets_from_modules((kielsa_metas_excel,), group_name="smb_etl_dwh"),
