@@ -1,6 +1,78 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+# Main project configuration (dagster_shared_gf)
+[project]
+name = "dagster_shared_gf"
+version = "0.9.0"
+description = "Dagster shared components for GF"
+authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+# Development Status :: 1 - Planning
+# Development Status :: 2 - Pre-Alpha
+# Development Status :: 3 - Alpha
+# Development Status :: 4 - Beta
+# Development Status :: 5 - Production/Stable
+# Development Status :: 6 - Mature
+# Development Status :: 7 - Inactive
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Assets Orchestration",
+    "Topic :: Database",
+    "Topic :: Data Processing",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Framework :: Dagster",
+]
+
+dependencies = [
+    "dagster>=1.9.7,<1.10.3",
+    "dbt-core>=1.8,<2.0",
+    "dagster-dbt>=0.24",
+    "dbt-postgres>=1.8,<2.0",
+    "dbt-sqlserver>=1.8.0,<2.0",
+    "dagster-webserver>=1.9.7,<2.0",
+    "dagster-postgres",
+    "dagster-cloud",
+    "trycast",
+    "pandas",
+    "pyodbc",
+    "smbprotocol",
+    "dagster-polars",
+    "dagster-gcp",
+    "fastexcel",
+    "openpyxl",
+    "xlsx2csv",
+    "dagster-dlt",
+    "dagster-sling",
+    "pymongo",
+    "pymongoarrow",
+    "arrow-odbc",
+    "deep-translator",
+    "ydata-profiling",
+    "psycopg[binary,pool]",
+    "wheel",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-mock", "pyright", "ruff", "pre-commit"]
+
+[tool.setuptools]
+packages = ["dagster_shared_gf"]
+
+[tool.setuptools.exclude-package-data]
+dagster_shared_gf = ["dagster_shared_gf_tests"]
 
 [tool.dagster]
 module_name = "dagster_shared_gf"
+
+[project.urls]
+Repository = "https://github.com/farinter-analitica/main-dagster"

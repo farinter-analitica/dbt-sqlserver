@@ -25,6 +25,7 @@ Subject: {email_subject}
 <span style="opacity: 0"> {randomness} </span>
 """
 
+
 def send_email_via_ssl(
     email_from: str,
     email_password: str,
@@ -59,13 +60,12 @@ def send_email_via_starttls(
 class EmailSenderResource(ConfigurableResource):
     email_from: str
     email_password: str
-    smtp_host: str 
+    smtp_host: str
     smtp_port: int = 465
     smtp_user: Optional[str] = None
     smtp_type: str = "SSL"
 
     def send_email(self, email_to: Sequence[str], email_subject: str, email_body: str):
-
         # email_message = MIMEText(email_body,'html', 'utf-8')
         # email_message['From'] = self.email_from
         # email_message['To'] = ",".join(email_to)
@@ -76,8 +76,8 @@ class EmailSenderResource(ConfigurableResource):
             email_from=self.email_from,
             email_subject=email_subject,
             email_body=f"<pre><code>{email_body}</code></pre>",
-            #email_body=email_body.replace("\n", "<br>").replace(" ", "&nbsp;"),
-            #email_body=quopri.encodestring(email_body.encode("utf-8")).decode("utf-8"),
+            # email_body=email_body.replace("\n", "<br>").replace(" ", "&nbsp;"),
+            # email_body=quopri.encodestring(email_body.encode("utf-8")).decode("utf-8"),
             randomness=datetime.now(),
         )
         if self.smtp_type == "SSL":
@@ -85,7 +85,7 @@ class EmailSenderResource(ConfigurableResource):
                 email_from=self.email_from,
                 email_password=self.email_password,
                 email_to=email_to,
-                message= email_message,
+                message=email_message,
                 smtp_host=self.smtp_host,
                 smtp_port=self.smtp_port,
                 smtp_user=self.smtp_user or self.email_from,
@@ -105,34 +105,41 @@ class EmailSenderResource(ConfigurableResource):
 
 
 enviador_correo_e_analitica_farinter = EmailSenderResource(
-    email_from=os.getenv('DAGSTER_EMAIL_ADDRESS'),
-    email_password=EnvVar('DAGSTER_SECRET_EMAIL_PASSWORD'),
+    email_from=os.getenv("DAGSTER_EMAIL_ADDRESS"),
+    email_password=EnvVar("DAGSTER_SECRET_EMAIL_PASSWORD"),
     smtp_host="mail.farinter.hn",
     smtp_port=465,
-    smtp_type="SSL"
+    smtp_type="SSL",
 )
 
 
-def get_max_column_value(server: str, database: str, table: str, column: str) -> datetime:
+def get_max_column_value(
+    server: str, database: str, table: str, column: str
+) -> datetime:
     # Placeholder function to simulate retrieving the maximum column value from a database.
     # Replace this with actual database query logic.
     import random
     from datetime import timedelta
+
     return datetime.now() - timedelta(days=random.randint(0, 5))
+
 
 def check_max_value_difference(max_value_a: datetime, max_value_b: datetime) -> bool:
     return (max_value_b - max_value_a).days <= 1
 
 
 @sensor(minimum_interval_seconds=3600)
-def _example_for_tests(context: SensorEvaluationContext, enviador_correo_e_analitica_farinter: EmailSenderResource):
+def _example_for_tests(
+    context: SensorEvaluationContext,
+    enviador_correo_e_analitica_farinter: EmailSenderResource,
+):
     # Configuration for the databases and tables
     server_a = "server_a"
     server_b = "server_b"
     database = "example_db"
     table = "example_table"
     column = "example_column"
-    
+
     max_value_a = get_max_column_value(server_a, database, table, column)
     max_value_b = get_max_column_value(server_b, database, table, column)
 
@@ -146,9 +153,8 @@ def _example_for_tests(context: SensorEvaluationContext, enviador_correo_e_anali
 
         email_sender.send_email(email_to, email_subject, email_body)
         return 1  # Email sent successfully
-    
-    return 0  # No email sent
 
+    return 0  # No email sent
 
 
 def custom_job_failure_email_body(context: SensorEvaluationContext):
@@ -159,12 +165,20 @@ def custom_job_failure_email_body(context: SensorEvaluationContext):
     stats_snapshot = context.instance.get_run_stats(dagster_run.run_id)
 
     # Convert UNIX timestamps to datetime objects
-    start_time = datetime.fromtimestamp(stats_snapshot.start_time) if stats_snapshot.start_time else None
-    end_time = datetime.fromtimestamp(stats_snapshot.end_time) if stats_snapshot.end_time else None
+    start_time = (
+        datetime.fromtimestamp(stats_snapshot.start_time)
+        if stats_snapshot.start_time
+        else None
+    )
+    end_time = (
+        datetime.fromtimestamp(stats_snapshot.end_time)
+        if stats_snapshot.end_time
+        else None
+    )
 
     # Format datetime objects as strings if needed
-    start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S') if start_time else 'N/A'
-    end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S') if end_time else 'N/A'
+    start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S") if start_time else "N/A"
+    end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S") if end_time else "N/A"
 
     # Construct the URL to the run in Dagit (replace with your actual Dagit URL)
     dagit_url = f"http://dagit.mycompany.com/instance/runs/{dagster_run.run_id}"
@@ -184,8 +198,7 @@ def custom_job_failure_email_body(context: SensorEvaluationContext):
     {failure_event.message}
 
     Stack Trace:
-    {failure_event.error.stack_trace if failure_event.error else 'No stack trace available.'}
+    {failure_event.error.stack_trace if failure_event.error else "No stack trace available."}
     """
 
     return email_body
-

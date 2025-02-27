@@ -1,6 +1,5 @@
 import re
 import subprocess
-from datetime import timedelta
 from typing import Optional, Sequence, NamedTuple
 from collections import deque
 
@@ -14,7 +13,6 @@ from dagster import (
     EnvVar,
     Failure,
     asset,
-    build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
     get_dagster_logger,
     DagsterType,
@@ -22,14 +20,16 @@ from dagster import (
 )
 from logging import Logger
 
-from dagster_shared_gf.automation import automation_hourly_delta_12_cron, automation_monthly_start_delta_1_cron
+from dagster_shared_gf.automation import (
+    automation_hourly_delta_12_cron,
+    automation_monthly_start_delta_1_cron,
+)
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.resources.postgresql_resources import (
     PostgreSQLResource,
     db_independent_analitica_etl as db_analitica_etl,
 )
 from dagster_shared_gf.shared_functions import (
-    filter_assets_by_tags,
     get_for_current_env,
     search_for_word_in_text,
 )
@@ -148,7 +148,7 @@ def fetch_knime_workflows(
     }
     automation_conditions = {
         "MDBCRM_ETL_LlamadasConsolidado": automation_hourly_delta_12_cron,
-        "DWHFP_SalidaExportarAExcel" : automation_monthly_start_delta_1_cron
+        "DWHFP_SalidaExportarAExcel": automation_monthly_start_delta_1_cron,
     }
     wf_ph = Workflow(
         knime_bin="",
@@ -278,20 +278,22 @@ def create_knime_workflow_asset(
 
         @multi_asset(
             specs=tuple(
-                (AssetSpec(
-                    key=AssetKey(("DL_FARINTER", "dbo", asset_key)),
-                    tags=wf.tags,  # check automation condition on load_assets_from_current_module
-                    automation_condition=wf.automation_condition,
-                    kinds={"knime", "sql"},
-                    description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
-                    group_name="knime_workflows",
+                (
+                    AssetSpec(
+                        key=AssetKey(("DL_FARINTER", "dbo", asset_key)),
+                        tags=wf.tags,  # check automation condition on load_assets_from_current_module
+                        automation_condition=wf.automation_condition,
+                        kinds={"knime", "sql"},
+                        description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
+                        group_name="knime_workflows",
+                    )
+                    for asset_key in wf.asset_keys
                 )
-                for asset_key in wf.asset_keys
-            )),
+            ),
             description=f"Executes the {wf.knime_workflow} workflow in {wf.ambiente} target environment, dir: {wf.workflow_directory}",
             group_name="knime_workflows",
         )
-        def knime_workflow_asset(context: AssetExecutionContext) :
+        def knime_workflow_asset(context: AssetExecutionContext):
             supported_envs = ("dev", "prd")
             if (
                 wf.ambiente.lower() in supported_envs
@@ -309,7 +311,7 @@ def create_knime_workflow_asset(
                 context.log.warning(
                     f"Skipping workflow execution in {env_str} environment. Supported only in {supported_envs} environments."
                 )
-            return tuple(None for _ in wf.asset_keys) # type: ignore
+            return tuple(None for _ in wf.asset_keys)  # type: ignore
 
     return knime_workflow_asset
 
@@ -360,34 +362,9 @@ all_assets = knime_asset_creation_graph(
 # if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:
 #     all_assets.append(knime_wf_DWHFP_SalidaExportarAExcel)
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(
-        all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"
-    ),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-    build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="any_tag_matches",
-        ),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-)
-
 all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
 )
-all_asset_freshness_checks = (
-    *all_assets_non_hourly_freshness_checks,
-    *all_assets_hourly_freshness_checks,
-)
-
 if __name__ == "__main__":
     for asset_def in all_assets:
         print(asset_def, asset_def.tags_by_key)

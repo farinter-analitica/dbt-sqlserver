@@ -1,6 +1,5 @@
 from dagster import (
     AssetSelection,
-    RunConfig,
     JobDefinition,
     define_asset_job,
 )

@@ -41,12 +41,12 @@ def test_delete_old_event_storage():
 
         # Create mock context with our test storage
         context = build_op_context()
-        
+
         # Mock the storage_dir property
         mock_storage = Mock()
         type(mock_storage).storage_dir = PropertyMock(return_value=str(storage_dir))
         context.instance._local_artifact_storage = mock_storage
-        
+
         # Mock get_run_by_id to return None
         context.instance.get_run_by_id = Mock(return_value=None)
 

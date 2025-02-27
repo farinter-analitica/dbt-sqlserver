@@ -1,7 +1,7 @@
 import textwrap
 import unittest
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Sequence
 
 import polars as pl
@@ -16,7 +16,6 @@ from dagster import (
     OpExecutionContext,
     Out,
     asset,
-    build_last_update_freshness_checks,
     graph,
     instance_for_test,
     load_asset_checks_from_current_module,
@@ -41,7 +40,6 @@ from dagster_shared_gf.shared_constants import (
 )
 from dagster_shared_gf.shared_functions import (
     SQLScriptGenerator,
-    filter_assets_by_tags,
     get_for_current_env,
 )
 from dagster_shared_gf.shared_variables import env_str, tags_repo
@@ -1113,27 +1111,6 @@ if __name__ == "__main__":
 
 all_assets = tuple(load_assets_from_current_module())
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(
-        all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"
-    ),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-    build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="any_tag_matches",
-        ),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-)
-
 all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
     load_asset_checks_from_current_module()
 )
-# all_asset_freshness_checks = all_assets_non_hourly_freshness_checks + all_assets_hourly_freshness_checks

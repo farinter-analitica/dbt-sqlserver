@@ -31,7 +31,8 @@ else:
     TCollection = Any
     TCursor = Any
 
-PYMONGOARROW_AVAILABLE = find_spec('pymongoarrow') is not None
+PYMONGOARROW_AVAILABLE = find_spec("pymongoarrow") is not None
+
 
 def max_dt_with_lag_last_value_func(event, lag_days: int | None = 1) -> p_datetime:
     _lag_days: int = lag_days or 1
@@ -77,14 +78,14 @@ class CollectionLoader:
             self.cursor_field = incremental.cursor_path
             self.last_value = incremental.last_value
             if incremental.last_value_func not in (
-                    max,
-                    min,
-                    max_dt_with_lag_last_value_func,
-                    None
-                ):
-                    raise ValueError(
-                        "Last value function must be one of max, min or max_dt_with_lag_last_value_func"
-                    )
+                max,
+                min,
+                max_dt_with_lag_last_value_func,
+                None,
+            ):
+                raise ValueError(
+                    "Last value function must be one of max, min or max_dt_with_lag_last_value_func"
+                )
             if incremental.row_order not in ("asc", "desc", None):
                 raise ValueError("Row order must be one of asc or desc")
         else:

@@ -1,27 +1,31 @@
 import pytest
-import importlib
+
+
+from dagster_shared_gf_tests.examples.example_interest_calculator import (
+    calculate_interest,
+)
+
 
 def test_mock_with_side_effect(mocker):
     m = mocker.Mock()
-    m.side_effect = ['Pytest', 'with', 'Eric']
+    m.side_effect = ["Pytest", "with", "Eric"]
 
-    assert m() == 'Pytest'
-    assert m() == 'with'
-    assert m() == 'Eric'
+    assert m() == "Pytest"
+    assert m() == "with"
+    assert m() == "Eric"
+
 
 # Test using the mocker fixture for mocking
 def test_mock_obj_with_mocker(mocker):
     # Create a mock object with a single return value using mocker
     mock_obj = mocker.Mock(return_value=42)
-    
+
     # Now, you can use mock_obj just like a function or method
     result = mock_obj()
-    
+
     # Assert that the result is equal to the mock return value
     assert result == 42
 
-
-from dagster_shared_gf_tests.examples.example_interest_calculator import calculate_interest, define_interest_rate
 
 def test_return_different_interest_rates_based_on_account_type(mocker):
     mocker.patch(
@@ -40,7 +44,6 @@ def test_return_different_interest_rates_based_on_account_type(mocker):
     assert result_current == 10.0
     assert result_default == 5.0
 
-import pytest
 
 def test_side_effect_exhaustion(mocker):
     # Create a MagicMock with side_effect as an iterable
@@ -55,4 +58,3 @@ def test_side_effect_exhaustion(mocker):
     # Further calls will raise StopIteration
     with pytest.raises(StopIteration):
         mock_iterable()
-

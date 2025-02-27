@@ -16,7 +16,6 @@ from .helpers import (
     MongoDbCollectionResourceConfiguration,
     client_from_credentials,
     collection_documents,
-    
 )
 
 
@@ -30,7 +29,7 @@ def mongodb(
     parallel: Optional[bool] = dlt.config.value,
     limit: Optional[int] = None,
     filter_: Optional[Dict[str, Any]] = None,
-    data_item_format: Optional[TDataItemFormat] = "object", 
+    data_item_format: Optional[TDataItemFormat] = "object",
 ) -> Iterable[DltResource]:
     """
     A DLT source which loads data from a mongo database using PyMongo.
@@ -54,7 +53,7 @@ def mongodb(
     """
 
     # set up mongo client
-    client = client_from_credentials(connection_url) # type: ignore
+    client = client_from_credentials(connection_url)  # type: ignore
     if not database:
         mongo_database = client.get_default_database()
     else:
@@ -82,10 +81,6 @@ def mongodb(
             data_item_format=data_item_format,
             filter_=filter_ or {},
         )
-
-
-
-
 
 
 @dlt.common.configuration.with_config(

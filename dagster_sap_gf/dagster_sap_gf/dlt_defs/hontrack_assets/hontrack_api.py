@@ -14,12 +14,11 @@ from dagster import (
     MaterializeResult,
     instance_for_test,
 )
-from dagster_embedded_elt.dlt import DagsterDltResource, dlt_assets
+from dagster_dlt import DagsterDltResource, dlt_assets
 from dagster_dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
 from dlt.sources.helpers.rest_client.client import RESTClient
 from dlt.sources.helpers.rest_client.paginators import (
-    SinglePagePaginator,
     RangePaginator,
 )
 from dlt.common import jsonpath
@@ -596,6 +595,7 @@ def _daily_partition_iter(
             (start + timedelta(days=i + 1) - timedelta(seconds=1)),
         )
 
+
 @dlt_assets(
     dlt_source=hontrack_api_source(),
     dlt_pipeline=hontrack_api_pipeline,
@@ -605,6 +605,7 @@ def _daily_partition_iter(
         automation_condition=automation_daily_delta_2_cron,
         prefix_key=["DL_FARINTER", "hontrack_api"],
         tags=tags_repo.Daily | tags_repo.AutomationOnly,
+        dataset_name="hontrack_api",
     ),
     partitions_def=daily_partitions_def,
 )
@@ -704,7 +705,6 @@ if __name__ == "__main__":
     from dagster import (
         Definitions,
         define_asset_job,
-        materialize,
         AssetKey,
         RunConfig,
     )
@@ -745,8 +745,8 @@ if __name__ == "__main__":
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
                             # "dev_mode": True,
-                            #"write_disposition": "replace",
-                            #"refresh": "drop_resources",
+                            # "write_disposition": "replace",
+                            # "refresh": "drop_resources",
                         }
                     }
                 }

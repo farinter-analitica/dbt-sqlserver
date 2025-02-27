@@ -22,9 +22,7 @@ from dlt.sources.credentials import ConnectionStringCredentials
 
 from .schema_types import (
     table_to_columns,
-    columns_to_arrow,
     row_tuples_to_arrow,
-    Table,
     SelectAny,
 )
 
@@ -217,7 +215,7 @@ def table_rows(
 
 
 def engine_from_credentials(
-    credentials: Union[ConnectionStringCredentials, Engine, str]
+    credentials: Union[ConnectionStringCredentials, Engine, str],
 ) -> Engine:
     if isinstance(credentials, Engine):
         return credentials
