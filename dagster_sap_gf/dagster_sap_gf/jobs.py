@@ -36,14 +36,15 @@ dbt_dwh_sap_marts_job = define_asset_job(
 
 dbt_dwh_sap_etl_dwh_job = define_asset_job(
     name="dbt_dwh_sap_etl_dwh_job",
-    selection=AssetSelection.groups("sap_etl_dwh").tag_string("dagster_sap_gf/dbt"),
+    selection=AssetSelection.groups("sap_etl_dwh")
+    & AssetSelection.tag_string("dagster_sap_gf/dbt"),
     config=execution_run_config_default,
 )
 
 dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
     name="dbt_dwh_sap_etl_dwh_full_refresh_job",
-    selection=AssetSelection.groups("sap_etl_dwh").tag_string("dagster_sap_gf/dbt")
-    - seleccion_no_programar,
+    selection=AssetSelection.groups("sap_etl_dwh")
+    & AssetSelection.tag_string("dagster_sap_gf/dbt"),
     config=RunConfig(
         {"dbt_sap_etl_dwh_assets": MyDbtConfig(full_refresh=True)},
         execution=execution_run_config_default.execution,
@@ -53,7 +54,7 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
 
 sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups(
     "sap_etl_dwh"
-).tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+) & AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
 sap_etl_dwh_all_downstream_assets = (
     sap_etl_dwh_all_downstream_assets
     | (

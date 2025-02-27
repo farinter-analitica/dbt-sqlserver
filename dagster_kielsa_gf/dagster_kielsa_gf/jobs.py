@@ -59,9 +59,8 @@ dbt_dwh_kielsa_marts_job = define_asset_job(
 )
 
 knime_workflows_daily_assets: AssetSelection = (
-    AssetSelection.groups("knime_workflows").tag(
-        key=tags_repo.Daily.key, value=tags_repo.Daily.value
-    )
+    AssetSelection.groups("knime_workflows")
+    & AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
 ) - seleccion_no_programar
 
 
@@ -73,9 +72,8 @@ knime_workflows_daily_job: UnresolvedAssetJobDefinition = define_asset_job(
 )
 
 dlt_dwh_kielsa_daily_assets: AssetSelection = (
-    AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh").tag(
-        key=tags_repo.Daily.key, value=tags_repo.Daily.value
-    )
+    AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh")
+    & AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
     - seleccion_no_programar
 )
 dlt_dwh_kielsa_daily_job: UnresolvedAssetJobDefinition = define_asset_job(
