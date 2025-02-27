@@ -2,20 +2,21 @@ import decimal
 from collections.abc import Generator
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
 import dlt
 from dagster import (
     AssetExecutionContext,
-    AssetSpec,
+    AssetKey,
     AssetsDefinition,
     AutomationCondition,
     MaterializeResult,
     MetadataValue,
     asset,
 )
-from dagster_dlt.translator import DltResourceTranslatorData
+from dagster_embedded_elt.dlt import DagsterDltTranslator
 from dlt.common import pendulum
+from dlt.common.normalizers.naming.snake_case import NamingConvention
 from dlt.common.pipeline import LoadInfo
 from dlt.common.schema.typing import TSchemaContractDict
 from dlt.extract import DltResource, DltSource
@@ -24,15 +25,12 @@ from pydantic import Field, dataclasses
 from dagster_shared_gf.dlt_shared.dlt_resources import (
     DltPipelineDestMssqlDwh,
     merge_dlt_dagster_metadata,
-    MyDagsterDltTranslator,
-    mssql_dwh_destination,
 )
 from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
-from dagster_shared_gf.shared_functions import (
-    get_for_current_env,
-)
+from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import Tags, tags_repo
 
+snake_case_normalizer = NamingConvention()
 # logger = get_dagster_logger()
 
 
@@ -72,6 +70,7 @@ class DltResourceCollectionConfig:
     incrementals: Optional[tuple[DltIncrementalPartialConfig, ...]] = None
     lag_days: Optional[int] = None
     automation_condition: Optional[AutomationCondition] = None
+    dep_pipeline_cursor: Optional[str] = None
     max_table_nesting: Optional[int] = None
     force_columns_type: Optional[dict[str, Any]] = None
     import_schema_path: Optional[str] = None
@@ -114,32 +113,52 @@ class DltResourceCollectionConfig:
 
 
 @dataclasses.dataclass
-class DagsterDltTranslatorMongodb(MyDagsterDltTranslator):
-    collection: DltResourceCollectionConfig | None = None
+class DagsterDltTranslatorMongodb(DagsterDltTranslator):
+    dataset_name: str
+    collection: DltResourceCollectionConfig | None
 
-    def get_asset_spec(self, data: DltResourceTranslatorData) -> AssetSpec:
-        """Defines the asset spec for the MongoDB resource"""
-        resource = data.resource
-        destination = data.destination
+    def get_asset_key(self, resource: DltResource) -> AssetKey:
+        """
+        Para evitar duplicados en pipelines multi columnas de updated_at y created_at
+        """
+        asset_key_list = (
+            "DL_FARINTER",
+            self.get_normalized_dataset_name(),
+            resource.name,
+        )
+        return AssetKey(asset_key_list)
 
-        return AssetSpec(
-            key=self._custom_get_asset_key(resource),
-            deps=self._custom_get_deps_asset_keys(resource),
-            metadata={
-                **self._default_metadata_fn(resource),
-                **self.get_collection_metadata(resource),
-            },
-            automation_condition=self._custom_get_automation_condition()
-            or self._default_automation_condition_fn(resource),
-            tags={**self._default_tags_fn(resource), **self._custom_get_tags()},
-            group_name=self.group_name or self._default_group_name_fn(resource),
-            # Preserve the default behavior for these attributes
-            description=self._default_description_fn(resource),
-            owners=self._default_owners_fn(resource),
-            kinds=self._default_kinds_fn(resource, destination),
+    def get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
+        """
+        Origen
+
+        """
+        dependencies = (
+            AssetKey(
+                [
+                    "mongodb",
+                    self.get_normalized_dataset_name(),
+                    resource.name,
+                ]
+            ),
         )
 
-    def get_collection_metadata(self, resource: DltResource) -> Mapping[str, Any]:
+        if self.collection and self.collection.dep_pipeline_cursor:
+            dependencies = (
+                *dependencies,
+                AssetKey(
+                    [
+                        "DL_FARINTER",
+                        self.get_normalized_dataset_name(),
+                        resource.name,
+                        self.collection.dep_pipeline_cursor,
+                    ]
+                ),
+            )
+
+        return dependencies
+
+    def get_metadata(self, resource: DltResource) -> Mapping[str, Any]:
         collection_dict = (
             self.collection.get_all_configs_dict() if self.collection else None
         )
@@ -150,26 +169,59 @@ class DagsterDltTranslatorMongodb(MyDagsterDltTranslator):
                 for key, value in collection_dict.items()
             }
         return {
+            **super().get_metadata(resource=resource),
             **collection_meta,
-            **resource.explicit_args,
+            **resource.explicit_args,  # type: ignore
+            # , **{"columns_schema": resource.columns}
         }
 
-    def get_collection_incremental_config(
-        self,
-    ) -> tuple[DltIncrementalPartialConfig, ...]:
+    def get_automation_condition(
+        self, resource: DltResource
+    ) -> Optional[AutomationCondition]:
+        if self.collection and self.collection.automation_condition:
+            super_auto = super().get_automation_condition(resource)
+            if super_auto:
+                return self.collection.automation_condition | super_auto
+            else:
+                return self.collection.automation_condition
+
+    def get_normalized_table_identifier(self, resource: DltResource) -> str:
+        return snake_case_normalizer.normalize_table_identifier(resource.name)
+
+    def get_normalized_column_identifier(self, column_identifier: str) -> str:
+        return snake_case_normalizer.normalize_identifier(column_identifier)
+
+    def get_normalized_dataset_name(self) -> str:
+        return snake_case_normalizer.normalize_table_identifier(self.dataset_name)
+
+    def get_normalized_cursor_path(self, resource: DltResource) -> str | None:
+        return (
+            snake_case_normalizer.normalize_identifier(
+                resource.incremental.incremental.cursor_path
+            )
+            if resource.incremental and resource.incremental.incremental
+            else None
+        )
+
+    def get_incremental_config(self) -> tuple[DltIncrementalPartialConfig, ...]:
         collection = self.collection
         if collection and collection.incrementals:
             return collection.incrementals
         else:
             return ()
 
-    def get_collection_import_schema_path(self) -> str | None:
+    def get_import_schema_path(self, resource: DltResource) -> str | None:
         if self.collection:
             return self.collection.import_schema_path
 
-    def get_collection_export_schema_path(self) -> str | None:
+    def get_export_schema_path(self, resource: DltResource) -> str | None:
         if self.collection:
             return self.collection.export_schema_path
+
+    def get_tags(self, resource: DltResource) -> Mapping[str, str] | None:
+        if self.collection:
+            return self.collection.tags
+        return super().get_tags(resource)
 
 
 class ComparableFunction:
@@ -414,22 +466,20 @@ def create_dlt_asset(
     pipeline_name: str,
     group_name: str | None = None,
 ) -> AssetsDefinition:
-    asset_spec = dlt_t.get_asset_spec(
-        DltResourceTranslatorData(
-            resource=dlt_resource, destination=mssql_dwh_destination
-        )
-    )
-
     @asset(
-        key=asset_spec.key,
+        key=dlt_t.get_asset_key(dlt_resource),
         group_name=group_name,
-        description=f"resource {asset_spec.key} description {asset_spec.description} ",
-        metadata=asset_spec.metadata,
-        deps=asset_spec.deps,
+        description=f"resource {dlt_t.get_asset_key(dlt_resource)} description {dlt_t.get_description} ",
+        metadata=dlt_t.get_metadata(dlt_resource),
+        deps=dlt_t.get_deps_asset_keys(dlt_resource),
         # compute_kind="dlt",
-        kinds=asset_spec.kinds,
-        tags=asset_spec.tags,
-        automation_condition=asset_spec.automation_condition,
+        kinds={
+            "dlt",
+            "mongodb",
+            "sql_server",
+        },
+        tags=dlt_t.get_tags(dlt_resource),
+        automation_condition=dlt_t.get_automation_condition(dlt_resource),
     )
     def compute_dlt_asset(
         context: AssetExecutionContext,
@@ -439,19 +489,19 @@ def create_dlt_asset(
         new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
             pipeline_name=target_pipeline_name,
             dataset_name=dataset_name,
-            import_schema_path=dlt_t.get_collection_import_schema_path(),
-            export_schema_path=dlt_t.get_collection_export_schema_path(),
+            import_schema_path=dlt_t.get_import_schema_path(dlt_resource),
+            export_schema_path=dlt_t.get_export_schema_path(dlt_resource),
         )
         # print(str(dlt_t.get_incremental_info()))
         context.log.info(
             {
                 "Running dlt pipeline": target_pipeline_name,
-                "resource": asset_spec.key,
+                "resource": dlt_t.get_asset_key(dlt_resource),
                 "dataset": dataset_name,
                 "write_disposition": dlt_pipeline_dest_mssql_dwh.write_disposition,
                 "directory": new_pipeline.pipelines_dir,
-                "incremental": str(dlt_t.get_collection_incremental_config()),
-                "import_schema_path": dlt_t.get_collection_import_schema_path(),
+                "incremental": str(dlt_t.get_incremental_config()),
+                "import_schema_path": dlt_t.get_import_schema_path(dlt_resource),
             }
         )
         extracted_resource_metadata = {}
@@ -490,7 +540,7 @@ def create_dlt_asset(
                 )
 
         return MaterializeResult(
-            asset_key=asset_spec.key,
+            asset_key=dlt_t.get_asset_key(dlt_resource),
             metadata=extracted_resource_metadata,
         )
 
@@ -507,19 +557,15 @@ def dlt_mongodb_asset_factory(
     collections_config_dict = {c.collection_name: c for c in collections_config}
     dlt_source.root_key = True
     for resource in dlt_source.resources:
-        collection_config = collections_config_dict.get(resource)
-        if not collection_config:
-            raise ValueError(f"No collection config found for resource {resource}")
-        process_collection_config(dlt_source.resources[resource], collection_config)
+        process_collection_config(
+            dlt_source.resources[resource], collections_config_dict.get(resource)
+        )
         yield create_dlt_asset(
             dlt_resource=dlt_source.resources[resource],
             group_name=group_name,
             dlt_t=DagsterDltTranslatorMongodb(
                 dataset_name=dataset_name,
-                collection=collection_config,
-                automation_condition=collection_config.automation_condition,
-                tags=collection_config.tags,
-                asset_database="DL_FARINTER",
+                collection=collections_config_dict.get(resource),
             ),
             dataset_name=dataset_name,
             collections_config_dict=collections_config_dict,

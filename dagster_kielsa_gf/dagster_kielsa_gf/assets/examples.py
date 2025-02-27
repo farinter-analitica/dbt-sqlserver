@@ -1,20 +1,13 @@
-from dagster import (
-    asset,
-    MaterializeResult,
-    MetadataValue,
-    load_assets_from_current_module,
-)
+from dagster import asset, MaterializeResult, MetadataValue, AssetMaterialization, Output, op, Out, In, AssetIn, load_assets_from_current_module
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-import pandas as pd
-
-
+import pandas as pd  
 @asset
 def fetch_data_from_sql(dwh_farinter_adm: SQLServerResource):
     result = dwh_farinter_adm.query("SELECT TOP 10 prueba, int FROM tb_pruebas")
-    # print(result)
+    #print(result)
     return result
-    # df = pd.DataFrame(result)
-    # return df
+    #df = pd.DataFrame(result)
+    #return df
     # MaterializeResult sirve mejor para enviar logs y no datos al siguiente asset
     # return MaterializeResult(
     #     metadata={
@@ -24,29 +17,20 @@ def fetch_data_from_sql(dwh_farinter_adm: SQLServerResource):
     #     }
     # )
 
-
-@asset(deps=[fetch_data_from_sql])  # Marca una dependencia sin importar los datos
+@asset(deps=[fetch_data_from_sql]) #Marca una dependencia sin importar los datos
 def insert_data_into_sql(dwh_farinter_adm: SQLServerResource) -> None:
-    dwh_farinter_adm.execute_and_commit(
-        "INSERT INTO tb_pruebas (prueba, int) VALUES ('value1', 1)"
-    )
+    dwh_farinter_adm.execute_and_commit("INSERT INTO tb_pruebas (prueba, int) VALUES ('value1', 1)")
     return None
 
-
 @asset
-def insert_data_into_sql_op(
-    context, fetch_data_from_sql, dwh_farinter_adm: SQLServerResource
-) -> None:  # Marca una dependencia debido a movimiento de datos
+def insert_data_into_sql_op(context, fetch_data_from_sql, dwh_farinter_adm: SQLServerResource) -> None: #Marca una dependencia debido a movimiento de datos
     data = fetch_data_from_sql
     for row in data:
         print(row)
-        dwh_farinter_adm.execute_and_commit(
-            f"INSERT INTO tb_pruebas (prueba, int) VALUES ('{row[0]}', 2)"
-        )
+        dwh_farinter_adm.execute_and_commit(f"INSERT INTO tb_pruebas (prueba, int) VALUES ('{row[0]}', 2)")
     return None
 
-
-@asset(deps=[insert_data_into_sql_op, insert_data_into_sql])
+@asset(deps=[insert_data_into_sql_op,insert_data_into_sql])
 def fetch_data_from_sql_final(dwh_farinter_adm: SQLServerResource) -> MaterializeResult:
     result = dwh_farinter_adm.query("SELECT TOP 10 * FROM tb_pruebas")
     df = pd.DataFrame(result)
@@ -58,13 +42,12 @@ def fetch_data_from_sql_final(dwh_farinter_adm: SQLServerResource) -> Materializ
         }
     )
 
-
 @asset
 def select_top_facturaposicion(dwh_farinter_dl: SQLServerResource):
-    result = dwh_farinter_dl.query(
-        "SELECT TOP 10 * FROM DL_Kielsa_FacturaPosicionDescuento"
-    )
+
+    result = dwh_farinter_dl.query("SELECT TOP 10 * FROM DL_Kielsa_FacturaPosicionDescuento")
     return result
+
 
 
 all_assets = tuple(load_assets_from_current_module(group_name="examples"))

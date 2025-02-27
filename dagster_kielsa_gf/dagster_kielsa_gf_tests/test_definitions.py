@@ -6,12 +6,12 @@ from collections import deque
 from dagster import (
     AssetKey,
     AssetsDefinition,
-    AssetSpec,
+    SourceAsset,
 )
 
 from dagster_kielsa_gf import defs
 from dagster_shared_gf.shared_functions import import_variable_from_module
-from dagster_shared_gf.shared_variables import tags_repo
+from dagster_shared_gf.shared_variables import tags_repo, seleccion_no_programar
 
 # def test_all_assets_loaded():
 #     assert all_assets.__len__()==load_assets_from_package_module(assets).__len__() , "All assets should be loaded"
@@ -67,7 +67,7 @@ def count_assetkeys(data: Any) -> int:
     return 0
 
 
-all_assets: tuple[AssetsDefinition | AssetSpec, ...] = apply_function_to_submodules(
+all_assets: tuple[AssetsDefinition | SourceAsset, ...] = apply_function_to_submodules(
     import_variable_from_module,
     module_name="dagster_kielsa_gf.assets",
     variable_name="all_assets",
@@ -79,7 +79,7 @@ all_assets += apply_function_to_submodules(
 )
 all_sources_assets_keys = tuple(
     {asset.key}
-    for asset in filter(lambda asset: isinstance(asset, AssetSpec), all_assets)
+    for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)
 )
 all_main_assets_keys = flatten_elements(
     tuple(asset.keys for asset in all_assets if isinstance(asset, (AssetsDefinition)))
@@ -98,7 +98,7 @@ all_defs_assets_keys = set(
             tuple(
                 asset.keys if isinstance(asset, AssetsDefinition) else asset.key
                 for asset in defs.assets
-                if isinstance(asset, (AssetsDefinition, AssetSpec))
+                if isinstance(asset, (AssetsDefinition, SourceAsset))
             )
             if defs.assets is not None
             else tuple()
@@ -136,35 +136,24 @@ def test_automated_assets_have_required_tags():
     """Test that all assets with automation conditions have required tags"""
     automation_tags = tags_repo.get_automation_tags()
     automation_tag_keys = {key for tags in automation_tags for key in tags.keys()}
-
+    
     problem_keys = [
-        (asset, key)
+        (asset, key) 
         for asset in all_assets
-        if isinstance(asset, AssetsDefinition)
-        and hasattr(asset, "automation_conditions_by_key")
+        if isinstance(asset, AssetsDefinition) and hasattr(asset, 'automation_conditions_by_key')
         for key in asset.keys
-        if asset.automation_conditions_by_key.get(key) is not None
-        and not any(
-            tag_key in asset.tags_by_key.get(key, {}) for tag_key in automation_tag_keys
-        )
+        if asset.automation_conditions_by_key.get(key) is not None 
+        and not any(tag_key in asset.tags_by_key.get(key, {}) for tag_key in automation_tag_keys)
     ]
-
+    
     assert len(problem_keys) == 0, f"""
-    Found {
-        len(problem_keys)
-    } assets with automation conditions missing required automation tags:
-    {
-        [
-            {
-                "asset_key": str(key),
-                "tags": ", ".join(sorted(asset.tags_by_key[key].keys())),
-                "automation": asset.automation_conditions_by_key[key].get_label(),
-            }
-            for asset, key in problem_keys
-        ]
-    }
+    Found {len(problem_keys)} assets with automation conditions missing required automation tags:
+    {[{
+        'asset_key': str(key),
+        'tags': ', '.join(sorted(asset.tags_by_key[key].keys())),
+        'automation': asset.automation_conditions_by_key[key].get_label()
+    } for asset, key in problem_keys]}
     """
-
 
 if __name__ == "__main__":
     test_all_assets_loaded()

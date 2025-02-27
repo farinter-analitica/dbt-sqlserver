@@ -1,33 +1,18 @@
 # .pre-commit-config.yaml
-default_stages: [pre-commit]
-default_language_version:
-    python: python3.12
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.7
     hooks:
+      # Run the linter.
       - id: ruff
-        name: Ruff Lint
-        entry: ruff
-        args: [check, --fix, --exit-non-zero-on-fix]
-        language: python
-        pass_filenames: false
-        types: [python]
+        args: [ --fix ]      
+      # Run the formatter.
       - id: ruff-format
-        name: Ruff Format
-        entry: ruff
-        args: [format]
-        # System lang would means pre-commit will not try to install a new environment for this hook. It relies on
-        # having a pre-existing `make` installed (and scripts/run-pyright.py).
-        language: python
-        pass_filenames: false
-        types: [python]
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.394
+  - repo: https://github.com/pre-commit/mirrors-mypy
     hooks:
-      - id: pyright
-        name: pyright
-        entry: pyright
-        args: [--level=warning, --warnings]
-        language: python
-        types: [python]
+      - id: mypy
+        args:
+          - '--show-error-codes'
+          - '--explicit-package-bases'
+          - '--install-types'
+          - '--non-interactive'
+          - '--ignore-missing-imports'

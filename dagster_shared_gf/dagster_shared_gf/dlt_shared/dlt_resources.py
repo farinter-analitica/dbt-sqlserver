@@ -1,21 +1,19 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 import os
 from typing import Any, Dict, Optional, Sequence
 import dlt
 import dlt.extract
 from dagster import (
     AssetKey,
-    AssetSpec,
     AutomationCondition,
     ConfigurableResource,
     IntMetadataValue,
     MetadataValue,
 )
-from dagster_dlt import (
+from dagster_embedded_elt.dlt import (
     DagsterDltResource,
     DagsterDltTranslator,
 )
-from dagster_dlt.translator import DltResourceTranslatorData
 from dlt.common.destination.reference import Destination
 from dlt.common.normalizers.naming.snake_case import (
     NamingConvention as snake_case_normalizer,
@@ -26,10 +24,6 @@ from pydantic import Field, dataclasses
 
 from dagster_shared_gf.resources import sql_server_resources
 from dagster_shared_gf.shared_variables import env_str, Tags
-from dagster_shared_gf.shared_functions import (
-    normalize_table_identifier,
-    normalize_identifier,
-)
 
 new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
@@ -49,59 +43,16 @@ ExtractedResourceMetadata = Mapping[str, Any]
 
 @dataclasses.dataclass(config={"arbitrary_types_allowed": True})
 class MyDagsterDltTranslator(DagsterDltTranslator):
-    """MyDagsterDltTranslator is a custom implementation of DagsterDltTranslator.
-
-    It defines asset specifications for MongoDB resources in Dagster pipelines.
-
-    Args:
-        dataset_name: Name of the dataset
-        automation_condition: Optional automation condition for the asset
-        prefix_key: Optional sequence of strings to prefix the asset key
-        tags: Optional tags to apply to the asset
-        group_name: Optional group name for the asset
-
-    Methods:
-        get_asset_spec: Creates AssetSpec for MongoDB resource
-        get_normalized_cursor_path: Returns normalized cursor path
-        get_normalized_table_identifier: Returns normalized table identifier
-        get_normalized_column_identifier: Returns normalized column identifier
-        get_normalized_dataset_name: Returns normalized dataset name
-        remove_columns_map_fn: Utility fn, use with map, removes specified columns from document
-    """
-
-    dataset_name: str
-    asset_database: str | None = None
     automation_condition: AutomationCondition | None = None
     prefix_key: Optional[Sequence[str]] = None
     tags: Optional[Tags | Mapping[str, str]] = None
-    group_name: Optional[str] = None
 
-    def get_asset_spec(self, data: DltResourceTranslatorData) -> AssetSpec:
-        """Defines the asset spec for the MongoDB resource"""
-        resource = data.resource
-        destination = data.destination
-
-        return AssetSpec(
-            key=self._custom_get_asset_key(resource),
-            deps=self._custom_get_deps_asset_keys(resource),
-            metadata=self._default_metadata_fn(resource),
-            automation_condition=self._custom_get_automation_condition()
-            or self._default_automation_condition_fn(resource),
-            tags={**self._default_tags_fn(resource), **self._custom_get_tags()},
-            group_name=self.group_name or self._default_group_name_fn(resource),
-            # Preserve the default behavior for these attributes
-            description=self._default_description_fn(resource),
-            owners=self._default_owners_fn(resource),
-            kinds=self._default_kinds_fn(resource, destination),
-        )
-
-    def _custom_get_asset_key(self, resource: DltResource) -> AssetKey:
+    def get_asset_key(self, resource: DltResource) -> AssetKey:
         """Defines asset key for a given dlt resource key and dataset name.
 
+        By default, the asset key is a concatenation of the source name and the resource name.
         If `prefix_key` is provided, the asset key is extended with the components of `prefix_key`
         followed by the resource name.
-        If `asset_database` is provided, the asset key is extended with the asset database name
-        followed by the dataset name and the resource name.
 
         Args:
             resource (DltResource): dlt resource
@@ -113,50 +64,26 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
         if self.prefix_key:
             return AssetKey([*self.prefix_key, resource.name])
         else:
-            return AssetKey(
-                [
-                    self.asset_database or resource.source_name,
-                    self.get_normalized_dataset_name(),
-                    resource.name,
-                ]
-            )
+            return AssetKey([resource.source_name, resource.name])
 
-    def _custom_get_deps_asset_keys(self, resource: DltResource) -> Iterable[AssetKey]:
-        """
-        Origen
-
-        """
-        dependencies = (
-            AssetKey(
-                [
-                    "mongodb",
-                    self.get_normalized_dataset_name(),
-                    resource.name,
-                ]
-            ),
-        )
-        return dependencies
-
-    def _custom_get_automation_condition(self) -> AutomationCondition | None:
-        return self.automation_condition
-
-    def get_normalized_cursor_path(self, resource: DltResource) -> str | None:
-        return (
-            normalize_identifier(resource.incremental.incremental.cursor_path)
-            if resource.incremental and resource.incremental.incremental
-            else None
-        )
+    def get_automation_condition(
+        self, resource: DltResource
+    ) -> AutomationCondition | None:
+        default_automation_condition = super().get_automation_condition(resource)
+        if self.automation_condition and default_automation_condition:
+            return self.automation_condition | default_automation_condition
+        elif self.automation_condition:
+            return self.automation_condition
+        else:
+            return default_automation_condition
 
     def get_normalized_table_identifier(self, resource: DltResource) -> str:
         return snake_case_normalizer().normalize_table_identifier(resource.name)
 
     def get_normalized_column_identifier(self, column_identifier: str) -> str:
-        return normalize_identifier(column_identifier)
+        return snake_case_normalizer().normalize_identifier(column_identifier)
 
-    def get_normalized_dataset_name(self) -> str:
-        return normalize_table_identifier(self.dataset_name)
-
-    def remove_columns_map_fn(
+    def remove_columns(
         self, doc: dict, remove_columns: Optional[list[str]] = None
     ) -> Dict:
         """
@@ -178,8 +105,12 @@ class MyDagsterDltTranslator(DagsterDltTranslator):
 
         return doc
 
-    def _custom_get_tags(self) -> Mapping[str, str]:
-        return self.tags or {}
+    def get_tags(self, resource: DltResource) -> Mapping[str, str]:
+        default_tags = super().get_tags(resource)
+        if self.tags:
+            return {**default_tags, **self.tags}
+        else:
+            return default_tags
 
 
 class BaseDltPipeline(ConfigurableResource):

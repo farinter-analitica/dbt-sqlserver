@@ -2,11 +2,9 @@ from io import BytesIO
 import polars as pl
 import os
 import re
-
-
 def test_read_excel_with_calamine():
     # Define the path to the Excel file
-    excel_file_path = os.path.join(os.path.dirname(__file__), "test_excel_file.xlsx")
+    excel_file_path = os.path.join(os.path.dirname(__file__), 'test_excel_file.xlsx')
     dfd: dict[str, pl.DataFrame]
 
     with open(excel_file_path, "rb") as f:
@@ -36,8 +34,7 @@ def test_read_excel_with_calamine():
     assert "B" in df.columns, "DataFrame should contain 'B' column"
 
     # Print the DataFrame for visual inspection (optional)
-    # print(df)
-
+    #print(df)
 
 # Run the test
 if __name__ == "__main__":

@@ -1,45 +1,45 @@
-# dagster_kielsa_gf
+# kielsa
 
-## Primeros pasos
+## Getting started
 
-Primero, instala tu ubicación de código Dagster como un paquete de Python. Al usar la bandera --editable, pip instalará tu paquete de Python en ["modo editable"](https://pip.pypa.io/en/latest/topics/local-project-installs/#editable-installs) para que mientras desarrollas, los cambios locales en el código se apliquen automáticamente.
+First, install your Dagster code location as a Python package. By using the --editable flag, pip will install your Python package in ["editable mode"](https://pip.pypa.io/en/latest/topics/local-project-installs/#editable-installs) so that as you develop, local code changes will automatically apply.
 
-
+```bash
 pip install -e ".[dev]"
+```
 
+Then, start the Dagster UI web server:
 
-Luego, inicia el servidor web de la interfaz de Dagster:
-
-
+```bash
 dagster dev
+```
 
+Open http://localhost:3000 with your browser to see the project.
 
-Abre http://localhost:3000 en tu navegador para ver el proyecto.
+You can start writing assets in `kielsa/assets.py`. The assets are automatically loaded into the Dagster code location as you define them.
 
-Puedes comenzar a escribir assets en `dagster_kielsa_gf/assets.py`. Los assets se cargan automáticamente en la ubicación del código Dagster mientras los defines.
+## Development
 
-## Desarrollo
+### Adding new Python dependencies
 
-### Agregar nuevas dependencias de Python
+You can specify new Python dependencies in `setup.py`.
 
-Puedes especificar nuevas dependencias de Python en `pyproject.toml`.
+### Unit testing
 
-### Pruebas unitarias
+Tests are in the `kielsa_tests` directory and you can run tests using `pytest`:
 
-Las pruebas están en el directorio `dagster_kielsa_gf_tests` y puedes ejecutar las pruebas usando `pytest`:
+```bash
+pytest kielsa_tests
+```
 
+### Schedules and sensors
 
-pytest dagster_kielsa_gf_tests
+If you want to enable Dagster [Schedules](https://docs.dagster.io/concepts/partitions-schedules-sensors/schedules) or [Sensors](https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors) for your jobs, the [Dagster Daemon](https://docs.dagster.io/deployment/dagster-daemon) process must be running. This is done automatically when you run `dagster dev`.
 
+Once your Dagster Daemon is running, you can start turning on schedules and sensors for your jobs.
 
-### Programaciones y sensores
+## Deploy on Dagster Cloud
 
-Si deseas habilitar [Programaciones](https://docs.dagster.io/concepts/partitions-schedules-sensors/schedules) o [Sensores](https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors) de Dagster para tus trabajos, el proceso [Dagster Daemon](https://docs.dagster.io/deployment/dagster-daemon) debe estar ejecutándose. Esto se hace automáticamente cuando ejecutas `dagster dev`.
+The easiest way to deploy your Dagster project is to use Dagster Cloud.
 
-Una vez que tu Dagster Daemon esté ejecutándose, puedes comenzar a activar programaciones y sensores para tus trabajos.
-
-## Desplegar en Dagster Cloud
-
-La forma más fácil de desplegar tu proyecto Dagster es usar Dagster Cloud.
-
-Consulta la [Documentación de Dagster Cloud](https://docs.dagster.cloud) para obtener más información.
+Check out the [Dagster Cloud Documentation](https://docs.dagster.cloud) to learn more.

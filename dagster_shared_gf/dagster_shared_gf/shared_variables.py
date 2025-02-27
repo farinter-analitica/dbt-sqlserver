@@ -1,3 +1,4 @@
+from typing import Optional
 from threading import Lock
 
 from dagster import AssetSelection, Config, RunConfig, AutomationCondition

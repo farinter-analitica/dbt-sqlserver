@@ -29,7 +29,7 @@ class EngineType(str, Enum):
 # For type hints
 ENGINES = Union[
     Literal[EngineType.PYODBC, EngineType.SQLALCHEMY, EngineType.ARROW_ODBC],
-    Literal["pyodbc", "sqlalchemy", "arrow-odbc"],
+    Literal["pyodbc", "sqlalchemy", "arrow-odbc"]
 ]
 
 Connection = Union[pyodbc.Connection, sqlalchemy.Connection]
@@ -255,9 +255,7 @@ class SQLServerResource(ConfigurableResource):
             # Add proper logging here
             raise RuntimeError(f"Error closing connection: {e}")
 
-    def _cursor_fetch_first_result(
-        self, cursor: pyodbc.Cursor, fetch_val: bool = False
-    ):
+    def _cursor_fetch_first_result(self, cursor: pyodbc.Cursor, fetch_val: bool = False):
         result = None
         try:
             result = cursor.fetchval() if fetch_val else cursor.fetchall()
@@ -271,13 +269,13 @@ class SQLServerResource(ConfigurableResource):
                 continue
 
         return result
-
+    
     def _ensure_text(self, query_obj: Union[str, Any]) -> Any:
         """Ensure the query is wrapped in text() if it's a string."""
         if isinstance(query_obj, str):
             return sqlalchemy.text(query_obj)
         return query_obj
-
+        
     def query(
         self,
         query: str,
@@ -315,7 +313,7 @@ class SQLServerResource(ConfigurableResource):
             >>> result = query(query, connection)  # Returns all rows
             >>> print(result)
             [('value1',), ('value2',), ...]
-
+            
             >>> result = query(query, connection, fetch_val=True)  # Returns first column of first row
             >>> print(result)
             'value1'
@@ -435,15 +433,13 @@ class SQLServerResource(ConfigurableResource):
 
     def get_arrow_odbc_conn_string(self, database: str | None = None) -> str:
         """Get the Arrow ODBC connection string for the SQL Server resource."""
-        conn_string = self.get_connection_string(
-            engine=EngineType.ARROW_ODBC, database=database
-        )
+        conn_string = self.get_connection_string(engine=EngineType.ARROW_ODBC, database=database)
         return str(conn_string)
 
     def get_sqlalchemy_url(self) -> sqlalchemy.URL:
         """Get the SQLAlchemy URL for the SQL Server resource."""
         passw = self.password
-        if hasattr(passw, "get_value") and isinstance(passw, EnvVar):
+        if hasattr(passw, "get_value") and isinstance(passw,EnvVar):
             pass_val = passw.get_value()
             if pass_val:
                 v_password: str = pass_val
@@ -472,6 +468,7 @@ class SQLServerResource(ConfigurableResource):
             if not isinstance(conn, sqlalchemy.Connection):
                 raise TypeError("Expected SQLAlchemy connection")
             yield conn
+
 
     @contextlib.contextmanager
     def get_pyodbc_conn(
@@ -503,13 +500,12 @@ class SQLServerResource(ConfigurableResource):
         else:
             raise ValueError("Context does not have a attributes.")
 
-
 class SQLServerNonRuntimeResource(SQLServerResource):
+
     @classmethod
     def log_event(cls, type: Literal["info", "warning", "error"], message: str):
         print(f"{type}: {message}")
-
-
+        
 dwh_farinter = SQLServerResource(
     server=p_server,
     databases=[

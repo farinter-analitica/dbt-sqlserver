@@ -1,12 +1,14 @@
 import warnings
 from collections import deque
 from datetime import datetime
+from typing import Sequence
 
 import numpy as np
 import pendulum as pdl
 import polars as pl
 import scipy.sparse as sp
 from dagster import (
+    AssetChecksDefinition,
     AssetKey,
     AssetsDefinition,
     Field,
@@ -17,6 +19,8 @@ from dagster import (
     asset,
     graph,
     instance_for_test,
+    load_asset_checks_from_current_module,
+    load_assets_from_current_module,
     materialize,
     op,
 )
@@ -542,6 +546,11 @@ DL_Kielsa_Articulo_ArticuloRelacionado = AssetsDefinition.from_graph(
     },
     automation_conditions_by_output_name={"result": automation_weekly_7_delta_1_cron},
     group_name="recomendaciones",
+)
+
+all_assets = tuple(load_assets_from_current_module())
+all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
+    load_asset_checks_from_current_module()
 )
 
 

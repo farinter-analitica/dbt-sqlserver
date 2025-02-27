@@ -5,7 +5,7 @@ import dlt
 from dlt.common import pendulum
 from dlt.sources.credentials import ConnectionStringCredentials
 
-from .sql_database import sql_database, sql_table, Table
+from sql_database import sql_database, sql_table, Table
 
 
 def load_select_tables_from_database() -> None:
@@ -15,7 +15,7 @@ def load_select_tables_from_database() -> None:
     """
     # Create a pipeline
     pipeline = dlt.pipeline(
-        pipeline_name="rfam", destination="mssql", dataset_name="rfam_data"
+        pipeline_name="rfam", destination='mssql', dataset_name="rfam_data"
     )
 
     # Credentials for the sample database.
@@ -53,7 +53,7 @@ def load_select_tables_from_database() -> None:
 def load_entire_database() -> None:
     """Use the sql_database source to completely load all tables in a database"""
     pipeline = dlt.pipeline(
-        pipeline_name="rfam", destination="mssql", dataset_name="rfam_data"
+        pipeline_name="rfam", destination='mssql', dataset_name="rfam_data"
     )
 
     # By default the sql_database source reflects all tables in the schema
@@ -75,7 +75,7 @@ def load_standalone_table_resource() -> None:
     table reflection"""
     pipeline = dlt.pipeline(
         pipeline_name="rfam_database",
-        destination="mssql",
+        destination='mssql',
         dataset_name="rfam_data",
         full_refresh=True,
     )
@@ -116,7 +116,7 @@ def select_columns() -> None:
     """Uses table adapter callback to modify list of columns to be selected"""
     pipeline = dlt.pipeline(
         pipeline_name="rfam_database",
-        destination="mssql",
+        destination='mssql',
         dataset_name="rfam_data_cols",
         full_refresh=True,
     )
@@ -148,7 +148,7 @@ def select_with_end_value_and_row_order() -> None:
     """Gets data from a table withing a specified range and sorts rows descending"""
     pipeline = dlt.pipeline(
         pipeline_name="rfam_database",
-        destination="mssql",
+        destination='mssql',
         dataset_name="rfam_data",
         full_refresh=True,
     )
@@ -180,7 +180,7 @@ def my_sql_via_pyarrow() -> None:
     # Create a pipeline
     pipeline = dlt.pipeline(
         pipeline_name="rfam_cx",
-        destination="mssql",
+        destination='mssql',
         dataset_name="rfam_data_arrow_4",
     )
 
@@ -223,7 +223,7 @@ def create_unsw_flow() -> None:
     pipeline = dlt.pipeline(
         pipeline_name="unsw_upload",
         # destination=postgres("postgres://loader:loader@localhost:5432/dlt_data"),
-        destination="mssql",
+        destination='mssql',
         progress="log",
     )
     pipeline.run(
@@ -236,6 +236,7 @@ def create_unsw_flow() -> None:
 
 def test_connectorx_speed() -> None:
     """Uses unsw_flow dataset (~2mln rows, 25+ columns) to test connectorx speed"""
+    import os
 
     # from dlt.destinations import filesystem
 
@@ -254,7 +255,7 @@ def test_connectorx_speed() -> None:
 
     pipeline = dlt.pipeline(
         pipeline_name="unsw_download",
-        destination="mssql",
+        destination='mssql',
         # destination=filesystem(os.path.abspath("../_storage/unsw")),
         progress="log",
         full_refresh=True,
@@ -272,7 +273,7 @@ def test_connectorx_speed() -> None:
 def test_pandas_backend_verbatim_decimals() -> None:
     pipeline = dlt.pipeline(
         pipeline_name="rfam_cx",
-        destination="mssql",
+        destination='mssql',
         dataset_name="rfam_data_pandas_2",
     )
 

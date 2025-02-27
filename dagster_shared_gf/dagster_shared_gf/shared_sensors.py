@@ -1,19 +1,8 @@
-from dagster import (
-    make_email_on_run_failure_sensor,
-    DagsterInstance,
-    SensorEvaluationContext,
-    SensorDefinition,
-    JobDefinition,
-    GraphDefinition,
-    UnresolvedAssetJobDefinition,
-    RepositorySelector,
-    JobSelector,
-    DefaultSensorStatus,
-)
+from dagster import (make_email_on_run_failure_sensor, DagsterInstance, SensorEvaluationContext, SensorDefinition,
+                     JobDefinition , GraphDefinition , UnresolvedAssetJobDefinition , RepositorySelector , JobSelector, DefaultSensorStatus)
 from datetime import datetime
 from typing import List, Sequence
 import os
-
 
 def custom_email_body(context: SensorEvaluationContext):
     dagster_run = context.run
@@ -24,20 +13,12 @@ def custom_email_body(context: SensorEvaluationContext):
     stats_snapshot = instance.get_run_stats(dagster_run.run_id)
 
     # Convert UNIX timestamps to datetime objects
-    start_time = (
-        datetime.fromtimestamp(stats_snapshot.start_time)
-        if stats_snapshot.start_time
-        else None
-    )
-    end_time = (
-        datetime.fromtimestamp(stats_snapshot.end_time)
-        if stats_snapshot.end_time
-        else None
-    )
+    start_time = datetime.fromtimestamp(stats_snapshot.start_time) if stats_snapshot.start_time else None
+    end_time = datetime.fromtimestamp(stats_snapshot.end_time) if stats_snapshot.end_time else None
 
     # Format datetime objects as strings if needed
-    start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S") if start_time else "N/A"
-    end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S") if end_time else "N/A"
+    start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S') if start_time else 'N/A'
+    end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S') if end_time else 'N/A'
 
     # Construct the URL to the run in Dagit (replace with your actual Dagit URL)
     dagit_url = f"http://dagit.mycompany.com/instance/runs/{dagster_run.run_id}"
@@ -57,25 +38,16 @@ def custom_email_body(context: SensorEvaluationContext):
     {failure_event.message}
 
     Stack Trace:
-    {failure_event.error.stack_trace if failure_event.error else "No stack trace available."}
+    {failure_event.error.stack_trace if failure_event.error else 'No stack trace available.'}
     """
 
     return email_body
 
 
-def create_email_on_failure_sensor(
-    email_to: List[str] = ["brian.padilla@farinter.com"],
-    monitored_jobs: Sequence[
-        JobDefinition
-        | GraphDefinition
-        | UnresolvedAssetJobDefinition
-        | RepositorySelector
-        | JobSelector
-    ]
-    | None = None,
-    name: str | None = None,
-    default_status: DefaultSensorStatus = DefaultSensorStatus.STOPPED,
-) -> SensorDefinition:
+def create_email_on_failure_sensor(email_to: List[str] = ["brian.padilla@farinter.com"],
+                                    monitored_jobs: Sequence[JobDefinition | GraphDefinition | UnresolvedAssetJobDefinition | RepositorySelector | JobSelector] | None = None,
+                                    name: str | None = None,
+                                    default_status: DefaultSensorStatus = DefaultSensorStatus.STOPPED) -> SensorDefinition:
     """
     Create a job failure sensor that sends email via the SMTP protocol.
 
@@ -90,10 +62,8 @@ def create_email_on_failure_sensor(
     Examples:
     """
     return make_email_on_run_failure_sensor(
-        email_from=os.getenv("DAGSTER_EMAIL_ADDRESS"),
-        email_password=os.getenv(
-            "DAGSTER_SECRET_EMAIL_PASSWORD"
-        ),  # Use environment variables for sensitive information
+        email_from=os.getenv('DAGSTER_EMAIL_ADDRESS'),
+        email_password=os.getenv('DAGSTER_SECRET_EMAIL_PASSWORD'),  # Use environment variables for sensitive information
         email_to=email_to,
         email_subject_fn=lambda _: "Dagster Job Failure Alert",
         email_body_fn=custom_email_body,
@@ -102,13 +72,14 @@ def create_email_on_failure_sensor(
         smtp_port=26,
         smtp_type="STARTTLS",
         default_status=default_status,
-        name=name,
+        name=name
     )
+    
+
 
 
 if __name__ == "__main__":
     from dagster import op, job
-
     @op
     def fails():
         raise Exception("failure!")
