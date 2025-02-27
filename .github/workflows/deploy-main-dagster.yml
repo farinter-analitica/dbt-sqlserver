@@ -7,10 +7,70 @@ on:
 env:
   DAGSTER_INSTANCE_CURRENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prd' || 'dev' }}
   DEPLOY_DIR: ${{ github.ref == 'refs/heads/main' && '/opt/main_dagster_prd' || '/opt/main_dagster_dev' }}
+  ENV: ${{ github.ref == 'refs/heads/main' && 'prd' || 'dev' }}
   ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
 
 jobs:
+  detect-changes:
+    runs-on: self-hosted
+    outputs:
+      service_templates_changed: ${{ steps.filter.outputs.service_templates }}
+      python_version_changed: ${{ steps.filter.outputs.python_version }}
+      dependencies_changed: ${{ steps.filter.outputs.dependencies }}
+      code_changed: ${{ steps.filter.outputs.code }}
+      deployment_type: ${{ steps.set-deployment.outputs.deployment_type }}
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Filter changed files
+        id: filter
+        run: |
+          # Get changed files
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+          
+          # Check for service template changes
+          if echo "$CHANGED_FILES" | grep -q "scripts/generate_dagster_service.py\|.service$"; then
+            echo "service_templates=true" >> $GITHUB_OUTPUT
+          else
+            echo "service_templates=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for Python version changes
+          if echo "$CHANGED_FILES" | grep -q "\.python-version\|scripts/deployment.py"; then
+            echo "python_version=true" >> $GITHUB_OUTPUT
+          else
+            echo "python_version=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check for dependency changes
+          if echo "$CHANGED_FILES" | grep -q "pyproject.toml"; then
+            echo "dependencies=true" >> $GITHUB_OUTPUT
+          else
+            echo "dependencies=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Code changes - assuming if there is any diff, this is always true
+          echo "code=true" >> $GITHUB_OUTPUT
+      
+      - name: Set deployment type
+        id: set-deployment
+        run: |
+          if [[ "${{ steps.filter.outputs.service_templates }}" == "true" ]]; then
+            echo "deployment_type=deploy-full" >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.python_version }}" == "true" ]]; then
+            echo "deployment_type=deploy-partial" >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.dependencies }}" == "true" ]]; then
+            echo "deployment_type=deploy-fast" >> $GITHUB_OUTPUT
+          else
+            echo "deployment_type=deploy-continuous" >> $GITHUB_OUTPUT
+          fi
+
   deploy:
+    needs: detect-changes
     runs-on: self-hosted
     
     steps:
@@ -18,18 +78,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
-      - name: Setup Python Environment
-        run: |
-          # Activate virtual environment
-          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
-          
-          # Check and install required packages if missing
-          python -c "import jinja2" || pip install jinja2
-          python -c "import dotenv" || pip install python-dotenv
-          
-          # Add venv to PATH
-          echo "${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin" >> $GITHUB_PATH
 
       - name: Configure Git Repository
         run: |
@@ -50,15 +98,25 @@ jobs:
           source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
           python "${{ env.DEPLOY_DIR }}/dbt_dwh_farinter/autoload_dbt_deploy.py"
 
-      - name: Deploy Dagster Services
+      - name: Run Deployment
+        env:
+          ENV: ${{ env.ENV }}
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
         run: |
-          sudo ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/python "${{ env.DEPLOY_DIR }}/scripts/generate_dagster_service.py"
+          cd ${{ env.DEPLOY_DIR }}
+          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
+          python "${{ env.DEPLOY_DIR }}/scripts/deployment.py" ${{ needs.detect-changes.outputs.deployment_type }}
+          echo "Executed deployment strategy: ${{ needs.detect-changes.outputs.deployment_type }}"
 
       - name: Verify Deployment Status
         if: always()
         run: |
-          if [[ ${{ job.status }} == 'success' ]]; then
+          sudo systemctl status dagster_${{ env.ENV }}_webserver | grep -q "active (running)" && \
+          sudo systemctl status dagster_${{ env.ENV }}_daemon | grep -q "active (running)"
+          
+          if [[ $? -eq 0 && ${{ job.status }} == 'success' ]]; then
             echo "✅ Deployment to ${{ env.ENV_NAME }} successful"
+            echo "Deployment strategy used: ${{ needs.detect-changes.outputs.deployment_type }}"
           else
             echo "❌ Deployment to ${{ env.ENV_NAME }} failed"
             exit 1
