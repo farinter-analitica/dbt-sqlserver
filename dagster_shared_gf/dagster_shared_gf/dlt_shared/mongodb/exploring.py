@@ -1,6 +1,6 @@
 import os
 import dlt
-from dagster_embedded_elt.dlt import (
+from dagster_dlt import (
     DagsterDltResource,
 )
 from dlt.common import pendulum

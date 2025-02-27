@@ -11,7 +11,7 @@ from dagster import (
     build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
 )
-from dagster_embedded_elt.dlt import (
+from dagster_dlt import (
     DagsterDltResource,
 )
 from dlt.common import pendulum

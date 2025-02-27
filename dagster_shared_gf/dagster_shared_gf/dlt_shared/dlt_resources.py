@@ -10,7 +10,7 @@ from dagster import (
     IntMetadataValue,
     MetadataValue,
 )
-from dagster_embedded_elt.dlt import (
+from dagster_dlt import (
     DagsterDltResource,
     DagsterDltTranslator,
 )

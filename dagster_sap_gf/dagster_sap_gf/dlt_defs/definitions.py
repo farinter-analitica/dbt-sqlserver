@@ -1,5 +1,5 @@
 from dagster import Definitions, load_assets_from_modules
-from dagster_embedded_elt.dlt import DagsterDltResource
+from dagster_dlt import DagsterDltResource
 from dagster_shared_gf.dlt_shared import dlt_resources
 from dagster_sap_gf.dlt_defs import hontrack_assets as ha 
 

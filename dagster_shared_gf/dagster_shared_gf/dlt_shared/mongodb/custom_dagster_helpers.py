@@ -14,7 +14,7 @@ from dagster import (
     MetadataValue,
     asset,
 )
-from dagster_embedded_elt.dlt import DagsterDltTranslator
+from dagster_dlt import DagsterDltTranslator
 from dlt.common import pendulum
 from dlt.common.normalizers.naming.snake_case import NamingConvention
 from dlt.common.pipeline import LoadInfo
