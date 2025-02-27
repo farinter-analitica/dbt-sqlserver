@@ -8,7 +8,7 @@ from dagster import (
     AssetCheckResult,
     AssetChecksDefinition,
     AssetKey,
-    SourceAsset,
+    AssetSpec,
     asset_check,
     build_last_update_freshness_checks,
     instance_for_test,
@@ -352,7 +352,7 @@ all_mongodb_hn_assets = (
 )
 
 all_mongodb_hn_source_assets = list(
-    SourceAsset(
+    AssetSpec(
         key,
         group_name="mongodb_crm_hn_etl_dwh_sources",
         tags={"dagster/storage_kind": "mongodb"},

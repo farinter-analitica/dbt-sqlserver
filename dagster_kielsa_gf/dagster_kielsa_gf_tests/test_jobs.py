@@ -1,6 +1,7 @@
 import warnings
 
 from dagster import (
+    AssetsDefinition,
     AssetSpec,
     Definitions,
     JobDefinition,
@@ -10,8 +11,8 @@ from dagster_kielsa_gf import defs
 from dagster_shared_gf.shared_variables import (
     AssetExecutionType,
     UnresolvedAssetJobDefinition,
+    tags_repo,
 )
-from dagster_shared_gf.shared_variables import tags_repo
 
 defs: Definitions = defs  ##import your defs
 asset_spec: AssetSpec
@@ -42,6 +43,11 @@ def test_all_assets_assigned_to_a_job():
     job_auto_stop_assigned_assets = set()
     all_jobs = defs.jobs or []
     all_assets = defs.assets
+    all_assets = (
+        [asset for asset in all_assets if isinstance(asset, AssetsDefinition)]
+        if all_assets
+        else []
+    )
     for job_def in all_jobs:
         if isinstance(job_def, JobDefinition):
             if job_def.asset_selection:
@@ -53,8 +59,8 @@ def test_all_assets_assigned_to_a_job():
                 }
                 job_auto_stop_assigned_assets.update(materialized_assets)
         elif isinstance(job_def, UnresolvedAssetJobDefinition):
-            try:    
-                resolved_assets = job_def.selection.resolve(all_assets) # type: ignore
+            try:
+                resolved_assets = job_def.selection.resolve(all_assets)  # type: ignore
             except Exception as e:
                 print("Error resolving assets for job: ", job_def.name)
                 resolved_assets = set()

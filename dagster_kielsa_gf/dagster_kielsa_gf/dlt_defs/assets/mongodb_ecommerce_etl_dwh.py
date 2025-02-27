@@ -7,7 +7,7 @@ import os
 import dlt
 from dagster import (
     AssetChecksDefinition,
-    SourceAsset,
+    AssetSpec,
     build_last_update_freshness_checks,
     load_asset_checks_from_current_module,
 )
@@ -166,7 +166,7 @@ all_mongodb_hn_assets = (*created_mongodb_assets,)
 
 
 all_mongodb_hn_source_assets = list(
-    SourceAsset(
+    AssetSpec(
         key,
         group_name="mongodb_crm_hn_etl_dwh_sources",
         tags={"dagster/storage_kind": "mongodb"},

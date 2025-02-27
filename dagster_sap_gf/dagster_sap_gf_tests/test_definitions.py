@@ -6,7 +6,7 @@ from collections import deque
 from dagster import (
     AssetKey,
     AssetsDefinition,
-    SourceAsset,
+    AssetSpec,
 )
 
 from dagster_sap_gf import defs
@@ -68,7 +68,7 @@ def count_assetkeys(data: Any) -> int:
     return 0
 
 
-all_assets: tuple[AssetsDefinition | SourceAsset, ...] = apply_function_to_submodules(
+all_assets: tuple[AssetsDefinition | AssetSpec, ...] = apply_function_to_submodules(
     import_variable_from_module,
     module_name="dagster_sap_gf.assets",
     variable_name="all_assets",
@@ -80,7 +80,7 @@ all_assets += apply_function_to_submodules(
 )
 all_sources_assets_keys = tuple(
     {asset.key}
-    for asset in filter(lambda asset: isinstance(asset, SourceAsset), all_assets)
+    for asset in filter(lambda asset: isinstance(asset, AssetSpec), all_assets)
 )
 all_main_assets_keys = flatten_elements(
     tuple(asset.keys for asset in all_assets if isinstance(asset, (AssetsDefinition)))
@@ -99,7 +99,7 @@ all_defs_assets_keys = set(
             tuple(
                 asset.keys if isinstance(asset, AssetsDefinition) else asset.key
                 for asset in defs.assets
-                if isinstance(asset, (AssetsDefinition, SourceAsset))
+                if isinstance(asset, (AssetsDefinition, AssetSpec))
             )
             if defs.assets is not None
             else tuple()

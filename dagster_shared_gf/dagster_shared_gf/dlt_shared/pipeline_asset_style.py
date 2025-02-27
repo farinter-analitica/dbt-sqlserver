@@ -5,7 +5,7 @@ from dagster import (
     AssetExecutionContext,
     AutoMaterializePolicy,
     AutoMaterializeRule,
-    SourceAsset,
+    AssetSpec,
     file_relative_path,
 )
 from dagster._annotations import public
@@ -36,14 +36,14 @@ class ThinkificDagsterDltTranslator(DagsterDltTranslator):
     ),
     name="thinkific",
     group_name="thinkific",
-    dlt_dagster_translator=ThinkificDagsterDltTranslator(),
+    dagster_dlt_translator=ThinkificDagsterDltTranslator(),
 )
 def thinkific_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
     yield from dlt.run(context=context)
 
 
 thinkific_source_assets = [
-    SourceAsset(key, group_name="thinkific") for key in thinkific_assets.dependency_keys
+    AssetSpec(key, group_name="thinkific") for key in thinkific_assets.dependency_keys
 ]
 
 
@@ -65,14 +65,14 @@ class HubspotDagsterDltTranslator(DagsterDltTranslator):
     ),
     name="hubspot",
     group_name="hubspot",
-    dlt_dagster_translator=HubspotDagsterDltTranslator(),
+    dagster_dlt_translator=HubspotDagsterDltTranslator(),
 )
 def hubspot_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
     yield from dlt.run(context=context)
 
 
 hubspot_source_assets = [
-    SourceAsset(key, group_name="hubspot") for key in hubspot_assets.dependency_keys
+    AssetSpec(key, group_name="hubspot") for key in hubspot_assets.dependency_keys
 ]
 
 dlt_configuration_path = file_relative_path(__file__, "./sources/configuration.yaml")
@@ -101,14 +101,14 @@ class GithubDagsterDltTranslator(DagsterDltTranslator):
     ),
     name="github",
     group_name="github",
-    dlt_dagster_translator=GithubDagsterDltTranslator(),
+    dagster_dlt_translator=GithubDagsterDltTranslator(),
 )
 def github_reactions_dagster_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
     yield from dlt.run(context=context)
 
 
 github_source_assets = [
-    SourceAsset(key, group_name="github") for key in github_reactions_dagster_assets.dependency_keys
+    AssetSpec(key, group_name="github") for key in github_reactions_dagster_assets.dependency_keys
 ]
 
 
@@ -133,12 +133,12 @@ class BuildkiteDltTranslator(DagsterDltTranslator):
     ),
     name="buildkite",
     group_name="buildkite",
-    dlt_dagster_translator=BuildkiteDltTranslator(),
+    dagster_dlt_translator=BuildkiteDltTranslator(),
 )
 def buildkite_assets(context: AssetExecutionContext, dlt: DagsterDltResource):
     yield from dlt.run(context=context)
 
 
 buildkite_source_assets = [
-    SourceAsset(key, group_name="buildkite") for key in buildkite_assets.dependency_keys
+    AssetSpec(key, group_name="buildkite") for key in buildkite_assets.dependency_keys
 ]

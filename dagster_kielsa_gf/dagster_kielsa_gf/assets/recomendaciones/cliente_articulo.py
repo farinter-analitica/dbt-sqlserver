@@ -548,12 +548,6 @@ DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
     group_name="recomendaciones",
 )
 
-all_assets = tuple(load_assets_from_current_module())
-all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
-    load_asset_checks_from_current_module()
-)
-
-
 if __name__ == "__main__":
     from dagster import instance_for_test
     from dagster_polars import PolarsParquetIOManager
