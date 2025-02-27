@@ -545,6 +545,7 @@ DL_Kielsa_Articulo_ArticuloRelacionado = AssetsDefinition.from_graph(
         "result": tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly
     },
     automation_conditions_by_output_name={"result": automation_weekly_7_delta_1_cron},
+    group_name="recomendaciones",
 )
 
 all_assets = tuple(load_assets_from_current_module())
