@@ -5,17 +5,13 @@ import json
 from deep_translator import GoogleTranslator
 from dagster import (
     asset,
-    AssetChecksDefinition,
     AssetExecutionContext,
-    load_asset_checks_from_current_module,
-    load_assets_from_current_module,
     AutomationCondition,
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo
 
 # from translate import Translator
-from typing import Sequence
 
 
 # Función para obtener los días festivos para una lista de países y un rango de fechas específico
@@ -215,12 +211,6 @@ def DL_Edit_CalendarioNoLaboral(
     with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
         dwh_farinter_dl.execute_and_commit(QUERY_ANIO_SIGUIENTE, connection=conn)
 
-
-all_assets = tuple(load_assets_from_current_module(group_name="web_api_externo"))
-
-all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
-    load_asset_checks_from_current_module()
-)
 
 if __name__ == "__main__":
     codigos_pais = ["HN", "NI", "CR", "SV", "GT"]  # Lista de códigos ISO2 de los países

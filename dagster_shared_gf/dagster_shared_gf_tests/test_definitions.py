@@ -7,12 +7,11 @@ from dagster import (
     AssetKey,
     AssetsDefinition,
     AssetSpec,
+    load_assets_from_modules,
 )
 
 from dagster_shared_gf import defs
-from dagster_shared_gf.shared_functions import import_variable_from_module
 from dagster_shared_gf.shared_variables import tags_repo
-
 
 # def test_all_assets_loaded():
 #     assert all_assets.__len__()==load_assets_from_package_module(assets).__len__() , "All assets should be loaded"
@@ -37,7 +36,7 @@ def apply_function_to_submodules(
         submodule = importlib.import_module(submodule_name)
 
         # Execute the function in the context of the submodule
-        instances = function_to_apply(*args, **kwargs, module=submodule)
+        instances = function_to_apply(*args, **kwargs, modules=[submodule])
         if instances is not None:
             all_instances.extend(instances)
 
@@ -69,9 +68,7 @@ def count_assetkeys(data: Any) -> int:
 
 
 all_assets: tuple[AssetsDefinition | AssetSpec, ...] = apply_function_to_submodules(
-    import_variable_from_module,
-    module_name="dagster_shared_gf.assets",
-    variable_name="all_assets",
+    load_assets_from_modules, module_name="dagster_shared_gf.assets", include_specs=True
 )
 all_sources_assets_keys = tuple(
     {asset.key}
@@ -112,13 +109,18 @@ all_not_in_definitions = set(
     filter(lambda x: x not in all_defs_assets_keys, all_assets_keys_deduplicated)
 )
 
+all_not_in_modules = set(
+    filter(lambda x: x not in all_assets_keys_deduplicated, all_defs_assets_keys)
+)
+
 
 def test_all_assets_loaded():
     assert count_assetkeys(all_defs_assets_keys) == count_assetkeys(
         all_assets_keys_deduplicated
     ), f"""Loaded assets expected = all_assets variables accumulated on assets module: 
     loaded={count_assetkeys(all_defs_assets_keys)} vs instances={count_assetkeys(all_assets_keys_deduplicated)}
-    pending on defs={all_not_in_definitions}
+    pending on defs={str(all_not_in_definitions)}
+    not in modules={str(all_not_in_modules)}
     """
 
 

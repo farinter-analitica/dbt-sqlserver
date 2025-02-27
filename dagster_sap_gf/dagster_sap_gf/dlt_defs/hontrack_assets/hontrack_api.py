@@ -605,6 +605,7 @@ def _daily_partition_iter(
         automation_condition=automation_daily_delta_2_cron,
         prefix_key=["DL_FARINTER", "hontrack_api"],
         tags=tags_repo.Daily | tags_repo.AutomationOnly,
+        dataset_name="hontrack_api",
     ),
     partitions_def=daily_partitions_def,
 )

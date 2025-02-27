@@ -2,10 +2,8 @@ import subprocess
 from dagster_shared_gf.load_env_run import load_env_vars
 from pathlib import Path
 import warnings
-import dagster
 from tabulate import tabulate
 
-warnings.filterwarnings("ignore", category=dagster.ExperimentalWarning)
 warnings.filterwarnings("ignore", message=".*shadows an attribute in parent.*")
 
 load_env_vars()

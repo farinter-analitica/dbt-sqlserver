@@ -1,11 +1,6 @@
-from typing import Sequence
-
 from dagster import (
-    AssetChecksDefinition,
     AssetExecutionContext,
     Config,
-    load_asset_checks_from_current_module,
-    load_assets_from_current_module,
 )
 from dagster_dbt import DbtCliResource, dbt_assets
 from pydantic import Field
@@ -34,11 +29,3 @@ def dbt_dwh_kielsa_mart_datos_maestros_assets(
     yield from (
         dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
     )
-
-
-all_assets = tuple(load_assets_from_current_module())
-
-
-all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
-    load_asset_checks_from_current_module()
-)

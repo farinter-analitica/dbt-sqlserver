@@ -14,7 +14,6 @@ from dagster import (
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo
 
-()
 dl_farinter_db = "DL_FARINTER"
 dl_farinter_assets_prefix = [dl_farinter_db]
 # @asset(key_prefix= dl_farinter_assets_prefix)

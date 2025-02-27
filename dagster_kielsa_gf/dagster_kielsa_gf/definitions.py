@@ -68,11 +68,11 @@ all_resources = all_shared_resources
 
 all_asset_freshness_checks = create_freshness_checks_for_assets(all_assets)
 
-all_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
+all_kielsa_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
     freshness_checks=all_asset_freshness_checks,
     default_status=running_default_sensor_status,
     minimum_interval_seconds=hourly_freshness_seconds_per_environ,  # 1 hour
-    name="all_assets_freshness_checks_sensor",
+    name="all_kielsa_assets_freshness_checks_sensor",
 )
 
 defs = Definitions.merge(
@@ -83,14 +83,18 @@ defs = Definitions.merge(
             *dbt_sources_assets,
             *dlt_defs.all_assets,
         ),
-        asset_checks=(*all_asset_checks, *dlt_defs.all_asset_checks),
+        asset_checks=(
+            *all_asset_checks,
+            *dlt_defs.all_asset_checks,
+            *all_asset_freshness_checks,
+        ),
         resources=all_resources | dlt_defs.all_resources,
         jobs=(*jobs.all_jobs, *job_control_replicas.all_jobs),
         schedules=all_schedules,
         sensors=(
             *all_sensors,
             *all_shared_sensors,
-            all_assets_freshness_checks_sensor,
+            all_kielsa_assets_freshness_checks_sensor,
         ),
     ),
     gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos

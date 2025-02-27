@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 # from ...dbt_kielsa
-from dagster import AssetKey, AutomationCondition, ExperimentalWarning
+from dagster import AssetKey, AutomationCondition
 from dagster._utils.tags import normalize_tags
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource
 
@@ -14,7 +14,6 @@ from dagster_shared_gf.automation import tag_automation_mapping
 from dagster_shared_gf.shared_functions import get_for_current_env
 from pydantic import Field
 
-warnings.filterwarnings("ignore", category=ExperimentalWarning)
 warnings.filterwarnings(
     "ignore", message=".*Pydantic V1 style `@validator` validators are deprecated..*"
 )

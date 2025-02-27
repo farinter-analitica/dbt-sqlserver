@@ -56,11 +56,11 @@ dbt_sources_assets: list = get_unique_source_assets(
 
 all_asset_freshness_checks = create_freshness_checks_for_assets(all_assets)
 
-all_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
+all_sap_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
     freshness_checks=all_asset_freshness_checks,
     default_status=running_default_sensor_status,
     minimum_interval_seconds=hourly_freshness_seconds_per_environ,  # 1 hour
-    name="all_assets_freshness_checks_sensor",
+    name="all_sap_assets_freshness_checks_sensor",
 )
 
 dagster_sap_gf_resources = {**all_shared_resources, **dlt_all_resources}
@@ -73,7 +73,7 @@ defs = Definitions(
     sensors=(
         *all_sensors,
         *all_shared_sensors,
-        all_assets_freshness_checks_sensor,
+        all_sap_assets_freshness_checks_sensor,
     ),
     schedules=all_schedules,
 )
