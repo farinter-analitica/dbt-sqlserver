@@ -25,10 +25,7 @@ from typing import (
 
 import polars as pl
 import requests
-from dagster import (
-    AssetsDefinition,
-    config_from_files,
-)
+from dagster import AssetsDefinition, config_from_files
 from dagster_graphql import DagsterGraphQLClient
 from dlt.common import pendulum
 from scipy import stats
@@ -36,8 +33,7 @@ from trycast import isassignable
 
 from dagster_shared_gf.utils.snake_case_normalizer import SnakeCase
 
-normalize_identifier = SnakeCase().normalize_identifier
-normalize_table_identifier = SnakeCase().normalize_table_identifier
+normalize_str_to_snake_case = SnakeCase().normalize_identifier
 
 
 def get_job_status(job_name: str) -> str:
@@ -456,7 +452,7 @@ def clean_filename(filename: str) -> str:
     name, ext = PurePath(filename).stem, PurePath(filename).suffix
 
     # Clean using a normalizer
-    clean_name = normalize_identifier(name)
+    clean_name = normalize_str_to_snake_case(name)
 
     # Replace multiple underscores with a single underscore
     clean_name = re.sub(r"_+", "_", clean_name)
@@ -483,7 +479,7 @@ def clean_filename_to_key(string: str) -> str:
     """
 
     # Clean using a normalizer
-    clean_string = normalize_identifier(str(string))
+    clean_string = normalize_str_to_snake_case(str(string))
 
     # Replace multiple underscores with a single underscore
     clean_string = re.sub(r"_+", "_", clean_string)
@@ -509,7 +505,7 @@ def normalize_string(string: str) -> str:
     """
 
     # Clean using a normalizer
-    clean_string = normalize_identifier(str(string))
+    clean_string = normalize_str_to_snake_case(str(string))
 
     # Replace multiple underscores with a single underscore
     clean_string = re.sub(r"_+", "_", clean_string)

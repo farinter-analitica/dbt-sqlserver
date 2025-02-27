@@ -4,7 +4,7 @@
 # from dagster_kielsa_gf.sensors import conseguir_max_datetime_val_replicas_sql_server
 
 # class TestComprobarMaxValReplicasSQLServer:
-
+    
 #     @pytest.fixture(autouse=True)
 #     def setup_mocks(self, mocker):
 #         self.sql_server_a_mock = mocker.MagicMock()
@@ -15,7 +15,7 @@
 
 #         self.sql_server_a_mock.get_connection.return_value.__enter__.return_value = self.conn_a_mock
 #         self.sql_server_a_mock.get_connection.return_value.__exit__.return_value = None
-
+        
 #         self.sql_server_b_mock.get_connection.return_value.__enter__.return_value = self.conn_b_mock
 #         self.sql_server_b_mock.get_connection.return_value.__exit__.return_value = None
 
@@ -24,7 +24,7 @@
 #     def test_conseguir_max_datetime_val_replicas_sql_server(self, mocker):
 #         column = "test_column"
 #         table = "test_table"
-
+        
 #         # Mock the results for SQLServer A
 #         results_a = [(100,)]
 #         self.sql_server_a_mock.query.return_value = results_a
@@ -42,7 +42,7 @@
 
 #         self.sql_server_a_mock.get_connection.assert_called_once()
 #         self.sql_server_b_mock.get_connection.assert_called_once()
-
+        
 #         self.sql_server_a_mock.query.assert_called_once_with(
 #             query=f"SELECT MAX({column}) FROM {table}",
 #             connection=self.conn_a_mock
@@ -57,7 +57,7 @@
 #     def test_conseguir_max_datetime_val_replicas_sql_server_no_results(self, mocker):
 #         column = "test_column"
 #         table = "test_table"
-
+        
 #         # Mock the results for SQLServer A and B as empty
 #         results_a = [(None,)]
 #         results_b = [(None,)]

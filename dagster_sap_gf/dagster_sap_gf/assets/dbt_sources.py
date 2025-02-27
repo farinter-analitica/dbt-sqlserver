@@ -1,25 +1,21 @@
 from typing import Mapping, Any, Sequence
-from dagster import AssetSpec
-from dagster_dbt import DagsterDbtTranslator
-from dagster_shared_gf.resources.dbt_resources import (
-    dbt_manifest,
-    MyDbtSourceTranslator,
-)
-
+from dagster import SourceAsset, load_assets_from_modules
+from dagster_dbt import DagsterDbtTranslator, DbtCliResource
+from dagster_shared_gf.resources.dbt_resources import dbt_resource, dbt_manifest, MyDbtSourceTranslator
 
 def build_dbt_sources(
     manifest: Mapping[str, Any], dagster_dbt_translator: DagsterDbtTranslator
-) -> Sequence[AssetSpec]:
+) -> Sequence[SourceAsset]:
     """
-    This function builds a list of AssetSpec objects based on the manifest and dbt_cli_resource.
+    This function builds a list of SourceAsset objects based on the manifest and dbt_cli_resource.
     It filters the source assets based on certain conditions related to the dbt resources.
     Filter conditions: Not already imported into Dagster.
-    Returns a list of AssetSpec objects.
+    Returns a list of SourceAsset objects.
     """
     required_tags = ["dagster_sap_gf/dbt", "dagster_global_gf/dbt"]
 
     return [
-        AssetSpec(
+        SourceAsset(
             key=dagster_dbt_translator.get_asset_key(dbt_resource_props),
             group_name=dagster_dbt_translator.get_group_name(dbt_resource_props),
             tags=dagster_dbt_translator.get_tags(dbt_resource_props),
@@ -30,16 +26,11 @@ def build_dbt_sources(
             ),
         )
         for dbt_resource_props in manifest["sources"].values()
-        if any(
-            tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys()
-            for tag in required_tags
-        )
+        if any(tag in dagster_dbt_translator.get_tags(dbt_resource_props).keys() for tag in required_tags)
     ]
 
 
-source_assets: Sequence[AssetSpec] = build_dbt_sources(
-    dbt_manifest, MyDbtSourceTranslator()
-)  # empezo a funcionar en nueva version
+source_assets: Sequence[SourceAsset] = build_dbt_sources(dbt_manifest, MyDbtSourceTranslator()) #empezo a funcionar en nueva version
 all_assets = source_assets
 
 if __name__ == "__main__":

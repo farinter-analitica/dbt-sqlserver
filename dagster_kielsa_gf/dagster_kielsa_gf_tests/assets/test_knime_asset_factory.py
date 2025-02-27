@@ -1,18 +1,15 @@
+
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_kielsa_gf.assets.knime_asset_factory import all_assets, filter_logs_std
 
-
 def test_knime_asset_factory():
-    load_env_vars(joinpath_str=["..", ".."])
+    load_env_vars(joinpath_str=["..",".."])
     # Build the context with the resources
-    # builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
+    #builded_context = build_op_context(resources={"db_analitica_etl":db_analitica_etl})
     # Fetch workflows and create assets
     asset_definitions = all_assets
     print([asset.keys for asset in asset_definitions])
-    assert len(asset_definitions) > 0, (
-        "No assets were created for the knnime workflows."
-    )
-
+    assert len(asset_definitions) > 0, "No assets were created for the knnime workflows."
 
 def test_filter_logs_std():
     logs = """
@@ -40,10 +37,7 @@ def test_filter_logs_std():
     """
     expected_logs = """INFO This is a normal log line.\nDEBUG A debug message.\nINFO Another info message."""
     filtered_logs = filter_logs_std(logs)
-    assert filtered_logs == expected_logs, (
-        f"Expected:\n{expected_logs}\nGot:\n{filtered_logs}"
-    )
-
+    assert filtered_logs == expected_logs, f"Expected:\n{expected_logs}\nGot:\n{filtered_logs}"       
 
 if __name__ == "__main__":
     test_knime_asset_factory()

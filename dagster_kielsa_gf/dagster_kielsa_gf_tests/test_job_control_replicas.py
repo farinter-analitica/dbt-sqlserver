@@ -1,39 +1,34 @@
 import pytest
 from datetime import datetime, timedelta
-from dagster import build_op_context
+from dagster import build_asset_context, build_op_context
 from unittest.mock import patch, MagicMock
 from dagster_kielsa_gf.job_control_replicas import (
     obtener_max_datetime_val_replicas_sql_server,
     es_delta_max_datetime_superado,
     obtener_servidores_de_replica_en_alerta,
     enviar_alertas_si_aplica,
+    ParServidoresReplicaSQLServer
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
+from dagster_shared_gf.resources.correo_e import EmailSenderResource
 import inspect
-
 
 class TestDagsterJobControlReplicas:
     @pytest.fixture
     def mock_sql_server_resource(self):
-        with patch(
-            "dagster_shared_gf.resources.sql_server_resources.SQLServerResource"
-        ) as MockSQLServerResource:
+        with patch('dagster_shared_gf.resources.sql_server_resources.SQLServerResource') as MockSQLServerResource:
             mock_resource = MockSQLServerResource.return_value
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_cursor.fetchall.return_value = [[datetime.now().isoformat()]]
             mock_cursor.fetchone.return_value = [datetime.now().isoformat()]
             mock_conn.cursor.return_value = mock_cursor
-            mock_conn.__enter__.return_value = (
-                mock_conn  # Ensure context manager behavior
-            )
+            mock_conn.__enter__.return_value = mock_conn  # Ensure context manager behavior
             mock_conn.__exit__.return_value = None
             mock_resource.get_connection.return_value = mock_conn
             mock_resource.server = "mock_server"  # Ensure server attribute is a string
 
-            def mock_query(
-                query, connection=None, database="", fetch_val=False, autocommit=True
-            ):
+            def mock_query(query, connection=None, database="", fetch_val=False, autocommit=True):
                 cursor = connection.cursor()
                 cursor.execute(query)
                 if fetch_val:
@@ -48,25 +43,19 @@ class TestDagsterJobControlReplicas:
 
     @pytest.fixture
     def mock_email_sender_resource(self):
-        with patch(
-            "dagster_shared_gf.resources.correo_e.EmailSenderResource"
-        ) as MockEmailSenderResource:
+        with patch('dagster_shared_gf.resources.correo_e.EmailSenderResource') as MockEmailSenderResource:
             yield MockEmailSenderResource.return_value
 
-    def test_obtener_max_datetime_val_replicas_sql_server(
-        self, mock_sql_server_resource
-    ):
+    def test_obtener_max_datetime_val_replicas_sql_server(self, mock_sql_server_resource):
         context = build_op_context()
-        max_val_origen, max_val_replica, logs = (
-            obtener_max_datetime_val_replicas_sql_server(
-                context,
-                mock_sql_server_resource,
-                mock_sql_server_resource,
-                "test_origen",
-                "test_replica",
-                "test_column_origen",
-                "test_column_replica",
-            )
+        max_val_origen, max_val_replica, logs = obtener_max_datetime_val_replicas_sql_server(
+            context,
+            mock_sql_server_resource,
+            mock_sql_server_resource,
+            "test_origen",
+            "test_replica",
+            "test_column_origen",
+            "test_column_replica"
         )
 
         assert max_val_origen is not None
@@ -91,20 +80,19 @@ class TestDagsterJobControlReplicas:
 
         mock_sql_server_resource.query.side_effect = [
             [[datetime.now().isoformat()]],  # Query result for origen
-            [
-                [(datetime.now() - timedelta(hours=2)).isoformat()]
-            ],  # Query result for replica
+            [[(datetime.now() - timedelta(hours=2)).isoformat()]],  # Query result for replica
         ]
-        # Get the function to inspect its arguments
-        func_args = inspect.signature(
-            obtener_servidores_de_replica_en_alerta
-        ).parameters
+    # Get the function to inspect its arguments
+        func_args = inspect.signature(obtener_servidores_de_replica_en_alerta).parameters
         args_mapping = {
-            arg: mock_sql_server_resource
-            for arg, param in func_args.items()
-            if param.annotation == SQLServerResource and arg != "context"
-        }
-        resultado = obtener_servidores_de_replica_en_alerta(context, **args_mapping)
+                    arg: mock_sql_server_resource
+                    for arg, param in func_args.items()
+                    if param.annotation == SQLServerResource and arg != "context"
+        }        
+        resultado = obtener_servidores_de_replica_en_alerta(
+            context,
+            **args_mapping
+        )
 
         # Ensure that the mocked server is used in the result
         assert "mock_server" in resultado
