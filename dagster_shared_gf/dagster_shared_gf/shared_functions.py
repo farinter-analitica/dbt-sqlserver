@@ -25,7 +25,10 @@ from typing import (
 
 import polars as pl
 import requests
-from dagster import AssetsDefinition, config_from_files
+from dagster import (
+    AssetsDefinition,
+    config_from_files,
+)
 from dagster_graphql import DagsterGraphQLClient
 from dlt.common import pendulum
 from scipy import stats

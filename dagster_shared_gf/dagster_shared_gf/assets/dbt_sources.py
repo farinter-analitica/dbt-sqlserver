@@ -27,7 +27,6 @@ def build_dbt_sources(manifest: Mapping[str, Any], dagster_dbt_translator: Dagst
     
 
 source_assets: Sequence[AssetSpec] = build_dbt_sources(dbt_manifest, MyDbtSourceTranslator()) 
-all_assets: Sequence[AssetSpec]  = source_assets
 
 if __name__ == "__main__":
     #print(source_assets)

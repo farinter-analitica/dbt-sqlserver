@@ -1,11 +1,20 @@
-from dagster import (AssetExecutionContext, Config, AssetsDefinition, build_last_update_freshness_checks, load_asset_checks_from_current_module, AssetChecksDefinition, load_assets_from_current_module, AssetKey)
+from typing import Sequence
+
+from dagster import (
+    AssetChecksDefinition,
+    AssetExecutionContext,
+    Config,
+    load_asset_checks_from_current_module,
+    load_assets_from_current_module,
+)
+from dagster_dbt import DbtCliResource, dbt_assets
 from pydantic import Field
-from dagster_dbt import DbtCliResource, dbt_assets, DagsterDbtTranslator
-from datetime import timedelta
-from dagster_shared_gf.resources.dbt_resources import dbt_manifest, MyDbtSourceTranslator
-from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_all_instances_of_class
-from dagster_shared_gf.shared_variables import tags_repo
-from typing import Sequence, List, Mapping, Dict, Any
+
+from dagster_shared_gf.resources.dbt_resources import (
+    MyDbtSourceTranslator,
+    dbt_manifest,
+)
+
 
 class MyDbtConfig(Config):
     full_refresh: bool = Field(default=False, description="Refresh full dbt models")

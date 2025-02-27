@@ -2,7 +2,6 @@ from dagster import (
     asset,
     AssetKey,
     load_asset_checks_from_current_module,
-    build_last_update_freshness_checks,
     AssetChecksDefinition,
     AssetExecutionContext,
     AssetsDefinition,
@@ -11,11 +10,7 @@ from dagster import (
     AssetOut,
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-from dagster_shared_gf.shared_functions import (
-    filter_assets_by_tags,
-)
 from dagster_shared_gf.shared_variables import tags_repo
-from datetime import timedelta
 from typing import Sequence, List, Dict, Any
 
 
@@ -469,7 +464,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_ClientesXArticulo": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Acum_ClientesXArticulo_Kielsa",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag | tags_repo.DetenerCarga.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.DetenerCarga.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
@@ -481,13 +478,15 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "BI_Dim_Tiempo",
         "tags": tags_repo.Daily.tag,
     },
-     ##eCommerce
+    ##eCommerce
     "AN_pacargarParam_PesoseCommerce_Kielsa": {
         "key_prefix": ["AN_FARINTER", "dbo"],
         "name": ["AN_Param_PesoseCommerce_Kielsa"],
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
         "deps": [
-            AssetKey(["DL_FARINTER", "dbo", "DL_Hecho_VentaseCommerceResumenHist_Kielsa"]),
+            AssetKey(
+                ["DL_FARINTER", "dbo", "DL_Hecho_VentaseCommerceResumenHist_Kielsa"]
+            ),
             AssetKey(["AN_FARINTER", "dbo", "AN_Param_Feriados_Kielsa"]),
             AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Tiempo"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Hecho_VentaseCommerceHist_Kielsa"]),
@@ -499,7 +498,6 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
         "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesoseCommerce_Kielsa"])],
     },
-
     "DL_paCargarKielsa_MecanicaCanje": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_MecanicaCanje",
@@ -714,13 +712,13 @@ def create_store_procedure_asset(
             owners=params.get("owners", None),
             group_name=group_name,
             compute_kind="sqlserver",
-            description=f"EXEC [{params["key_prefix"][0]}].[{params["key_prefix"][1]}].[{stored_procedure_name}]",
+            description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
         )
         def store_procedure_execution_asset(
             context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
         ) -> None:
             dwh_farinter_dl.execute_and_commit(
-                f"EXEC [{params["key_prefix"][0]}].[{params["key_prefix"][1]}].[{stored_procedure_name}]"
+                f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]"
             )
 
         return store_procedure_execution_asset
@@ -783,29 +781,6 @@ def store_procedure_asset_factory(store_procedures: Dict) -> List[AssetsDefiniti
 
 all_assets = store_procedure_asset_factory(store_procedures=store_procedures)
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(
-        all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"
-    ),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-    build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="any_tag_matches",
-        ),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-)
-
 all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
-)
-all_asset_freshness_checks = (
-    *all_assets_non_hourly_freshness_checks, *all_assets_hourly_freshness_checks
 )

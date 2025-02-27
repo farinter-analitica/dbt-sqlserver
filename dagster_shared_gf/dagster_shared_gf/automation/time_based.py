@@ -8,7 +8,7 @@ import warnings
 from dagster_shared_gf.automation.custom_conditions import IsRootExecutable
 from datetime import timedelta
 
-warnings.filterwarnings("ignore", category=ExperimentalWarning)
+warnings.simplefilter("ignore", category=ExperimentalWarning)
 
 # https://docs.dagster.io/concepts/automation/declarative-automation
 # https://docs.dagster.io/concepts/automation/declarative-automation/customizing-automation-conditions

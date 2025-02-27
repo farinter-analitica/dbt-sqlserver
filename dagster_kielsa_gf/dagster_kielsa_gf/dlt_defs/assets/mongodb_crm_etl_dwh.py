@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from itertools import chain
 from typing import Sequence
 
@@ -10,7 +10,6 @@ from dagster import (
     AssetKey,
     AssetSpec,
     asset_check,
-    build_last_update_freshness_checks,
     instance_for_test,
     load_asset_checks_from_current_module,
 )
@@ -25,7 +24,6 @@ from dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers import (
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_functions import (
-    filter_assets_by_tags,
     get_for_current_env,
 )
 from dagster_shared_gf.shared_variables import default_timezone_teg, tags_repo
@@ -260,15 +258,9 @@ read_source_config_full_refresh: ColConfigs = (
         automation_condition=automation_hourly_delta_12_cron,
         tags=tags_repo.Hourly | tags_repo.Automation,
     ),
-    DLTRColl(
-         collection_name="crm_company"
-    ),
-    DLTRColl(
-         collection_name="hrm_area_companies"
-    ),
-    DLTRColl(
-         collection_name="hrm_department_companies"
-    ),
+    DLTRColl(collection_name="crm_company"),
+    DLTRColl(collection_name="hrm_area_companies"),
+    DLTRColl(collection_name="hrm_department_companies"),
 )
 
 
@@ -412,33 +404,10 @@ def campaigns_recetas_check(dwh_farinter_dl: SQLServerResource) -> AssetCheckRes
 
 all_assets = all_mongodb_hn_assets
 
-all_assets_non_hourly_freshness_checks = build_last_update_freshness_checks(
-    assets=filter_assets_by_tags(
-        all_assets, tags_to_match=tags_repo.Hourly.tag, filter_type="exclude_if_any_tag"
-    ),
-    lower_bound_delta=timedelta(hours=26),
-    deadline_cron="0 9 * * 1-6",
-)
-# print(filter_assets_by_tags(all_assets, tags=hourly_tag, filter_type="any_tag_matches"), "\n")
-all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = (
-    build_last_update_freshness_checks(
-        assets=filter_assets_by_tags(
-            all_assets,
-            tags_to_match=tags_repo.Hourly.tag,
-            filter_type="any_tag_matches",
-        ),
-        lower_bound_delta=timedelta(hours=13),
-        deadline_cron="0 10-16 * * 1-6",
-    )
-)
 
 all_assets = (*all_assets, *all_mongodb_hn_source_assets)
 all_asset_checks: Sequence[AssetChecksDefinition] = (
     load_asset_checks_from_current_module()
-)
-all_asset_freshness_checks = (
-    *all_assets_non_hourly_freshness_checks,
-    *all_assets_hourly_freshness_checks,
 )
 
 if __name__ == "__main__":
@@ -485,8 +454,8 @@ if __name__ == "__main__":
                     resources={
                         "dlt_pipeline_dest_mssql_dwh": {
                             "config": {
-                                #"write_disposition": "replace",
-                                #"refresh": "drop_resources",
+                                # "write_disposition": "replace",
+                                # "refresh": "drop_resources",
                             }
                         }
                     }

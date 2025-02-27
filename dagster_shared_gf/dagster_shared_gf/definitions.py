@@ -6,13 +6,15 @@ from dagster import (
     ExperimentalWarning,
     FilesystemIOManager,
     InMemoryIOManager,
+    build_sensor_for_freshness_checks,
 )
 from dagster import (
     AutomationConditionSensorDefinition as ACS,
 )
 from dagster_polars import PolarsParquetIOManager
 
-from dagster_shared_gf.assets import dbt_dwh_global, dbt_sources, dias_festivos
+from dagster_shared_gf import assets as assets_repo
+from dagster_shared_gf.assets import dbt_sources
 from dagster_shared_gf.jobs import all_jobs
 from dagster_shared_gf.resources import (
     correo_e,
@@ -22,10 +24,22 @@ from dagster_shared_gf.resources import (
     sql_server_resources,
 )
 from dagster_shared_gf.schedules import all_schedules
-from dagster_shared_gf.shared_constants import running_default_sensor_status
+from dagster_shared_gf.shared_constants import (
+    running_default_sensor_status,
+    hourly_freshness_seconds_per_environ,
+)
+from dagster_shared_gf.shared_helpers import (
+    get_unique_source_assets,
+    create_freshness_checks_for_assets,
+)
 from dagster_shared_gf.shared_variables import tags_repo
 
 warnings.filterwarnings("ignore", category=ExperimentalWarning)
+
+all_assets = assets_repo.all_assets
+dbt_sources_assets: list = get_unique_source_assets(
+    assets_repo.all_assets, dbt_sources.source_assets
+)
 
 all_shared_resources = {
     "dwh_farinter": sql_server_resources.dwh_farinter,
@@ -130,18 +144,20 @@ all_shared_sensors = (
     ),
 )
 
+all_freshness_checks = create_freshness_checks_for_assets(all_assets)
+
+all_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
+    freshness_checks=all_freshness_checks,
+    default_status=running_default_sensor_status,
+    minimum_interval_seconds=hourly_freshness_seconds_per_environ,
+    name="all_assets_freshness_checks_sensor",
+)
+
 defs = Definitions(
-    assets=(
-        *dias_festivos.all_assets,
-        *dbt_dwh_global.all_assets,
-        *dbt_sources.all_assets,
-    ),
+    assets=(*assets_repo.all_assets,),
     jobs=(*all_jobs,),
     schedules=(*all_schedules,),
-    asset_checks=(
-        *dias_festivos.all_asset_checks,
-        *dias_festivos.all_asset_freshness_checks,
-    ),
-    sensors=all_shared_sensors,
+    asset_checks=(*assets_repo.all_asset_checks,),
+    sensors=(*all_shared_sensors, all_assets_freshness_checks_sensor),
     resources=all_shared_resources,
 )

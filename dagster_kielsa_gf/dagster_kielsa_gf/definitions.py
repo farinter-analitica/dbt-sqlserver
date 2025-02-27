@@ -1,10 +1,10 @@
 from dagster import (
-    AssetsDefinition,
     Definitions,
+    build_sensor_for_freshness_checks,
 )
+
 import dagster_kielsa_gf.dlt_defs.definitions as dlt_defs
 import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
-
 from dagster_kielsa_gf import job_control_replicas, jobs
 from dagster_kielsa_gf.assets import (
     analysis_services,
@@ -17,8 +17,8 @@ from dagster_kielsa_gf.assets import (
     ldcom_etl_dwh,
     ldcom_etl_dwh_sp,
     recetas_libros_etl_dwh,
-    smb_etl_dwh,
     recomendaciones,
+    smb_etl_dwh,
 )
 from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
@@ -26,6 +26,15 @@ from dagster_shared_gf import (
     all_shared_resources,
     all_shared_sensors,
 )
+from dagster_shared_gf.shared_constants import (
+    hourly_freshness_seconds_per_environ,
+    running_default_sensor_status,
+)
+from dagster_shared_gf.shared_helpers import (
+    create_freshness_checks_for_assets,
+    get_unique_source_assets,
+)
+
 all_assets = (
     *examples.all_assets,
     *dbt_example.all_assets,
@@ -51,21 +60,20 @@ all_asset_checks = (
     *recomendaciones.all_asset_checks,
 )
 
-# Extract the asset keys from the AssetsDefinition instances
-all_asset_keys = set()
-for asset in all_assets:
-    if type(asset) is AssetsDefinition:
-        all_asset_keys.update(asset.keys)
-
-dbt_sources_assets: list = [
-    source_asset
-    for source_asset in dbt_sources.source_assets
-    if source_asset.key not in all_asset_keys
-]
-
+dbt_sources_assets: list = get_unique_source_assets(
+    all_assets, dbt_sources.source_assets
+)
 
 all_resources = all_shared_resources
 
+all_asset_freshness_checks = create_freshness_checks_for_assets(all_assets)
+
+all_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
+    freshness_checks=all_asset_freshness_checks,
+    default_status=running_default_sensor_status,
+    minimum_interval_seconds=hourly_freshness_seconds_per_environ,  # 1 hour
+    name="all_assets_freshness_checks_sensor",
+)
 
 defs = Definitions.merge(
     # dlt_defs.defs, #antes todos los subrepos
@@ -82,6 +90,7 @@ defs = Definitions.merge(
         sensors=(
             *all_sensors,
             *all_shared_sensors,
+            all_assets_freshness_checks_sensor,
         ),
     ),
     gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos
