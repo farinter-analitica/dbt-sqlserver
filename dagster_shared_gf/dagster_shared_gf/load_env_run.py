@@ -2,13 +2,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-
-def load_env_vars(
-    joinpath_str: list[str] = ["..", ".."], file_name: str = ".env"
-) -> None:
+def load_env_vars(joinpath_str: list[str] = ["..",".."],file_name:str = ".env") -> None:
     """
     Loads env vars from .env file
-    """
+    """	
     # Define the relative path to the .env file
     base_os_path = os.path.dirname(__file__)
     workspace_dir = Path(base_os_path).joinpath(*joinpath_str).resolve()
@@ -23,4 +20,4 @@ def load_env_vars(
 
 if __name__ == "__main__":
     load_env_vars()
-# load_env_vars()
+#load_env_vars()

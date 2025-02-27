@@ -185,7 +185,7 @@ def generate_daily_store_procedure_assets() -> deque[AssetsDefinition]:
     )
 
     store_procedure_assets: deque[AssetsDefinition] = deque()
-    tags = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod
+    tags = tags_repo.Replicas.tag | tags_repo.Daily.tag  | tags_repo.UniquePeriod
     for procedure_name in store_procedure_list:
         store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
         store_procedure_assets.append(store_procedure_execution)
@@ -193,17 +193,17 @@ def generate_daily_store_procedure_assets() -> deque[AssetsDefinition]:
     return store_procedure_assets
 
 
-generated_store_procedure_assets: tuple[
-    AssetsDefinition, ...
-] = (  # si no es lista la funcion load_assets_from_current_module tiene problema
+generated_store_procedure_assets: list[AssetsDefinition, ...] = [ #si no es lista la funcion load_assets_from_current_module tiene problema
     *generate_hourly_store_procedure_assets(),
     *generate_daily_store_procedure_assets(),
-)
+]
 
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Replicas.tag | tags_repo.Hourly.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Replicas.tag
+    | tags_repo.Hourly.tag
+    | tags_repo.UniquePeriod.tag, 
     deps=(
         *generated_store_procedure_assets,
         DL_SAP_T001,
@@ -244,7 +244,9 @@ def sp_start_job_sap_cadahora(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Replicas.tag
+    | tags_repo.Daily.tag
+    | tags_repo.UniquePeriod.tag, 
     deps=(
         *generated_store_procedure_assets,
         DL_SAP_T001,
@@ -365,15 +367,15 @@ def DL_paSecuenciaSAP_Atributos_Cliente(
 # como agregar atributos de grupo por ejemplo:
 # all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
 if not __name__ == "__main__":
-    all_assets = tuple(
-        load_assets_from_current_module(group_name="sap_etl_dwh")
-    )  # + store_procedure_assets
+    all_assets = tuple(load_assets_from_current_module(
+        group_name="sap_etl_dwh"
+    ))  # + store_procedure_assets
 
     # all_asset_checks = tuple(load_asset_checks_from_current_module())
     # all_asset_checks: List[AssetChecksDefinition] = itertools.chain.from_iterable(get_all_instances_of_class([Sequence[AssetChecksDefinition]]))
-    all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
-        (load_asset_checks_from_current_module())
-    )
+    all_asset_checks: Sequence[AssetChecksDefinition] = tuple((
+        load_asset_checks_from_current_module()
+    ))
 
 
 if __name__ == "__main__":
@@ -395,7 +397,7 @@ if __name__ == "__main__":
         sp_start_job_sap_cadahora(context, dwh_farinter_dl)
 
     # tests1()
-    #
+    # 
     # tests2()
     # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
     # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))

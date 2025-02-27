@@ -1,12 +1,14 @@
-from dagster import AssetSelection, AutomationCondition
+from dagster import AssetSelection, AutomationCondition, ExperimentalWarning
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import (
     default_timezone_teg,
     tags_repo,
 )
+import warnings
 from dagster_shared_gf.automation.custom_conditions import IsRootExecutable
 from datetime import timedelta
 
+warnings.filterwarnings("ignore", category=ExperimentalWarning)
 
 # https://docs.dagster.io/concepts/automation/declarative-automation
 # https://docs.dagster.io/concepts/automation/declarative-automation/customizing-automation-conditions
@@ -166,9 +168,7 @@ automation_weekly_1_delta_1_cron = my_cron_automation_condition(
     lookback_delta=timedelta(weeks=1),
 )
 
-monthly_start_cron_schedule = get_for_current_env(
-    {"dev": "0 3 1 * *", "prd": "30 0 1 * *"}
-)
+monthly_start_cron_schedule = get_for_current_env({"dev": "0 3 1 * *", "prd": "30 0 1 * *"})
 automation_monthly_start_delta_1_cron = my_cron_automation_condition(
     cron_schedule=monthly_start_cron_schedule,
     allowed_deps_updated_selection=(
@@ -177,9 +177,7 @@ automation_monthly_start_delta_1_cron = my_cron_automation_condition(
     lookback_delta=timedelta(days=32),
 )
 
-monthly_end_cron_schedule = get_for_current_env(
-    {"dev": "0 3 L * *", "prd": "30 0 L * *"}
-)
+monthly_end_cron_schedule = get_for_current_env({"dev": "0 3 L * *", "prd": "30 0 L * *"})
 automation_monthly_end_delta_1_cron = my_cron_automation_condition(
     cron_schedule=monthly_end_cron_schedule,
     allowed_deps_updated_selection=(

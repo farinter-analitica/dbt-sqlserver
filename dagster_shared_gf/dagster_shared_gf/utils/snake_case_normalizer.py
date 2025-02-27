@@ -8,9 +8,8 @@ from typing import (
     ClassVar,
     Sequence,
 )
-# taken from dlt source code
-# from dlt.common.normalizers.naming.snake_case import NamingConvention as SnakeCase
-
+#taken from dlt source code
+#from dlt.common.normalizers.naming.snake_case import NamingConvention as SnakeCase
 
 class NamingConvention(ABC):
     """Initializes naming convention to generate identifier with `max_length` if specified. Base naming convention

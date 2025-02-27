@@ -4,7 +4,7 @@ import pytest
 import polars as pl
 import numpy as np
 import scipy.sparse as sp
-from datetime import date
+from datetime import datetime, date
 from dagster_kielsa_gf.assets.recomendaciones.articulo import (
     create_invoice_item_matrix,
     compute_cooccurrence_matrix,
@@ -27,7 +27,7 @@ def test_create_invoice_item_matrix():
     mat, fact2idx, item2idx = create_invoice_item_matrix(df)
 
     assert mat.shape == (3, 3)  # 3 invoices (F1,F2,F3) x 3 items (A,B,C)
-
+    
     # Check F1 row
     idx_f1 = fact2idx["F1"]
     idx_a = item2idx["A"]
@@ -52,11 +52,11 @@ def test_compute_cooccurrence_matrix():
     data = np.array([1, 1, 1, 1, 1])  # 5 "1"s
     row_indices = np.array([0, 0, 1, 1, 2])  # invoice
     col_indices = np.array([0, 1, 1, 2, 0])  # item
-
+    
     fact_item = sp.csr_matrix((data, (row_indices, col_indices)), shape=(3, 3))
 
     coocc = compute_cooccurrence_matrix(fact_item)
-
+    
     coocc_array = coocc.toarray()
     assert coocc_array.shape == (3, 3)
     assert coocc_array[0, 1] == 1  # A,B
@@ -118,8 +118,8 @@ def test_filter_cooccurrence():
 
     filtered = filter_cooccurrence(coocc_m, min_cooccur_count=2)
     arr_f = filtered.toarray()
-
-    # We expect coocc(0,1)=1 to be removed
+    
+    # We expect coocc(0,1)=1 to be removed 
     # coocc(1,0)=2 to be kept
     # coocc(1,2)=3 to be kept
     # coocc(2,3)=1 to be removed
@@ -139,89 +139,45 @@ def test_generate_article_recommendations_complex():
     data = {
         "Factura_Id": [
             # Invoices with pairs of articles
-            "F1",
-            "F1",  # A+B
-            "F2",
-            "F2",  # A+C
-            "F3",
-            "F3",  # A+D
-            "F4",
-            "F4",  # B+C
-            "F5",
-            "F5",  # B+D
-            "F6",
-            "F6",  # C+D
-            "F1",
-            "F1",  # A+B
-            "F2",
-            "F2",  # A+C
-            "F3",
-            "F3",  # A+D
-            "F4",
-            "F4",  # B+C
-            "F5",
-            "F5",  # B+D
-            "F6",
-            "F6",  # C+D
+            "F1", "F1",  # A+B
+            "F2", "F2",  # A+C
+            "F3", "F3",  # A+D
+            "F4", "F4",  # B+C
+            "F5", "F5",  # B+D
+            "F6", "F6",  # C+D
+            "F1", "F1",  # A+B
+            "F2", "F2",  # A+C
+            "F3", "F3",  # A+D
+            "F4", "F4",  # B+C
+            "F5", "F5",  # B+D
+            "F6", "F6",  # C+D
             # Invoices with triplets of articles
-            "F7",
-            "F7",
-            "F7",  # A+E+F
-            "F8",
-            "F8",
-            "F8",  # B+E+G
-            "F9",
-            "F9",
-            "F9",  # C+F+G
+            "F7", "F7", "F7",  # A+E+F
+            "F8", "F8", "F8",  # B+E+G
+            "F9", "F9", "F9",  # C+F+G
             # Invoice with multiple articles
-            "F10",
-            "F10",
-            "F10",
-            "F10",
-            "F10",  # A+B+C+D+E
+            "F10", "F10", "F10", "F10", "F10",  # A+B+C+D+E
         ],
         "ArticuloPadre_Id": [
             # Pairs
-            "A",
-            "B",
-            "A",
-            "C",
-            "A",
-            "D",
-            "B",
-            "C",
-            "B",
-            "D",
-            "C",
-            "D",
-            "A",
-            "B",
-            "A",
-            "C",
-            "A",
-            "D",
-            "B",
-            "C",
-            "B",
-            "D",
-            "C",
-            "D",
+            "A", "B",
+            "A", "C",
+            "A", "D",
+            "B", "C",
+            "B", "D",
+            "C", "D", 
+            "A", "B",
+            "A", "C",
+            "A", "D",
+            "B", "C",
+            "B", "D",
+            "C", "D",
             # Triplets
-            "A",
-            "E",
-            "F",
-            "B",
-            "E",
-            "G",
-            "C",
-            "F",
-            "G",
+            "A", "E", "F",
+            "B", "E", "G",
+            "C", "F", "G",
             # Multiple
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
+            "A", "B", "C", "D", "E",
         ],
         "Frecuencia": [1] * 38,  # 26 records total
     }
@@ -241,15 +197,13 @@ def test_generate_article_recommendations_complex():
 
     # Verify columns
     required_columns = [
-        "Articulo_Id",
-        "Articulo_Id_Relacionado",
-        "Lift_Score",
+        "Articulo_Id", 
+        "Articulo_Id_Relacionado", 
+        "Lift_Score", 
         "Facturas_Conjuntas",
-        "Fecha_Generacion",
+        "Fecha_Generacion"
     ]
-    assert all(col in recs.columns for col in required_columns), (
-        "Missing required columns"
-    )
+    assert all(col in recs.columns for col in required_columns), "Missing required columns"
 
     # Organize recommendations by article
     rec_dict = {}
@@ -271,12 +225,8 @@ def test_generate_article_recommendations_complex():
         )
 
     # Verify multiple recommendations are generated for some articles
-    articles_with_multiple_recs = [
-        art for art, recs in rec_dict.items() if len(recs) > 1
-    ]
-    assert len(articles_with_multiple_recs) > 0, (
-        "No article has multiple recommendations"
-    )
+    articles_with_multiple_recs = [art for art, recs in rec_dict.items() if len(recs) > 1]
+    assert len(articles_with_multiple_recs) > 0, "No article has multiple recommendations"
 
     # Verify some articles have close to 5 recommendations
     max_recs_count = max([len(recs) for recs in rec_dict.values()], default=0)
@@ -286,30 +236,32 @@ def test_generate_article_recommendations_complex():
 
     # Verify validity of scores
     assert all(recs["Lift_Score"] > 0), "There are recommendations with Lift_Score <= 0"
-    assert all(recs["Facturas_Conjuntas"] > 0), (
-        "There are recommendations with Facturas_Conjuntas <= 0"
-    )
-
+    assert all(recs["Facturas_Conjuntas"] > 0), "There are recommendations with Facturas_Conjuntas <= 0"
+    
     # Verify Fecha_Generacion is a valid date
-    assert all(
-        isinstance(_date_, date) for _date_ in recs["Fecha_Generacion"].to_list()
-    ), "Fecha_Generacion contains invalid dates"
+    assert all(isinstance(_date_, date) for _date_ in recs["Fecha_Generacion"].to_list()), (
+        "Fecha_Generacion contains invalid dates"
+    )
 
 
 def test_generate_article_recommendations_empty():
     """
     Test behavior with an empty dataset.
     """
-    df = pl.DataFrame({"Factura_Id": [], "ArticuloPadre_Id": [], "Frecuencia": []})
-
+    df = pl.DataFrame({
+        "Factura_Id": [],
+        "ArticuloPadre_Id": [],
+        "Frecuencia": []
+    })
+    
     # Llamar a la función con un umbral alto para asegurar que no haya recomendaciones
     with pytest.raises(ValueError):
         generate_article_recommendations(
-            df,
-            max_n_recommendations=1,
-            min_cooccur_threshold=100,
+            df, 
+            max_n_recommendations=1, 
+            min_cooccur_threshold=100, 
             min_lift_threshold=100.0,
-            min_confidence_level=99.99,
+            min_confidence_level=99.99
         )
 
 
@@ -320,16 +272,16 @@ def test_generate_article_recommendations_single_item():
     data = {
         "Factura_Id": ["F1", "F2", "F3"],
         "ArticuloPadre_Id": ["A", "B", "C"],
-        "Frecuencia": [1, 1, 1],
+        "Frecuencia": [1, 1, 1]
     }
     df = pl.DataFrame(data)
-
+    
     # Llamar a la función con un umbral alto para asegurar que no haya recomendaciones
     with pytest.raises(ValueError):
         generate_article_recommendations(
-            df,
-            max_n_recommendations=1,
-            min_cooccur_threshold=100,
+            df, 
+            max_n_recommendations=1, 
+            min_cooccur_threshold=100, 
             min_lift_threshold=100.0,
-            min_confidence_level=99.99,
+            min_confidence_level=99.99
         )

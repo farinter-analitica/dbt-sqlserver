@@ -13,7 +13,6 @@ from dagster_kielsa_gf.assets.recomendaciones.cliente_articulo import (
     generate_customer_recommendations,
 )
 
-
 def test_create_user_item_matrix():
     """
     Validamos que la matriz se construya correctamente para un dataset pequeño.
@@ -152,16 +151,11 @@ def test_generate_recommendations_with_significance():
     # U4 compra B (únicamente, se descarta por tener <2 compras)
     # U5 compra A, B y C (se descarta por tener todos los ítems)
     monederos = [
-        "U1",
-        "U1",  # U1: A, B
-        "U2",
-        "U2",  # U2: B, C
-        "U3",
-        "U3",  # U3: A, C
+        "U1", "U1",  # U1: A, B
+        "U2", "U2",  # U2: B, C
+        "U3", "U3",  # U3: A, C
         "U4",  # U4: B
-        "U5",
-        "U5",
-        "U5",  # U5: A, B, C
+        "U5", "U5", "U5"  # U5: A, B, C
     ]
     articulos = ["A", "B", "B", "C", "A", "C", "B", "A", "B", "C"]
     frecuencias = [1, 1, 1, 1, 1, 1, 2, 1, 1, 1]
@@ -181,54 +175,47 @@ def test_generate_recommendations_with_significance():
 
     # Llamamos a la función con valores específicos para probar todas las funcionalidades
     recs = generate_customer_recommendations(
-        df,
-        max_n_recommendations=2,
-        min_cooccur_threshold=1,
+        df, 
+        max_n_recommendations=2, 
+        min_cooccur_threshold=1, 
         min_lift_threshold=0.5,
-        min_confidence_level=60.0,  # Umbral bajo para asegurar que pasen las pruebas
+        min_confidence_level=60.0  # Umbral bajo para asegurar que pasen las pruebas
     )
 
     # Verificar estructura del resultado
     expected_columns = [
-        "Monedero_Id",
-        "Articulo_Id_Recomendado",
-        "Lift_Score",
+        "Monedero_Id", 
+        "Articulo_Id_Recomendado", 
+        "Lift_Score", 
         "Clientes_Compraron",
-        "Significance_Score",
-        "Combined_Score",
+        "Significance_Score", 
+        "Combined_Score", 
         "Articulos_Id_Relacionados",
         "Fecha_Generacion",
-        "Rank",
+        "Rank"
     ]
-
+    
     for col in expected_columns:
         assert col in recs.columns, f"Falta la columna '{col}' en la salida"
 
     # Verificar que se generaron recomendaciones para U1, U2 y U3
     monederos_con_recomendaciones = set(recs["Monedero_Id"].unique())
-    assert {"U1", "U2", "U3"}.issubset(monederos_con_recomendaciones), (
+    assert {"U1", "U2", "U3"}.issubset(monederos_con_recomendaciones), \
         f"No se generaron recomendaciones para todos los usuarios esperados: {monederos_con_recomendaciones}"
-    )
 
     # Verificar que los valores de Rank estén correctos (empiezan en 1 para cada usuario)
     for monedero in monederos_con_recomendaciones:
         monedero_recs = recs.filter(pl.col("Monedero_Id") == monedero)
         assert min(monedero_recs["Rank"]) == 1, f"Rank no inicia en 1 para {monedero}"
-
+        
     # Verificar que la fecha de generación sea correcta (hoy)
     today = datetime.now().date()
-    assert all(recs["Fecha_Generacion"] == today), (
-        "La fecha de generación no es correcta"
-    )
-
+    assert all(recs["Fecha_Generacion"] == today), "La fecha de generación no es correcta"
+    
     # Verificar Combined_Score y Significance_Score
-    assert all(recs["Combined_Score"] > 0), (
-        "Hay recomendaciones con Combined_Score <= 0"
-    )
-    assert all(recs["Significance_Score"] >= 0), (
-        "Hay recomendaciones con Significance_Score < 0"
-    )
-
+    assert all(recs["Combined_Score"] > 0), "Hay recomendaciones con Combined_Score <= 0"
+    assert all(recs["Significance_Score"] >= 0), "Hay recomendaciones con Significance_Score < 0"
+    
     # Verificar que las recomendaciones esperadas estén presentes
     expected_pairs = {
         ("U1", "C"),
@@ -236,10 +223,8 @@ def test_generate_recommendations_with_significance():
         ("U3", "B"),
     }
     actual_pairs = set(recs.select(["Monedero_Id", "Articulo_Id_Recomendado"]).rows())
-    assert expected_pairs.issubset(actual_pairs), (
+    assert expected_pairs.issubset(actual_pairs), \
         f"Faltan recomendaciones esperadas.\nEsperado: {expected_pairs}\nObtenido: {actual_pairs}"
-    )
-
 
 def test_generate_recommendations_empty_raises_value_error():
     """
@@ -252,16 +237,11 @@ def test_generate_recommendations_empty_raises_value_error():
     # U4 compra B (únicamente, se descarta por tener <2 compras)
     # U5 compra A, B y C (se descarta por tener todos los ítems)
     monederos = [
-        "U1",
-        "U1",  # U1: A, B
-        "U2",
-        "U2",  # U2: B, C
-        "U3",
-        "U3",  # U3: A, C
+        "U1", "U1",  # U1: A, B
+        "U2", "U2",  # U2: B, C
+        "U3", "U3",  # U3: A, C
         "U4",  # U4: B
-        "U5",
-        "U5",
-        "U5",  # U5: A, B, C
+        "U5", "U5", "U5"  # U5: A, B, C
     ]
     articulos = ["A", "B", "B", "C", "A", "C", "B", "A", "B", "C"]
     frecuencias = [1, 1, 1, 1, 1, 1, 2, 1, 1, 1]
@@ -282,9 +262,9 @@ def test_generate_recommendations_empty_raises_value_error():
     # Llamar a la función con un umbral alto para asegurar que no haya recomendaciones
     with pytest.raises(ValueError):
         generate_customer_recommendations(
-            df,
-            max_n_recommendations=1,
-            min_cooccur_threshold=100,
+            df, 
+            max_n_recommendations=1, 
+            min_cooccur_threshold=100, 
             min_lift_threshold=100.0,
-            min_confidence_level=99.99,
+            min_confidence_level=99.99
         )

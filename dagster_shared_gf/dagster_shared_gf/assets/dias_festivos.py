@@ -5,13 +5,19 @@ import json
 from deep_translator import GoogleTranslator
 from dagster import (
     asset,
+    AssetChecksDefinition,
     AssetExecutionContext,
+    build_last_update_freshness_checks,
+    load_asset_checks_from_current_module,
+    load_assets_from_current_module,
     AutomationCondition,
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo
+from dagster_shared_gf.shared_functions import filter_assets_by_tags
 
 # from translate import Translator
+from typing import Sequence
 
 
 # Función para obtener los días festivos para una lista de países y un rango de fechas específico
@@ -109,7 +115,7 @@ def DL_Edit_CalendarioNoLaboral_Temp(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ):
     table = "DL_Edit_CalendarioNoLaboral_Temp"
-    # database = "DL_FARINTER"
+    database = "DL_FARINTER"
     schema = "web_api"
 
     codigos_pais = ["HN", "NI", "CR", "SV", "GT"]  # Lista de códigos ISO2 de los países
@@ -211,6 +217,39 @@ def DL_Edit_CalendarioNoLaboral(
     with dwh_farinter_dl.get_connection(engine="sqlalchemy") as conn:
         dwh_farinter_dl.execute_and_commit(QUERY_ANIO_SIGUIENTE, connection=conn)
 
+
+all_assets = tuple(tuple(load_assets_from_current_module(group_name="web_api_externo")))
+
+all_assets_non_hourly_freshness_checks = tuple(
+    build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(
+            all_assets,
+            tags_to_match=tags_repo.Hourly.tag,
+            filter_type="exclude_if_any_tag",
+        ),
+        lower_bound_delta=timedelta(hours=26),
+        deadline_cron="0 9 * * 1-6",
+    )
+)
+all_assets_hourly_freshness_checks: Sequence[AssetChecksDefinition] = tuple(
+    build_last_update_freshness_checks(
+        assets=filter_assets_by_tags(
+            all_assets,
+            tags_to_match=tags_repo.Hourly.tag,
+            filter_type="any_tag_matches",
+        ),
+        lower_bound_delta=timedelta(hours=13),
+        deadline_cron="0 10-16 * * 1-6",
+    )
+)
+
+all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
+    load_asset_checks_from_current_module()
+)
+all_asset_freshness_checks = (
+    *all_assets_non_hourly_freshness_checks,
+    *all_assets_hourly_freshness_checks,
+)
 
 if __name__ == "__main__":
     codigos_pais = ["HN", "NI", "CR", "SV", "GT"]  # Lista de códigos ISO2 de los países

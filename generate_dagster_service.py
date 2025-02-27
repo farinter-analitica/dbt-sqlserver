@@ -6,9 +6,8 @@ from dotenv import load_dotenv
 # Deploys on ubuntu server
 
 # Set the directory where your templates are stored
-template_dir = os.path.join(os.path.dirname(__file__), "templates")
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 env_jinja = Environment(loader=FileSystemLoader(template_dir))
-
 
 def deploy_service(instance_env: str, template_filename: str) -> None:
     """
@@ -21,25 +20,23 @@ def deploy_service(instance_env: str, template_filename: str) -> None:
     # Load and render the template using current environment variables.
     template = env_jinja.get_template(template_filename)
     rendered_service = template.render(env=os.environ)
-
+    
     # Derive the service name by removing the template extension and injecting the instance environment.
     # For example, "dagster_webserver.service.template" becomes "dagster_prd_webserver.service"
     base_service_name = template_filename.replace(".template", "")
     # Replace the default env in the name if present or inject it
     if "dagster_" in base_service_name:
-        output_filename = base_service_name.replace(
-            "dagster_", f"dagster_{instance_env}_"
-        )
+        output_filename = base_service_name.replace("dagster_", f"dagster_{instance_env}_")
     else:
         output_filename = f"dagster_{instance_env}_{base_service_name}"
-
+    
     # Create templates_render directory if it doesn't exist
-    output_dir = os.path.join(os.path.dirname(__file__), "templates_render")
+    output_dir = os.path.join(os.path.dirname(__file__), 'templates_render')
     os.makedirs(output_dir, exist_ok=True)
 
     # Write the rendered service file to the templates_render folder.
     output_path = os.path.join(output_dir, output_filename)
-
+    
     with open(output_path, "w") as f:
         f.write(rendered_service)
     print(f"Final service file written to: {output_path}")
@@ -62,15 +59,10 @@ def deploy_service(instance_env: str, template_filename: str) -> None:
         else:
             subprocess.run(["cp", output_path, system_service_path], check=True)
             subprocess.run(["systemctl", "daemon-reload"], check=True)
-            subprocess.run(
-                ["systemctl", "enable", "--now", output_filename], check=True
-            )
+            subprocess.run(["systemctl", "enable", "--now", output_filename], check=True)
             print(f"Service {output_filename} deployed and enabled.")
     else:
-        print(
-            f"Skipping deployment of {output_filename} to {instance_env} environment."
-        )
-
+        print(f"Skipping deployment of {output_filename} to {instance_env} environment.")
 
 if __name__ == "__main__":
     # Determine the current instance, loading .env file if necessary
@@ -78,13 +70,11 @@ if __name__ == "__main__":
     if instance_env == "default":
         print("Loading default environment variables from .env")
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ""))
-        env_file = os.path.join(repo_root, ".env")
+        env_file = os.path.join(repo_root, '.env')
         load_dotenv(dotenv_path=env_file)
         instance_env = os.environ.get("DAGSTER_INSTANCE_CURRENT_ENV", "default")
 
-    assert instance_env in ["local", "prd", "dev"], (
-        "DAGSTER_INSTANCE_CURRENT_ENV must be 'local', 'prd' or 'dev'"
-    )
+    assert instance_env in ["local", "prd", "dev"], "DAGSTER_INSTANCE_CURRENT_ENV must be 'local', 'prd' or 'dev'"
 
     # Tuple of service template filenames to deploy.
     service_templates = (
