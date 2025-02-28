@@ -158,8 +158,8 @@ SELECT AR.Emp_Id,
     AR.Articulo_Nombre AS Articulo_Nombre,
     ROUND(AR.Combined_Score * 100, 2) AS Puntuacion,
     ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, RH.Cliente_Id ORDER BY AR.Combined_Score DESC) AS Orden,
-    'CSC' AS Tipo_Recomendacion_Id,
-    'Clientes Similiares Compran' AS Tipo_Recomendacion_Nombre
+    'CR' AS Tipo_Recomendacion_Id,
+    'Complementarios de Recetados' AS Tipo_Recomendacion_Nombre
     --A.Articulos_Id_Relacionados AS Soporte,
     --A.Clientes_Compraron AS Clientes_Compraron
 FROM Articulos_Relacionados AS AR
@@ -250,7 +250,7 @@ SELECT ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Articulo_Id,0) AS Codigo_Articulo,
     Articulo_Nombre,
     ROUND(Combined_Score * 100, 2) AS Puntuacion,
-    Rank AS Orden,
+    5+Rank AS Orden,
     'MC' AS Tipo_Recomendacion_Id,
     'Mas Comprados por el Cliente' AS Tipo_Recomendacion_Nombre
 FROM TopComprasExisteCiudad
@@ -262,7 +262,7 @@ SELECT ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Codigo_Articulo,0) AS Codigo_Articulo,
     Articulo_Nombre,
     Puntuacion,
-    Orden,
+    7+Orden,
     Tipo_Recomendacion_Id,
     Tipo_Recomendacion_Nombre 
 FROM ComplementarioAReceta
@@ -274,7 +274,7 @@ SELECT ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Codigo_Articulo,0) AS Codigo_Articulo,
     Articulo_Nombre,
     Puntuacion,
-    Orden,
+    9+Orden,
     Tipo_Recomendacion_Id,
     Tipo_Recomendacion_Nombre 
 FROM ComplementarioTopCompras

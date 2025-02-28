@@ -18,12 +18,12 @@
 }}
 
 SELECT --TOP (1000) 
-	EH.[Emp_Id],
-	EH.[ArticuloPadre_Id],
-	B.[TipoBodega_Id],
-	s.[Departamento_Id],
-	s.[Municipio_Id],
-	s.[Ciudad_Id],
+	ISNULL(EH.[Emp_Id],0) AS Emp_Id,
+	ISNULL(EH.[ArticuloPadre_Id],0) AS ArticuloPadre_Id,
+	ISNULL(B.[TipoBodega_Id],0) AS TipoBodega_Id,
+	ISNULL(s.[Departamento_Id],0) AS Departamento_Id,
+	ISNULL(s.[Municipio_Id],0) AS Municipio_Id,
+	ISNULL(s.[Ciudad_Id],0) AS Ciudad_Id,
 	MAX(s.[Zona_Id]) AS Zona_Id,
 	{{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'ArticuloPadre_Id'], input_length=49, table_alias='EH')}} AS EmpArt_Id,
 	MAX(S.[EmpZona_Id]) AS EmpZona_Id,
