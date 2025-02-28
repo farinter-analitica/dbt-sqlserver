@@ -211,8 +211,8 @@ SELECT AR.Emp_Id,
     AR.Articulo_Nombre AS Articulo_Nombre,
     ROUND(AR.Combined_Score * 100, 2) AS Puntuacion,
     ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, MTA.Monedero_Id ORDER BY AR.Combined_Score DESC) AS Orden,
-    'RTC' AS Tipo_Recomendacion_Id,
-    'Relacionado a Top Compras' AS Tipo_Recomendacion_Nombre
+    'CTC' AS Tipo_Recomendacion_Id,
+    'Complementarios a Top Compras' AS Tipo_Recomendacion_Nombre
     --A.Articulos_Id_Relacionados AS Soporte,
     --A.Clientes_Compraron AS Clientes_Compraron
 FROM Articulos_Relacionados AS AR
