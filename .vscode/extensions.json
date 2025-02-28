@@ -1,0 +1,19 @@
+{
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "sourcegraph.cody-ai",
+      "samuelcolvin.jinjahtml",
+      "redhat.vscode-yaml",
+      "tamasfe.even-better-toml",
+      "innoverio.vscode-dbt-power-user",
+      "charliermarsh.ruff",
+      "eamodio.gitlens",
+      "mtxr.sqltools",
+      "mtxr.sqltools-driver-mssql",
+      "fzhem.sqltools-driver-mssql-commver",
+      "mtxr.sqltools-driver-pg",
+      "mtxr.sqltools-driver-sqlite",
+    ]
+  }
+  
