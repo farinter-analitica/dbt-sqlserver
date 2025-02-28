@@ -7,16 +7,16 @@
 {#{% set post_hook_dwh_farinter_create_primary_key =  dwh_farinter_create_primary_key(this,columns=unique_key_list, create_clustered=False, is_incremental=0, show_info=True, if_another_exists_drop_it=True)  %}#}
 {{ 
     config(
-		as_columnstore=false,
+		as_columnstore=true,
 		tags=["periodo/diario", "periodo/por_hora"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
+		on_schema_change="append_new_columns",
 		unique_key=unique_key_list,
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
       "{{ dwh_farinter_remove_incremental_temp_table() }}",
-      "{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
       "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
       "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}"
 		]
@@ -32,12 +32,28 @@ SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
         ,ISNULL(SN.[Sucursal_Numero],0) AS [Sucursal_Numero]
         ,[Marca]
         ,[Zona_Id]
+        ,{{ dwh_farinter_concat_key_columns(
+          columns=['Emp_Id', 'Zona_Id'], 
+          input_length=49, 
+          table_alias='S')}} AS EmpZona_Id
         ,CAST([Zona_Nombre] AS VARCHAR(100)) AS [Zona_Nombre]
         ,[Departamento_Id]
+        ,{{ dwh_farinter_concat_key_columns(
+          columns=['Emp_Id', 'Departamento_Id'], 
+          input_length=49, 
+          table_alias='S')}} AS EmpDep_Id
         ,[Departamento_Nombre]
         ,[Municipio_Id]
+        ,{{ dwh_farinter_concat_key_columns(
+          columns=['Emp_Id', 'Departamento_Id', 'Municipio_Id'], 
+          input_length=49, 
+          table_alias='S')}} AS EmpDepMun_Id
         ,[Municipio_Nombre]
         ,[Ciudad_Id]
+        ,{{ dwh_farinter_concat_key_columns(
+          columns=['Emp_Id', 'Departamento_Id', 'Municipio_Id', 'Ciudad_Id'], 
+          input_length=49, 
+          table_alias='S')}} AS EmpDepMunCiu_Id
         ,[Ciudad_Nombre]
         ,[TipoSucursal_Id]
         ,[TipoSucursal_Nombre] 

@@ -34,7 +34,7 @@
 WITH Fecha_Desde AS
 (
 	--Se hace asi ya que cada empresa puede estar actualizando por separado
-	SELECT Emp_Id, Monedero_Id, Articulo_Id, Suc_Id as Sucursal_Id
+	SELECT Emp_Id, Monedero_Id, Articulo_Id, Sucursal_Id as Sucursal_Id
 		, Fecha_Actualizado  AS Fecha_Desde_Real
 		, CASE WHEN Fecha_Actualizado > DATEADD(DAY,-180,GETDATE()) THEN DATEADD(DAY,-180,GETDATE()) ELSE Fecha_Actualizado END AS Fecha_Desde
 		, YEAR((Fecha_Actualizado) ) * 100 + MONTH((Fecha_Actualizado) ) AS AnioMes_Id_Desde
@@ -137,6 +137,6 @@ Resumen_FacturaEncabezado AS
 	LEFT JOIN {{ this }} MAGR
 		ON MAGR.Monedero_Id = RFE.Monedero_Id
 		AND MAGR.Emp_Id = RFE.Emp_Id
-		AND MAGR.Suc_Id = RFE.Suc_Id
+		AND MAGR.Sucursal_Id = RFE.Sucursal_Id
 		AND MAGR.Articulo_Id = RFE.Articulo_Id
 {% endif %}	

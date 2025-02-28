@@ -45,6 +45,7 @@ sources:
                 group: "dbt_dwh_kielsa_mart_datos_maestros"
       - name: BI_Hecho_ProyeccionVentaseCommerce_Kielsa
       - name: BI_Dim_Hora
+      - name: BI_Kielsa_Dim_ClienteGeneral
 
 
 
