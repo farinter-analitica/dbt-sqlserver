@@ -6,7 +6,7 @@
 		materialized="view",
 ) }}
 
---SOLO SE PUEDE CAMBIAR EN DBT
+-- Solo editable en DBT DAGSTER
 
 SELECT A.Emp_Id AS Pais_Id,
 	CASE

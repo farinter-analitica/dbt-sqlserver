@@ -5,7 +5,7 @@
 		tags=["periodo/diario", "periodo/por_hora"],
 	) 
 }}
---dbt dagster
+-- Solo editable en DBT DAGSTER
 SELECT [Monedero_Id]
       ,[Emp_Id]
       ,[Version_Id]

@@ -4,7 +4,7 @@
 		tags=["periodo/diario"],
 	) 
 }}
---dbt dagster
+-- Solo editable en DBT DAGSTER
 SELECT CanalVenta_Id, CanalVenta_Nombre
 FROM {{source ('DL_FARINTER','DL_Kielsa_CanalVenta')}}
 UNION ALL

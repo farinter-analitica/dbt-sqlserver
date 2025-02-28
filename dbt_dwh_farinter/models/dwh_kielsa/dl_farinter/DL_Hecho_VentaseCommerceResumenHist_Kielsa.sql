@@ -6,7 +6,7 @@
         materialized="view",
     )
 }}
---SOLO SE PUEDE CAMBIAR EN DBT
+-- Solo editable en DBT DAGSTER
 SELECT A.Pais_Id,
     A.Sucursal_Id,
     A.CanalVenta_Id,

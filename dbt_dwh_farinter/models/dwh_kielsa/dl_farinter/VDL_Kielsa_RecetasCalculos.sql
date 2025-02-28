@@ -4,7 +4,7 @@
 		materialized="view",
 	) 
 }}
---DBT DAGSTER
+-- Solo editable en DBT DAGSTER
 --AXELL PADILLA -- 20241010
 SELECT --TOP (1000) 
 	[Pais_Id]

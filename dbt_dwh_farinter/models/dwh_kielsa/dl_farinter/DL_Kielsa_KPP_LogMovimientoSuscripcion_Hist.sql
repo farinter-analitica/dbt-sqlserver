@@ -5,6 +5,7 @@
 		tags=["periodo/diario"],
 		materialized="view",
 ) }}
+-- Solo editable en DBT DAGSTER
 
 WITH
 Datos1 AS

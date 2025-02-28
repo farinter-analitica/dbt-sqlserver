@@ -4,7 +4,7 @@
 		tags=["periodo/diario"],
 	) 
 }}
---DBT DAGSTER 
+-- Solo editable en DBT DAGSTER
 SELECT 'Actual' AS [Periodo]
 	, CAL.[AnioMes_Id]
 	, C.[AnioMesCreado_Id]

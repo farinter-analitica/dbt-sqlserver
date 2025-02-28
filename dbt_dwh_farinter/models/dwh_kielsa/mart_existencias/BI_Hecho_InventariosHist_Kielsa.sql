@@ -5,7 +5,7 @@
 		tags=["periodo/diario", "periodo_unico/si"],
 	) 
 }}
---dbt dagster
+-- Solo editable en DBT DAGSTER
 
   SELECT	--TOP (1000)
 		EHN.[Emp_Id] [Pais_Id]

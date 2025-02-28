@@ -5,7 +5,7 @@
 		tags=["periodo/diario", "periodo_unico/si"],
 	) 
 }}
---dbt dagster
+-- Solo editable en DBT DAGSTER
 
 SELECT --top 100
     CAL.Anio_Calendario [Anio_Id]

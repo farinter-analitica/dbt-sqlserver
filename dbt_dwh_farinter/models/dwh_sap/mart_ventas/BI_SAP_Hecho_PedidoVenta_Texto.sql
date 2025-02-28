@@ -5,6 +5,7 @@
 		tags=["periodo/diario"],
 	) 
 }}
+-- Solo editable en DBT DAGSTER
 
 SELECT --TOP 100
 	T.AnioMes_Id

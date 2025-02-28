@@ -4,7 +4,7 @@
 		tags=["periodo/diario"],
 	) 
 }}
---dbt dagster
+-- Solo editable en DBT DAGSTER
 
 SELECT Emp_Id, 
     Monedero_Id as MonederoPlan_Id, 

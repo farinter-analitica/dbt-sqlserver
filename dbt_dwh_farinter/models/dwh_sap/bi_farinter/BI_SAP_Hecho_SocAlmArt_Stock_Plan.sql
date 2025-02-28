@@ -4,7 +4,7 @@
 		tags=["periodo/diario"],
 	) 
 }}
---DBT DAGSTER 
+-- Solo editable en DBT DAGSTER
 {% set v_semanas_muestra = 12 %}
 {% set v_dias_muestra = v_semanas_muestra * 7 %}
 {% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_muestra)).strftime('%Y%m%d') %}

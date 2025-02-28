@@ -5,7 +5,7 @@
 		tags=["periodo/diario","periodo_unico/si"],
 	) 
 }}
---DBT DAGSTER
+-- Solo editable en DBT DAGSTER
 
 --20240903: Creado
 

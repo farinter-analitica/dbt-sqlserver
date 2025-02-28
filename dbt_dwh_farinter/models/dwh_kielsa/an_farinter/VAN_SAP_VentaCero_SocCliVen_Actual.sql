@@ -7,6 +7,8 @@
     )
 }}
 
+-- Solo editable en DBT DAGSTER
+
 SELECT 
        MAX(LEFT(CAST(A.AnioMes_Id AS VARCHAR), 4)) AS Anio,
        MAX(RIGHT(CAST(A.AnioMes_Id AS VARCHAR), 2)) AS Mes,

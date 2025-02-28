@@ -1,7 +1,7 @@
 {% set unique_key_list = ["Emp_Id","Sucursal_Id","ArticuloPadre_Id"] %}
 {{ 
     config(
-		as_columnstore=False,
+		as_columnstore=true,
 		tags=["periodo/diario"],
 		materialized="table",
 		incremental_strategy="farinter_merge",

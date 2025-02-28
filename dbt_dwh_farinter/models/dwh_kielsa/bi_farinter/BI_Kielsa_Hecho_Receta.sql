@@ -6,6 +6,7 @@
         materialized="view",
     )
 }}
+-- Solo editable en DBT DAGSTER
 
 
 SELECT

@@ -5,7 +5,7 @@
 		tags=["periodo/diario"],
 	) 
 }}
---DBT DAGSTER
+-- Solo editable en DBT DAGSTER
 
 SELECT --top 1000
 	PH	.[Sociedad_Id]
