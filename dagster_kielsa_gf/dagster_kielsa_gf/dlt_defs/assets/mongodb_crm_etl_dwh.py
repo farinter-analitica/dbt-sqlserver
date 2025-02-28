@@ -261,6 +261,16 @@ read_source_config_full_refresh: ColConfigs = (
     DLTRColl(collection_name="crm_company"),
     DLTRColl(collection_name="hrm_area_companies"),
     DLTRColl(collection_name="hrm_department_companies"),
+    DLTRColl(
+        collection_name="crm_visitor_planification",
+        automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.Hourly | tags_repo.Automation,
+    ),
+    DLTRColl(
+        collection_name="doctor",
+        automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.Hourly | tags_repo.Automation,
+    ),
 )
 
 
@@ -443,7 +453,7 @@ if __name__ == "__main__":
                 asset
                 for asset in all_assets
                 if asset.key
-                in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "hrm_area")),)
+                in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "doctor")),)
             )
             assert asset_to_test
             result = materialize(
