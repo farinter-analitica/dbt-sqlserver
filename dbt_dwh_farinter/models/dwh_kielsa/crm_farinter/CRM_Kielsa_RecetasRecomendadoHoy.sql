@@ -101,25 +101,61 @@ RecetasHoyClienteArticuloExisteCiudad AS
     AND RH.Articulo_Id = EC.Articulo_Id
     WHERE EC.Cantidad_Existencia > 0
 ),
+Articulos_Recomendables as
+(
+    SELECT Emp_Id,
+        Articulo_Id,
+        Articulo_Nombre
+    FROM BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A
+    WHERE A.SubCategoria2Art_Nombre NOT IN (
+            'ALIMENTOS',
+            'BATERIAS Y ENCENDEDORES',
+            'BEBE ACCES',
+            'BEBIDAS',
+            'BELLEZA ACCES',
+            'COSMETICOS ACCES',
+            'DECORACION/UTIL HOG',
+            'DULCES/SNACKS',
+            'EQUIPO/MATERIAL MED',
+            'HIGIENE DEL HOG',
+            'LIBRERIA',
+            'MAMA ACCES',
+            'OTROS DONACIONES',
+            'PAQUETES CLARO',
+            'PAQUETES TIGO',
+            'PRESENCIAL',
+            'PRIMEROS AUXILIOS',
+            'PROMOCIONALES',
+            'RECARGAS CLARO',
+            'RECARGAS TIGO',
+            'SIM CARD TIGO',
+            'TARJETA TENGO',
+            'TECNOLOGÍA'
+        )
+),
 Articulos_Relacionados AS (
     SELECT --TOP (1000) 
         1 AS [Emp_Id],
-        [Articulo_Id],
-        [Articulo_Id_Relacionado],
-        [Lift_Score],
-        [Facturas_Conjuntas],
-        [Significance_Score],
-        [Combined_Score],
-        [Fecha_Generacion],
-        [Rank]
-    FROM [DL_FARINTER].[dbo].[DL_Kielsa_Articulo_ArticuloRelacionado]
+        AR.[Articulo_Id],
+        AR.[Articulo_Id_Relacionado],
+        A.Articulo_Nombre,
+        AR.[Lift_Score],
+        AR.[Facturas_Conjuntas],
+        AR.[Significance_Score],
+        AR.[Combined_Score],
+        AR.[Fecha_Generacion],
+        AR.[Rank]
+    FROM [DL_FARINTER].[dbo].[DL_Kielsa_Articulo_ArticuloRelacionado] AR
+    INNER JOIN Articulos_Recomendables A
+        ON AR.Articulo_Id_Relacionado = A.Articulo_Id
+        AND 1 = A.Emp_Id
 ),
 ComplementarioAReceta AS
 (
 SELECT AR.Emp_Id,
     RH.Cliente_Id AS Cliente_Id,
     AR.Articulo_Id_Relacionado AS Codigo_Articulo,
-    A.Articulo_Nombre AS Articulo_Nombre,
+    AR.Articulo_Nombre AS Articulo_Nombre,
     ROUND(AR.Combined_Score * 100, 2) AS Puntuacion,
     ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, RH.Cliente_Id ORDER BY AR.Combined_Score DESC) AS Orden,
     'CSC' AS Tipo_Recomendacion_Id,
@@ -130,9 +166,6 @@ FROM Articulos_Relacionados AS AR
 INNER JOIN RecetasHoyClienteArticulo AS RH
     ON RH.Emp_Id = AR.Emp_Id
     AND RH.Articulo_Id = AR.Articulo_Id
-INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo AS A -- {{ ref('BI_Kielsa_Dim_Articulo') }}
-    ON A.Emp_Id = AR.Emp_Id
-    AND A.Articulo_Id = AR.Articulo_Id_Relacionado
 INNER JOIN ExistenciasVentas EC 
     ON RH.Emp_Id = EC.Emp_Id
     AND RH.Departamento_Id = EC.Departamento_Id
@@ -153,7 +186,7 @@ TopComprasExisteCiudad AS
         MTA.Combined_Score,
         MTA.Rank
     FROM BI_FARINTER.dbo.BI_Kielsa_Agr_Monedero_TopArticulos MTA -- {{ ref('BI_Kielsa_Agr_Monedero_TopArticulos') }}
-    INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo AS A -- {{ ref('BI_Kielsa_Dim_Articulo') }}
+    INNER JOIN Articulos_Recomendables AS A -- {{ ref('BI_Kielsa_Dim_Articulo') }}
     ON A.Emp_Id = MTA.Emp_Id
     AND A.Articulo_Id = MTA.Articulo_Id
     INNER JOIN CiudadSelecta SS
@@ -175,7 +208,7 @@ ComplementarioTopCompras AS
 SELECT AR.Emp_Id,
     MTA.Monedero_Id AS Cliente_Id,
     AR.Articulo_Id_Relacionado AS Codigo_Articulo,
-    A.Articulo_Nombre AS Articulo_Nombre,
+    AR.Articulo_Nombre AS Articulo_Nombre,
     ROUND(AR.Combined_Score * 100, 2) AS Puntuacion,
     ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, MTA.Monedero_Id ORDER BY AR.Combined_Score DESC) AS Orden,
     'RTC' AS Tipo_Recomendacion_Id,
@@ -186,9 +219,6 @@ FROM Articulos_Relacionados AS AR
 INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Agr_Monedero_TopArticulos MTA -- {{ ref('BI_Kielsa_Agr_Monedero_TopArticulos') }}
     ON AR.Emp_Id = MTA.Emp_Id
     AND AR.Articulo_Id = MTA.Articulo_Id
-INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo AS A -- {{ ref('BI_Kielsa_Dim_Articulo') }}
-    ON A.Emp_Id = AR.Emp_Id
-    AND A.Articulo_Id = AR.Articulo_Id_Relacionado
 INNER JOIN CiudadSelecta SS
     ON MTA.Emp_Id = SS.Emp_Id
     AND MTA.Monedero_Id = SS.Cliente_Id
