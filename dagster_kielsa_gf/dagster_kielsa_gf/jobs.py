@@ -87,11 +87,19 @@ El job solo ejecuta 2 procesos maximo al mismo tiempo.\n\
     ",
 )
 
-
-kielsa_daily_downstream_assets: AssetSelection = (
-    AssetSelection.tag(
-        key=tags_repo.Daily.key, value=tags_repo.Daily.value
-    ).downstream()
+kielsa_daily_downstream_assets: AssetSelection = AssetSelection.tag(
+    key=tags_repo.Daily.key, value=tags_repo.Daily.value
+)
+kielsa_daily_downstream_assets = (
+    (
+        kielsa_daily_downstream_assets
+        | (
+            kielsa_daily_downstream_assets.downstream()
+            - kielsa_daily_downstream_assets.downstream().tag(
+                key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+            )
+        )
+    )
     - seleccion_no_programar
     - knime_workflows_daily_assets
     - dlt_dwh_kielsa_daily_assets

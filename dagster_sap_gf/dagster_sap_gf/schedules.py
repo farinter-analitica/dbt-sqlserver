@@ -54,12 +54,12 @@ dbt_dwh_sap_marts_job_schedule = ScheduleDefinition(
     job=jobs.dbt_dwh_sap_marts_job,
     default_status=stopped_default_schedule_status,
 )
-sap_etl_dwh_all_downstream_job_schedule = ScheduleDefinition(
+sap_dwh_daily_all_downstream_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env(
         dict={"dev": "15 01 * * *", "prd": "05 00 * * *"}
     ),  # cron template: hour minute day month day_of_week
     execution_timezone=default_timezone,
-    job=jobs.sap_etl_dwh_all_downstream_job,
+    job=jobs.sap_dwh_daily_all_downstream_job,
     default_status=running_default_schedule_status,
 )
 
@@ -94,13 +94,6 @@ sap_dwh_hourly_job_schedule = ScheduleDefinition(
         }
     ),
     should_execute=should_exec_sap_dwh_hourly_job_run,
-)
-
-dbt_dwh_sap_marts_all_orphan_job_schedule = ScheduleDefinition(
-    cron_schedule=get_for_current_env(dict={"dev": "15 2 * * *", "prd": "30 1 * * *"}),
-    execution_timezone=default_timezone,
-    job=jobs.dbt_dwh_sap_marts_all_orphan_job,
-    default_status=running_default_schedule_status,
 )
 
 clean_storage_job_schedule = ScheduleDefinition(

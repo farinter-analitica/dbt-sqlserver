@@ -51,26 +51,24 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
     ),
 )
 
-
-sap_etl_dwh_all_downstream_assets: AssetSelection = AssetSelection.groups(
-    "sap_etl_dwh"
-) & AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
-sap_etl_dwh_all_downstream_assets = (
-    sap_etl_dwh_all_downstream_assets
+# Todos los diarios y sus dependientes que no tengan una etiqueta de periodo unico.
+sap_dwh_daily_downstream_assets: AssetSelection = AssetSelection.tag(
+    key=tags_repo.Daily.key, value=tags_repo.Daily.value
+)
+sap_dwh_daily_downstream_assets = (
+    sap_dwh_daily_downstream_assets
     | (
-        sap_etl_dwh_all_downstream_assets.downstream()
-        - (
-            sap_etl_dwh_all_downstream_assets.tag(
-                key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
-            )
+        sap_dwh_daily_downstream_assets.downstream()
+        - sap_dwh_daily_downstream_assets.downstream().tag(
+            key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
         )
     )
 ) - seleccion_no_programar
-sap_etl_dwh_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
-    name="sap_etl_dwh_all_downstream_job",
-    selection=sap_etl_dwh_all_downstream_assets,
+sap_dwh_daily_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
+    name="sap_dwh_daily_all_downstream_job",
+    selection=sap_dwh_daily_downstream_assets,
     tags={
-        "dagster/max_runtime": (4 * 60 * 60)
+        "dagster/max_runtime": (5 * 60 * 60)
     }  # max 4 hours in seconds, then mark it as failed.
     | tags_repo.Daily.tag,
     config=execution_run_config_default,
@@ -85,7 +83,7 @@ sap_dwh_hourly_assets = (
     | (
         sap_dwh_hourly_assets.upstream()
         - (
-            sap_dwh_hourly_assets.tag(
+            sap_dwh_hourly_assets.upstream().tag(
                 key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
             )
         )
@@ -98,19 +96,6 @@ sap_dwh_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
         "dagster/max_runtime": (100 * 60)
     }  # max 100 minutes in seconds, then mark it as failed.
     | tags_repo.Hourly.tag,
-    config=execution_run_config_default,
-)
-
-dbt_dwh_sap_marts_all_orphan_assets: AssetSelection = (
-    AssetSelection.groups(
-        "dbt_dwh_sap_mart_datos_maestros", "dbt_dwh_sap_mart_finanzas"
-    )
-    - seleccion_no_programar
-    - sap_etl_dwh_all_downstream_assets
-)
-dbt_dwh_sap_marts_all_orphan_job: UnresolvedAssetJobDefinition = define_asset_job(
-    name="dbt_dwh_sap_marts_all_orphan_job",
-    selection=dbt_dwh_sap_marts_all_orphan_assets,
     config=execution_run_config_default,
 )
 
