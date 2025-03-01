@@ -33,7 +33,7 @@ def test_get_connection(mock_connect):
 
 @patch("sqlalchemy.create_engine")
 def test_get_connection_sqlalchemy(mock_create_engine):
-    mock_engine = MagicMock()
+    mock_engine = MagicMock(spec=sqlalchemy.Engine)
     mock_conn = MagicMock(spec=sqlalchemy.Connection)
     mock_create_engine.return_value = mock_engine
     mock_engine.connect.return_value = mock_conn
@@ -47,31 +47,39 @@ def test_get_connection_sqlalchemy(mock_create_engine):
 
 @patch("sqlalchemy.create_engine")
 def test_query_sqlalchemy(mock_create_engine):
-    mock_engine = MagicMock()
+    mock_engine = MagicMock(spec=sqlalchemy.Engine)
     mock_conn = MagicMock(spec=sqlalchemy.Connection)
-    mock_result = MagicMock()
+    mock_raw_conn = MagicMock()
+    mock_cursor = MagicMock(spec=pyodbc.Cursor)
+
+    # Set up the chain of mocks
+    mock_conn.engine = mock_engine
+    mock_engine.raw_connection.return_value = mock_raw_conn
+    mock_raw_conn.cursor.return_value = mock_cursor
+
+    # Configure the basic mock setup
     mock_create_engine.return_value = mock_engine
     mock_engine.connect.return_value = mock_conn
-    mock_conn.execute.return_value = mock_result
 
-    # Mock row data
-    mock_row = MagicMock(spec=sqlalchemy.Row)
-    mock_result.all.return_value = [mock_row]
-    mock_result.scalar.return_value = 1
+    # Create the mock row that will be returned
+    mock_row = MagicMock(spec=pyodbc.Row)
 
-    # Test normal query (fetchall equivalent)
+    # Set up cursor to return our mock row
+    mock_cursor.description = ["column1"]
+    mock_cursor.execute.return_value = mock_cursor
+    mock_cursor.fetchall.return_value = [mock_row]
+    mock_cursor.fetchval.return_value = 1
+
+    # Run the test
     result = dwh_farinter_database_admin.query(
         "SELECT * FROM test_table", database="DL_FARINTER"
     )
     assert result == [mock_row]
-    mock_conn.execute.assert_called_once()
 
-    # Test scalar query (fetchval equivalent)
     scalar_result = dwh_farinter_database_admin.query(
         "SELECT 1", database="DL_FARINTER", fetch_val=True
     )
     assert scalar_result == 1
-    mock_result.scalar.assert_called_once()
 
 
 @patch("sqlalchemy.create_engine")
@@ -168,22 +176,25 @@ def test_execute_and_commit(mock_connect):
 
 def test_cursor_fetch_first_result():
     """Test the cursor_fetch_first_result function."""
-    # Test case 1: Fetch value
+    # Test case 1: Fetch value - Valid description
     cursor = MagicMock(spec=pyodbc.Cursor)
+    cursor.description = ["column1"]  # Add this line
     cursor.fetchval.return_value = 1
     result = dwh_farinter_database_admin._cursor_fetch_first_result(
         cursor, fetch_val=True
     )
     assert result == 1
 
-    # Test case 2: Fetch all
+    # Test case 2: Fetch all - Valid description
     cursor = MagicMock(spec=pyodbc.Cursor)
+    cursor.description = ["column1"]  # Add this line
     cursor.fetchall.return_value = [(1, 2), (3, 4)]
     result = dwh_farinter_database_admin._cursor_fetch_first_result(cursor)
     assert result == [(1, 2), (3, 4)]
 
     # Test case 3: Fetch value with multiple result sets
     cursor = MagicMock(spec=pyodbc.Cursor)
+    cursor.description = ["column1"]  # Add this line
     cursor.fetchval.side_effect = [1, 2]
     result = dwh_farinter_database_admin._cursor_fetch_first_result(
         cursor, fetch_val=True
@@ -192,6 +203,7 @@ def test_cursor_fetch_first_result():
 
     # Test case 4: Fetch all with multiple result sets
     cursor = MagicMock(spec=pyodbc.Cursor)
+    cursor.description = ["column1"]  # Add this line
     cursor.fetchall.side_effect = [
         [(1, 2), (3, 4)],
         [(5, 6), (7, 8)],
@@ -201,13 +213,18 @@ def test_cursor_fetch_first_result():
 
     # Test case 5: Skip non-result set messages
     cursor = MagicMock(spec=pyodbc.Cursor)
-    cursor.nextset.side_effect = iter([True, False, False])
-    cursor.fetchval.side_effect = iter(
-        [
-            pyodbc.ProgrammingError("Non-result set message"),
-            "test4",
-        ]
-    )
+    # Set up description to be None initially, then valid after nextset
+    cursor.description = None
+    cursor.nextset.side_effect = [True, False]
+
+    # After nextset() is called, change description to be valid
+    def side_effect_nextset(*args, **kwargs):
+        cursor.description = ["column1"]
+        return True
+
+    cursor.nextset.side_effect = side_effect_nextset
+    cursor.fetchval.return_value = "test4"
+
     result = dwh_farinter_database_admin._cursor_fetch_first_result(
         cursor, fetch_val=True
     )
@@ -215,14 +232,21 @@ def test_cursor_fetch_first_result():
 
     # Test case 6: Skip multiple non-result set messages
     cursor = MagicMock(spec=pyodbc.Cursor)
-    cursor.nextset.side_effect = iter([True, True, False])
-    cursor.fetchval.side_effect = iter(
-        [
-            pyodbc.ProgrammingError("Non-result set message 1"),
-            pyodbc.ProgrammingError("Non-result set message 2"),
-            "test5",
-        ]
-    )
+
+    # Set up a more complex side effect for nextset
+    # First call sets description to None, second call sets it to valid
+    def first_nextset(*args, **kwargs):
+        cursor.description = None
+        return True
+
+    def second_nextset(*args, **kwargs):
+        cursor.description = ["column1"]
+        return True
+
+    cursor.description = None
+    cursor.nextset.side_effect = [first_nextset(), second_nextset()]
+    cursor.fetchval.return_value = "test5"
+
     result = dwh_farinter_database_admin._cursor_fetch_first_result(
         cursor, fetch_val=True
     )

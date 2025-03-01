@@ -4,6 +4,7 @@ import warnings
 from datetime import datetime
 from typing import Sequence
 
+from dagster_shared_gf.shared_helpers import SQLScriptGenerator
 import polars as pl
 import polars.testing as pltest
 from dagster import (
@@ -39,7 +40,6 @@ from dagster_shared_gf.shared_constants import (
     EMAIL_REGEX_PATTERN_RUST_CRATES,
 )
 from dagster_shared_gf.shared_functions import (
-    SQLScriptGenerator,
     get_for_current_env,
 )
 from dagster_shared_gf.shared_variables import env_str, tags_repo

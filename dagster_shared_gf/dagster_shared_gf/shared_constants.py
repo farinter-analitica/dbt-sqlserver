@@ -1,8 +1,10 @@
 # Refined regex pattern to handle all specified cases with length validation
 from datetime import timedelta
-from dagster import DefaultSensorStatus
-from dagster_shared_gf.shared_functions import get_for_current_env
+from enum import Enum
 
+from dagster import DefaultSensorStatus
+
+from dagster_shared_gf.shared_functions import get_for_current_env
 
 EMAIL_REGEX_PATTERN = (
     r"^(?!.{255})"  # negative lookahead to check total length does not exceed 254 characters
@@ -67,3 +69,15 @@ stopped_default_sensor_status: DefaultSensorStatus = get_for_current_env(
         "prd": DefaultSensorStatus.STOPPED,
     }
 )
+
+
+class RowTerminator(Enum):
+    CRLF = "\\r\\n"  # Windows-style
+    LF = "\\n"  # Unix-style
+    CR = "\\r"  # Old Mac-style
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return f"RowTerminator.{self.name}"

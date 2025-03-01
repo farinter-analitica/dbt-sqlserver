@@ -1,3 +1,4 @@
+import dagster_shared_gf.shared_helpers
 import pytest
 from dagster import ScheduleDefinition, define_asset_job
 import polars as pl
@@ -149,7 +150,7 @@ def test_empty_assets_list(patch_isinstance):
 class TestSQLScriptGenerator:
     @pytest.fixture(autouse=True)
     def patch_getnow(self, mocker):
-        path = sf.get_function_path(sf.get_now_datetime)
+        path = "dagster_shared_gf.shared_helpers.get_now_datetime"
         mocker.patch(
             path,
             return_value=datetime(2022, 1, 1, 12, 0, 0),
@@ -204,7 +205,7 @@ class TestSQLScriptGenerator:
             },
         )
 
-        sg = sf.SQLScriptGenerator(
+        sg = dagster_shared_gf.shared_helpers.SQLScriptGenerator(
             df=df, db_schema="dbo", table_name="people", primary_keys=("id", "name")
         )
         generated_script = sg.create_table_sql_script()
@@ -230,7 +231,7 @@ class TestSQLScriptGenerator:
 
     def test_raises_error(self):
         with pytest.raises(ValueError):  # missing primary keys
-            sg = sf.SQLScriptGenerator(
+            sg = dagster_shared_gf.shared_helpers.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1]}),
                 db_schema="dbo",
                 table_name="people",
@@ -239,7 +240,7 @@ class TestSQLScriptGenerator:
             sg.create_table_sql_script()
 
         with pytest.raises(ValueError):  # missing keys
-            sg = sf.SQLScriptGenerator(
+            sg = dagster_shared_gf.shared_helpers.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1, None]}),
                 db_schema="dbo",
                 table_name="people",
@@ -248,7 +249,7 @@ class TestSQLScriptGenerator:
             sg.primary_key_table_sql_script()
 
         with pytest.raises(ValueError):  # duplicate keys
-            sg = sf.SQLScriptGenerator(
+            sg = dagster_shared_gf.shared_helpers.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1, 1, 1]}),
                 db_schema="dbo",
                 table_name="people",
@@ -257,7 +258,7 @@ class TestSQLScriptGenerator:
             sg.primary_key_table_sql_script()
 
         with pytest.raises(ValueError):  # duplicate composed keys
-            sg = sf.SQLScriptGenerator(
+            sg = dagster_shared_gf.shared_helpers.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1, 1, 5], "name": ["a", "a", "c"]}),
                 db_schema="dbo",
                 table_name="people",
@@ -266,7 +267,7 @@ class TestSQLScriptGenerator:
             sg.primary_key_table_sql_script()
 
         with pytest.raises(ValueError):  # missing composed primary keys
-            sg = sf.SQLScriptGenerator(
+            sg = dagster_shared_gf.shared_helpers.SQLScriptGenerator(
                 df=pl.DataFrame({"id": [1, None, 3], "name": ["a", "b", "c"]}),
                 db_schema="dbo",
                 table_name="people",
@@ -275,7 +276,7 @@ class TestSQLScriptGenerator:
             sg.primary_key_table_sql_script()
 
     def test_temp_table_name(self):
-        sg = sf.SQLScriptGenerator(
+        sg = dagster_shared_gf.shared_helpers.SQLScriptGenerator(
             df=pl.DataFrame({"id": [1]}, schema={"id": pl.Int32}),
             db_schema="dbo",
             table_name="people",

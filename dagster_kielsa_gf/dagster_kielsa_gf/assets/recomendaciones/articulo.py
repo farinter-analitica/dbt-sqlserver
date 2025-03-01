@@ -2,6 +2,7 @@ import warnings
 from collections import deque
 from datetime import datetime
 
+from dagster_shared_gf.shared_helpers import SQLScriptGenerator
 import numpy as np
 import pendulum as pdl
 import polars as pl
@@ -30,7 +31,6 @@ from dagster_shared_gf.resources.sql_server_resources import (
     SQLServerResource,
 )
 from dagster_shared_gf.shared_functions import (
-    SQLScriptGenerator,
     get_chi_square_threshold,
 )
 from dagster_shared_gf.shared_variables import env_str, tags_repo
