@@ -871,7 +871,7 @@ def create_file_on_smb(
             include_bom=False,
             include_header=False,
             separator=",",
-            line_terminator="\n",  # Specify the same on loader
+            line_terminator="\r\n",  # BULK INSERT luego solo usa \n pero es necesario \r\n aqui.
             quote_char='"',
             quote_style="non_numeric",
         )
