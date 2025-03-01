@@ -871,9 +871,9 @@ def create_file_on_smb(
             include_bom=False,
             include_header=False,
             separator=",",
-            line_terminator="\r\n",  # SQL Server requires CRLF line endings
+            line_terminator="\n",  # Specify the same on loader
             quote_char='"',
-            quote_style="necessary",
+            quote_style="non_numeric",
         )
 
     # Create the format file for SQL Server BULK INSERT
@@ -903,7 +903,7 @@ def bulk_load_to_sql_server(
         df=df_clientes,
     )
     # row_terminator = "\r\n"
-    format_file_path = ""
+    # format_file_path = ""
     # # Print the first few lines of the CSV file for debugging
     # with open(file_path, "r", encoding="utf-8") as f:
     #     for _ in range(5):
@@ -929,8 +929,8 @@ def bulk_load_to_sql_server(
         sg.bulk_insert_sql_script(
             file_path=file_path,
             temp=True,
-            format_file_path=format_file_path,
-            error_file_path=file_path.replace(".csv", "_error.csv"),
+            # format_file_path=format_file_path,
+            # error_file_path=file_path.replace(".csv", "_error.csv"),
         )
     }
             -- Convert the new table to columnstore

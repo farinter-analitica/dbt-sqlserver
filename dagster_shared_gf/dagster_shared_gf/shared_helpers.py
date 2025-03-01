@@ -410,7 +410,7 @@ class SQLScriptGenerator:
         format: str = "CSV",
         first_row: int | None = None,
         tablock: bool = True,
-        row_terminator: RowTerminator = RowTerminator.CRLF,
+        row_terminator: RowTerminator = RowTerminator.LF,
         field_terminator: str | None = None,
         field_quote: str | None = None,
         batch_size: int | None = None,
