@@ -63,7 +63,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "pyright", "ruff", "pre-commit"]
+dev = ["pytest", "pytest-mock", "pytest-dotenv", "pyright", "ruff", "pre-commit"]
 
 [tool.setuptools]
 packages = ["dagster_shared_gf"]

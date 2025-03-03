@@ -2,3 +2,16 @@
 venvPath = "."
 venv = ".venv_main_dagster"
 typeCheckingMode = "basic"
+
+[tool.pytest.ini_options]
+env_files = [".env", ".env.test"]
+filterwarnings = [
+    "ignore:.*'soft_unicode' has been renamed to 'soft_str'*:DeprecationWarning",
+    "ignore:unclosed file .*:ResourceWarning",
+    "ignore::DeprecationWarning:.*Pydantic V1 style `@validator` validators are deprecated..*",
+]
+testpaths = [
+    "dagster_shared_gf/dagster_shared_gf_tests",
+    "dagster_sap_gf/dagster_sap_gf_tests",
+    "dagster_kielsa_gf/dagster_kielsa_gf_tests",
+]
