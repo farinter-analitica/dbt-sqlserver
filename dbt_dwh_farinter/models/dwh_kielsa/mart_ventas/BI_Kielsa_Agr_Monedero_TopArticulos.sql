@@ -8,7 +8,6 @@
 		materialized="table",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="append_new_columns",
 		merge_exclude_columns= unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns= unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
@@ -40,11 +39,20 @@ metrics AS (
 		Monedero_Id,
 		Articulo_Id
 ),
-normalized AS (
+	normalized AS (
 	SELECT m.*,
-		Frecuencia / AVG(Frecuencia) OVER (PARTITION BY Emp_Id, Monedero_Id) AS Frecuencia_Norm,
-		Valor_Neto / AVG(Valor_Neto) OVER (PARTITION BY Emp_Id, Monedero_Id) AS Valor_Neto_Norm,
-		Cantidad_Total / AVG(Cantidad_Total) OVER (PARTITION BY Emp_Id, Monedero_Id) AS Cantidad_Total_Norm
+		--Normalización de las métricas entre 0 y 1
+		(Frecuencia - MIN(Frecuencia) OVER (PARTITION BY Emp_Id, Monedero_Id)) / 
+			NULLIF((MAX(Frecuencia) OVER (PARTITION BY Emp_Id, Monedero_Id) - MIN(Frecuencia) 
+			OVER (PARTITION BY Emp_Id, Monedero_Id)), 0) AS Frecuencia_Norm,
+		
+		(Valor_Neto - MIN(Valor_Neto) OVER (PARTITION BY Emp_Id, Monedero_Id)) / 
+			NULLIF((MAX(Valor_Neto) OVER (PARTITION BY Emp_Id, Monedero_Id) - MIN(Valor_Neto) 
+			OVER (PARTITION BY Emp_Id, Monedero_Id)), 0) AS Valor_Neto_Norm,
+		
+		(Cantidad_Total - MIN(Cantidad_Total) OVER (PARTITION BY Emp_Id, Monedero_Id)) / 
+			NULLIF((MAX(Cantidad_Total) OVER (PARTITION BY Emp_Id, Monedero_Id) - MIN(Cantidad_Total) 
+			OVER (PARTITION BY Emp_Id, Monedero_Id)), 0) AS Cantidad_Total_Norm
 	FROM metrics m
 	WHERE Frecuencia > 0
 	AND Valor_Neto > 0
@@ -61,7 +69,7 @@ ranked AS (
 			Frecuencia_Norm + Valor_Neto_Norm + Cantidad_Total_Norm
 		) / 3 AS Combined_Score,
 		ROW_NUMBER() OVER (
-			PARTITION BY Emp_Id
+			PARTITION BY Emp_Id, Monedero_Id
 			ORDER BY (
 					Frecuencia_Norm + Valor_Neto_Norm + Cantidad_Total_Norm
 				) / 3 DESC
