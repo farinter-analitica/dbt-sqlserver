@@ -66,12 +66,12 @@ ranked AS (
 		Valor_Neto,
 		Cantidad_Total,
 		(
-			Frecuencia_Norm + Valor_Neto_Norm + Cantidad_Total_Norm
+			ISNULL(Frecuencia_Norm,0) + ISNULL(Valor_Neto_Norm,0) + ISNULL(Cantidad_Total_Norm,0)
 		) / 3 AS Combined_Score,
 		ROW_NUMBER() OVER (
 			PARTITION BY Emp_Id, Monedero_Id
 			ORDER BY (
-					Frecuencia_Norm + Valor_Neto_Norm + Cantidad_Total_Norm
+					ISNULL(Frecuencia_Norm,0) + ISNULL(Valor_Neto_Norm,0) + ISNULL(Cantidad_Total_Norm,0)
 				) / 3 DESC
 		) AS rank
 	FROM normalized
@@ -85,4 +85,4 @@ SELECT Emp_Id,
 	Combined_Score,
 	Rank
 FROM ranked
-WHERE rank <= 5
+WHERE rank <= 5 AND Combined_Score > 0
