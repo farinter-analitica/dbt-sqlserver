@@ -170,6 +170,49 @@ def deploy_full():
     restart_services(env)
 
 
+def setup_git():
+    """Automate Git configuration for commit templates and pre-commit hooks."""
+    print("Configuring Git commit template and pre-commit...")
+
+    # Use os.path.join for platform-agnostic path handling
+    template_path = os.path.join("templates", "commit-template.git.txt")
+
+    try:
+        # Check if git is available
+        subprocess.run(["git", "--version"], check=True, stdout=subprocess.PIPE)
+
+        # Configure Git to use the commit template file
+        subprocess.run(["git", "config", "commit.template", template_path], check=True)
+        print("Git commit template configured successfully.")
+
+        # Check if pre-commit is installed
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "show", "pre-commit"],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            print("Installing pre-commit...")
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "pre-commit"], check=True
+            )
+
+        # Install pre-commit hooks
+        print("Installing pre-commit hooks...")
+        subprocess.run(["pre-commit", "install"], check=True)
+        print("Pre-commit hooks installed successfully.")
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error setting up Git environment: {e}")
+        print(f"Command '{' '.join(e.cmd)}' failed with exit code {e.returncode}")
+        if e.stderr:
+            print(f"Error output: {e.stderr}")
+        return False
+
+    return True
+
+
 def dev():
     """Set up a platform-agnostic development environment."""
     print("Setting up development environment...")
@@ -226,6 +269,8 @@ def dev():
     for c in cmds:
         subprocess.run(c, check=True)
 
+    setup_git()
+
 
 def main():
     parser = argparse.ArgumentParser(description="Deployment script")
@@ -237,6 +282,7 @@ def main():
             "deploy-fast",
             "deploy-continuous",
             "dev",
+            "setup-git",
         ],
         help="Deployment command to run",
     )
@@ -252,6 +298,8 @@ def main():
         deploy_continuous()
     elif args.command == "dev":
         dev()
+    elif args.command == "setup-git":
+        setup_git()
     else:
         parser.print_help()
 
