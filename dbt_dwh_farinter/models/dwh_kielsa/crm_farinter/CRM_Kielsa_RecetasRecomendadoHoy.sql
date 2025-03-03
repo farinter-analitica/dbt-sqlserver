@@ -66,7 +66,7 @@ FROM BI_FARINTER.dbo.BI_Kielsa_Agr_Existencia_Ciudad EC -- {{ ref('BI_Kielsa_Agr
 INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_TipoBodega TB -- {{ ref('BI_Kielsa_Dim_TipoBodega') }}
     ON EC.Emp_Id = TB.Emp_Id
     AND EC.TipoBodega_Id = TB.TipoBodega_Id
-WHERE TipoBodega_Nombre = 'VENTAS'
+WHERE TipoBodega_Nombre = 'VENTAS' AND EC.Cantidad_Existencia > 0
 ),
 RecetasHoyClienteArticulo AS
 (
@@ -99,7 +99,6 @@ RecetasHoyClienteArticuloExisteCiudad AS
     AND RH.Municipio_Id = EC.Municipio_Id
     AND RH.Ciudad_Id = EC.Ciudad_Id
     AND RH.Articulo_Id = EC.Articulo_Id
-    WHERE EC.Cantidad_Existencia > 0
 ),
 Articulos_Recomendables as
 (
@@ -155,11 +154,11 @@ ComplementarioAReceta AS
 SELECT AR.Emp_Id,
     RH.Cliente_Id AS Cliente_Id,
     AR.Articulo_Id_Relacionado AS Codigo_Articulo,
-    AR.Articulo_Nombre AS Articulo_Nombre,
-    ROUND(AR.Combined_Score * 100, 2) AS Puntuacion,
-    ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, RH.Cliente_Id ORDER BY AR.Combined_Score DESC) AS Orden,
-    'CR' AS Tipo_Recomendacion_Id,
-    'Complementarios de Recetados' AS Tipo_Recomendacion_Nombre
+    MAX(AR.Articulo_Nombre) AS Articulo_Nombre,
+    ROUND(MAX(AR.Combined_Score) * 100, 2) AS Puntuacion,
+    ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, RH.Cliente_Id ORDER BY MAX(AR.Combined_Score) DESC) AS Orden,
+    'CERH' AS Tipo_Recomendacion_Id,
+    'Complementarios con Existencias de Recetados para Hoy' AS Tipo_Recomendacion_Nombre
     --A.Articulos_Id_Relacionados AS Soporte,
     --A.Clientes_Compraron AS Clientes_Compraron
 FROM Articulos_Relacionados AS AR
@@ -172,7 +171,10 @@ INNER JOIN ExistenciasVentas EC
     AND RH.Municipio_Id = EC.Municipio_Id
     AND RH.Ciudad_Id = EC.Ciudad_Id
     AND AR.Articulo_Id_Relacionado = EC.Articulo_Id
-WHERE EC.Cantidad_Existencia > 0
+GROUP BY 
+    AR.Emp_Id,
+    RH.Cliente_Id,
+    AR.Articulo_Id_Relacionado
 ),
 TopComprasExisteCiudad AS
 (
@@ -201,18 +203,17 @@ TopComprasExisteCiudad AS
     AND S.Municipio_Id = EC.Municipio_Id
     AND S.Ciudad_Id = EC.Ciudad_Id
     AND MTA.Articulo_Id = EC.Articulo_Id
-    WHERE EC.Cantidad_Existencia > 0
 ),
 ComplementarioTopCompras AS
 (
 SELECT AR.Emp_Id,
     MTA.Monedero_Id AS Cliente_Id,
     AR.Articulo_Id_Relacionado AS Codigo_Articulo,
-    AR.Articulo_Nombre AS Articulo_Nombre,
-    ROUND(AR.Combined_Score * 100, 2) AS Puntuacion,
-    ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, MTA.Monedero_Id ORDER BY AR.Combined_Score DESC) AS Orden,
-    'CTC' AS Tipo_Recomendacion_Id,
-    'Complementarios a Top Compras' AS Tipo_Recomendacion_Nombre
+    MAX(AR.Articulo_Nombre) AS Articulo_Nombre,
+    ROUND(MAX(AR.Combined_Score) * 100, 2) AS Puntuacion,
+    ROW_NUMBER() OVER(PARTITION BY AR.Emp_Id, MTA.Monedero_Id ORDER BY MAX(AR.Combined_Score) DESC) AS Orden,
+    'CETC' AS Tipo_Recomendacion_Id,
+    'Complementarios con Existencias a Top Compras' AS Tipo_Recomendacion_Nombre
     --A.Articulos_Id_Relacionados AS Soporte,
     --A.Clientes_Compraron AS Clientes_Compraron
 FROM Articulos_Relacionados AS AR
@@ -231,8 +232,16 @@ INNER JOIN ExistenciasVentas EC
     AND S.Municipio_Id = EC.Municipio_Id
     AND S.Ciudad_Id = EC.Ciudad_Id
     AND AR.Articulo_Id_Relacionado = EC.Articulo_Id
-    WHERE EC.Cantidad_Existencia > 0
+GROUP BY 
+    AR.Emp_Id,
+    MTA.Monedero_Id,
+    AR.Articulo_Id_Relacionado
 )
+--Final
+SELECT *,
+    GETDATE() AS Fecha_Actualizado
+FROM
+(
 SELECT ISNULL(Emp_Id,0) AS Emp_Id,
     ISNULL(Cliente_Id,0) AS Cliente_Id,
     ISNULL(Articulo_Id,0) AS Codigo_Articulo,
@@ -240,7 +249,7 @@ SELECT ISNULL(Emp_Id,0) AS Emp_Id,
     -1 AS Puntuacion,
     Orden,
     'RHE' AS Tipo_Recomendacion_Id,
-    'Recetas para Hoy con Existencias' AS Tipo_Recomendacion_Nombre
+    'Recetados para Hoy con Existencias' AS Tipo_Recomendacion_Nombre
 FROM RecetasHoyClienteArticuloExisteCiudad RH
 WHERE Orden <=5
 UNION ALL
@@ -251,8 +260,8 @@ SELECT ISNULL(Emp_Id,0) AS Emp_Id,
     Articulo_Nombre,
     ROUND(Combined_Score * 100, 2) AS Puntuacion,
     5+Rank AS Orden,
-    'MC' AS Tipo_Recomendacion_Id,
-    'Mas Comprados por el Cliente' AS Tipo_Recomendacion_Nombre
+    'MCE' AS Tipo_Recomendacion_Id,
+    'Mas Comprados por el Cliente con Existencias' AS Tipo_Recomendacion_Nombre
 FROM TopComprasExisteCiudad
 WHERE Rank <= 2
 -- Complementario a Receta
@@ -279,5 +288,4 @@ SELECT ISNULL(Emp_Id,0) AS Emp_Id,
     Tipo_Recomendacion_Nombre 
 FROM ComplementarioTopCompras
 WHERE Orden <= 2
-
-
+) X

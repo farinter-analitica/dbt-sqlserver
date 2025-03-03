@@ -1,10 +1,20 @@
-{%- set unique_key_list = ["Contactar_El","Emp_Id","Sucursal_Id","Ciclo","Receta_Id","Linea_Id"] -%}
+{%- set unique_key_list = ["Emp_Id","Sucursal_Id","Contactar_El","Ciclo","Receta_Id","Linea_Id"] -%}
 
 {{ 
     config(
-		tags=["periodo/diario"],
-        materialized="view",
-    )
+		as_columnstore=true,
+		tags=["periodo/diario","periodo_unico/si"],
+		materialized="table",
+		incremental_strategy="farinter_merge",
+		unique_key=unique_key_list,
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
+		post_hook=[
+        "{{ dwh_farinter_remove_incremental_temp_table() }}",
+        "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+
+        ]
+	) 
 }}
 
 -- Solo editable en DBT DAGSTER
@@ -252,12 +262,12 @@ RCReparticion AS (
         AND RCO.Contactar_El_MinSemana = VSO.Fecha_Calendario
         AND RCO.Vendedor_Sucursal_Orden = VSO.Vendedor_Sucursal_Orden
 ) --SELECT * FROM RCReparticion ORDER BY Pais_Id, Sucursal_Id, Identidad_Sucursal_Orden
-SELECT RCReparticion.Pais_Id,
-    RCReparticion.Emp_Id,
-    RCR2.Sucursal_Id,
-    SUC.Sucursal_Nombre,
-    RCReparticion.Sucursal_Id AS Sucursal_Id_Original,
-    RCReparticion.Sucursal_Nombre AS Sucursal_Nombre_Original,
+SELECT ISNULL(RCReparticion.Pais_Id,0) AS Pais_Id,
+    ISNULL(RCReparticion.Emp_Id,0) AS Emp_Id,
+    ISNULL(RCR2.Sucursal_Id,0) AS Sucursal_Id,
+    ISNULL(SUC.Sucursal_Nombre,'') AS Sucursal_Nombre,
+    ISNULL(RCR2.Sucursal_Id,0) AS Sucursal_Id_Original,
+    ISNULL(RCReparticion.Sucursal_Nombre,'') AS Sucursal_Nombre_Original,
     RCReparticion.Fecha_Compra,
     RCReparticion.Identidad,
     RCReparticion.Cliente_Nombre,
@@ -269,11 +279,11 @@ SELECT RCReparticion.Pais_Id,
     ) Comprado_Presentacion,
     RCReparticion.Indicacion_Receta,
     RCR2.Vendedor_Id,
-    RCReparticion.Receta_Id,
-    RCReparticion.Linea_Id,
+    ISNULL(RCReparticion.Receta_Id,0) AS Receta_Id,
+    ISNULL(RCReparticion.Linea_Id,0) AS Linea_Id,
     V.Empleado_Nombre,
-    RCReparticion.Contactar_El_MinSemana AS Contactar_El,
-    RCReparticion.Ciclo,
+    ISNULL(RCReparticion.Contactar_El_MinSemana,'19000101') AS Contactar_El,
+    ISNULL(RCReparticion.Ciclo,0) AS Ciclo,
     RCReparticion.Indicador_A_Tiempo,
     RCReparticion.Fecha_Receta,
     RCReparticion.Consumo_Diario,
