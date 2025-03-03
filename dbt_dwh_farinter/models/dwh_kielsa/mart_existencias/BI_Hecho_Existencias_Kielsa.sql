@@ -3,7 +3,7 @@
     config(
 		as_columnstore=true,
 		materialized="table",
-		tags=["periodo/diario","periodo/por_hora","periodo/por_hora_adicional"],
+		tags=["periodo/diario","periodo/por_hora","periodo/por_hora_adicional", "detener_carga/si"],
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		on_schema_change="fail",
