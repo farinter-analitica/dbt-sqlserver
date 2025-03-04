@@ -3,15 +3,15 @@
 Para instalar los requisitos en un entorno virtual:
 
 ```bash
-# Opción 1: Instalación manual
+# Opción 1: Usando el script de desarrollo
+python scripts/deployment.py dev
+
+# Opción 2: Instalación manual (esto no realiza todos los procedimientos para dev.)
 python3.12 -m venv .venv_main_dagster
 
 pip install -e dagster_shared_gf --config-settings editable_mode=compat
 pip install -e dagster_sap_gf --config-settings editable_mode=compat
 pip install -e dagster_kielsa_gf --config-settings editable_mode=compat
-
-# Opción 2: Usando el script de desarrollo
-python scripts/deployment.py dev
 ```
 
 ## Configuración de GitHub ##
