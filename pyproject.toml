@@ -15,3 +15,6 @@ testpaths = [
     "dagster_sap_gf/dagster_sap_gf_tests",
     "dagster_kielsa_gf/dagster_kielsa_gf_tests",
 ]
+
+[tool.main_dagster]
+python_version = "3.12"  # Explicitly specify the required Python version

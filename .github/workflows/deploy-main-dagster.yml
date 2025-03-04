@@ -40,8 +40,13 @@ jobs:
           fi
           
           # Check for Python version changes
-          if echo "$CHANGED_FILES" | grep -q "\.python-version\|scripts/deployment.py"; then
-            echo "python_version=true" >> $GITHUB_OUTPUT
+          if echo "$CHANGED_FILES" | grep -q "pyproject.toml"; then
+            # Check if the Python version specifically changed
+            if git diff HEAD^ HEAD -- pyproject.toml | grep -q "python_version"; then
+              echo "python_version=true" >> $GITHUB_OUTPUT
+            else
+              echo "python_version=false" >> $GITHUB_OUTPUT
+            fi
           else
             echo "python_version=false" >> $GITHUB_OUTPUT
           fi
