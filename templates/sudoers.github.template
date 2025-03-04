@@ -3,4 +3,8 @@ analiticasu ALL=(ALL) NOPASSWD:/opt/main_dagster*/.venv*/bin/python /opt/main_da
 analiticasu ALL=(ALL) NOPASSWD:  /bin/systemctl status dagster_*_webserver, \
   /bin/systemctl status dagster_*_daemon, \
   /bin/systemctl restart dagster_*_webserver, \
-  /bin/systemctl restart dagster_*_daemon
+  /bin/systemctl restart dagster_*_daemon, \
+  /bin/systemctl stop dagster_*_webserver, \
+  /bin/systemctl stop dagster_*_daemon, \
+  /bin/systemctl start dagster_*_webserver, \
+  /bin/systemctl start dagster_*_daemon
