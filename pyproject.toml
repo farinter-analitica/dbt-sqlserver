@@ -1,7 +1,7 @@
 [tool.pyright]
 venvPath = "."
 venv = ".venv_main_dagster"
-typeCheckingMode = "basic"
+typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
 env_files = [".env", ".env.test"]
