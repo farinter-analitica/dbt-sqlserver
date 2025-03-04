@@ -98,20 +98,19 @@ jobs:
           git checkout ${GITHUB_REF#refs/heads/}
           git pull --rebase origin ${GITHUB_REF#refs/heads/}
 
-      - name: Process DBT Files
-        run: |
-          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
-          python "${{ env.DEPLOY_DIR }}/dbt_dwh_farinter/autoload_dbt_deploy.py"
-
       - name: Run Deployment
         env:
           ENV: ${{ env.ENV }}
           DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
         run: |
           cd ${{ env.DEPLOY_DIR }}
-          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
-          python "${{ env.DEPLOY_DIR }}/scripts/deployment.py" ${{ needs.detect-changes.outputs.deployment_type }}
+          python3.12 "${{ env.DEPLOY_DIR }}/scripts/deployment.py" ${{ needs.detect-changes.outputs.deployment_type }}
           echo "Executed deployment strategy: ${{ needs.detect-changes.outputs.deployment_type }}"
+
+      - name: Process DBT Files
+        run: |
+          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
+          python "${{ env.DEPLOY_DIR }}/dbt_dwh_farinter/autoload_dbt_deploy.py"
 
       - name: Verify Deployment Status
         if: always()

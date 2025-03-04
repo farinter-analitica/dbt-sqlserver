@@ -276,14 +276,17 @@ def install_deps(pip_bin, dev=False):
         run_cmd(cmd, error_msg="Dependency installation failed")
 
 
-def restart_services(env):
+def manage_services(env, action: str = "restart"):
     """Restart the dagster services."""
-    print("Restarting services...")
+    if action not in ["start", "stop", "restart"]:
+        raise ValueError("Invalid action. Use 'start', 'stop', or 'restart'.")
+
+    print(f"Managing services: {action}")
     service1 = f"dagster_{env}_webserver"
     service2 = f"dagster_{env}_daemon"
     run_cmd(
-        ["sudo", "systemctl", "restart", service1, service2],
-        error_msg="Service restart failed",
+        ["sudo", "systemctl", action, service1, service2],
+        error_msg=f"Service {action} failed",
         capture=False,
     )
 
@@ -305,7 +308,7 @@ def deploy_fast():
     env, deploy_dir, venv_dir, python_bin, pip_bin = set_vars()
     print("Performing fast deployment (dependencies only)...")
     install_deps(pip_bin)
-    restart_services(env)
+    manage_services(env)
 
 
 def deploy_partial():
@@ -314,10 +317,11 @@ def deploy_partial():
     check_os()
     env, deploy_dir, venv_dir, python_bin, pip_bin = set_vars()
     print("Performing partial deployment (Python + dependencies)...")
+    manage_services(env, action="stop")
     manage_python_version(deploy_dir, venv_dir, python_bin, pip_bin)
     upgrade_pip(python_bin, pip_bin)
     install_deps(pip_bin)
-    restart_services(env)
+    manage_services(env)
 
 
 def deploy_full():
@@ -326,10 +330,12 @@ def deploy_full():
     check_os()
     env, deploy_dir, venv_dir, python_bin, pip_bin = set_vars()
     print("Performing full deployment (service template, Python, and dependencies)...")
+    manage_services(env, action="stop")
+    manage_python_version(deploy_dir, venv_dir, python_bin, pip_bin)
     upgrade_pip(python_bin, pip_bin)
     install_deps(pip_bin)
     generate_service(python_bin, deploy_dir)
-    restart_services(env)
+    manage_services(env)
 
 
 def setup_git(python_bin=None):
