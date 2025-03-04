@@ -10,6 +10,7 @@ REQUIRED_MAJOR = 3
 REQUIRED_MINOR = 11
 
 
+# This needs the template in sudo visudo /etc/sudoers.d/github-actions
 def get_python_candidates(required_version: str):
     """Return a list of candidate Python commands based on the required version."""
     major = required_version.split(".")[0]
