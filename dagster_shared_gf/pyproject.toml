@@ -63,7 +63,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "pytest-dotenv", "pyright", "ruff", "pre-commit"]
+external = [
+    "statstools_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v0.9.0#subdirectory=py_statstools_gf",
+]
+
+dev = [
+    "pytest",
+    "pytest-mock",
+    "pytest-dotenv",
+    "pyright",
+    "ruff",
+    "pre-commit",
+]
 
 [tool.setuptools]
 packages = ["dagster_shared_gf"]
