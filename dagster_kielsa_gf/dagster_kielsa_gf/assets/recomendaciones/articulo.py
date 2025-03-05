@@ -40,13 +40,9 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
     ins={
         "BI_Kielsa_Hecho_FacturaPosicion": In(
             dagster_type=Nothing,
-            asset_key=AssetKey(
-                ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaPosicion"]
-            ),
         ),
         "BI_Kielsa_Dim_Articulo": In(
             dagster_type=Nothing,
-            asset_key=AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Articulo"]),
         ),
     },
     out={
@@ -512,15 +508,11 @@ def save_article_recommendations(
             name="BI_Kielsa_Hecho_FacturaPosicion",
             dagster_type=Nothing,
             description="Fact table with invoice positions",
-            asset_key=AssetKey(
-                ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaPosicion"]
-            ),
         ),
         InputDefinition(
             name="BI_Kielsa_Dim_Articulo",
             dagster_type=Nothing,
             description="Dim table with articles",
-            asset_key=AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Articulo"]),
         ),
     ],
 )
@@ -532,6 +524,14 @@ def articulo_recomendacion_graph(**kwargs):
 
 DL_Kielsa_Articulo_ArticuloRelacionado = AssetsDefinition.from_graph(
     graph_def=articulo_recomendacion_graph,
+    keys_by_input_name={
+        "BI_Kielsa_Hecho_FacturaPosicion": AssetKey(
+            ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaPosicion"]
+        ),
+        "BI_Kielsa_Dim_Articulo": AssetKey(
+            ["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Articulo"]
+        ),
+    },
     keys_by_output_name={
         "result": AssetKey(
             ["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_ArticuloRelacionado"]
