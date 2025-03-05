@@ -60,6 +60,7 @@ dependencies = [
     "ydata-profiling",
     "psycopg[binary,pool]",
     "wheel",
+    "ipython",
 ]
 
 [project.optional-dependencies]
