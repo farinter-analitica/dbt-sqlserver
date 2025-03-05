@@ -53,3 +53,8 @@ retention:
       skipped: 7
       failure: 30
       success: 90 # keep success ticks indefinitely
+
+run_retries:
+  enabled: true # Omit this key if using Dagster+, since run retries are enabled by default
+  max_retries: 1
+  retry_on_asset_or_op_failure: false # Retry on unexepcted run termination
