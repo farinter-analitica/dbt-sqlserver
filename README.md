@@ -15,11 +15,29 @@ pip install -e dagster_kielsa_gf --config-settings editable_mode=compat
 ```
 
 ## Configuración de GitHub ##
-Se requiere la creación de un token para clonar o configurar el repositorio remoto:
+Se requiere la creación de un token o una llave ssh para clonar o configurar el repositorio remoto:
+
 ```bash
 git clone https://<MYTOKEN>@github.com/org-name/repo-name.git
 git add origin https://<MYTOKEN>@github.com/org-name/repo-name.git
 ```
+
+### Configuración de Llaves SSH para Repos Privados ###
+Para acceder a repositorios privados como dependencias, es necesario configurar llaves SSH:
+
+```bash
+# Verificar llaves SSH existentes
+python scripts/deployment.py check-deploy-key
+
+# Generar una nueva llave SSH para un repositorio específico
+python scripts/deployment.py setup-deploy-key --repo=algoritmos-gf --org=farinter-analitica
+
+# Probar la conexión SSH a un repositorio
+python scripts/deployment.py test-deploy-key --repo=algoritmos-gf --org=farinter-analitica
+```
+
+Después de generar la llave, agrégala como deploy key en la configuración del repositorio en GitHub:
+https://github.com/farinter-analitica/algoritmos-gf/settings/keys
 
 ## Configuración Local ##
 1. Crear los archivos de configuración basándose en los archivos .sample
@@ -61,6 +79,18 @@ El sistema cuenta con despliegue automático a través de GitHub Actions:
   - Ejecuta la estrategia de despliegue correspondiente
   - Verifica el estado de los servicios
 
+## Dependencias Externas ##
+El proyecto utiliza dependencias externas de repositorios privados:
+
+```toml
+[project.optional-dependencies]
+external = [
+    "statstools_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v0.9#subdirectory=py_statstools_gf",
+]
+```
+
+Estas dependencias requieren llaves SSH configuradas correctamente. El script de despliegue intentará instalarlas, pero continuará el despliegue incluso si fallan.
+
 ## Pruebas y Commits ##
 
 ### Pre-Commit ###
@@ -69,7 +99,6 @@ Se utiliza pre-commit para ejecutar pruebas estaticas y formatear el código ant
 vez puede tardar un poco en instalar las dependencias.
 
 ### Publicacion ###
-
 
 Antes de publicar commits, ejecutar manualmente las pruebas usando:
 
