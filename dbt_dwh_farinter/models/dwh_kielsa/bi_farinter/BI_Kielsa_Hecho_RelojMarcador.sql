@@ -35,17 +35,19 @@
 -- 1: Registros con más de 18 horas entre entrada y salida o sin hora de salida
 -- 2: Registros con 1 hora o menos entre entrada y salida
 -- 3: Registros con marcación fuera del rango permitido de la sucursal (±2 horas)
--- 4: TODO -> Validar contra existencia de facturas del empleado en el día
--- 5: TODO -> Validar contra cierres de caja del empleado
--- 6: TODO -> Validar contra registros de inicio de sesión del empleado
+-- 4: TODO -> Revisar las alertas y permisos (Olma Romero lo mencionó en reunion 20250306) para ayudar a determinar el horario real
+-- 5: TODO -> Validar contra existencia de facturas del empleado en el día
+-- 6: TODO -> Validar contra cierres de caja del empleado
+-- 7: TODO -> Validar contra registros de inicio de sesión del empleado
 
 -- Reglas de corrección aplicadas:
 -- 1: Para sospechosos tipo 1: Se mantiene entrada y se calcula salida usando promedio de horas
 -- 2: Para sospechosos tipo 2/-2: Se corrige según proximidad a horario apertura/cierre
 -- 3: Para sospechosos tipo 3: Se ajusta al límite permitido (±2 horas del horario)
--- 4: TODO -> Corrección basada en evidencia de facturas 
--- 5: TODO -> Corrección basada en cierres de caja
--- 6: TODO -> Corrección basada en evidencias para rangos vacios sobrantes de registros invalidos
+-- 4: TODO -> Corrección basada en las alertas y permisos aplicables
+-- 5: TODO -> Corrección basada en evidencia de facturas 
+-- 6: TODO -> Corrección basada en cierres de caja
+-- 7: TODO -> Corrección basada en evidencias para rangos vacios sobrantes de registros invalidos
 
 WITH Marcador_Base AS (
     SELECT --TOP 2
