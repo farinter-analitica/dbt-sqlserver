@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Centro_Almacen_Id","Material_Id","Sociedad_Id","Gpo_Cliente"] %}
+{% set unique_key_list = ["Material_Id","Fecha_Id","Centro_Almacen_Id","Sociedad_Id","Gpo_Cliente"] %}
 {{ 
     config(
 		as_columnstore=true,
@@ -10,6 +10,7 @@
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
+        "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental()) }}",
         ]
 	) 
 }}
@@ -20,17 +21,18 @@
 {% set v_anio_mes_inicio =  v_fecha_inicio[:6]  %}
 
 SELECT --top 100
-		S.Sociedad_Id as Sociedad_Id
-		, E1.Almacen_Id AS Centro_Almacen_Id
-		, C.Material_Id AS Material_Id
-		, A.GrupoClientes_Nombre AS Gpo_Cliente
+		ISNULL(S.Sociedad_Id, 'OTROS') as Sociedad_Id
+		, ISNULL(E1.Almacen_Id, 'X') AS Centro_Almacen_Id
+		, ISNULL(C.Material_Id, 'X') AS Material_Id
+		, ISNULL(A.GrupoClientes_Nombre, 'OTROS') AS Gpo_Cliente
 		, CONVERT(INT, A.Anio_Id) AS Anio_Id
 		, CONVERT(INT, A.Mes_Id) AS Mes_Id
-        , DATEFROMPARTS(A.Anio_Id, A.Mes_Id, 1) AS Fecha_Id
+        , ISNULL(DATEFROMPARTS(A.Anio_Id, A.Mes_Id, 1), '19000101') AS Fecha_Id
 		, COALESCE(SUM(CASE WHEN A.TipoDocumento_Id IN ( 'M', 'P' ) THEN A.Cantidad_SKU ELSE 0 END), 0) AS Demanda_Positiva
-            --Deberian ser pedidos de los clientes, sin embargo, los pedidos es lo mismo que la factura practicamente en Farinter, inlcuyendo facturas M, Anulaciones N, y notas de debito P
+            --Deberian ser pedidos de los clientes, sin embargo, los pedidos es lo mismo que la factura practicamente en Farinter
+			--incluyendo facturas M, y notas de debito P
 		, COALESCE(SUM(CASE WHEN A.TipoDocumento_Id IN ( 'O') THEN A.Cantidad_SKU ELSE 0 END), 0) AS Demanda_Negativa
-            --Deberian ser solo devoluciones de facturas recientes de los clientes, sin embargo, incluyendo Notas de Credito N y anulaciones S
+            --Deberian ser solo devoluciones de facturas recientes de los clientes, sin embargo, incluyendo notas de credito O
         , COALESCE(SUM(CASE WHEN A.TipoDocumento_Id IN ( 'O') THEN A.Cantidad_SKU ELSE 0 END), 0)  AS Vencidos_Entrada
             --Duplicado mientras se encuentra la logica para separarlo
 		, MAX(B.Gpo_Obs_Nombre_Corto) AS Gpo_Obs_Nombre_Corto
@@ -57,8 +59,8 @@ SELECT --top 100
 		WHERE V.Anio_Calendario >= YEAR(DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE()))))
 			AND V.Fecha_Id > DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE())))
 			AND V.Fecha_Id <= DATEADD(MONTH, -1, EOMONTH(GETDATE()))
-			AND (V.Indicador_Anulado = '' OR V.Indicador_Anulado IS NULL)
-			AND V.TipoDocumento_Id IN ( 'M',  'O', 'P' )
+			AND (V.Indicador_Anulado = '' OR V.Indicador_Anulado IS NULL) --Solo lo que no fue anulado
+			AND V.TipoDocumento_Id IN ( 'M',  'O', 'P' ) --Solo las categorias tipo en uso
 		) A
 	INNER JOIN dbo.BI_Dim_Articulo_SAP C -- {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }}
 		ON A.Articulo_Id = C.Articulo_Id
@@ -70,7 +72,8 @@ SELECT --top 100
 		ON A.Centro_Id = D.Centro_Id
 	INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1 -- {{ source('DL_FARINTER', 'DL_Edit_AlmacenFP_SAP') }}
 		ON A.Almacen_Id = E1.Almacen_Id
-	WHERE E1.Planificado = 'S'	--and B.Gpo_Obs_Id = 'COINS' --and A.Sociedad_Id = '1200' 
+	WHERE E1.Planificado = 'S'	--Solo lo planificado
+	--and B.Gpo_Obs_Id = 'COINS' --and A.Sociedad_Id = '1200' 
         AND A.Sociedad_Id IN ( '1200', '1300', '1301', '1700', '2500' )
     --AND  A.Sociedad_Id = '1200' and B.Gpo_Obs_Id = 'FIC' --and B.Gpo_Obs_Id = 'COINS'  --AND A.Sociedad_Id = '1200'   --
     GROUP BY S.Sociedad_Id
