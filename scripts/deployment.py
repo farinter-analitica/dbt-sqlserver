@@ -736,9 +736,7 @@ def setup_git(python_bin=None):
     return True
 
 
-def dev():
-    """Set up a platform-agnostic development environment."""
-    print("Setting up development environment...")
+def get_dev_dirs():
     deploy_dir = os.path.abspath(os.getcwd())
     venv_dir = os.path.join(deploy_dir, ".venv_main_dagster")
     bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
@@ -748,6 +746,13 @@ def dev():
     print(f"Venv dir: {venv_dir}")
     print(f"Python bin: {python_bin}")
     print(f"Pip bin: {pip_bin}")
+    return deploy_dir, venv_dir, python_bin, pip_bin
+
+
+def dev():
+    """Set up a platform-agnostic development environment."""
+    print("Setting up development environment...")
+    deploy_dir, venv_dir, python_bin, pip_bin = get_dev_dirs()
     manage_python_version(deploy_dir, venv_dir, python_bin, pip_bin)
     upgrade_pip(python_bin, pip_bin)
     install_deps(pip_bin, dev=True)
@@ -767,6 +772,7 @@ def main():
             "deploy-fast",
             "deploy-continuous",
             "dev",
+            "install-deps",
             "setup-git",
             "check-deploy-key",
             "setup-deploy-key",
@@ -777,10 +783,24 @@ def main():
     # Add optional arguments for the deploy key commands
     parser.add_argument("--repo", default=None, help="Repository name for deploy keys")
     parser.add_argument(
-        "--org", default=None, help="GitHub organization for repository"
+        "--org",
+        default=None,
+        help="setup-deploy-key GitHub organization for repository",
     )
     parser.add_argument(
-        "--force", action="store_true", help="Force creation of new deploy key"
+        "--force",
+        action="store_true",
+        help="setup-deploy-key Force creation of new deploy key",
+    )
+    parser.add_argument(
+        "--only-external",
+        action="store_true",
+        help="install-deps Only install external dependencies",
+    )
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="install-deps Install development dependencies",
     )
 
     args = parser.parse_args()
@@ -804,6 +824,9 @@ def main():
         return setup_deploy_keys(
             args.repo, args.org, setup=False, test=True, force_new=False
         )
+    elif args.command == "install-deps":
+        deploy_dir, venv_dir, python_bin, pip_bin = get_dev_dirs()
+        install_deps(pip_bin, dev=args.dev, only_external=args.only_external)
     else:
         # Handle existing commands
         commands = {
@@ -814,7 +837,10 @@ def main():
             "dev": dev,
             "setup-git": setup_git,
         }
-        commands[args.command]()
+        try:
+            commands[args.command]()
+        except KeyError:
+            print("Help: Run with --help for a list of commands.")
 
 
 if __name__ == "__main__":
