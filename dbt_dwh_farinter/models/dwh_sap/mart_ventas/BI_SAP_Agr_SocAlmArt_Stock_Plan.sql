@@ -30,18 +30,18 @@ SELECT --top 100
 		, (C.Sector_Id) AS Sector
 		, (C.Articulo_Nombre) AS Material_Nombre
 		, C.Articulo_Id
-	FROM 	dbo.BI_SAP_Hecho_ExistenciasHist V
-		INNER JOIN dbo.BI_Dim_Articulo_SAP C
+	FROM 	dbo.BI_SAP_Hecho_ExistenciasHist V -- {{ source('BI_FARINTER', 'BI_SAP_Hecho_ExistenciasHist') }}
+		INNER JOIN dbo.BI_Dim_Articulo_SAP C -- {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }}
 			ON V.Articulo_Id = C.Articulo_Id
-		INNER JOIN dbo.BI_Dim_Sociedad_SAP S
+		INNER JOIN dbo.BI_Dim_Sociedad_SAP S -- {{ source('BI_FARINTER', 'BI_Dim_Sociedad_SAP') }}
 			ON V.Sociedad_Id = S.Sociedad_Id
-		INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B
+		INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B -- {{ source('DL_FARINTER', 'DL_Planning_ParamSocMat') }}
 			ON S.Sociedad_Id = B.Sociedad_Id AND C.Articulo_Id = B.Articulo_Id
-		INNER JOIN dbo.BI_Dim_Centro_SAP D
+		INNER JOIN dbo.BI_Dim_Centro_SAP D -- {{ source('BI_FARINTER', 'BI_Dim_Centro_SAP') }}
 			ON V.Centro_Id = D.Centro_Id
-		INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1
+		INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1 -- {{ source('DL_FARINTER', 'DL_Edit_AlmacenFP_SAP') }}
 			ON V.Almacen_Id = E1.Almacen_Id 
-		INNER JOIN dbo.BI_Dim_Calendario CAL
+		INNER JOIN dbo.BI_Dim_Calendario CAL -- {{ source('BI_FARINTER', 'BI_Dim_Calendario') }}
 			ON V.AnioMes_Id = CAL.AnioMes_Id
 			AND V.Fecha_Id = CAL.Fecha_Id
 		WHERE CAL.Anio_Calendario >= YEAR(DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE()))))
