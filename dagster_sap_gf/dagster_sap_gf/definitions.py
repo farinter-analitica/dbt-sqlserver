@@ -11,6 +11,7 @@ from dagster_sap_gf.assets import (
     dbt_sources,
     sap_etl_dwh,
     sap_etl_dwh_sp,
+    control_demanda,
 )
 from dagster_sap_gf.dlt_defs.definitions import (
     all_assets as dlt_all_assets,
@@ -41,12 +42,14 @@ all_assets: Sequence[AssetsDefinition | Any] = (
     *sap_etl_dwh.all_assets,
     *sap_etl_dwh_sp.all_assets,
     *dlt_all_assets,
+    *control_demanda.all_assets,
 )
 
 all_asset_checks = (
     *sap_etl_dwh.all_asset_checks,
     *dbt_dwh_sap.all_asset_checks,
     *sap_etl_dwh_sp.all_asset_checks,
+    *control_demanda.all_asset_checks,
 )
 
 dbt_sources_assets: list = get_unique_source_assets(

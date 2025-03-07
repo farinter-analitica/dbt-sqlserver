@@ -1,5 +1,6 @@
 import importlib
 import pkgutil
+
 from typing import Any, Callable, Iterator, Union
 from collections import deque
 
@@ -13,12 +14,12 @@ from dagster import (
 from dagster_shared_gf import defs
 from dagster_shared_gf.shared_variables import tags_repo
 
-# def test_all_assets_loaded():
-#     assert all_assets.__len__()==load_assets_from_package_module(assets).__len__() , "All assets should be loaded"
-
 
 def apply_function_to_submodules(
-    function_to_apply: Callable, module_name: str, *args, **kwargs
+    function_to_apply: Callable,
+    module_name: str,
+    *args,
+    **kwargs,
 ) -> tuple:
     # tuple to store all instances from all submodules
     all_instances = deque()
@@ -33,12 +34,22 @@ def apply_function_to_submodules(
 
     for submodule_info in packages:
         submodule_name = submodule_info.name
+        # Ignore __init__ and __pycache__
+        if submodule_name.endswith("__init__") or submodule_name.endswith(
+            "__pycache__"
+        ):
+            continue
         submodule = importlib.import_module(submodule_name)
 
         # Execute the function in the context of the submodule
-        instances = function_to_apply(*args, **kwargs, modules=[submodule])
-        if instances is not None:
-            all_instances.extend(instances)
+        if submodule_info.ispkg:
+            # If it's a package, don't process, walk_packages returns all submodules recursively.
+            continue
+        else:
+            # Only apply the function to pure modules (.py files)
+            instances = function_to_apply(*args, **kwargs, modules=[submodule])
+            if instances is not None:
+                all_instances.extend(instances)
 
     return tuple(all_instances)
 

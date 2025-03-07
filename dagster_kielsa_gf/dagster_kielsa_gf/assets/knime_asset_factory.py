@@ -313,6 +313,9 @@ def create_knime_workflow_asset(
                 )
             return tuple(None for _ in wf.asset_keys)  # type: ignore
 
+    else:
+        raise ValueError(f"No asset found for workflow: {wf.knime_workflow}")
+
     return knime_workflow_asset
 
 
@@ -349,14 +352,16 @@ def knime_asset_creation_graph(
     )
 
 
-all_assets: tuple[AssetsDefinition, ...]
+all_assets: list[AssetsDefinition]
 # Build the context with the resourcesc
 resources = {"db_analitica_etl": db_analitica_etl}
 # context=build_op_context(resources=resources)
 dagster_logger_instance = get_dagster_logger(name="Independent")
-all_assets = knime_asset_creation_graph(
-    dagster_logger=dagster_logger_instance, db_analitica_etl=db_analitica_etl
-)
+all_assets = [  # El test y load_asset_from modules solo funciona con listas
+    *knime_asset_creation_graph(
+        dagster_logger=dagster_logger_instance, db_analitica_etl=db_analitica_etl
+    )
+]
 
 # Check for placeholders
 # if knime_wf_DWHFP_SalidaExportarAExcel.key not in [asset.key for asset in all_assets]:

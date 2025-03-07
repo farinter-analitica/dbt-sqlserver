@@ -346,12 +346,12 @@ mongodb_crm_hn_full_refresh_assets = dlt_mongodb_asset_factory(
 )
 
 # Enlistar todos los assets
-all_mongodb_hn_assets = (
+all_mongodb_hn_assets = [  # El test y load_asset_from modules solo funciona con listas
     *mongodb_crm_hn_updated_at_assets,
     *mongodb_crm_hn_person_assets,
     *mongodb_crm_hn_multi_assets,
     *mongodb_crm_hn_full_refresh_assets,
-)
+]
 
 all_mongodb_hn_source_assets = list(
     AssetSpec(

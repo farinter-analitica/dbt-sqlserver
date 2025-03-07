@@ -159,7 +159,9 @@ created_mongodb_assets = dlt_mongodb_asset_factory(
     base_pipeline_name="mongodb_ecommerce_hn",
 )
 
-all_mongodb_hn_assets = (*created_mongodb_assets,)
+all_mongodb_hn_assets = [  # El test y load_asset_from modules solo funciona con listas
+    *created_mongodb_assets,
+]
 
 
 all_mongodb_hn_source_assets = list(
