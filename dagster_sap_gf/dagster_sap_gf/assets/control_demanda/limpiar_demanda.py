@@ -34,7 +34,7 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 @op(
     ins={
-        "BI_SAP_Hecho_SocAlmArt_Stock_Plan": In(
+        "BI_SAP_Agr_SocAlmArt_Stock_Plan": In(
             dagster_type=Nothing,
         ),
     },
@@ -45,7 +45,7 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
         "meses_muestra": Field(int, is_required=False, default_value=12 * 5)
     },
 )
-def get_BI_SAP_Hecho_SocAlmArt_Stock_Plan_data(
+def get_BI_SAP_Agr_SocAlmArt_Stock_Plan_data(
     context: OpExecutionContext,
     dwh_farinter_bi: SQLServerResource,
 ) -> pl.DataFrame:
@@ -198,14 +198,12 @@ def save_demanda_procesada(
 
 @graph
 def articulo_recomendacion_graph(
-    BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan, BI_SAP_Hecho_SocAlmArt_Stock_Plan
+    BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan, BI_SAP_Agr_SocAlmArt_Stock_Plan
 ):
     df_demanda = get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
-        BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan
+        BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan
     )
-    df_stock = get_BI_SAP_Hecho_SocAlmArt_Stock_Plan_data(
-        BI_SAP_Hecho_SocAlmArt_Stock_Plan
-    )
+    df_stock = get_BI_SAP_Agr_SocAlmArt_Stock_Plan_data(BI_SAP_Agr_SocAlmArt_Stock_Plan)
     demanda_procesada_mddme = procesar_con_mddme_op(df_demanda, df_stock)
     return save_demanda_procesada(demanda_procesada_mddme)
 
@@ -213,11 +211,11 @@ def articulo_recomendacion_graph(
 BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia = AssetsDefinition.from_graph(
     graph_def=articulo_recomendacion_graph,
     keys_by_input_name={
-        "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan"]
+        "BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan": AssetKey(
+            ["BI_FARINTER", "dbo", "BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan"]
         ),
-        "BI_SAP_Hecho_SocAlmArt_Stock_Plan": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArt_Stock_Plan"]
+        "BI_SAP_Agr_SocAlmArt_Stock_Plan": AssetKey(
+            ["BI_FARINTER", "dbo", "BI_SAP_Agr_SocAlmArt_Stock_Plan"]
         ),
     },
     keys_by_output_name={
