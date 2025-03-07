@@ -167,9 +167,9 @@ def save_demanda_procesada(
                 "Gpo_Cliente",
             ),
             db_schema="dbo",
-            table_name="BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Limpia",
+            table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia",
             df=demanda_procesada,
-            temp_table_name="BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Limpia_NEW",
+            temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_NEW",
         )
 
         dwh_farinter_bi.execute_and_commit(
@@ -198,31 +198,31 @@ def save_demanda_procesada(
 
 @graph
 def articulo_recomendacion_graph(
-    BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Plan, BI_Kielsa_Hecho_SocAlmArt_Stock_Plan
+    BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan, BI_SAP_Hecho_SocAlmArt_Stock_Plan
 ):
     df_demanda = get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
-        BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Plan
+        BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan
     )
     df_stock = get_BI_SAP_Hecho_SocAlmArt_Stock_Plan_data(
-        BI_Kielsa_Hecho_SocAlmArt_Stock_Plan
+        BI_SAP_Hecho_SocAlmArt_Stock_Plan
     )
     demanda_procesada_mddme = procesar_con_mddme_op(df_demanda, df_stock)
     return save_demanda_procesada(demanda_procesada_mddme)
 
 
-BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Limpia = AssetsDefinition.from_graph(
+BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia = AssetsDefinition.from_graph(
     graph_def=articulo_recomendacion_graph,
     keys_by_input_name={
-        "BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Plan": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Plan"]
+        "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan": AssetKey(
+            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Plan"]
         ),
-        "BI_Kielsa_Hecho_SocAlmArt_Stock_Plan": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_SocAlmArt_Stock_Plan"]
+        "BI_SAP_Hecho_SocAlmArt_Stock_Plan": AssetKey(
+            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArt_Stock_Plan"]
         ),
     },
     keys_by_output_name={
         "result": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Limpia"]
+            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia"]
         )
     },
     tags_by_output_name={
@@ -242,7 +242,7 @@ if __name__ == "__main__":
         dwh_farinter_bi,
     )
 
-    # print(DL_Kielsa_Articulo_ArticuloRelacionado.asset_deps)
+    # print(DL_SAP_Articulo_ArticuloRelacionado.asset_deps)
     start_time = datetime.now()
     with instance_for_test() as instance:
         from dagster import ResourceDefinition
@@ -260,7 +260,7 @@ if __name__ == "__main__":
         mock_dwh_farinter_dl = ResourceDefinition.mock_resource()
 
         result = materialize(
-            assets=[mock_between_asset, BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Limpia],
+            assets=[mock_between_asset, BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia],
             instance=instance,
             resources={
                 "dwh_farinter_dl": dwh_farinter_dl,
@@ -271,7 +271,7 @@ if __name__ == "__main__":
         )
         print(
             result.output_for_node(
-                BI_Kielsa_Hecho_SocAlmArtGpoCli_Demanda_Limpia.node_def.name
+                BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia.node_def.name
             )
         )
 
@@ -283,11 +283,11 @@ if __name__ == "__main__":
     # SELECT TOP (1000) AR.*
     # 		,A.Articulo_Nombre
     # 	    ,A2.Articulo_Nombre AS Relacionado
-    #   FROM [DL_FARINTER].[dbo].[DL_Kielsa_Articulo_ArticuloRelacionado] AR
-    #   INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A
+    #   FROM [DL_FARINTER].[dbo].[DL_SAP_Articulo_ArticuloRelacionado] AR
+    #   INNER JOIN BI_FARINTER.dbo.BI_SAP_Dim_Articulo A
     #   ON A.Emp_Id=1
     #   AND AR.Articulo_Id = A.Articulo_Id
-    #     INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A2
+    #     INNER JOIN BI_FARINTER.dbo.BI_SAP_Dim_Articulo A2
     #   ON A2.Emp_Id=1
     #   AND AR.Articulo_Id_Relacionado = A2.Articulo_Id
     #   WHERE A.Articulo_Id = '1110000125'
