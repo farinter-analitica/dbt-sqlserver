@@ -69,9 +69,8 @@ def get_BI_SAP_Hecho_SocAlmArt_Stock_Plan_data(
         ,[Material_Nombre]
         ,[Articulo_Id]
     FROM [BI_FARINTER].[dbo].[BI_SAP_Hecho_SocAlmArt_Stock_Plan]
-    WHERE Gpo_Obs_Nombre_Corto 
-            IN ('Farma_Imp_Cod','Farma_Imp_Exc','Cons_Imp_Exc')
-        AND Fecha_Id >= '{fecha_desde.strftime("%Y%m%d")}'
+    WHERE Fecha_Id >= '{fecha_desde.strftime("%Y%m%d")}'
+    --AND Gpo_Obs_Nombre_Corto IN ('Farma_Imp_Cod','Farma_Imp_Exc','Cons_Imp_Exc')        
     """
     main_query = (
         pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
@@ -121,9 +120,8 @@ def get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
         ,[Material_Nombre]
         ,[Articulo_Id]
     FROM [BI_FARINTER].[dbo].[BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan]
-    WHERE Gpo_Obs_Nombre_Corto 
-            IN ('Farma_Imp_Cod','Farma_Imp_Exc','Cons_Imp_Exc')
-        AND Fecha_Id >= '{fecha_desde.strftime("%Y%m%d")}'
+    WHERE Fecha_Id >= '{fecha_desde.strftime("%Y%m%d")}'
+    --AND Gpo_Obs_Nombre_Corto IN ('Farma_Imp_Cod','Farma_Imp_Exc','Cons_Imp_Exc')        
     """
     main_query = (
         pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
@@ -166,7 +164,6 @@ def save_demanda_procesada(
                 "Material_Id",
                 "Fecha_Id",
                 "Centro_Almacen_Id",
-                "Sociedad_Id",
                 "Gpo_Cliente",
             ),
             db_schema="dbo",
