@@ -16,83 +16,9 @@
 }}
 
 --AXELL PADILLA -- 20230726
-SELECT
-	RD.idpais as Pais_Id
-	, ISNULL(RD.idpais,0) AS Emp_Id
-	, SUC.Sucursal_Id
-	, SUC.Sucursal_Nombre
-	, MED.nombre AS Nombre_Medico 
-	, RD.Usuario_Login as Usuario_Login
-	, RD.Vendedor_Id as Vendedor_Id
-	, RD.identidad as Identidad
-	, COALESCE(MOK.Monedero_Nombre,'N.E. (Revisar Id o Monedero)') AS Cliente_Nombre
-	, RD.articulo_id as Articulo_Id
-	, RD.articulo_nombre as Articulo_Nombre
-	, RD.Presentación as Presentacion
-	, RD.Tipo AS Presentacion_Tipo
-    , CONCAT(RD.idpais,'-',SUC.Sucursal_Id) AS EmpSuc_Id
-	, CONCAT(RD.idpais,'-',RD.Vendedor_Id) AS EmpVen_Id
-    , CONCAT(RD.idpais,'-',RD.Identidad) AS EmpMon_Id
-    , CONCAT(RD.idpais,'-',RD.Articulo_Id) AS EmpArt_Id
-	, ISNULL(RD.receta_id,0) AS Receta_Id
-    , CONCAT(RD.idpais,'-',RD.Receta_Id) AS EmpRec_Id
-	, ISNULL(RD.linea_id,0) AS Linea_Id
-	, CONCAT(RD.idpais,'-',RD.Receta_Id,'-',RD.Linea_Id) AS EmpRecLin_Id
-	, RD.fecha_Receta AS Fecha_Receta
-	, RD.Factura_Fecha as Fecha_Compra
-	, RD.cantidad_recetada as Cantidad_Recetada
-	, RD.dosis_cantidad as Dosis_Cantidad
-	, RD.periodo_tratamiento as Periodo_Tratamiento
-    , RD.periodo_tratamiento_dias as Periodo_Tratamiento_Dias
-	, RD.unidad_periodo as Unidad_Periodo
-	, RD.duracion_tratamiento as Duracion_Tratamiento
-	, RD.duracion_tratamiento_dias as Duracion_Tratamiento_Dias
-	, RD.unidad_duracion AS Unidad_Duracion
-	, RD.tipo_duracion AS Tipo_Duracion
-	, APF.Forma AS Forma_Medicamento
-	--, RD.AnioMes_Id
-	, RD.factura as Factura_Receta
-	, RD.consumo_diario AS Consumo_Diario
-	, RD.Comprado_Presentacion
-	, (RD.consumo_diario*duracion_tratamiento_dias) AS Necesidad_Vida_Tratamiento
-	, (RD.consumo_diario*duracion_tratamiento_dias) - RD.Comprado_Presentacion AS Faltante_Vida_Tratamiento
-	, CASE WHEN ((RD.consumo_diario*duracion_tratamiento_dias) - RD.Comprado_Presentacion) > 0 THEN 'NO' ELSE 'SI' END AS Tratamiento_Completo
-	, CASE WHEN ((RD.consumo_diario*duracion_tratamiento_dias) - RD.Comprado_Presentacion) > 0 THEN 0 ELSE 1 END AS Indicador_Tratamiento_Completo
-	, RD.Uso as Uso_Medicamento	
-	, CAST(ROUND((1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), 2) AS DECIMAL(16, 4)) AS Dias_Stock_Comprados
-	, CAST(ROUND((1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), 2) AS DECIMAL(16, 4)) - DATEDIFF(DAY,Factura_Fecha,GETDATE()) AS Dias_Stock_Actual
-	, CONCAT(
-		[cantidad_recetada]
-		, ' ('
-		, APF.[Forma]
-		, '), '
-		, [dosis_cantidad]
-		, ' dosis cada '
-		, [periodo_tratamiento]
-		, ' ('
-		, [unidad_periodo]
-		, '), durante '
-		, [duracion_tratamiento]
-		, ' ('
-		, [unidad_duracion]
-		, ')') AS Indicacion_Receta
-	, DATEADD(DAY, (1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), ISNULL(Factura_Fecha, fecha_Receta)) AS Contactar_El
-	, CASE
-		WHEN CAST(GETDATE() AS DATE) <= DATEADD(DAY, (1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), ISNULL(Factura_Fecha, fecha_Receta))
-			THEN 'Si'
-		ELSE 'No'
-	END AS A_Tiempo
-	, CASE
-		WHEN CAST(GETDATE() AS DATE) <= DATEADD(DAY, (1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), ISNULL(Factura_Fecha, fecha_Receta))
-			THEN 1
-		ELSE 0
-	END AS Indicador_A_Tiempo
-	, ATR.Dia_Semana DiaSemana_Preferido
-	, ATR.Hora Hora_Preferida
-	, RD.AnioMes_Id
-	, GETDATE() AS Fecha_Actualizado
-FROM
-	(SELECT --top 100 
+WITH pre_calculos as 
+(
+	SELECT --top 100 
 		RC.idpais
 		, RC.suc_ingreso
 		, RC.fecha_Receta
@@ -194,7 +120,79 @@ FROM
     AND U.Emp_Id = 1 AND U.Numero_Por_Nombre = 1
 	WHERE RC.AnioMes_Id = YEAR(RC.fecha_receta) * 100 + MONTH(RC.fecha_receta) 
 		AND RC.fecha_Receta >= DATEADD(YEAR, -3, GETDATE())
-		) RD
+		)
+,Calculos as
+(
+SELECT
+	RD.idpais as Pais_Id
+	, ISNULL(RD.idpais,0) AS Emp_Id
+	, SUC.Sucursal_Id
+	, SUC.Sucursal_Nombre
+	, MED.nombre AS Nombre_Medico 
+	, RD.Usuario_Login as Usuario_Login
+	, RD.Vendedor_Id as Vendedor_Id
+	, RD.identidad as Identidad
+	, COALESCE(MOK.Monedero_Nombre,'N.E. (Revisar Id o Monedero)') AS Cliente_Nombre
+	, RD.articulo_id as Articulo_Id
+	, RD.articulo_nombre as Articulo_Nombre
+	, RD.Presentación as Presentacion
+	, RD.Tipo AS Presentacion_Tipo
+    , CONCAT(RD.idpais,'-',SUC.Sucursal_Id) AS EmpSuc_Id
+	, CONCAT(RD.idpais,'-',RD.Vendedor_Id) AS EmpVen_Id
+    , CONCAT(RD.idpais,'-',RD.Identidad) AS EmpMon_Id
+    , CONCAT(RD.idpais,'-',RD.Articulo_Id) AS EmpArt_Id
+	, ISNULL(RD.receta_id,0) AS Receta_Id
+    , CONCAT(RD.idpais,'-',RD.Receta_Id) AS EmpRec_Id
+	, ISNULL(RD.linea_id,0) AS Linea_Id
+	, CONCAT(RD.idpais,'-',RD.Receta_Id,'-',RD.Linea_Id) AS EmpRecLin_Id
+	, RD.fecha_Receta AS Fecha_Receta
+	, RD.Factura_Fecha as Fecha_Compra
+	, RD.cantidad_recetada as Cantidad_Recetada
+	, RD.dosis_cantidad as Dosis_Cantidad
+	, RD.periodo_tratamiento as Periodo_Tratamiento
+    , RD.periodo_tratamiento_dias as Periodo_Tratamiento_Dias
+	, RD.unidad_periodo as Unidad_Periodo
+	, RD.duracion_tratamiento as Duracion_Tratamiento
+	, RD.duracion_tratamiento_dias as Duracion_Tratamiento_Dias
+	, RD.unidad_duracion AS Unidad_Duracion
+	, RD.tipo_duracion AS Tipo_Duracion
+	, APF.Forma AS Forma_Medicamento
+	--, RD.AnioMes_Id
+	, RD.factura as Factura_Receta
+	, RD.consumo_diario AS Consumo_Diario
+	, RD.Comprado_Presentacion
+	, (RD.consumo_diario*duracion_tratamiento_dias) AS Necesidad_Vida_Tratamiento
+	, (RD.consumo_diario*duracion_tratamiento_dias) - RD.Comprado_Presentacion AS Faltante_Vida_Tratamiento
+	, CASE WHEN ((RD.consumo_diario*duracion_tratamiento_dias) - RD.Comprado_Presentacion) > 0 THEN 'NO' ELSE 'SI' END AS Tratamiento_Completo
+	, CASE WHEN ((RD.consumo_diario*duracion_tratamiento_dias) - RD.Comprado_Presentacion) > 0 THEN 0 ELSE 1 END AS Indicador_Tratamiento_Completo
+	, RD.Uso as Uso_Medicamento	
+	, CAST(ROUND((1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), 2) AS DECIMAL(16, 4)) AS Dias_Stock_Comprados
+	, CAST(ROUND((1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), 2) AS DECIMAL(16, 4)) - DATEDIFF(DAY,Factura_Fecha,GETDATE()) AS Dias_Stock_Actual
+	, CONCAT(
+		[cantidad_recetada]
+		, ' ('
+		, APF.[Forma]
+		, '), '
+		, [dosis_cantidad]
+		, ' dosis cada '
+		, [periodo_tratamiento]
+		, ' ('
+		, [unidad_periodo]
+		, '), durante '
+		, [duracion_tratamiento]
+		, ' ('
+		, [unidad_duracion]
+		, ')') AS Indicacion_Receta
+	, DATEADD(DAY, 
+		CASE 
+			WHEN ((1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0)) > 3650 THEN 3650 -- Cap at 10 years
+			ELSE ((1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0))
+		END, 
+		ISNULL(Factura_Fecha, fecha_Receta)) AS Contactar_El
+	, ATR.Dia_Semana DiaSemana_Preferido
+	, ATR.Hora Hora_Preferida
+	, RD.AnioMes_Id
+FROM  pre_calculos RD
 LEFT JOIN DL_FARINTER.dbo.DL_ArticulosPresentacionesFormas_ExcelTemp APF  --{{ source('DL_FARINTER', 'DL_ArticulosPresentacionesFormas_ExcelTemp') }}
 	ON APF.Id = RD.forma_medicamento_id
 LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Sucursal SUC --{{ ref('BI_Kielsa_Dim_Sucursal') }}
@@ -221,4 +219,18 @@ SELECT  top 100 * FROM VDL_Kielsa_RecetasCalculos  WHERE Tipo_Duracion = 'Perman
 --; Articulo_Id = '1110009008'
 
 */
+)
+SELECT * 
+	, CASE
+		WHEN CAST(GETDATE() AS DATE) <= Contactar_El
+			THEN 'Si'
+		ELSE 'No'
+	END AS A_Tiempo
+	, CASE
+		WHEN CAST(GETDATE() AS DATE) <= Contactar_El
+			THEN 1
+		ELSE 0
+	END AS Indicador_A_Tiempo
+	, GETDATE() AS Fecha_Actualizado
+FROM Calculos
 
