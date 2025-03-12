@@ -747,15 +747,25 @@ def process_dataframes(
 
     # Función para calcular la fecha inicial y final y rellenar
     # Fecha Final para el main
-    fechas_main = (
+    fechas_main_max = (
         current_hist.select("main", "main_stock", *llaves_grupo_hist)
         .unique()
         .with_columns(pl.lit(current_hist["Fecha_Id"].max()).alias("Fecha_Id"))
     )
+    fechas_main_min = (
+        current_stock.group_by("main_stock")
+        .agg(pl.col("Fecha_Id").min().alias("Fecha_Id"))
+        .join(fechas_main_max, on="main_stock", how="left")
+        .select("main", "main_stock", *llaves_grupo_hist, "Fecha_Id")
+    ).join(current_hist, on=["main", "main_stock", "Fecha_Id"], how="anti")
+
+    fechas_main_max = fechas_main_max.join(
+        current_hist, on=["main", "main_stock", "Fecha_Id"], how="anti"
+    )
 
     # Expandir fechas
     current_hist = (
-        pl.concat([current_hist, fechas_main], how="diagonal")
+        pl.concat([current_hist, fechas_main_max, fechas_main_min], how="diagonal")
         .with_columns(
             Fecha_Id=pl.col("Fecha_Id").dt.month_start(),
         )
@@ -801,7 +811,7 @@ def process_dataframes(
         stock_subset,
         on=["main_stock", "Fecha_Id"],
         how="left",
-    ).unique(subset=["main", "Fecha_Id"])
+    ).drop(pl.selectors.ends_with("_right"))
 
     current_hist = current_hist.with_columns(
         pl.col(metricas_hist).fill_nan(0).fill_null(0),
@@ -817,7 +827,7 @@ def process_dataframes(
         C_H,
         on=["main_stock", "Fecha_Id"],
         how="left",
-    )
+    ).drop(pl.selectors.ends_with("_right"))
 
     # print(current_hist.filter(pl.col("main").str.starts_with("G")).head(100))
     # print(current_hist.filter(pl.col("main").str.starts_with("G")).describe())

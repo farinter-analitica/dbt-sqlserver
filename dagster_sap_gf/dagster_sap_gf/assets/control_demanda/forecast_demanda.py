@@ -1,3 +1,4 @@
+from collections import deque
 import warnings
 from datetime import datetime
 
@@ -31,56 +32,7 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 @op(
     ins={
-        "BI_SAP_Agr_SocAlmArt_Stock_Plan": In(
-            dagster_type=Nothing,
-        ),
-    },
-    out={
-        "df_stock": Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
-    },
-    config_schema={
-        "meses_muestra": Field(int, is_required=False, default_value=12 * 5)
-    },
-)
-def get_BI_SAP_Agr_SocAlmArt_Stock_Plan_data(
-    context: OpExecutionContext,
-    dwh_farinter_bi: SQLServerResource,
-) -> pl.DataFrame:
-    meses_muestra = context.op_config["meses_muestra"]
-    fecha_desde = pdl.today().subtract(months=meses_muestra)
-
-    sql_query = f"""
-    SELECT {"TOP 10000" if env_str == "local" else ""}
-        [Sociedad_Id]
-        ,[Centro_Almacen_Id]
-        ,[Material_Id]
-        --,[Anio_Id]
-        --,[Mes_Id]
-        ,[Fecha_Id]
-        ,[Stock_Cierre]
-        ,[DiasSin_Stock]
-        --,[Gpo_Obs_Nombre_Corto]
-        --,[Gpo_Obs_Id]
-        ,[Gpo_Plan]
-        --,[Sector]
-        ,[Material_Nombre]
-        ,[Articulo_Id]
-    FROM [BI_FARINTER].[dbo].[BI_SAP_Hecho_SocAlmArt_Stock_Plan]
-    WHERE Fecha_Id >= '{fecha_desde.strftime("%Y%m%d")}'
-    --AND Gpo_Obs_Nombre_Corto IN ('Farma_Imp_Cod','Farma_Imp_Exc','Cons_Imp_Exc')        
-    """
-    main_query = (
-        pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
-        .lazy()
-        .cast({pl.Decimal: pl.Float64, pl.Date: pl.Datetime})
-        .collect(streaming=True)
-    )
-    return main_query
-
-
-@op(
-    ins={
-        "BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan": In(
+        "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia": In(
             dagster_type=Nothing,
         ),
     },
@@ -91,7 +43,7 @@ def get_BI_SAP_Agr_SocAlmArt_Stock_Plan_data(
         "meses_muestra": Field(int, is_required=False, default_value=12 * 5)
     },
 )
-def get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
+def get_BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_data(
     context: OpExecutionContext,
     dwh_farinter_bi: SQLServerResource,
 ) -> pl.DataFrame:
@@ -99,26 +51,20 @@ def get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
     fecha_desde = pdl.today().subtract(months=meses_muestra)
 
     sql_query = f"""
-    SELECT {"TOP 10000" if env_str == "local" else ""}
-        [Sociedad_Id]
-        ,[Centro_Almacen_Id]
+    SELECT {"top 10000" if env_str == "local" else ""} 
+        --[Sociedad_Id]
+        [Centro_Almacen_Id]
         ,[Material_Id]
         ,[Gpo_Cliente]
-        --,[Anio_Id]
-        --,[Mes_Id]
         ,[Fecha_Id]
-        ,[Demanda_Positiva]
-        ,[Demanda_Negativa]
-        ,[Vencidos_Entrada]
-        --,[Gpo_Obs_Nombre_Corto]
-        --,[Gpo_Obs_Id]
         ,[Gpo_Plan]
-        ,[Sector]
         ,[Material_Nombre]
-        ,[Articulo_Id]
-    FROM [BI_FARINTER].[dbo].[BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan]
+        --,[Articulo_Id]
+        ,[main]
+        ,[Limpios_Forecast] as [Ctd_Demanda]
+    FROM [BI_FARINTER].[dbo].[BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia]
     WHERE Fecha_Id >= '{fecha_desde.strftime("%Y%m%d")}'
-    --AND Gpo_Obs_Nombre_Corto IN ('Farma_Imp_Cod','Farma_Imp_Exc','Cons_Imp_Exc')        
+    {"AND Centro_Almacen_Id = '1350-5001'" if env_str == "local" else ""} 
     """
     main_query = (
         pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
@@ -136,35 +82,42 @@ def get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
         ),
     },
 )
-def procesar_con_mddme_op(
+def procesar_forecast(
     df_demanda: pl.DataFrame,
-    df_stock: pl.DataFrame,
 ) -> pl.DataFrame:
     # Importar dentro de la función para evitar errores de carga de librerias externas
     # Esto efectivamente permite que la ubicacion de codigo cargue aunque la libreria
     # no este instalada.
     try:
-        from dagster_sap_gf.assets.control_demanda.algoritmo_mddme import (
-            procesar_con_mddme,
-        )
+        from statstools_gf.forecast.forecast_functions import forecast_dataframe
     except ImportError as e:
         raise ImportError(f"Required forecast library unavailable: {str(e)}")
 
-    return procesar_con_mddme(df_demanda, df_stock, procesar_stats=True, umbral=0.4)
+    forecast_dfs = deque()
+    for main in df_demanda.partition_by("main"):
+        forecast_dfs.append(
+            forecast_dataframe(
+                main, time_col="Fecha_Id", value_col="Ctd_Demanda", forecast_horizon=16
+            ).with_columns(pl.col("Fecha_Id").cast(pl.Date).dt.month_end())
+        )
+
+    forecast = pl.concat(forecast_dfs, how="diagonal_relaxed")
+
+    return forecast
 
 
 @op
-def save_demanda_procesada(
-    dwh_farinter_bi: SQLServerResource, demanda_procesada: pl.DataFrame
+def save_forecast_procesado(
+    dwh_farinter_bi: SQLServerResource, forecast_procesado: pl.DataFrame
 ) -> None:
     if env_str == "local":
         with pl.Config() as c:
             c.set_tbl_rows(-1)
             c.set_tbl_cols(-1)
-            print(demanda_procesada.head(10))
-            print(demanda_procesada.describe())
+            print(forecast_procesado.head(10))
+            print(forecast_procesado.describe())
         return
-    print(f"Por guardar {len(demanda_procesada)} registros")
+    print(f"Por guardar {len(forecast_procesado)} registros")
     with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
         sg = SQLScriptGenerator(
             primary_keys=(
@@ -174,9 +127,9 @@ def save_demanda_procesada(
                 "Gpo_Cliente",
             ),
             db_schema="dbo",
-            table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia",
-            df=demanda_procesada,
-            temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_NEW",
+            table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast",
+            df=forecast_procesado,
+            temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast_NEW",
         )
 
         dwh_farinter_bi.execute_and_commit(
@@ -190,7 +143,7 @@ def save_demanda_procesada(
         )
 
         # First write as regular table
-        demanda_procesada.write_database(
+        forecast_procesado.write_database(
             table_name=sg.temp_table_name,
             connection=conn,
             if_table_exists="append",
@@ -204,30 +157,24 @@ def save_demanda_procesada(
 
 
 @graph
-def limpiar_demanda_graph(
-    BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan, BI_SAP_Agr_SocAlmArt_Stock_Plan
-):
-    df_demanda = get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
-        BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan
+def forecast_graph(BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia):
+    df_demanda = get_BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_data(
+        BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia
     )
-    df_stock = get_BI_SAP_Agr_SocAlmArt_Stock_Plan_data(BI_SAP_Agr_SocAlmArt_Stock_Plan)
-    demanda_procesada_mddme = procesar_con_mddme_op(df_demanda, df_stock)
-    return save_demanda_procesada(demanda_procesada_mddme)
+    forecast_procesado = procesar_forecast(df_demanda=df_demanda)
+    return save_forecast_procesado(forecast_procesado=forecast_procesado)
 
 
-BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia = AssetsDefinition.from_graph(
-    graph_def=limpiar_demanda_graph,
+BI_SAP_Hecho_SocAlmArtGpoCli_Forecast = AssetsDefinition.from_graph(
+    graph_def=forecast_graph,
     keys_by_input_name={
-        "BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan"]
-        ),
-        "BI_SAP_Agr_SocAlmArt_Stock_Plan": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_SAP_Agr_SocAlmArt_Stock_Plan"]
+        "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia": AssetKey(
+            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia"]
         ),
     },
     keys_by_output_name={
         "result": AssetKey(
-            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia"]
+            ["BI_FARINTER", "dbo", "BI_SAP_Hecho_SocAlmArtGpoCli_Forecast"]
         )
     },
     tags_by_output_name={
@@ -253,9 +200,7 @@ if __name__ == "__main__":
         from dagster import ResourceDefinition
 
         if env_str == "local":
-            warnings.warn(
-                "Running in local mode, using top 10000 rows and no loading to SQL Server"
-            )
+            warnings.warn("Running in local mode")
 
         @asset(name="between_asset")
         def mock_between_asset() -> int:
@@ -265,7 +210,7 @@ if __name__ == "__main__":
         mock_dwh_farinter_dl = ResourceDefinition.mock_resource()
 
         result = materialize(
-            assets=[mock_between_asset, BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia],
+            assets=[mock_between_asset, BI_SAP_Hecho_SocAlmArtGpoCli_Forecast],
             instance=instance,
             resources={
                 "dwh_farinter_dl": dwh_farinter_dl,
@@ -275,9 +220,7 @@ if __name__ == "__main__":
             },
         )
         print(
-            result.output_for_node(
-                BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia.node_def.name
-            )
+            result.output_for_node(BI_SAP_Hecho_SocAlmArtGpoCli_Forecast.node_def.name)
         )
 
     end_time = datetime.now()
