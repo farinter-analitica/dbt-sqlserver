@@ -751,13 +751,13 @@ def process_dataframes(
 
     # validar duplicados
     if (
-        current_hist.select(*llaves_grupo_hist, *llaves_fecha_hist).n_unique()
+        current_hist.n_unique(subset=(*llaves_grupo_hist, *llaves_fecha_hist))
         != current_hist.height
     ):
         raise ValueError("Hay duplicados en current_hist")
 
     if (
-        current_stock.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
+        current_stock.n_unique(subset=(*llaves_grupo_stock, *llaves_fecha_stock))
         != current_stock.height
     ):
         raise ValueError("Hay duplicados en current_stock")
@@ -770,15 +770,19 @@ def process_dataframes(
         .with_columns(pl.lit(current_hist["Fecha_Id"].max()).alias("Fecha_Id"))
     )
     fechas_main_min = (
-        current_stock.group_by("main_stock")
-        .agg(pl.col("Fecha_Id").min().alias("Fecha_Id"))
-        .join(fechas_main_max, on="main_stock", how="left")
-        .select("main", "main_stock", *llaves_grupo_hist, "Fecha_Id")
-    ).join(current_hist, on=["main", "main_stock", "Fecha_Id"], how="anti")
+        (
+            current_stock.group_by("main_stock")
+            .agg(pl.col("Fecha_Id").min().alias("Fecha_Id"))
+            .join(fechas_main_max, on="main_stock", how="left")
+            .select("main", "main_stock", *llaves_grupo_hist, "Fecha_Id")
+        )
+        .join(current_hist, on=["main", "main_stock", "Fecha_Id"], how="anti")
+        .unique()
+    )
 
     fechas_main_max = fechas_main_max.join(
         current_hist, on=["main", "main_stock", "Fecha_Id"], how="anti"
-    )
+    ).unique()
 
     # Expandir fechas
     current_hist = (
@@ -795,7 +799,7 @@ def process_dataframes(
             .dt.month_end()
             .alias("Fecha_Id"),  # Volver a Fecha Final para joins
         )
-    )
+    ).unique(subset=("Fecha_Id", "main"))
 
     # with pl.Config() as cfg:
     #     cfg.set_tbl_cols(-1)
@@ -877,6 +881,13 @@ def process_dataframes(
     #             .head(30)
     #         }"
     #     )
+
+    # validar duplicados
+    if (
+        current_hist.n_unique(subset=(*llaves_grupo_hist, *llaves_fecha_hist))
+        != current_hist.height
+    ):
+        raise ValueError("Hay duplicados en current_hist")
 
     return current_hist  # .head(10000)
 

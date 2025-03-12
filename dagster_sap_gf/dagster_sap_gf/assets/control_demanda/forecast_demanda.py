@@ -97,7 +97,11 @@ def procesar_forecast(
     for main in df_demanda.partition_by("main"):
         forecast_dfs.append(
             forecast_dataframe(
-                main, time_col="Fecha_Id", value_col="Ctd_Demanda", forecast_horizon=16
+                main,
+                time_col="Fecha_Id",
+                value_col="Ctd_Demanda",
+                forecast_horizon=16,
+                time_type="monthly",
             ).with_columns(pl.col("Fecha_Id").cast(pl.Date).dt.month_end())
         )
 
