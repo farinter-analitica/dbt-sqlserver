@@ -711,6 +711,19 @@ def process_dataframes(
         )
     )
 
+    # validar duplicados
+    if (
+        current_hist.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
+        != current_hist.height
+    ):
+        raise ValueError("Hay duplicados en current_hist")
+
+    if (
+        current_stock.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
+        != current_stock.height
+    ):
+        raise ValueError("Hay duplicados en current_stock")
+
     if not main_included:
         current_stock = current_stock.with_columns(
             main_stock=(pl.concat_str(llaves_grupo_stock, separator="/")),
