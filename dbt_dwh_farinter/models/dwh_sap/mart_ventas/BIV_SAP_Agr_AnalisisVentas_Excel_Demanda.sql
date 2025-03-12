@@ -17,7 +17,10 @@ sociedad_id	almacen_id	casa_id	material	material_nombre	grupo_cliente	gpo_client
 1200	1210-1005	C00004	12000281	CLOROX ORIGINAL GALON (3.79 L )	DRORISA	1301	202412	156.3	2	120.37	35.93	156.3
 
 #}
-
+{% set current_date = modules.datetime.datetime.now() %}
+{% set first_day_current_month = current_date.replace(day=1) %}
+{% set one_year_ago = first_day_current_month.replace(year=first_day_current_month.year-1) %}
+{% set v_fecha_desde = one_year_ago.strftime('%Y%m%d') %}
 SELECT 
     ALM.Sociedad_Id AS sociedad_id,
     DL.Centro_Almacen_Id AS almacen_id,
@@ -51,5 +54,5 @@ LEFT JOIN {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }} MAT
     ON DL.Material_Id = MAT.Material_Id
 LEFT JOIN {{ref('BI_SAP_Dim_GrupoCliente_Plan')}} GC
     ON DL.Gpo_Cliente = GC.GrupoClientes_Nombre
-WHERE DL.Fecha_Id >= DATEADD(MONTH, -13, GETDATE()) --12 MESES COMPLETOS
+WHERE DL.Fecha_Id >= '{{v_fecha_desde}}' --12 MESES COMPLETOS
 --AND DL.Fecha_Id < DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1) --ULTIMO MES COMPLETO
