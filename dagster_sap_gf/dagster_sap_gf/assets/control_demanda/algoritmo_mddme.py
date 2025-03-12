@@ -9,7 +9,6 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
-import psutil
 from statstools_gf import rle  # , detect_ts_outliers
 from statstools_gf.ts_outliers.ts_outliers_simple import (
     detect_ts_outliers,
@@ -20,7 +19,7 @@ from statstools_gf.utils import setup_logging, logging
 logger = setup_logging(
     level=logging.INFO if __name__ == "__main__" else logging.INFO, name=__name__
 )
-# pl.Config().set_tbl_rows(100)
+pl.Config().set_tbl_rows(100)
 
 # Algoritmo llamado modelado y depuracion de la demanda mediante estimacion mddme
 
@@ -141,7 +140,7 @@ def marginalizacion_demanda(
 
 def detect_rachas_na(
     serie: Union[np.ndarray, Sequence[float]], l_racha: int
-) -> Optional[Sequence[pl.Series]]:
+) -> Optional[deque[np.ndarray]]:
     """
     Detecta secuencias consecutivas (rachas) de valores NA en 'serie'.
     Retorna una lista con los índices de cada racha larga (>= l_racha).
@@ -165,6 +164,7 @@ def detect_rachas_na(
                 start = cumulative[i]
                 end = cumulative[i + 1] + 1
                 pos_list.append(pl.Series(pos_na[start:end]))
+
             return pos_list
         else:
             return None
@@ -499,46 +499,7 @@ def rpd(
         # _______________Se detectan rachas sin extremos hills ni atipicos ___________________________
         logger.debug(f"D previo rachas: {D}")
 
-        # Reimplement detect_rachas_na with NumPy
-        def detect_rachas_na_numpy(serie, l_racha):
-            # Find positions with NaN values
-            pos_na = np.where(np.isnan(serie))[0]
-            if len(pos_na) >= l_racha:
-                # Calculate differences between consecutive positions
-                diff_na = np.diff(pos_na)
-                # Find runs where diff is 1 (consecutive NaNs)
-                runs = np.where(diff_na == 1)[0]
-
-                # Find start and end of runs
-                run_starts = []
-                run_lengths = []
-
-                if len(runs) > 0:
-                    i = 0
-                    run_start = runs[0]
-                    while i < len(runs):
-                        j = i
-                        while j + 1 < len(runs) and runs[j + 1] == runs[j] + 1:
-                            j += 1
-                        # Found a run from i to j
-                        run_length = (
-                            j - i + 2
-                        )  # +2 because diff is 1 less than original and we're counting elements
-                        if run_length >= l_racha - 1:
-                            run_starts.append(run_start)
-                            run_lengths.append(run_length)
-                        i = j + 1
-                        if i < len(runs):
-                            run_start = runs[i]
-
-                    if run_starts:
-                        pos_list = []
-                        for start, length in zip(run_starts, run_lengths):
-                            pos_list.append(pos_na[start : start + length + 1])
-                        return pos_list
-            return None
-
-        pos_na_list = detect_rachas_na_numpy(D, l_racha=4)
+        pos_na_list = detect_rachas_na(D, l_racha=4)
 
         if only_rachas:
             if pos_na_list is not None:
@@ -695,31 +656,34 @@ def read_from_files(
 
 
 def process_dataframes(
-    current_hist: pl.DataFrame, current_stock: pl.DataFrame
+    current_hist: pl.DataFrame, current_stock: pl.DataFrame, main_included=False
 ) -> pl.DataFrame:
     """
     Función que:
       - Realiza filtrados y transformaciones (similares a las operaciones de dplyr y tidyr en R).
       - Realiza joins, expansiones de fechas.
       - Finalmente, Devuelve el dataframe procesado.
+
+    Se calculara main si no esta incluido en el dataframe y la variable no es False.
     """
 
     # Filtrado por centros de almacén
     # Almacen exclusivo de entradas no de salidas
     almacenes_excluidos = ("1009",)
     llaves_grupo_hist = ["Gpo_Plan", "Material_Id", "Gpo_Cliente", "Centro_Almacen_Id"]
-    llaves_extra_hist = ["Fecha_Id"]
+    llave_fecha_hist = ["Fecha_Id"]
     metricas_hist = ["Demanda_Positiva", "Demanda_Negativa", "Vencidos_Entrada"]
-    extras_hist = ["Material_Nombre"]
+    extras_hist = ["Material_Nombre", "Articulo_Id"]
+    extras_hist = [ex for ex in extras_hist if ex in current_hist.columns]
     llaves_grupo_stock = [
         "Gpo_Plan",
         "Material_Id",
         "Centro_Almacen_Id",
     ]
-    llaves_extra_stock = ["Fecha_Id"]
+    llaves_fecha_stock = ["Fecha_Id"]
     metricas_stock = ["Stock_Cierre", "DiasSin_Stock"]
-    extras_stock = ["Material_Nombre"]
-    main_included = False
+    extras_stock = ["Material_Nombre", "Articulo_Id"]
+    extras_stock = [ex for ex in extras_stock if ex in current_stock.columns]
 
     # Añadir main cuando sea provisto.
     if any(("main" in current_stock.columns, "main_stock" in current_stock.columns)):
@@ -730,14 +694,21 @@ def process_dataframes(
 
     current_stock = (
         current_stock.select(
-            *llaves_grupo_stock, *llaves_extra_stock, *metricas_stock, *extras_stock
+            *llaves_grupo_stock, *llaves_fecha_stock, *metricas_stock, *extras_stock
+        )
+        .cast(
+            {
+                **{key: pl.String for key in llaves_grupo_stock},
+                **{key: pl.Date for key in llaves_fecha_stock},
+                **{key: pl.Float32 for key in metricas_stock},
+                **{key: pl.String for key in extras_stock},
+            }
         )
         .filter(
             ~pl.col("Material_Nombre").str.starts_with("#"),
             ~pl.col("Centro_Almacen_Id").str.contains(".*-R.*"),
             ~pl.col("Centro_Almacen_Id").is_in(almacenes_excluidos),
         )
-        .cast({pl.Decimal: pl.Float64, pl.Datetime: pl.Date})
     )
 
     if not main_included:
@@ -749,7 +720,15 @@ def process_dataframes(
 
     current_hist = (
         current_hist.select(
-            *llaves_grupo_hist, *llaves_extra_hist, *metricas_hist, *extras_hist
+            *llaves_grupo_hist, *llave_fecha_hist, *metricas_hist, *extras_hist
+        )
+        .cast(
+            {
+                **{key: pl.String for key in llaves_grupo_hist},
+                **{key: pl.Date for key in llave_fecha_hist},
+                **{key: pl.Float32 for key in metricas_hist},
+                **{key: pl.String for key in extras_hist},
+            }
         )
         .filter(
             ~pl.col("Material_Nombre").str.starts_with("#"),
@@ -758,7 +737,6 @@ def process_dataframes(
             ~pl.col("Material_Nombre").str.contains("INST"),
             ~pl.col("Gpo_Cliente").eq("INST"),
         )
-        .cast({pl.Decimal: pl.Float64, pl.Datetime: pl.Date})
     )
 
     if not main_included:
@@ -767,10 +745,18 @@ def process_dataframes(
             main_stock=(pl.concat_str(llaves_grupo_stock, separator="/")),
         )
 
-    # Función para calcular la fecha inicial y rellenar
+    # Función para calcular la fecha inicial y final y rellenar
+    # Fecha Final para el main
+    fechas_main = (
+        current_hist.select("main", "main_stock", *llaves_grupo_hist)
+        .unique()
+        .with_columns(pl.lit(current_hist["Fecha_Id"].max()).alias("Fecha_Id"))
+    )
+
     # Expandir fechas
     current_hist = (
-        current_hist.with_columns(
+        pl.concat([current_hist, fechas_main], how="diagonal")
+        .with_columns(
             Fecha_Id=pl.col("Fecha_Id").dt.month_start(),
         )
         .sort("Fecha_Id", "main")
@@ -1081,6 +1067,8 @@ def procesar_con_mddme(
 # =============================================================================
 
 if __name__ == "__main__":
+    import psutil
+
     start_time = time.time()
     gc.collect()
     process = psutil.Process(os.getpid())

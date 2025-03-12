@@ -1,0 +1,9 @@
+
+models:
+  - name: BI_SAP_Dim_GrupoCliente_Plan
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: deben_ser_unicos_por_nombre
+          combination_of_columns: ["GrupoClientes_Nombre"]
+          config:
+            severity: error

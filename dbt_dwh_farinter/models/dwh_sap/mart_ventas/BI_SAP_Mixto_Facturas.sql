@@ -123,11 +123,12 @@ SELECT 'Reciente' AS [Periodo]
 	, C.HoraCreado_Id
 	, P.[Cantidad]
 	, P.[Cantidad_SKU]
-	, P.[Venta]
+	, P.[Venta] --Venta Bruta
 	, P.[Descuento]
 	, P.[Precio]
 	, P.[Costo]
-	, P.[Impuesto]
+	, P.[Impuesto] 
+	--TODO: Conseguir utilidad real, considerando cargos a proveedor
 FROM {{ source('BI_FARINTER', 'BI_SAP_Hecho_Facturas_Posiciones_Reciente') }} P
 INNER JOIN {{ source('BI_FARINTER', 'BI_SAP_Dim_Facturas_Reciente') }} C
 	ON P.Factura_Id = C.Factura_Id --AND P.Sociedad_Id = C.Sociedad_Id

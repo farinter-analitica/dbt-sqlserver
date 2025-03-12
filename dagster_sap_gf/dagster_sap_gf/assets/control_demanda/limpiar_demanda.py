@@ -1,9 +1,6 @@
 import warnings
 from datetime import datetime
 
-from dagster_sap_gf.assets.control_demanda.algoritmo_mddme import (
-    procesar_con_mddme,
-)
 from dagster_shared_gf.shared_helpers import SQLScriptGenerator
 import pendulum as pdl
 import polars as pl
@@ -143,6 +140,11 @@ def procesar_con_mddme_op(
     df_demanda: pl.DataFrame,
     df_stock: pl.DataFrame,
 ) -> pl.DataFrame:
+    # Importar de aca para evitar errores de carga de librerias externas
+    from dagster_sap_gf.assets.control_demanda.algoritmo_mddme import (
+        procesar_con_mddme,
+    )
+
     return procesar_con_mddme(df_demanda, df_stock, procesar_stats=True, umbral=0.4)
 
 

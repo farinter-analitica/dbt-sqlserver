@@ -42,6 +42,10 @@ SELECT --top 100
 		, MAX(C.Sector_Id) AS Sector
 		, MAX(C.Articulo_Nombre) AS Material_Nombre
 		, C.Articulo_Id
+		, SUM(A.Valor_Bruto) AS Valor_Bruto
+		, SUM(A.Valor_Neto) AS Valor_Neto
+		, SUM(A.Valor_Costo) AS Valor_Costo
+		, SUM(A.Valor_Utilidad) AS Valor_Utilidad
 	FROM
 		(SELECT
 			V.Anio_Calendario AS Anio_Id
@@ -53,8 +57,12 @@ SELECT --top 100
 			, V.Centro_Id
 			, COALESCE(CASE WHEN LEFT(V.Cliente_Id,5) = '00003' THEN 'INST' ELSE C.GrupoClientes_Nombre END, 'OTROS') AS GrupoClientes_Nombre
 			, (CONVERT(DECIMAL, V.Cantidad_SKU)) AS Cantidad_SKU
+			, (CONVERT(DECIMAL, V.Venta)) AS Valor_Bruto
+			, (CONVERT(DECIMAL, V.Venta - V.Descuento)) AS Valor_Neto
+			, (CONVERT(DECIMAL, V.Costo)) AS Valor_Costo
+			, (CONVERT(DECIMAL, V.Venta - V.Descuento - V.Costo)) AS Valor_Utilidad
 		FROM	dbo.BI_SAP_Mixto_Facturas V -- {{ ref('BI_SAP_Mixto_Facturas') }}
-		LEFT JOIN DL_FARINTER.dbo.DL_Edit_GrupoClientes_SAP C -- {{ source('DL_FARINTER', 'DL_Edit_GrupoClientes_SAP') }}
+		LEFT JOIN DL_FARINTER.dbo.DL_Edit_GrupoClientes_SAP C -- {{ ref('DL_Edit_GrupoClientes_SAP') }}
 			ON V.Cliente_Id = C.Cliente_Id
 		WHERE V.Anio_Calendario >= YEAR(DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE()))))
 			AND V.Fecha_Id > DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE())))

@@ -18,7 +18,18 @@ sources:
       - name: DL_SAP_SKA1
       - name: DL_SAP_SKB1
       - name: DL_SAP_BSEG
+      - name: DL_SAP_T001
+        description: >
+            "Contiene la informacion clave de las sociedades o empresas individuales"
+        group: dbt_dwh_sap_mart_datos_maestros
+        columns:
+          - name: BUKRS #Sociedad_Id
+            description: "Codigo de la Sociedad o Empresa Individual"
+          - name: Fecha_Actualizado
+            description: "Fecha de actualizacion de la informacion"
+        meta:
+            dagster:
+                group: "dbt_dwh_sap_mart_datos_maestros"
+
       - name: DL_Planning_ParamSocMat
       - name: DL_Edit_AlmacenFP_SAP
-      - name: DL_Edit_GrupoClientes_SAP
-

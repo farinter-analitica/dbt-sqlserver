@@ -15,7 +15,5 @@ sources:
       - name: BI_Dim_Articulo_SAP  
       - name: BI_Dim_Sociedad_SAP
       - name: BI_Dim_Centro_SAP
-      - name: DL_SAP_SKA1
-      - name: DL_SAP_SKB1
-      - name: DL_SAP_BSEG
+      - name: BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia
 
