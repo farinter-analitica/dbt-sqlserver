@@ -671,7 +671,7 @@ def process_dataframes(
     # Almacen exclusivo de entradas no de salidas
     almacenes_excluidos = ("1009",)
     llaves_grupo_hist = ["Gpo_Plan", "Material_Id", "Gpo_Cliente", "Centro_Almacen_Id"]
-    llave_fecha_hist = ["Fecha_Id"]
+    llaves_fecha_hist = ["Fecha_Id"]
     metricas_hist = ["Demanda_Positiva", "Demanda_Negativa", "Vencidos_Entrada"]
     extras_hist = ["Material_Nombre", "Articulo_Id"]
     extras_hist = [ex for ex in extras_hist if ex in current_hist.columns]
@@ -722,12 +722,12 @@ def process_dataframes(
 
     current_hist = (
         current_hist.select(
-            *llaves_grupo_hist, *llave_fecha_hist, *metricas_hist, *extras_hist
+            *llaves_grupo_hist, *llaves_fecha_hist, *metricas_hist, *extras_hist
         )
         .cast(
             {
                 **{key: pl.String for key in llaves_grupo_hist},
-                **{key: pl.Date for key in llave_fecha_hist},
+                **{key: pl.Date for key in llaves_fecha_hist},
                 **{key: pl.Float32 for key in metricas_hist},
                 **{key: pl.String for key in extras_hist},
             }
@@ -751,7 +751,7 @@ def process_dataframes(
 
     # validar duplicados
     if (
-        current_hist.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
+        current_hist.select(*llaves_grupo_hist, *llaves_fecha_hist).n_unique()
         != current_hist.height
     ):
         raise ValueError("Hay duplicados en current_hist")
