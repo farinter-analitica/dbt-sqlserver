@@ -709,20 +709,9 @@ def process_dataframes(
             ~pl.col("Centro_Almacen_Id").str.contains(".*-R.*"),
             ~pl.col("Centro_Almacen_Id").is_in(almacenes_excluidos),
         )
+    ).with_columns(
+        Fecha_Id=pl.col("Fecha_Id").dt.month_start(),
     )
-
-    # validar duplicados
-    if (
-        current_hist.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
-        != current_hist.height
-    ):
-        raise ValueError("Hay duplicados en current_hist")
-
-    if (
-        current_stock.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
-        != current_stock.height
-    ):
-        raise ValueError("Hay duplicados en current_stock")
 
     if not main_included:
         current_stock = current_stock.with_columns(
@@ -750,6 +739,8 @@ def process_dataframes(
             ~pl.col("Material_Nombre").str.contains("INST"),
             ~pl.col("Gpo_Cliente").eq("INST"),
         )
+    ).with_columns(
+        Fecha_Id=pl.col("Fecha_Id").dt.month_start(),
     )
 
     if not main_included:
@@ -757,6 +748,19 @@ def process_dataframes(
             main=(pl.concat_str(llaves_grupo_hist, separator="/")),
             main_stock=(pl.concat_str(llaves_grupo_stock, separator="/")),
         )
+
+    # validar duplicados
+    if (
+        current_hist.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
+        != current_hist.height
+    ):
+        raise ValueError("Hay duplicados en current_hist")
+
+    if (
+        current_stock.select(*llaves_grupo_stock, *llaves_fecha_stock).n_unique()
+        != current_stock.height
+    ):
+        raise ValueError("Hay duplicados en current_stock")
 
     # Función para calcular la fecha inicial y final y rellenar
     # Fecha Final para el main
@@ -779,9 +783,6 @@ def process_dataframes(
     # Expandir fechas
     current_hist = (
         pl.concat([current_hist, fechas_main_max, fechas_main_min], how="diagonal")
-        .with_columns(
-            Fecha_Id=pl.col("Fecha_Id").dt.month_start(),
-        )
         .sort("Fecha_Id", "main")
         .upsample(
             time_column="Fecha_Id",
