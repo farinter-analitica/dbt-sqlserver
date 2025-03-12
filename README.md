@@ -58,7 +58,22 @@ storage:
      db_name: { env: DAGSTER_PG_DB }
      port: { env: DAGSTER_PG_PORT }
 ```
+## Configuracion de github actions
 
+Se utiliza github actions para el despliegue automatico. Para configurarlo:
+
+1. Ir a la sección "Settings" del repositorio en GitHub
+2. Seleccionar "Actions" en el menú lateral
+3. Habilitar GitHub Actions si no está activo
+4. Habilitar sel-runner: [Configuracion farinter-analitica](https://github.com/organizations/farinter-analitica/settings/actions/runners)
+  a. Seguir las instrucciones
+  b. Activar el servicio: [Docs Service](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/configuring-the-self-hosted-runner-application-as-a-service)
+5. Los workflows se activarán automáticamente al hacer push:
+   - Push a rama dev -> despliegue en desarrollo
+   - Push a rama main -> despliegue en producción
+6. Verificar la ejecución en la pestaña "Actions" del repositorio
+
+Para más detalles sobre los workflows disponibles, revisar los archivos en .github/workflows/
 ## Despliegue ##
 El sistema cuenta con despliegue automático a través de GitHub Actions:
 
