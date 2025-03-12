@@ -3,7 +3,7 @@ models:
   - name: BIV_SAP_Agr_AnalisisVentas_Excel_Stock
     data_tests:
       - dbt_utils.unique_combination_of_columns:
-          name: deben_ser_unicos
+          name: deben_ser_unicos_BIV_SAP_Agr_AnalisisVentas_Excel_Stock
           combination_of_columns: ["almacen_id","casa_id","material","periodo"]
           config:
             severity: error
@@ -11,7 +11,7 @@ models:
   - name: BIV_SAP_Agr_AnalisisVentas_Excel_Demanda
     data_tests:
       - dbt_utils.unique_combination_of_columns:
-          name: deben_ser_unicos
+          name: deben_ser_unicos_BIV_SAP_Agr_AnalisisVentas_Excel_Demanda
           combination_of_columns: ["almacen_id","casa_id","material","periodo","gpo_cliente"]
           config:
             severity: error
