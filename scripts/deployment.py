@@ -465,7 +465,7 @@ def configure_ssh_for_repo(key_path, repo_name):
     return True, host_alias
 
 
-def test_ssh_connection(host_alias):
+def verify_ssh_connection(host_alias):
     """
     Test the SSH connection to GitHub using the specified host alias.
 
@@ -487,19 +487,24 @@ def test_ssh_connection(host_alias):
 
         # First ensure we have github.com in known_hosts
         known_hosts_path = os.path.join(ssh_dir, "known_hosts")
-        add_to_known_hosts = False
+
+        # Check for both github.com and the specific host alias
+        github_in_known_hosts = False
+        alias_in_known_hosts = False
 
         if os.path.exists(known_hosts_path):
             try:
                 with open(known_hosts_path, "r") as kh_file:
-                    if "github.com" not in kh_file.read():
-                        add_to_known_hosts = True
+                    content = kh_file.read()
+                    if "github.com" in content:
+                        github_in_known_hosts = True
+                    if host_alias in content:
+                        alias_in_known_hosts = True
             except Exception:
-                add_to_known_hosts = True
-        else:
-            add_to_known_hosts = True
+                pass
 
-        if add_to_known_hosts:
+        # Add github.com if needed
+        if not github_in_known_hosts:
             print("Adding github.com to known_hosts...")
             try:
                 keyscan_output = run_cmd(
@@ -512,8 +517,36 @@ def test_ssh_connection(host_alias):
 
                 with open(known_hosts_path, "a+") as kh_file:
                     kh_file.write(keyscan_output + "\n")
+
+                print("✅ Added github.com to known_hosts")
             except Exception as e:
                 print(f"Warning: Could not add GitHub to known_hosts: {e}")
+
+        # Add the specific host alias if needed
+        if not alias_in_known_hosts:
+            print(f"Adding {host_alias} to known_hosts...")
+            try:
+                # Get github.com keys but replace hostname with our alias
+                keyscan_output = run_cmd(
+                    ["ssh-keyscan", "github.com"],
+                    error_msg=f"Failed to scan GitHub host key for {host_alias}",
+                    capture=True,
+                )
+
+                if not keyscan_output:
+                    raise RuntimeError("ssh-keyscan did not return any output")
+
+                # Replace github.com with the host alias in the keyscan output
+                keyscan_output_modified = keyscan_output.replace(
+                    "github.com", host_alias
+                )
+
+                with open(known_hosts_path, "a+") as kh_file:
+                    kh_file.write(keyscan_output_modified + "\n")
+
+                print(f"✅ Added {host_alias} to known_hosts")
+            except Exception as e:
+                print(f"Warning: Could not add {host_alias} to known_hosts: {e}")
 
         # Test SSH connection - use subprocess directly since GitHub returns exit code 1 even when successful
         try:
@@ -621,7 +654,7 @@ def setup_deploy_keys(
         # Test connection if requested
         if test:
             print(f"\nTesting SSH connection to GitHub for {repo_name}...")
-            if not test_ssh_connection(host_alias):
+            if not verify_ssh_connection(host_alias):
                 print("\n⚠️ Connection test did not confirm successful authentication.")
                 print("This could be because:")
                 print(
