@@ -12,7 +12,7 @@ env:
 
 jobs:
   detect-changes:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       service_templates_changed: ${{ steps.filter.outputs.service_templates }}
       python_version_changed: ${{ steps.filter.outputs.python_version }}
