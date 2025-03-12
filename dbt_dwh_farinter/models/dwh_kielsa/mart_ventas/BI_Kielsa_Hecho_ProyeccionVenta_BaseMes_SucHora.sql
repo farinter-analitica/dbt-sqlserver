@@ -15,7 +15,7 @@
 	) 
 }}
 
-{% set v_fecha_inicio = modules.datetime.datetime.now().strftime('%Y%m%d') %}
+{% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=31)).strftime('%Y%m%d') %}
 {% set v_fecha_fin = (modules.datetime.datetime.now() + modules.datetime.timedelta(days=120)).strftime('%Y%m%d') %}
 
 /*
