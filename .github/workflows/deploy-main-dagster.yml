@@ -109,7 +109,7 @@ jobs:
 
       - name: Process DBT Files
         run: |
-          source ${{ env.DEPLOY_DIR }}/.venv_main_dagster/bin/activate
+          source ${{ env.DEPLOY_DIR }}/.venv/bin/activate
           python "${{ env.DEPLOY_DIR }}/dbt_dwh_farinter/autoload_dbt_deploy.py"
 
       - name: Verify Deployment Status
