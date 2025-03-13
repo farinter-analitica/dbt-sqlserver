@@ -83,6 +83,7 @@ def get_BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_data(
     },
 )
 def procesar_forecast(
+    context: OpExecutionContext,
     df_demanda: pl.DataFrame,
 ) -> pl.DataFrame:
     # Importar dentro de la función para evitar errores de carga de librerias externas
@@ -90,11 +91,28 @@ def procesar_forecast(
     # no este instalada.
     try:
         from statstools_gf.forecast.forecast_functions import forecast_dataframe
+        import time
     except ImportError as e:
         raise ImportError(f"Required forecast library unavailable: {str(e)}")
 
     forecast_dfs = deque()
-    for main in df_demanda.partition_by("main"):
+    partitions = df_demanda.partition_by("main")
+    total = len(partitions)
+    start_time = time.time()
+    last_log = start_time
+    processed = 0
+
+    for main in partitions:
+        processed += 1
+        current_time = time.time()
+        if processed % max(1, total // 10) == 0 or current_time - last_log >= 60 * 10:
+            progress = (processed / total) * 100
+            elapsed = current_time - start_time
+            context.log.info(
+                f"Progress: {progress:.1f}% ({processed}/{total}) - Time elapsed: {elapsed:.1f}s"
+            )
+            last_log = current_time
+
         forecast_dfs.append(
             forecast_dataframe(
                 main,
@@ -102,7 +120,15 @@ def procesar_forecast(
                 value_col="Ctd_Demanda",
                 forecast_horizon=16,
                 time_type="monthly",
-            ).with_columns(pl.col("Fecha_Id").cast(pl.Date).dt.month_end())
+            ).with_columns(
+                pl.col("Fecha_Id").cast(pl.Date).dt.month_end().alias("Fecha_Id"),
+                pl.selectors.by_name(
+                    "Material_Id",
+                    "Centro_Almacen_Id",
+                    "Gpo_Cliente",
+                    "main",
+                ).forward_fill(),  # Rellenar por falta de datos en meses nuevos
+            )
         )
 
     forecast = pl.concat(forecast_dfs, how="diagonal_relaxed")
@@ -114,6 +140,19 @@ def procesar_forecast(
 def save_forecast_procesado(
     dwh_farinter_bi: SQLServerResource, forecast_procesado: pl.DataFrame
 ) -> None:
+    sg = SQLScriptGenerator(
+        primary_keys=(
+            "Material_Id",
+            "Fecha_Id",
+            "Centro_Almacen_Id",
+            "Gpo_Cliente",
+        ),
+        db_schema="dbo",
+        table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast",
+        df=forecast_procesado,
+        temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast_NEW",
+    )
+
     if env_str == "local":
         with pl.Config() as c:
             c.set_tbl_rows(-1)
@@ -123,19 +162,6 @@ def save_forecast_procesado(
         return
     print(f"Por guardar {len(forecast_procesado)} registros")
     with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-        sg = SQLScriptGenerator(
-            primary_keys=(
-                "Material_Id",
-                "Fecha_Id",
-                "Centro_Almacen_Id",
-                "Gpo_Cliente",
-            ),
-            db_schema="dbo",
-            table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast",
-            df=forecast_procesado,
-            temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast_NEW",
-        )
-
         dwh_farinter_bi.execute_and_commit(
             sg.drop_table_sql_script(temp=True), connection=conn
         )

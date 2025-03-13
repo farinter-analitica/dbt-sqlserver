@@ -1,20 +1,21 @@
-from collections.abc import Sequence
 import gc
 import math
 import os
 import time
 from collections import deque
-from datetime import datetime, date
+from collections.abc import Sequence
+from datetime import date, datetime
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
 from statstools_gf import rle  # , detect_ts_outliers
+from statstools_gf.interpolate import interpolate_auto
 from statstools_gf.ts_outliers.ts_outliers_simple import (
-    detect_ts_outliers,
     assert_is_number,
+    detect_ts_outliers,
 )
-from statstools_gf.utils import setup_logging, logging
+from statstools_gf.utils import logging, setup_logging
 
 logger = setup_logging(
     level=logging.INFO if __name__ == "__main__" else logging.INFO, name=__name__
@@ -290,42 +291,85 @@ def obtener_atp(
 
 
 def calcular_decaimiento(
-    D: Union[np.ndarray, List[float]],
-    r: Union[np.ndarray, List[int]],
-    p: float,
-    atp: Union[np.ndarray, List[int]],
+    ts: Union[np.ndarray, List[float]],
+    calcular_idx: Union[np.ndarray, List[int]],
+    factor_p: float,
+    exclude_idx: Union[np.ndarray, List[int]],
+    max_samples: int = 8,
 ) -> np.ndarray:
     """
     Calcula el decaimiento en una racha (conjunto 'r'), usando la media de los valores
-    excluyendo los índices en 'atp' y 'r'.
+    excluyendo los índices en 'calcular_idx' y 'exclude_idx'.
+
+    Parameters:
+    -----------
+    ts : array-like
+        Serie temporal original con valores numéricos.
+    calcular_idx : array-like
+        Índices de la serie donde se calculará el decaimiento (usualmente rachas de NaN).
+    factor_p : float
+        Factor de probabilidad que controla la velocidad del decaimiento (0 < factor_p < 1).
+    exclude_idx : array-like
+        Índices adicionales a excluir del cálculo de la media (típicamente atípicos).
+    max_samples : int, default=8
+        Número máximo de muestras de decaimiento a generar, independientemente
+        de la longitud de 'calcular_idx'.
+
+    Returns:
+    --------
+    np.ndarray:
+        Vector con los valores de decaimiento calculados para los índices en 'calcular_idx'.
+        La longitud del vector será como máximo 'max_samples'.
+
+    Notes:
+    ------
+    El algoritmo:
+    1. Limita el decaimiento a max_samples o la longitud de 'calcular_idx', lo que sea menor
+    2. Calcula un valor p_val que determinará el punto final del decaimiento
+    3. Calcula la media de referencia excluyendo los índices de 'calcular_idx' y 'exclude_idx'
+    4. Genera una secuencia lineal decreciente desde 1 hasta p_val
+    5. Multiplica esta secuencia por la media para obtener los valores de decaimiento
+    6. Si sobran posiciones de calcular_idx rellena con ceros.
     """
     # Convert inputs to numpy arrays
-    D = np.asarray(D, dtype=float)
-    r = np.asarray(r, dtype=int)
-    atp = np.asarray(atp, dtype=int)
+    ts = np.asarray(ts, dtype=float)
+    calcular_idx = np.asarray(calcular_idx, dtype=int)
+    exclude_idx = np.asarray(exclude_idx, dtype=int)
 
-    if len(r) == 0:
+    if len(calcular_idx) == 0:
         return np.array([])
 
-    # Calculate p_val as in the original function
-    p_val = max(p ** len(r), 1 / len(r)) if p < 1 else max((0.95) ** len(r), 1 / len(r))
+    if not 0.0 < factor_p <= 1.0:
+        raise ValueError("factor_p debe estar entre 0 y 1")
 
-    # Combine indices to exclude
-    exclude = np.union1d(atp, r)
+    # Limit decay length to max_samples or length of r, whichever is smaller
+    # This ensures we don't exceed the requested max decay length
+    l_dec = min(len(calcular_idx), max_samples)
 
-    # Create array of indices to include
-    include = np.setdiff1d(np.arange(len(D)), exclude)
+    # Calculate the terminal decay value (p_val)
+    # Use factor_p^l_dec or 1/l_dec, whichever is larger (factor_p^l_dec gets very small for long sequences)
+    # This ensures the decay reaches a reasonably small value by the end
+    p_val = max(factor_p**l_dec, 1 / l_dec)
 
-    # Calculate mean of included values
-    m = np.nanmean(D[include])
+    # Create mask of indices to exclude (both racha indices and atypical indices)
+    exclude = np.union1d(exclude_idx, calcular_idx)
 
-    # Create linear sequence for decay
-    seq1 = np.linspace(1, p_val, len(r))
+    # Find indices to include for mean calculation
+    include = np.setdiff1d(np.arange(len(ts)), exclude)
 
-    # Calculate final values
-    final = m * seq1
+    # Calculate mean of valid values (values not in the racha or atypical)
+    # This becomes our starting point for the decay
+    m = np.nanmean(ts[include]) if len(include) > 0 else 0
 
-    # Round values
+    # Create linear decay sequence from 1 to p_val
+    # 1 means "100% of the mean" at the start
+    # p_val means "p_val * 100% of the mean" at the end
+    seq1 = np.linspace(1, p_val, l_dec)
+
+    # Calculate final decay values by multiplying mean by decay factors
+    final = np.append(m * seq1, np.zeros(len(calcular_idx) - l_dec))
+
+    # Round to nearest integer (since we're typically dealing with counts)
     return np.round(final)
 
 
@@ -365,7 +409,9 @@ def rpd(
     # Find positions with NaN values and valid values
     pos = np.where(np.isnan(D))[0]
     valid = np.where(~np.isnan(D))[0]
-    prob = np.sum((~np.isnan(D)) & (D > 0.0)) / len(valid) if len(valid) > 0 else 0
+    prob = float(
+        np.sum((~np.isnan(D)) & (D > 0.0)) / len(valid) if len(valid) > 0 else 0
+    )
 
     umbral_val = 1 - umbral
     if n <= 6:
@@ -520,28 +566,12 @@ def rpd(
                         D[idx_range] = np.nanmedian(D)
                 elif extremos[1] == n - 1 or np.all(DC[extremos[1] :] == 0):
                     if para_prom:
-                        # Convert to numpy implementation
-                        def calcular_decaimiento_numpy(D, r, p, atp):
-                            if len(r) == 0:
-                                return np.array([])
-                            p_val = (
-                                max(p ** len(r), 1 / len(r))
-                                if p < 1
-                                else max((0.95) ** len(r), 1 / len(r))
-                            )
-                            exclude = np.union1d(atp, r)
-                            include = np.setdiff1d(np.arange(len(D)), exclude)
-                            m = np.nanmean(D[include])
-                            seq1 = np.linspace(1, p_val, len(r))
-                            final = m * seq1
-                            return np.round(final)
-
-                        D[r] = calcular_decaimiento_numpy(D, r, prob, atp_ests_vals)
+                        D[r] = calcular_decaimiento(D, r, prob, atp_ests_vals)
                     else:
                         return DC
 
         logger.debug(f"D post rachas: {D}")
-        ret = D.copy()
+        ret: np.ndarray = D.copy()
 
         # Calculate percentiles for non-NaN values
         non_nan_vals = ret[~np.isnan(ret)]
@@ -550,39 +580,16 @@ def rpd(
         else:
             q75_no_na = 0
 
-        # Interpolate NaN values linearly
-        def interpolate_linear_numpy(arr):
-            # Get indices of non-NaN values
-            valid = ~np.isnan(arr)
-            if not np.any(valid):
-                return arr.copy()
-
-            # Get indices and values of non-NaN elements
-            indices = np.arange(len(arr))
-            valid_indices = indices[valid]
-            valid_values = arr[valid]
-
-            # Interpolate at the locations of NaN values
-            interpolated = np.interp(
-                indices,
-                valid_indices,
-                valid_values,
-                left=valid_values[0],
-                right=valid_values[-1],
-            )
-
-            return interpolated
-
         ret_series = ret.copy()
         logger.debug(f"ret_series previo interpolar: {ret_series}")
         if len(atp_ests_vals) > 0:
             aux_ests = ret[atp_ests_vals].copy()
             ret[atp_ests_vals] = q75_no_na
-            ret = interpolate_linear_numpy(ret)
+            ret = interpolate_auto(ret).to_numpy()
             ret = np.round(np.abs(ret))
             ret[atp_ests_vals] = aux_ests
         else:
-            ret = interpolate_linear_numpy(ret)
+            ret = interpolate_auto(ret).to_numpy()
             ret = np.round(np.abs(ret))
 
         logger.debug(f"ret_series post interpolar: {ret}")
@@ -717,6 +724,11 @@ def process_dataframes(
         current_stock = current_stock.with_columns(
             main_stock=(pl.concat_str(llaves_grupo_stock, separator="/")),
         )
+        if (
+            current_stock.n_unique(subset=(*llaves_grupo_stock, *llaves_fecha_stock))
+            != current_stock.height
+        ):
+            raise ValueError("Hay duplicados en current_stock")
 
     # Procesar current_hist de forma similar
 
@@ -749,18 +761,12 @@ def process_dataframes(
             main_stock=(pl.concat_str(llaves_grupo_stock, separator="/")),
         )
 
-    # validar duplicados
-    if (
-        current_hist.n_unique(subset=(*llaves_grupo_hist, *llaves_fecha_hist))
-        != current_hist.height
-    ):
-        raise ValueError("Hay duplicados en current_hist")
-
-    if (
-        current_stock.n_unique(subset=(*llaves_grupo_stock, *llaves_fecha_stock))
-        != current_stock.height
-    ):
-        raise ValueError("Hay duplicados en current_stock")
+        # validar duplicados
+        if (
+            current_hist.n_unique(subset=(*llaves_grupo_hist, *llaves_fecha_hist))
+            != current_hist.height
+        ):
+            raise ValueError("Hay duplicados en current_hist")
 
     # Función para calcular la fecha inicial y final y rellenar
     # Fecha Final para el main
@@ -884,7 +890,7 @@ def process_dataframes(
 
     # validar duplicados
     if (
-        current_hist.n_unique(subset=(*llaves_grupo_hist, *llaves_fecha_hist))
+        current_hist.n_unique(subset=(*llaves_fecha_hist, "main"))
         != current_hist.height
     ):
         raise ValueError("Hay duplicados en current_hist")
