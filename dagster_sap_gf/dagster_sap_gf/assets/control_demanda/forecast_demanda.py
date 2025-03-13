@@ -120,7 +120,8 @@ def procesar_forecast(
                 value_col="Ctd_Demanda",
                 forecast_horizon=16,
                 time_type="monthly",
-            ).with_columns(
+            )
+            .with_columns(
                 pl.col("Fecha_Id").cast(pl.Date).dt.month_end().alias("Fecha_Id"),
                 pl.selectors.by_name(
                     "Material_Id",
@@ -129,9 +130,12 @@ def procesar_forecast(
                     "main",
                 ).forward_fill(),  # Rellenar por falta de datos en meses nuevos
             )
+            .filter(pl.col("Fecha_Id") >= pdl.today().subtract(years=3))  # Reducir data
         )
 
-    forecast = pl.concat(forecast_dfs, how="diagonal_relaxed")
+    forecast = pl.concat(
+        forecast_dfs, how="diagonal_relaxed"
+    )  # No importan columnas diferentes
 
     return forecast
 
