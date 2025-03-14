@@ -10,6 +10,8 @@ import shutil
 REQUIRED_MAJOR = 3
 REQUIRED_MINOR = 11
 DEFAULT_PYTHON_VERSION = f"{REQUIRED_MAJOR}.{REQUIRED_MINOR}"
+CARGO_BIN_DIR = os.path.expanduser("~/.local/bin")
+CARGO_UV_BIN = os.path.join(CARGO_BIN_DIR, "uv")
 
 # List of private repositories for SSH deploy key management
 PRIVATE_REPOS_TO_SSH = [
@@ -45,6 +47,17 @@ def run_cmd(
         ) from e
 
 
+def get_uv_command() -> str:
+    """Get the uv command, preferring the one in PATH, else using the saved CARGO_UV_BIN."""
+    return (
+        "uv"
+        if shutil.which("uv")
+        else CARGO_UV_BIN + ".exe"
+        if platform.system() == "Windows"
+        else CARGO_UV_BIN
+    )
+
+
 ###############################################################################
 # uv Integration Functions
 ###############################################################################
@@ -64,19 +77,19 @@ def install_uv_standalone(reinstall: bool = False):
         return
 
     print("uv not installed or reinstall requested. Proceeding with installation...")
-    cargo_dir = os.path.expanduser("~/.cargo/bin")
-    cargo_bin = os.path.join(cargo_dir, "uv")
 
     # Create cargo bin directory if it doesn't exist
     try:
-        os.makedirs(cargo_dir, exist_ok=True)
+        os.makedirs(CARGO_BIN_DIR, exist_ok=True)
     except Exception as e:
         print(f"Ignored error creating cargo bin directory: {e}")
 
     if platform.system() == "Linux":
         # Add cargo_bin to PATH if not already there
-        if cargo_bin not in os.environ.get("PATH", ""):
-            os.environ["PATH"] = f"{cargo_bin}{os.pathsep}{os.environ.get('PATH', '')}"
+        if CARGO_UV_BIN not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = (
+                f"{CARGO_UV_BIN}{os.pathsep}{os.environ.get('PATH', '')}"
+            )
         run_cmd(
             ["bash", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
             error_msg="Failed to install uv",
@@ -135,24 +148,20 @@ def manage_python_and_venv(
     Returns the venv directory and the path to the new Python binary.
     """
     print(f"Installing Python {required_version} using uv...")
+
+    # Check if uv is in PATH, otherwise use the saved CARGO_UV_BIN path
+    uv_command = get_uv_command()
+
+    # Install the required Python
     run_cmd(
-        ["uv", "python", "install", required_version],
+        [uv_command, "python", "install", required_version],
         error_msg=f"Failed to install Python {required_version}",
         capture=False,
     )
 
-    # Remove existing venv if it exists (using shutil for cross-platform compatibility)
-    if os.path.exists(venv_dir):
-        print("Removing existing virtual environment...")
-        try:
-            shutil.rmtree(venv_dir)
-        except Exception as e:
-            print(f"Failed to remove virtual environment: {e}")
-            sys.exit(1)
-
     print("Creating virtual environment using uv...")
     run_cmd(
-        ["uv", "venv", "-p", required_version, venv_dir],
+        [uv_command, "venv", "-p", required_version, venv_dir],
         error_msg="Failed to create virtual environment",
         capture=False,
     )
@@ -173,28 +182,38 @@ def install_deps_uv(
     - Installs foundation packages and local packages (with optional dev flag).
     - When only_external is True, attempts to install external dependencies.
     """
+    # Check if uv is in PATH, otherwise use the saved CARGO_UV_BIN path
+    uv_command = get_uv_command()
+    editable_str = "-e" if dev else ""
+
     if not only_external:
         print("Installing core dependencies...")
         run_cmd(
-            ["uv", "pip", "install", "jinja2", "python-dotenv"],
+            [uv_command, "pip", "install", "jinja2", "python-dotenv"],
             error_msg="Foundation package installation failed",
             capture=False,
         )
         dev_flag = "[dev]" if dev else ""
         run_cmd(
-            ["uv", "pip", "install", "-e", f"dagster_shared_gf{dev_flag}"],
+            [
+                uv_command,
+                "pip",
+                "install",
+                editable_str,
+                f"dagster_shared_gf{dev_flag}",
+            ],
             error_msg="dagster_shared_gf installation failed",
             capture=False,
             cwd=deploy_dir,
         )
         run_cmd(
-            ["uv", "pip", "install", "-e", "dagster_sap_gf"],
+            [uv_command, "pip", "install", editable_str, "dagster_sap_gf"],
             error_msg="dagster_sap_gf installation failed",
             capture=False,
             cwd=deploy_dir,
         )
         run_cmd(
-            ["uv", "pip", "install", "-e", "dagster_kielsa_gf"],
+            [uv_command, "pip", "install", editable_str, "dagster_kielsa_gf"],
             error_msg="dagster_kielsa_gf installation failed",
             capture=False,
             cwd=deploy_dir,
@@ -204,7 +223,7 @@ def install_deps_uv(
         print("\nAttempting to install external dependencies...")
         try:
             run_cmd(
-                ["uv", "pip", "install", "-e", "dagster_shared_gf[external]"],
+                [uv_command, "sync", "--extra", "external"],
                 error_msg="External dependency installation",
                 capture=False,
                 cwd=deploy_dir,
@@ -509,10 +528,15 @@ def setup_deploy_keys(
 def setup_git(python_path: str) -> bool:
     """
     Automate Git configuration for commit templates and pre-commit hooks using uv.
-    This version replaces direct pip commands with uv equivalents.
+    This version replaces direct pip commands with uv equivalents and handles cases
+    where uv isn't in the PATH.
     """
     print("Configuring Git commit template and pre-commit hooks...")
     template_path = os.path.join("templates", "commit-template.git.txt")
+
+    # Check if uv is in PATH, otherwise use the saved CARGO_UV_BIN path
+    uv_command = get_uv_command()
+
     try:
         # Verify Git is available and set commit template
         run_cmd(["git", "--version"], error_msg="Git not found")
@@ -525,18 +549,24 @@ def setup_git(python_path: str) -> bool:
         # Use uv to check if pre-commit is installed; install if missing
         try:
             run_cmd(
-                ["uv", "pip", "show", "pre-commit"], error_msg="Pre-commit not found"
+                [uv_command, "pip", "show", "pre-commit"],
+                error_msg="Pre-commit not found",
             )
         except RuntimeError:
             print("Installing pre-commit via uv...")
             run_cmd(
-                ["uv", "pip", "install", "pre-commit"],
+                [uv_command, "pip", "install", "pre-commit"],
                 error_msg="Failed to install pre-commit",
             )
 
         # Determine the pre-commit binary from the uv-managed venv
         # Assuming the pre-commit binary is in the same bin directory as the current interpreter.
         precommit_bin = os.path.join(os.path.dirname(python_path), "pre-commit")
+
+        # Add .exe extension on Windows
+        if platform.system() == "Windows" and not precommit_bin.endswith(".exe"):
+            precommit_bin += ".exe"
+
         print("Installing pre-commit hooks...")
         run_cmd(
             [precommit_bin, "install"], error_msg="Failed to install pre-commit hooks"

@@ -692,6 +692,11 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+external = [
+    { name = "statstools-gf" },
+]
+
+[package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
     { name = "pyright" },
@@ -699,9 +704,6 @@ dev = [
     { name = "pytest-dotenv" },
     { name = "pytest-mock" },
     { name = "ruff" },
-]
-external = [
-    { name = "statstools-gf" },
 ]
 
 [package.metadata]
@@ -724,17 +726,11 @@ requires-dist = [
     { name = "ipython" },
     { name = "openpyxl" },
     { name = "pandas" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "psutil" },
     { name = "psycopg", extras = ["binary", "pool"] },
     { name = "pymongo" },
     { name = "pymongoarrow" },
     { name = "pyodbc" },
-    { name = "pyright", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-dotenv", marker = "extra == 'dev'" },
-    { name = "pytest-mock", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'" },
     { name = "smbprotocol" },
     { name = "statstools-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_statstools_gf&rev=v0.9.9" },
     { name = "trycast" },
@@ -742,7 +738,17 @@ requires-dist = [
     { name = "xlsx2csv" },
     { name = "ydata-profiling" },
 ]
-provides-extras = ["external", "dev"]
+provides-extras = ["external"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-dotenv" },
+    { name = "pytest-mock" },
+    { name = "ruff" },
+]
 
 [[package]]
 name = "dagster-sling"
@@ -2529,7 +2535,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450 }
 wheels = [
