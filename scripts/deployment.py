@@ -64,10 +64,14 @@ def install_uv_standalone(reinstall: bool = False):
         return
 
     print("uv not installed or reinstall requested. Proceeding with installation...")
-    cargo_bin = os.path.expanduser("~/.local/bin/uv")
+    cargo_dir = os.path.expanduser("~/.cargo/bin")
+    cargo_bin = os.path.join(cargo_dir, "uv")
 
     # Create cargo bin directory if it doesn't exist
-    os.makedirs(cargo_bin, exist_ok=True)
+    try:
+        os.makedirs(cargo_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Ignored error creating cargo bin directory: {e}")
 
     # Add cargo_bin to PATH if not already there
     if cargo_bin not in os.environ.get("PATH", ""):
@@ -80,7 +84,11 @@ def install_uv_standalone(reinstall: bool = False):
             capture=False,
         )
         run_cmd(
-            ["""echo, 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc"""],
+            [
+                "bash",
+                "-c",
+                "echo 'eval \"$(uv generate-shell-completion bash)\"' >> ~/.bashrc",
+            ],
             error_msg="Failed to install uv",
             capture=False,
         )
