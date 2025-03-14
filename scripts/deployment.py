@@ -79,7 +79,7 @@ def install_uv_standalone(reinstall: bool = False):
         )
     # Prepend uv installation path to PATH (adjust if needed)
     os.environ["PATH"] = (
-        f"{os.path.expanduser('~/.cargo/bin')}{os.pathsep}{os.environ.get('PATH', '')}"
+        f"{os.path.expanduser('~/.local/bin/uv')}{os.pathsep}{os.environ.get('PATH', '')}"
     )
 
 
