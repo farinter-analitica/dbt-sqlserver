@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 # Deploys on ubuntu server
 
 # Set the directory where your templates are stored
-template_dir = os.path.join(os.path.dirname(__file__), "templates")
+repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+template_dir = os.path.join(repo_root, "templates")
 env_jinja = Environment(loader=FileSystemLoader(template_dir))
 
 
@@ -34,7 +35,7 @@ def deploy_service(instance_env: str, template_filename: str) -> None:
         output_filename = f"dagster_{instance_env}_{base_service_name}"
 
     # Create templates_render directory if it doesn't exist
-    output_dir = os.path.join(os.path.dirname(__file__), "templates_render")
+    output_dir = os.path.join(repo_root, "templates_render")
     os.makedirs(output_dir, exist_ok=True)
 
     # Write the rendered service file to the templates_render folder.
@@ -77,7 +78,6 @@ if __name__ == "__main__":
     instance_env = os.environ.get("DAGSTER_INSTANCE_CURRENT_ENV", "default")
     if instance_env == "default":
         print("Loading default environment variables from .env")
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ""))
         env_file = os.path.join(repo_root, ".env")
         load_dotenv(dotenv_path=env_file)
         instance_env = os.environ.get("DAGSTER_INSTANCE_CURRENT_ENV", "default")
