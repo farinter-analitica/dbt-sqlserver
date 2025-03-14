@@ -64,6 +64,14 @@ def install_uv_standalone(reinstall: bool = False):
         return
 
     print("uv not installed or reinstall requested. Proceeding with installation...")
+    cargo_bin = os.path.expanduser("~/.local/bin/uv")
+
+    # Create cargo bin directory if it doesn't exist
+    os.makedirs(cargo_bin, exist_ok=True)
+
+    # Add cargo_bin to PATH if not already there
+    if cargo_bin not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{cargo_bin}{os.pathsep}{os.environ.get('PATH', '')}"
 
     if platform.system() == "Linux":
         run_cmd(
@@ -71,16 +79,18 @@ def install_uv_standalone(reinstall: bool = False):
             error_msg="Failed to install uv",
             capture=False,
         )
+        run_cmd(
+            ["""echo, 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc"""],
+            error_msg="Failed to install uv",
+            capture=False,
+        )
+
     elif platform.system() == "Windows":
         run_cmd(
             ["powershell", "-Command", "irm https://astral.sh/uv/install.ps1 | iex"],
             error_msg="Failed to install uv",
             capture=False,
         )
-    # Prepend uv installation path to PATH (adjust if needed)
-    os.environ["PATH"] = (
-        f"{os.path.expanduser('~/.local/bin/uv')}{os.pathsep}{os.environ.get('PATH', '')}"
-    )
 
 
 def get_python_version_from_config(deploy_dir: str) -> str:
