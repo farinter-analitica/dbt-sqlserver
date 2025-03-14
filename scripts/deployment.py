@@ -186,7 +186,6 @@ def install_deps_uv(
     """
     # Check if uv is in PATH, otherwise use the saved CARGO_UV_BIN path
     uv_command = get_uv_command()
-    editable_str = "-e " if dev else ""
 
     if not only_external:
         print("Installing core dependencies...")
@@ -201,20 +200,30 @@ def install_deps_uv(
                 uv_command,
                 "pip",
                 "install",
-                f"{editable_str}dagster_shared_gf{dev_flag}",
+                f"-e dagster_shared_gf{dev_flag}" if dev else "dagster_shared_gf/",
             ],
             error_msg="dagster_shared_gf installation failed",
             capture=False,
             cwd=deploy_dir,
         )
         run_cmd(
-            [uv_command, "pip", "install", f"{editable_str}dagster_sap_gf"],
+            [
+                uv_command,
+                "pip",
+                "install",
+                "-e dagster_sap_gf" if dev else "dagster_sap_gf/",
+            ],
             error_msg="dagster_sap_gf installation failed",
             capture=False,
             cwd=deploy_dir,
         )
         run_cmd(
-            [uv_command, "pip", "install", f"{editable_str}dagster_kielsa_gf"],
+            [
+                uv_command,
+                "pip",
+                "install",
+                "-e dagster_kielsa_gf" if dev else "dagster_kielsa_gf/",
+            ],
             error_msg="dagster_kielsa_gf installation failed",
             capture=False,
             cwd=deploy_dir,
