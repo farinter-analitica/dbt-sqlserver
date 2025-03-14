@@ -201,21 +201,20 @@ def install_deps_uv(
                 uv_command,
                 "pip",
                 "install",
-                editable_str,
-                f"dagster_shared_gf{dev_flag}",
+                f"{editable_str} dagster_shared_gf{dev_flag}",
             ],
             error_msg="dagster_shared_gf installation failed",
             capture=False,
             cwd=deploy_dir,
         )
         run_cmd(
-            [uv_command, "pip", "install", editable_str, "dagster_sap_gf"],
+            [uv_command, "pip", "install", f"{editable_str} dagster_sap_gf"],
             error_msg="dagster_sap_gf installation failed",
             capture=False,
             cwd=deploy_dir,
         )
         run_cmd(
-            [uv_command, "pip", "install", editable_str, "dagster_kielsa_gf"],
+            [uv_command, "pip", "install", f"{editable_str} dagster_kielsa_gf"],
             error_msg="dagster_kielsa_gf installation failed",
             capture=False,
             cwd=deploy_dir,
