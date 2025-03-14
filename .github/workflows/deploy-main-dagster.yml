@@ -14,11 +14,7 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      service_templates_changed: ${{ steps.filter.outputs.service_templates }}
-      python_version_changed: ${{ steps.filter.outputs.python_version }}
-      dependencies_changed: ${{ steps.filter.outputs.dependencies }}
-      code_changed: ${{ steps.filter.outputs.code }}
-      deployment_type: ${{ steps.set-deployment.outputs.deployment_type }}
+      deployment_type: ${{ steps.commit_override.outputs.deployment_type }}
     
     steps:
       - name: Check out repository
@@ -26,50 +22,12 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: Filter changed files
-        id: filter
+      - name: Check commit message for deployment type
+        id: commit_override
         run: |
-          # Get changed files
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
-          
-          # Check for service template changes
-          if echo "$CHANGED_FILES" | grep -q "scripts/generate_dagster_service.py\|.service$"; then
-            echo "service_templates=true" >> $GITHUB_OUTPUT
-          else
-            echo "service_templates=false" >> $GITHUB_OUTPUT
-          fi
-          
-          # Check for Python version changes
-          if echo "$CHANGED_FILES" | grep -q "pyproject.toml"; then
-            # Check if the Python version specifically changed
-            if git diff HEAD^ HEAD -- pyproject.toml | grep -q "python_version"; then
-              echo "python_version=true" >> $GITHUB_OUTPUT
-            else
-              echo "python_version=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "python_version=false" >> $GITHUB_OUTPUT
-          fi
-
-          # Check for dependency changes
-          if echo "$CHANGED_FILES" | grep -q "pyproject.toml"; then
-            echo "dependencies=true" >> $GITHUB_OUTPUT
-          else
-            echo "dependencies=false" >> $GITHUB_OUTPUT
-          fi
-
-          # Code changes - assuming if there is any diff, this is always true
-          echo "code=true" >> $GITHUB_OUTPUT
-      
-      - name: Set deployment type
-        id: set-deployment
-        run: |
-          if [[ "${{ steps.filter.outputs.service_templates }}" == "true" ]]; then
-            echo "deployment_type=deploy-full" >> $GITHUB_OUTPUT
-          elif [[ "${{ steps.filter.outputs.python_version }}" == "true" ]]; then
-            echo "deployment_type=deploy-partial" >> $GITHUB_OUTPUT
-          elif [[ "${{ steps.filter.outputs.dependencies }}" == "true" ]]; then
-            echo "deployment_type=deploy-fast" >> $GITHUB_OUTPUT
+          OVERRIDE=$(git log -1 --pretty=%B | grep -oP "github_actions:deployment_type=\K\S+")
+          if [ -n "$OVERRIDE" ]; then
+            echo "deployment_type=${OVERRIDE}" >> $GITHUB_OUTPUT
           else
             echo "deployment_type=deploy-continuous" >> $GITHUB_OUTPUT
           fi
@@ -125,3 +83,4 @@ jobs:
             echo "❌ Deployment to ${{ env.ENV_NAME }} failed"
             exit 1
           fi
+

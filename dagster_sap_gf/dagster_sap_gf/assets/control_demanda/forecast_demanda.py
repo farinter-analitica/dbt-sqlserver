@@ -112,26 +112,31 @@ def procesar_forecast(
                 f"Progress: {progress:.1f}% ({processed}/{total}) - Time elapsed: {elapsed:.1f}s"
             )
             last_log = current_time
+        try:
+            forecast_df = (
+                forecast_dataframe(
+                    main,
+                    time_col="Fecha_Id",
+                    value_col="Ctd_Demanda",
+                    forecast_horizon=16,
+                    time_type="monthly",
+                )
+                .with_columns(
+                    pl.col("Fecha_Id").cast(pl.Date).dt.month_end().alias("Fecha_Id"),
+                    pl.selectors.by_name(
+                        "Material_Id",
+                        "Centro_Almacen_Id",
+                        "Gpo_Cliente",
+                        "main",
+                    ).forward_fill(),  # Rellenar por falta de datos en meses nuevos
+                )
+                .filter(pl.col("Fecha_Id") >= pdl.today().subtract(years=3))
+            )  # Reducir data
+        except Exception as e:
+            context.log.error(f"Error processing main {main}: {e}")
+            raise e
 
-        forecast_dfs.append(
-            forecast_dataframe(
-                main,
-                time_col="Fecha_Id",
-                value_col="Ctd_Demanda",
-                forecast_horizon=16,
-                time_type="monthly",
-            )
-            .with_columns(
-                pl.col("Fecha_Id").cast(pl.Date).dt.month_end().alias("Fecha_Id"),
-                pl.selectors.by_name(
-                    "Material_Id",
-                    "Centro_Almacen_Id",
-                    "Gpo_Cliente",
-                    "main",
-                ).forward_fill(),  # Rellenar por falta de datos en meses nuevos
-            )
-            .filter(pl.col("Fecha_Id") >= pdl.today().subtract(years=3))  # Reducir data
-        )
+        forecast_dfs.append(forecast_df)
 
     forecast = pl.concat(
         forecast_dfs, how="diagonal_relaxed"

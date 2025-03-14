@@ -144,7 +144,7 @@ def procesar_con_mddme_op(
     # Esto efectivamente permite que la ubicacion de codigo cargue aunque la libreria
     # no este instalada.
     try:
-        from dagster_sap_gf.assets.control_demanda.algoritmo_mddme import (
+        from algoritmo_mddme_gf.algoritmo_mddme import (
             procesar_con_mddme,
         )
     except ImportError as e:

@@ -1,4 +1,4 @@
-## Instalación y Configuración ##
+## Instalación y Configuración
 
 Para instalar los requisitos en un entorno virtual:
 
@@ -17,22 +17,24 @@ Este comando ahora utiliza `uv` para:
 ```bash
 # Opción 2: Instalación de componentes específicos
 python scripts/deployment.py install-deps        # Instala dependencias básicas
-python scripts/deployment.py install-deps --dev  # Instala dependencias de desarrollo
+python scripts/deployment.py install-deps --dev    # Instala dependencias de desarrollo
 python scripts/deployment.py install-deps --only-external  # Solo instala dependencias externas
 
 # Opción 3: Manual
 utiliza uv para instalar las dependencias
 ```
 
-## Configuración de GitHub ##
-Se requiere la creación de un token o una llave ssh para clonar o configurar el repositorio remoto:
+## Configuración de GitHub
+
+Se requiere la creación de un token o una llave SSH para clonar o configurar el repositorio remoto:
 
 ```bash
 git clone https://<MYTOKEN>@github.com/org-name/repo-name.git
 git add origin https://<MYTOKEN>@github.com/org-name/repo-name.git
 ```
 
-### Configuración de Llaves SSH para Repos Privados ###
+### Configuración de Llaves SSH para Repos Privados
+
 Para acceder a repositorios privados como dependencias, es necesario configurar llaves SSH:
 
 ```bash
@@ -49,57 +51,76 @@ python scripts/deployment.py setup-deploy-key --repo=algoritmos-gf --org=farinte
 python scripts/deployment.py test-deploy-key --repo=algoritmos-gf --org=farinter-analitica
 ```
 
-Después de generar la llave, agrégala como deploy key en la configuración del repositorio en GitHub:
+Después de generar la llave, agrégala como deploy key en la configuración del repositorio en GitHub:  
 https://github.com/farinter-analitica/algoritmos-gf/settings/keys
-## Configuración Local ##
-1. Crear los archivos de configuración basándose en los archivos .sample
-2. Configurar las variables de entorno necesarias en el archivo .env
 
-## Ejecución Local ##
+## Configuración Local
+
+1. Crear los archivos de configuración basándose en los archivos .sample.
+2. Configurar las variables de entorno necesarias en el archivo .env.
+
+## Ejecución Local
+
 La ejecución local requiere:
 1. Base de datos PostgreSQL (desarrollo individual o compartida)
 2. Configuración en dagster.yaml con las siguientes variables de entorno:
 
 ```yaml
 storage:
- postgres:
-   postgres_db:
-     username: { env: DAGSTER_PG_USERNAME }
-     password: { env: DAGSTER_PG_PASSWORD }
-     hostname: { env: DAGSTER_PG_HOST }
-     db_name: { env: DAGSTER_PG_DB }
-     port: { env: DAGSTER_PG_PORT }
+  postgres:
+    postgres_db:
+      username: { env: DAGSTER_PG_USERNAME }
+      password: { env: DAGSTER_PG_PASSWORD }
+      hostname: { env: DAGSTER_PG_HOST }
+      db_name: { env: DAGSTER_PG_DB }
+      port: { env: DAGSTER_PG_PORT }
 ```
-## Configuracion de github actions
 
-Se utiliza github actions para el despliegue automatico. Para configurarlo:
+## Configuración de GitHub Actions
 
-1. Ir a la sección "Settings" del repositorio en GitHub
-2. Seleccionar "Actions" en el menú lateral
-3. Habilitar GitHub Actions si no está activo
-4. Habilitar sel-runner: [Configuracion farinter-analitica](https://github.com/organizations/farinter-analitica/settings/actions/runners)
-  a. Seguir las instrucciones
-  b. Activar el servicio: [Docs Service](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/configuring-the-self-hosted-runner-application-as-a-service)
+Se utiliza GitHub Actions para el despliegue automático. Para configurarlo:
+
+1. Ir a la sección "Settings" del repositorio en GitHub.
+2. Seleccionar "Actions" en el menú lateral.
+3. Habilitar GitHub Actions si no está activo.
+4. Habilitar self-runner: [Configuración farinter-analitica](https://github.com/organizations/farinter-analitica/settings/actions/runners)
+   - Seguir las instrucciones.
+   - Activar el servicio: [Docs Service](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/configuring-the-self-hosted-runner-application-as-a-service)
 5. Los workflows se activarán automáticamente al hacer push:
-   - Push a rama dev -> despliegue en desarrollo
-   - Push a rama main -> despliegue en producción
-6. Verificar la ejecución en la pestaña "Actions" del repositorio
+   - Push a la rama dev → despliegue en desarrollo.
+   - Push a la rama main → despliegue en producción.
+6. Verificar la ejecución en la pestaña "Actions" del repositorio.
 
-Para más detalles sobre los workflows disponibles, revisar los archivos en .github/workflows/
-## Despliegue ##
+### Despliegue Basado en Mensajes de Commit
+
+El sistema de despliegue ha sido actualizado para permitir forzar distintos tipos de despliegue mediante el mensaje del último commit. Para ello, basta con incluir en el mensaje de commit:
+
+  github_actions:deployment_type=deploy-full
+
+Puedes utilizar cualquiera de los siguientes valores:
+- deploy-full: Regenera plantillas de servicio, actualiza la versión de Python y todas las dependencias.
+- deploy-partial: Actualiza Python y dependencias.
+- deploy-fast: Solo actualiza dependencias.
+- deploy-continuous: Actualiza solo el código (cambios mínimos).
+
+Si el mensaje del commit no incluye la clave "github_actions:deployment_type", se utilizará el valor predeterminado de deploy-continuous.
+
+## Despliegue
+
 El sistema cuenta con despliegue automático a través de GitHub Actions y el nuevo script deployment.py con soporte para uv:
 
 1. **Entornos**:
-  - Desarrollo (dev): Al hacer push a la rama `dev`
-  - Producción (prd): Al hacer push a la rama `main`
+   - Desarrollo (dev): Al hacer push a la rama `dev`.
+   - Producción (prd): Al hacer push a la rama `main`.
 
 2. **Tipos de Despliegue**:
-  - `deploy-full`: Regenera plantillas de servicio, Python, y actualiza todas las dependencias
-  - `deploy-partial`: Actualiza Python y dependencias 
-  - `deploy-fast`: Solo actualiza dependencias
-  - `deploy-continuous`: Actualiza solo el código (cambios mínimos)
+   - `deploy-full`: Regenera plantillas de servicio, Python y actualiza todas las dependencias.
+   - `deploy-partial`: Actualiza Python y dependencias.
+   - `deploy-fast`: Solo actualiza dependencias.
+   - `deploy-continuous`: Actualiza solo el código (cambios mínimos).
 
-3. **Ejecución manual de despliegue**:
+3. **Ejecución Manual de Despliegue**:
+
 ```bash
 # Configurar variables de entorno
 export ENV=dev
@@ -114,8 +135,8 @@ python scripts/deployment.py deploy-continuous
 
 El nuevo sistema utiliza `uv` para gestionar versiones de Python y dependencias, lo que proporciona instalaciones más rápidas y consistentes entre entornos.
 
+## Dependencias Externas
 
-## Dependencias Externas ##
 El proyecto utiliza dependencias externas de repositorios privados:
 
 ```toml
@@ -127,18 +148,17 @@ external = [
 
 Estas dependencias requieren llaves SSH configuradas correctamente. El script de despliegue intentará instalarlas, pero continuará el despliegue incluso si fallan.
 
-## Pruebas y Commits ##
+## Pruebas y Commits
 
-### Pre-Commit ###
+### Pre-Commit
 
-Se utiliza pre-commit para ejecutar pruebas estaticas y formatear el código antes de cada commit. La primera
-vez puede tardar un poco en instalar las dependencias.
+Se utiliza pre-commit para ejecutar pruebas estáticas y formatear el código antes de cada commit. La primera vez puede tardar un poco en instalar las dependencias.
 
-### Publicacion ###
+### Publicación
 
 Antes de publicar commits, ejecutar manualmente las pruebas usando:
 
-1. Herramienta del IDE (recomendado para mejor control)
+1. Herramienta del IDE (recomendado para mejor control).
 2. Pytest directamente:
 ```bash
 pytest
