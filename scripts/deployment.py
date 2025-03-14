@@ -105,7 +105,9 @@ def install_uv_standalone(reinstall: bool = False):
             capture=False,
         )
         run_cmd(
-            ["source", "~/.bashrc"], error_msg="Failed to source .bashrc", capture=False
+            ["bash", "-c", "source ~/.bashrc"],
+            error_msg="Failed to source .bashrc",
+            capture=False,
         )
 
     elif platform.system() == "Windows":
