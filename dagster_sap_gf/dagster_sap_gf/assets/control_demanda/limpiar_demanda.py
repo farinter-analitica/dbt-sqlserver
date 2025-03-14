@@ -150,7 +150,7 @@ def procesar_con_mddme_op(
     except ImportError as e:
         raise ImportError(f"Required forecast library unavailable: {str(e)}")
 
-    return procesar_con_mddme(df_demanda, df_stock, procesar_stats=True, umbral=0.4)
+    return procesar_con_mddme(df_demanda, df_stock, procesar_stats=True, umbral_min=0.4)
 
 
 @op

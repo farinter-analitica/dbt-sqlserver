@@ -73,11 +73,10 @@ def install_uv_standalone(reinstall: bool = False):
     except Exception as e:
         print(f"Ignored error creating cargo bin directory: {e}")
 
-    # Add cargo_bin to PATH if not already there
-    if cargo_bin not in os.environ.get("PATH", ""):
-        os.environ["PATH"] = f"{cargo_bin}{os.pathsep}{os.environ.get('PATH', '')}"
-
     if platform.system() == "Linux":
+        # Add cargo_bin to PATH if not already there
+        if cargo_bin not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = f"{cargo_bin}{os.pathsep}{os.environ.get('PATH', '')}"
         run_cmd(
             ["bash", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
             error_msg="Failed to install uv",

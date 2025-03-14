@@ -9,7 +9,6 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
-from statstools_gf import rle  # , detect_ts_outliers
 from statstools_gf.interpolate import interpolate_auto
 from statstools_gf.ts_outliers.ts_outliers_simple import (
     assert_is_number,
@@ -18,7 +17,7 @@ from statstools_gf.ts_outliers.ts_outliers_simple import (
 from statstools_gf.utils import logging, setup_logging
 
 logger = setup_logging(
-    level=logging.INFO if __name__ == "__main__" else logging.INFO, name=__name__
+    level=logging.DEBUG if __name__ == "__main__" else logging.ERROR, name=__name__
 )
 pl.Config().set_tbl_rows(100)
 
@@ -40,50 +39,52 @@ pl.Config().set_tbl_rows(100)
 
 
 def marginalizacion_demanda(
-    DC: Union[np.ndarray, List[float]],
-    SA: Union[np.ndarray, List[float]],
-    VA: Union[np.ndarray, List[float]],
-    Dss: Union[np.ndarray, List[float]],
+    demanda_original: Union[np.ndarray, List[float]],
+    stock_acum: Union[np.ndarray, List[float]],
+    demanda_sku: Union[np.ndarray, List[float]],
+    dias_sin_stock: Union[np.ndarray, List[float]],
 ) -> dict:
     """
     Realiza la marginalización de la demanda (DC) según condiciones en SA, VA y Dss.
     Se calcula una cota inferior y se reemplazan valores que no la cumplen.
+    El resultado del proceso es la demanda considerada probablemente valida.
     """
     # Convert inputs to numpy arrays
-    DC = np.asarray(DC, dtype=float)
-    SA = np.asarray(SA, dtype=float)
-    VA = np.asarray(VA, dtype=float)
-    Dss = np.asarray(Dss, dtype=float)
-    n = len(DC)
+    demanda_original = np.asarray(demanda_original, dtype=float)
+    stock_acum = np.asarray(stock_acum, dtype=float)
+    demanda_sku = np.asarray(demanda_sku, dtype=float)
+    dias_sin_stock = np.asarray(dias_sin_stock, dtype=float)
+    n = len(demanda_original)
 
     # Calcular el lag de SA (primer elemento será NaN)
-    SA_ant = np.pad(SA[:-1], (1, 0), "constant", constant_values=np.nan)
+    SA_ant = np.pad(stock_acum[:-1], (1, 0), "constant", constant_values=np.nan)
 
-    comp = 0
-    valid_idx = SA != 0
+    valid_idx = stock_acum != 0
     if np.sum(valid_idx) > 0:
-        p15VA = max(1.0, float(np.percentile(VA[valid_idx], 15.0)))
+        p15VA = max(1.0, float(np.percentile(demanda_sku[valid_idx], 15.0)))
     else:
         p15VA = 1.0
 
     # Find indices where conditions are met
-    R = np.where((SA >= p15VA) & (Dss <= 15))[0]
+    R = np.where((stock_acum >= p15VA) & (dias_sin_stock <= 15))[0]
 
     # Percentiles que incrementan la cota inferior pero están censurados
-    nonzero_DC = DC != 0
+    nonzero_DC = demanda_original != 0
     if np.sum(nonzero_DC) > 0:
-        p25cen = np.percentile(DC[nonzero_DC], 25)
-        p75cen = np.percentile(DC[nonzero_DC], 75)
+        p25cen = np.percentile(demanda_original[nonzero_DC], 25)
+        p75cen = np.percentile(demanda_original[nonzero_DC], 75)
     else:
         p25cen = p75cen = 0
 
     # Incluir el primer elemento (índice 0)
     R = np.union1d(np.array([0]), R)
-    R = np.union1d(R, np.where((DC > p25cen) & (DC < p75cen))[0])
+    R = np.union1d(
+        R, np.where((demanda_original > p25cen) & (demanda_original < p75cen))[0]
+    )
 
     if len(R) > 0:
-        p20DC = max(1.0, float(np.percentile(DC[R], 20.0)))
-        p50DC = max(1.0, float(np.percentile(DC[R], 50.0)))
+        p20DC = max(1.0, float(np.percentile(demanda_original[R], 20.0)))
+        p50DC = max(1.0, float(np.percentile(demanda_original[R], 50.0)))
     else:
         p20DC = p50DC = 1
 
@@ -93,31 +94,40 @@ def marginalizacion_demanda(
     # como se buscan en las posiciones preliminarmente ya seleccionadas, se puede permitir que como mucho el 50% de los datos
     # (lo cual es bastante) Sean menor o igual a 1, ya que en el caso en el que la SA = 1 sea un dato no quiebre de stock
     # el percentil que está basado en los seleccionados, no estará por encima
-    cheq = np.sum(SA <= p20DC) / n
+    cheq = np.sum(stock_acum <= p20DC) / n
 
     if (p20DC / p50DC <= 1 / 10) and (cheq < 0.5):
-        count_le = np.sum(SA <= p20DC)
+        count_le = np.sum(stock_acum <= p20DC)
         quantile_val = ((count_le + 1) / n) * 100
-        new_percentil = np.percentile(DC[R], quantile_val)
+        new_percentil = np.percentile(demanda_original[R], quantile_val)
         if new_percentil > p20DC:
             p20DC = new_percentil
-            comp = 1
 
     if len(R) / n >= 0.5:
-        inter = np.intersect1d(DC[R], DC[nonzero_DC])
+        inter = np.intersect1d(demanda_original[R], demanda_original[nonzero_DC])
         if len(inter) == 0:
-            Venta_infima = np.min(DC[nonzero_DC]) if np.sum(nonzero_DC) > 0 else 0
+            venta_minima_esperada = (
+                np.min(demanda_original[nonzero_DC]) if np.sum(nonzero_DC) > 0 else 0
+            )
         else:
-            Venta_infima = max(np.min(inter), np.min(DC[nonzero_DC]))
+            venta_minima_esperada = max(
+                np.min(inter), np.min(demanda_original[nonzero_DC])
+            )
     else:
-        Venta_infima = np.min(DC[nonzero_DC]) if np.sum(nonzero_DC) > 0 else 0
+        venta_minima_esperada = (
+            np.min(demanda_original[nonzero_DC]) if np.sum(nonzero_DC) > 0 else 0
+        )
 
-    Venta_infima = max(float(p20DC), float(Venta_infima))
+    venta_minima_esperada = max(float(p20DC), float(venta_minima_esperada))
 
-    Final = np.where((SA >= Venta_infima) & (Dss <= 15) & (SA_ant >= Venta_infima))[0]
+    Final = np.where(
+        (stock_acum >= venta_minima_esperada)
+        & (dias_sin_stock <= 15)
+        & (SA_ant >= venta_minima_esperada)
+    )[0]
     if len(Final) > 0:
-        p50DC = max(1.0, float(np.percentile(DC[Final], 50.0)))
-        p25DC = max(1.0, float(np.percentile(DC[Final], 25.0)))
+        p50DC = max(1.0, float(np.percentile(demanda_original[Final], 50.0)))
+        p25DC = max(1.0, float(np.percentile(demanda_original[Final], 25.0)))
     else:
         p50DC = p25DC = 1
 
@@ -125,82 +135,94 @@ def marginalizacion_demanda(
     if p50DC != 0 and (p25DC / p50DC) >= 0.85:
         p25DC = math.ceil(p50DC * 0.7)
 
-    ADD = np.where(DC >= p25DC)[0]
+    ADD = np.where(demanda_original >= p25DC)[0]
     Final = np.union1d(Final, ADD)
     Final = np.union1d(np.array([0]), Final)
     Final = np.sort(Final).astype(int)
 
     # Create output array with NaN where values should be filtered out
-    D_out = DC.copy()
+    demanda_valida = demanda_original.copy()
     mask = np.ones(n, dtype=bool)
     mask[Final] = False
-    D_out[mask] = np.nan
+    demanda_valida[mask] = np.nan
 
-    return {"D": D_out, "comp": comp, "cota_inf": Venta_infima}
+    return {"D": demanda_valida, "cota_inf": venta_minima_esperada}
 
 
-def detect_rachas_na(
+def detectar_rachas_na(
     serie: Union[np.ndarray, Sequence[float]], l_racha: int
-) -> Optional[deque[np.ndarray]]:
+) -> deque[np.ndarray]:
     """
-    Detecta secuencias consecutivas (rachas) de valores NA en 'serie'.
-    Retorna una lista con los índices de cada racha larga (>= l_racha).
+    Detects consecutive sequences (rachas) of NA (NaN) values in 'serie'.
+
+    A sequence is considered valid if it has a length greater than or equal to 'l_racha'.
+    The function returns a deque with each element being a numpy array of the indices
+    in 'serie' that form a long consecutive NA sequence.
+
+    Parameters:
+        serie (Union[np.ndarray, Sequence[float]]): The input numeric series.
+        l_racha (int): The minimum number of consecutive NaN values required.
+
+    Returns:
+        deque[np.ndarray]: A deque of numpy arrays containing the indices for each valid racha.
+        If the input series is empty, returns an empty deque with maxlen=0.
     """
+    # Convert the input to a NumPy array of floats.
     serie = np.asarray(serie, dtype=float)
-    # Identificar las posiciones donde hay valores NA
-    pos_na = np.isnan(serie).nonzero()[0]
-    if len(pos_na) >= l_racha:
-        # Calcular las diferencias entre posiciones consecutivas
-        diff_na = np.diff(pos_na)
-        # Encontrar los índices donde las diferencias son iguales a 1 (valores faltantes consecutivos)
-        cond = diff_na == 1
-        values, lengths = rle(cond)
-        # Identificar las posiciones donde la racha de valores faltantes es mayor o igual a 3 consecutivos
-        long_rachas = np.where((values is True) & (lengths >= l_racha - 1))[0]
-        if len(long_rachas) > 0:
-            # Si existen rachas largas, devolver una lista con las posiciones de los valores faltantes en cada racha
-            pos_list: deque = deque()
-            cumulative = np.cumsum(np.insert(lengths, 0, 0))
-            for i in long_rachas:
-                start = cumulative[i]
-                end = cumulative[i + 1] + 1
-                pos_list.append(pl.Series(pos_na[start:end]))
 
-            return pos_list
-        else:
-            return None
-    return None
+    # Handle empty series gracefully.
+    if serie.size == 0:
+        return deque(maxlen=0)
+
+    # Identify the indices where NaN values occur.
+    pos_na = np.where(np.isnan(serie))[0]
+
+    # Not enough NaNs to meet the minimum length requirement.
+    if pos_na.size < l_racha:
+        return deque(maxlen=0)
+
+    result: deque[np.ndarray] = deque()
+    start = 0  # Start index for the current run in pos_na.
+
+    # Iterate through the positions to group consecutive indices.
+    for i in range(1, len(pos_na)):
+        # Check if the current index is not consecutive to the previous one.
+        if pos_na[i] != pos_na[i - 1] + 1:
+            # If the current group length meets the minimum requirement, add it.
+            if i - start >= l_racha:
+                result.append(pos_na[start:i])
+            start = i  # Reset start for the next group.
+
+    # Check the final group after the loop ends.
+    if len(pos_na) - start >= l_racha:
+        result.append(pos_na[start:])
+
+    return result
 
 
-def find_hills(
-    DC: Union[np.ndarray, List[float]],
-    D: Union[np.ndarray, List[float]],
-    atp: Union[np.ndarray, List[int]],
-    t_list: Optional[Union[pl.Series, np.ndarray]] = None,
+def encontrar_hills_idx(
+    demanda_original: Union[np.ndarray, List[float]],
+    demanda_valida: Union[np.ndarray, List[float]],
+    atp_est_idx: Union[np.ndarray, List[int]],
 ) -> np.ndarray:
     """
     Identifica "hills" (picos) en la serie D basándose en DC, excluyendo los índices
-    presentes en 'atp' y en 't_list'.
+    presentes en 'atp'.
     """
     logger.debug(
-        f"Entran find_hills con DC: {DC}, D: {D}, atp: {atp}, t_list: {t_list}"
+        f"Entran find_hills con {demanda_original=}, {demanda_valida=}, {atp_est_idx=}"
     )
     # Convert all inputs to numpy arrays
-    DC = np.asarray(DC, dtype=float)
-    D = np.asarray(D, dtype=float)
-    atp = np.asarray(atp, dtype=int)
-
-    if t_list is None:
-        t_list = np.array([], dtype=int)
-    else:
-        t_list = np.asarray(t_list, dtype=int)
+    demanda_original = np.asarray(demanda_original, dtype=float)
+    demanda_valida = np.asarray(demanda_valida, dtype=float)
+    atp_est_idx = np.asarray(atp_est_idx, dtype=int)
 
     # Calculate threshold and find points above it
-    threshold = max(1.0, float(np.nanpercentile(D, 50.0)))
-    p50 = np.where(D > threshold)[0]
+    threshold = max(1.0, float(np.nanpercentile(demanda_valida, 50.0)))
+    p50 = np.where(demanda_valida > threshold)[0]
 
     # Find NA values in D
-    NAS = np.where(np.isnan(D))[0]
+    NAS = np.where(np.isnan(demanda_valida))[0]
 
     # Find neighbors of NA values
     neighbors_before = NAS - 1
@@ -208,26 +230,25 @@ def find_hills(
 
     # Filter valid indices (prevent out of bounds)
     neighbors_before = neighbors_before[neighbors_before >= 0]
-    neighbors_after = neighbors_after[neighbors_after < len(D)]
+    neighbors_after = neighbors_after[neighbors_after < len(demanda_valida)]
 
     # Combine and get unique neighbors
     neighbors = np.union1d(neighbors_before, neighbors_after)
 
     # Find the intersection of neighbors and p50
-    hills = np.intersect1d(neighbors, p50)
+    hills_idx = np.intersect1d(neighbors, p50)
 
     # Exclude atp and t_list indices
-    if len(atp) > 0:
-        hills = np.setdiff1d(hills, atp)
+    if len(atp_est_idx) > 0:
+        hills_idx = np.setdiff1d(hills_idx, atp_est_idx)
 
-    hills = np.setdiff1d(hills, t_list)
-    logger.debug(f"Salen find_hills con hills: {hills}")
+    logger.debug(f"Salen find_hills con hills: {hills_idx}")
     # Return sorted hills
-    return np.sort(hills)
+    return np.sort(hills_idx)
 
 
-def atp_ests(
-    atp: Union[np.ndarray, List[int]],
+def atp_ests_idx(
+    atp_idx: Union[np.ndarray, List[int]],
     D: Union[np.ndarray, List[float]],
     li: int = 10,
     ls: int = 14,
@@ -237,21 +258,21 @@ def atp_ests(
     que cumplen condiciones basadas en la diferencia (entre 10 y 14 unidades).
     """
     # Convert to numpy array
-    atp = np.asarray(atp, dtype=np.int64)
-    logger.debug(f"atp est entra: {atp}")
+    atp_idx = np.asarray(atp_idx, dtype=np.int32)
+    logger.debug(f"atp est entra: {atp_idx}")
 
-    if len(atp) == 0:
-        return np.array([], dtype=np.int64)
+    if len(atp_idx) == 0:
+        return np.array([], dtype=np.int32)
 
     # Generate arrays of indices offset by 10-14 periods (forward and backward)
-    pmo = np.add.outer(atp, np.arange(10, 15)).flatten()
-    plo = np.add.outer(atp, -np.arange(10, 15)).flatten()
+    pmo = np.add.outer(atp_idx, np.arange(10, 15)).flatten()
+    plo = np.add.outer(atp_idx, -np.arange(10, 15)).flatten()
 
     # Find which values in atp are also in either pmo or plo
-    mask = np.isin(atp, pmo) | np.isin(atp, plo)
+    mask = np.isin(atp_idx, pmo) | np.isin(atp_idx, plo)
 
     # Filter and return sorted unique values
-    atp_est_val = np.sort(np.unique(atp[mask]))
+    atp_est_val = np.sort(np.unique(atp_idx[mask]))
     logger.debug(f"atp est sale: {atp_est_val}")
 
     return atp_est_val
@@ -279,7 +300,9 @@ def obtener_atp(
 
     # Use detect_ts_outliers function, but we need to convert to Polars Series for it
     # since we're relying on the existing implementation
-    outliers, _ = detect_ts_outliers(ts=pl.Series(values=DC_np))
+    outliers, _ = detect_ts_outliers(
+        ts=pl.Series(values=DC_np), variability_threshold=2.5
+    )
 
     # Convert back to numpy array if needed
     outliers_np = np.array(outliers, dtype=int)
@@ -339,8 +362,7 @@ def calcular_decaimiento(
     if len(calcular_idx) == 0:
         return np.array([])
 
-    if not 0.0 < factor_p <= 1.0:
-        raise ValueError("factor_p debe estar entre 0 y 1")
+    factor_p = min(1.0, max(0.0, factor_p))
 
     # Limit decay length to max_samples or length of r, whichever is smaller
     # This ensures we don't exceed the requested max decay length
@@ -370,281 +392,492 @@ def calcular_decaimiento(
     final = np.append(m * seq1, np.zeros(len(calcular_idx) - l_dec))
 
     # Round to nearest integer (since we're typically dealing with counts)
-    return np.round(final)
+    return np.round(final, decimals=1)
 
 
 def rpd(
-    D: Union[np.ndarray, List[float]],
+    demanda_valida: Union[np.ndarray, List[float]],
     start: Tuple[int, int],
-    DC: Union[np.ndarray, List[float]],
-    umbral: float,
-    atp: Union[np.ndarray, List[int]],
+    demanda_original: Union[np.ndarray, List[float]],
+    umbral_min: float,
+    atp_idx: Union[np.ndarray, List[int]],
     q60_no_na: float,
-    hills: Union[np.ndarray, List[int]],
-    atp_ests_vals: Optional[Union[np.ndarray, List[int]]] = None,
-    para_prom: bool = False,
+    hills_idx: Union[np.ndarray, List[int]],
+    atp_ests_vals_idx: Optional[Union[np.ndarray, List[int]]] = None,
+    decaimiento: bool = False,
     only_rachas: bool = False,
 ) -> np.ndarray:
     """
     Función que limpia y ajusta la serie D (a partir de DC) para corregir outliers,
     hills, atípicos y detectar rachas. Se aplican múltiples reglas según el umbral y
-    la cantidad de datos.
+    la cantidad de datos. RPD = Reemplazo y depuracion de la demanda
 
     reemplazar y depurar demanda
+    TODO: Esto deberia hacerlo paso a paso en columnas diferentes del dataframe en modo debug
     """
     # Convert all inputs to numpy arrays
-    D = np.asarray(D, dtype=float, copy=True)
-    DC = np.asarray(DC, dtype=float)
-    atp = np.asarray(atp, dtype=int).astype(np.int64)
-    hills = np.asarray(hills, dtype=int).astype(np.int64)
+    demanda_valida = np.asarray(demanda_valida, dtype=float, copy=True)
+    demanda_original = np.asarray(demanda_original, dtype=float)
+    atp_idx = np.asarray(atp_idx, dtype=int).astype(np.int64)
+    hills_idx = np.asarray(hills_idx, dtype=int).astype(np.int64)
 
-    if atp_ests_vals is None:
-        atp_ests_vals = np.array([], dtype=int)
+    if atp_ests_vals_idx is None:
+        atp_ests_vals_idx = np.array([], dtype=int)
     else:
-        atp_ests_vals = np.asarray(atp_ests_vals, dtype=int)
+        atp_ests_vals_idx = np.asarray(atp_ests_vals_idx, dtype=int)
 
-    n = len(D)
-    logger.debug(f"D: {D}")
+    series_n = len(demanda_valida)
+    logger.debug(f"Entra rpd: {demanda_valida=}")
 
     # Find positions with NaN values and valid values
-    pos = np.where(np.isnan(D))[0]
-    valid = np.where(~np.isnan(D))[0]
-    prob = float(
-        np.sum((~np.isnan(D)) & (D > 0.0)) / len(valid) if len(valid) > 0 else 0
+    na_idx = np.where(np.isnan(demanda_valida))[0]
+    valid_idx = np.where(~np.isnan(demanda_valida))[0]
+    factor_disp = float(
+        np.sum((~np.isnan(demanda_valida)) & (demanda_valida > 0.0)) / len(valid_idx)
+        if len(valid_idx) > 0
+        else 0
     )
 
-    umbral_val = 1 - umbral
-    if n <= 6:
-        umbral_val = 1 - (2 / n)
+    umbral_val = 1 - umbral_min
+    if series_n <= 6:
+        umbral_val = 1 - (2 / series_n)
 
     # Calculate median of non-NaN values
-    q50_no_na = np.nanmedian(D)
-    aux_pos = pos.copy()
+    q50_no_na = float(np.nanmedian(demanda_valida))
+    aux_na_idx = na_idx.copy()
 
-    if (len(pos) / n <= umbral_val and q50_no_na > 0) or only_rachas:
-        atp = np.setdiff1d(atp, atp_ests_vals)
-        # logger.debug(f"ATP np.setdiff1d(atp, hill_y_atp): {atp}")
-
-        # Identify elements that are not hills or NaN
-        el_no_hills = np.setdiff1d(np.arange(n), np.union1d(pos, hills))
-        hill_y_atp = np.intersect1d(hills, atp)
-        atp = np.setdiff1d(atp, hill_y_atp)
-
-        # _____________________________HILLS______________________________
-        if len(hills) > 0:
-            for h in hills:
-                val = 0
-                if h in hill_y_atp:
-                    mod_candidates = np.array([h - 2, h - 1, h + 1, h + 2])
-                    # Keep only valid indices within range
-                    mod_candidates = mod_candidates[
-                        (mod_candidates >= 0) & (mod_candidates < n)
-                    ]
-                    mod_candidates = np.intersect1d(mod_candidates, aux_pos)
-                    mod = np.union1d(mod_candidates, np.array([h]))
-
-                    if len(mod) > 1:
-                        if (len(el_no_hills) / (n - len(aux_pos))) > 0.5:
-                            val = max(
-                                float(np.nanmean(DC[mod])),
-                                float(np.nansum(D[mod]) / len(mod))
-                                if len(mod) > 0
-                                else 0.0,
-                                float(np.nanpercentile(DC[el_no_hills], 50.0))
-                                if len(el_no_hills) > 0
-                                else 0.0,
-                            )
-                        else:
-                            val = max(
-                                np.nanmean(DC[mod]),
-                                np.nansum(D[mod]) / len(mod) if len(mod) > 0 else 0,
-                                q50_no_na,
-                            )
-                        D[mod] = val
-                    else:
-                        atp = np.union1d(atp, np.array([h]))
-                else:
-                    mod_candidates = np.intersect1d(np.array([h - 1, h + 1]), aux_pos)
-                    mod = np.union1d(mod_candidates, np.array([h]))
-
-                    if len(mod) > 1:
-                        if (len(el_no_hills) / (n - len(aux_pos))) > 0.5:
-                            val = max(
-                                float(np.nansum(DC[mod]) / 2),
-                                float(np.nansum(D[mod]) / 2),
-                                float(np.nanpercentile(DC[el_no_hills], 50.0))
-                                if len(el_no_hills) > 0
-                                else 0.0,
-                            )
-                        else:
-                            val = max(
-                                float(np.nansum(DC[mod]) / 2),
-                                float(np.nansum(D[mod]) / 2),
-                                float(q50_no_na),
-                            )
-                        D[mod] = val
-
-                logger.debug(f"val: {val}, mod: {mod}, D[mod]: {D[mod]}")
-                el_no_hills = np.union1d(el_no_hills, mod)
-                aux_pos = np.setdiff1d(aux_pos, mod)
-
-        # _________________________Atipicos________________________________
-        considerar_atp = np.array([], dtype=int)
-        if len(atp) > 0 and n > 3:
-            q80_aux = round(np.nanpercentile(D, 80))
-            delete = np.union1d(atp, atp_ests_vals)
-            remaining = np.setdiff1d(np.arange(n), delete)
-            max_cot_atp = np.nanmax(D[remaining]) if len(remaining) > 0 else 0
-            q50_aux = math.ceil(np.nanmedian(D))
-            aux = D.copy()
-
-            logger.debug(f"D incial atipicos: {D}")
-            for index_atp in atp:
-                if index_atp == 0:
-                    mod = np.array([index_atp + 1, index_atp + 2])
-                elif index_atp == n - 1:
-                    mod = np.array([index_atp - 2, index_atp - 1])
-                else:
-                    mod = np.array([index_atp - 1, index_atp + 1])
-
-                logger.debug(f"mod: {mod}, index_atp: {index_atp}, n: {n}")
-                pos_set = np.union1d(mod, np.array([index_atp]))
-                mod = np.setdiff1d(mod, hills)
-
-                # In Polars: cond = aux.is_null() | (aux < q50_aux)
-                cond = np.isnan(aux) | (aux < q50_aux)
-                mod = np.intersect1d(mod, np.where(cond)[0])
-                mod = np.union1d(mod, np.array([index_atp]))
-
-                mod = mod.astype(np.int64)
-                index_atp = int(index_atp)
-                if len(mod) <= 1:
-                    if index_atp < n - 2:
-                        candidate = max(
-                            np.nanmean(DC[pos_set]),
-                            np.nansum(D[pos_set]) / len(pos_set)
-                            if len(pos_set) > 0
-                            else 0,
-                        )
-                        D[index_atp] = min(candidate, max_cot_atp)
-                    if D[index_atp] > q80_aux:
-                        considerar_atp = np.union1d(considerar_atp, [index_atp])
-                else:
-                    val = max(
-                        np.nanmean(DC[mod]),
-                        np.nansum(D[mod]) / len(mod) if len(mod) > 0 else 0,
-                    )
-                    D[mod] = val
-                    if D[index_atp] > max_cot_atp and index_atp < n - 1:
-                        D[mod] = max_cot_atp
-                    if D[index_atp] > q80_aux:
-                        considerar_atp = np.union1d(considerar_atp, mod)
-                    aux_pos = np.setdiff1d(aux_pos, mod)
-
-        logger.debug(f"D post Atipicos: {D}")
-        # _______________Se detectan rachas sin extremos hills ni atipicos ___________________________
-        logger.debug(f"D previo rachas: {D}")
-
-        pos_na_list = detect_rachas_na(D, l_racha=4)
+    if (len(na_idx) / series_n <= umbral_val and q50_no_na > 0) or only_rachas:
+        rachas_na_list = detectar_rachas_na(demanda_valida, l_racha=5)
 
         if only_rachas:
-            if pos_na_list is not None:
+            if rachas_na_list:
                 # Combine all racha indices into one array
                 rachas = np.array([], dtype=int)
-                for racha in pos_na_list:
+                for racha in rachas_na_list:
                     rachas = np.union1d(rachas, racha)
                 return rachas
             else:
                 return np.array([], dtype=int)
 
-        if pos_na_list is not None and len(pos_na_list) > 0:
-            for r in pos_na_list:
-                extremos = [r[0], r[-1]]
-                if extremos[1] < n - 1 and np.any(DC[extremos[1] :] != 0):
-                    if extremos[1] - extremos[0] > 1:
-                        idx_range = range(extremos[0] + 1, extremos[1])
-                        D[idx_range] = np.nanmedian(D)
-                elif extremos[1] == n - 1 or np.all(DC[extremos[1] :] == 0):
-                    if para_prom:
-                        D[r] = calcular_decaimiento(D, r, prob, atp_ests_vals)
-                    else:
-                        return DC
+        atp_idx = np.setdiff1d(atp_idx, atp_ests_vals_idx)
+        # logger.debug(f"ATP np.setdiff1d(atp, hill_y_atp): {atp}")
 
-        logger.debug(f"D post rachas: {D}")
-        ret: np.ndarray = D.copy()
+        # Identify elements that are not hills or NaN
+        el_no_hills = np.setdiff1d(np.arange(series_n), np.union1d(na_idx, hills_idx))
+        hill_y_atp = np.intersect1d(hills_idx, atp_idx)
+        atp_idx = np.setdiff1d(atp_idx, hill_y_atp)
 
-        # Calculate percentiles for non-NaN values
-        non_nan_vals = ret[~np.isnan(ret)]
+        # _____________________________HILLS______________________________
+        atp_idx, aux_na_idx = procesar_hills(
+            demanda_valida,
+            demanda_original,
+            atp_idx,
+            hills_idx,
+            series_n,
+            q50_no_na,
+            aux_na_idx,
+            el_no_hills,
+            hill_y_atp,
+        )
+
+        # _________________________Atipicos________________________________
+        aux_na_idx, considerar_atp = procesar_atipicos(
+            demanda_valida,
+            demanda_original,
+            atp_idx,
+            hills_idx,
+            atp_ests_vals_idx,
+            series_n,
+            aux_na_idx,
+        )
+        # _______________Se detectan rachas sin extremos hills ni atipicos ___________________________
+
+        demanda_valida = procesar_rachas(
+            demanda_valida,
+            demanda_original,
+            atp_ests_vals_idx,
+            decaimiento,
+            series_n,
+            factor_disp,
+            rachas_na_list,
+        )
+        demanda_valida_cp: np.ndarray = demanda_valida.copy()
+
+        # Calculate percentiles for non-NaN percentil 75
+        non_nan_vals = demanda_valida_cp[~np.isnan(demanda_valida_cp)]
         if len(non_nan_vals) > 0:
-            q75_no_na = np.percentile(non_nan_vals, 75)
+            q75_no_na = float(np.percentile(non_nan_vals, 75))
         else:
-            q75_no_na = 0
+            q75_no_na = 0.0
 
-        ret_series = ret.copy()
-        logger.debug(f"ret_series previo interpolar: {ret_series}")
-        if len(atp_ests_vals) > 0:
-            aux_ests = ret[atp_ests_vals].copy()
-            ret[atp_ests_vals] = q75_no_na
-            ret = interpolate_auto(ret).to_numpy()
-            ret = np.round(np.abs(ret))
-            ret[atp_ests_vals] = aux_ests
+        logger.debug(f"previo interpolar atps: {demanda_valida_cp=}")
+        if len(atp_ests_vals_idx) > 0:
+            # Reducir outliers
+            demanda_valida_cp[atp_ests_vals_idx] = np.clip(
+                demanda_valida[atp_ests_vals_idx], 0, q75_no_na
+            )
+            demanda_valida_cp = interpolate_auto(demanda_valida_cp).to_numpy()
+            demanda_valida_cp = np.round(np.clip(demanda_valida_cp, 0, np.inf), 1)
+            # Devolver los outliers
+            demanda_valida_cp[atp_ests_vals_idx] = np.clip(
+                demanda_valida[atp_ests_vals_idx], 0, np.percentile(non_nan_vals, 99)
+            )
         else:
-            ret = interpolate_auto(ret).to_numpy()
-            ret = np.round(np.abs(ret))
+            demanda_valida_cp = interpolate_auto(demanda_valida_cp).to_numpy()
+            demanda_valida_cp = np.round(np.clip(demanda_valida_cp, 0, np.inf), 1)
 
-        logger.debug(f"ret_series post interpolar: {ret}")
+        logger.debug(f"post interpolar: {demanda_valida_cp=}")
+        # Control de la tendencia de cola derecha
+        # No generar tendencias o estacionalidades inexistentes
+        # (Solo disponible para historicos de mas de 10 unidades)
+        demanda_valida_cp = control_tendencia_derecha(
+            demanda_valida,
+            demanda_original,
+            atp_ests_vals_idx,
+            series_n,
+            aux_na_idx,
+            considerar_atp,
+            demanda_valida_cp,
+            q75_no_na,
+        )
 
-        for p_idx in aux_pos:
-            if n >= 10 and p_idx > math.floor((9 / 10) * n):
-                # Ventana movil
-                window_start = max(0, p_idx - 6)
-                window_end = min(n, p_idx + 7)
-                window_indices = np.concatenate(
-                    [np.arange(window_start, p_idx), np.arange(p_idx + 1, window_end)]
-                )
-                vm = D[window_indices]
-                vm = vm[~np.isnan(vm)]
+        if np.all(demanda_valida_cp == 0):
+            demanda_valida_cp = demanda_original
 
-                if len(vm) > 1:
-                    q75vm = np.percentile(vm, 75)
-                else:
-                    q75vm = q75_no_na
+        return np.clip(np.round(demanda_valida_cp, 1), 0, np.inf)
+    else:
+        return demanda_original
 
-                # Replace np.inf with a very large value for comparison
-                ret_val_at_idx = np.inf if np.isnan(ret[p_idx]) else ret[p_idx]
-                if ret_val_at_idx > q75_no_na and ret_val_at_idx > q75vm:
-                    ret[p_idx] = max(float(q75_no_na), float(q75vm))
 
-            d_not_null_min = np.nanmin(D)
-            # Use 0 instead of NaN for comparison
-            ret_val_at_idx = 0 if np.isnan(ret[p_idx]) else ret[p_idx]
-            if ret_val_at_idx < d_not_null_min and d_not_null_min < np.nanpercentile(
-                ret, 50
-            ):
-                ret[p_idx] = d_not_null_min
+def control_tendencia_derecha(
+    demanda_valida: np.ndarray,
+    demanda_original: np.ndarray,
+    atp_ests_vals_idx: np.ndarray,
+    series_n: int,
+    aux_na_idx: np.ndarray,
+    considerar_atp: np.ndarray,
+    demanda_valida_cp: np.ndarray,
+    q75_no_na: float,
+) -> np.ndarray:
+    """
+    Controls right-tail trend in demand data by applying various constraints and adjustments.
 
-            x_val = 2 + len(considerar_atp) + len(atp_ests_vals)
-            cota_maxima_reemplazo = max(
-                float(np.nanpercentile(ret, 100 * (1 - x_val / n))),
-                float(np.nanmedian(ret)),
+    Args:
+        demanda_valida: Array of validated demand values
+        demanda_original: Array of original demand values
+        atp_ests_vals_idx: Array of ATP estimated value indices
+        series_n: Length of the time series
+        aux_na_idx: Array of indices for NA values
+        considerar_atp: Array of ATP values to consider
+        demanda_valida_cp: Copy of validated demand array to modify
+        q75_no_na: 75th percentile of non-NA values
+
+    Returns:
+        Modified copy of demand array with controlled right-tail trend
+    """
+    for n_index in aux_na_idx:
+        if series_n >= 10 and n_index > math.floor((9 / 10) * series_n):
+            # Ventana movil
+            window_start = max(0, n_index - 6)
+            window_end = min(series_n, n_index + 7)
+            window_indices = np.concatenate(
+                [
+                    np.arange(window_start, n_index),
+                    np.arange(n_index + 1, window_end),
+                ]
+            )
+            vm = demanda_valida[window_indices]
+            vm = vm[~np.isnan(vm)]
+
+            if len(vm) > 1:
+                q75vm = np.percentile(vm, 75)
+            else:
+                q75vm = q75_no_na
+
+            ret_val_at_idx = (
+                np.inf
+                if np.isnan(demanda_valida_cp[n_index])
+                else demanda_valida_cp[n_index]
+            )
+            if ret_val_at_idx > q75_no_na and ret_val_at_idx > q75vm:
+                demanda_valida_cp[n_index] = max(float(q75_no_na), float(q75vm))
+
+        d_not_null_min = np.nanmin(demanda_valida)
+
+        ret_val_at_idx = (
+            0.0 if np.isnan(demanda_valida_cp[n_index]) else demanda_valida_cp[n_index]
+        )
+        if ret_val_at_idx < d_not_null_min and d_not_null_min < np.nanpercentile(
+            demanda_valida_cp, 50
+        ):
+            demanda_valida_cp[n_index] = d_not_null_min
+
+        x_val = 2 + len(considerar_atp) + len(atp_ests_vals_idx)
+        cota_maxima_reemplazo = max(
+            float(np.nanpercentile(demanda_valida_cp, 100 * (1 - x_val / series_n))),
+            float(np.nanmedian(demanda_valida_cp)),
+        )
+
+        if (
+            series_n >= 12
+            and not np.isnan(demanda_valida_cp[n_index])
+            and demanda_valida_cp[n_index] > cota_maxima_reemplazo
+        ):
+            demanda_valida_cp[n_index] = min(
+                float(cota_maxima_reemplazo), float(demanda_valida_cp[n_index])
             )
 
-            if (
-                n >= 12
-                and not np.isnan(ret[p_idx])
-                and ret[p_idx] > cota_maxima_reemplazo
+        if demanda_original[n_index] > demanda_valida_cp[n_index]:
+            demanda_valida_cp[n_index] = demanda_original[n_index]
+
+    return demanda_valida_cp
+
+
+def procesar_rachas(
+    demanda_valida: np.ndarray,
+    demanda_original: np.ndarray,
+    atp_ests_vals_idx: np.ndarray,
+    decaimiento: bool,
+    series_n: int,
+    factor_disp: float,
+    rachas_na_list: deque[np.ndarray] | None,
+) -> np.ndarray:
+    """
+    Process streaks of missing values in demand data.
+
+    Args:
+        demanda_valida: Array of validated demand values
+        demanda_original: Array of original demand values
+        atp_ests_vals_idx: Array of ATP estimated value indices
+        decaimiento: Boolean indicating whether to apply decay calculation
+        series_n: Length of the time series
+        factor_disp: Dispersion factor for decay calculation
+        rachas_na_list: deque of arrays containing indices of NA streaks
+
+    Returns:
+        Array of processed demand values with streaks handled
+    """
+    logger.debug(f"previo rachas: {demanda_valida=}")
+    if rachas_na_list is not None and len(rachas_na_list) > 0:
+        for racha in rachas_na_list:
+            extremos_idx = [racha[0], racha[-1]]
+            if extremos_idx[1] < series_n - 1 and np.any(
+                demanda_original[extremos_idx[1] :] != 0
             ):
-                ret[p_idx] = min(float(cota_maxima_reemplazo), float(ret[p_idx]))
+                if extremos_idx[1] - extremos_idx[0] > 1:
+                    idx_range = range(extremos_idx[0] + 1, extremos_idx[1])
+                    demanda_valida[idx_range] = np.nanmedian(demanda_valida)
+            elif extremos_idx[1] == series_n - 1 or np.all(
+                demanda_original[extremos_idx[1] :] == 0
+            ):
+                if decaimiento:
+                    demanda_valida[racha] = calcular_decaimiento(
+                        demanda_valida, racha, factor_disp, atp_ests_vals_idx
+                    )
+                else:
+                    demanda_valida[racha] = demanda_original[racha]
 
-            if DC[p_idx] > ret[p_idx]:
-                ret[p_idx] = DC[p_idx]
+    logger.debug(f"post rachas: {demanda_valida=}")
+    return demanda_valida
 
-        if np.all(ret == 0):
-            ret = DC
 
-        return np.abs(np.round(ret))
-    else:
-        return DC
+def procesar_atipicos(
+    demanda_valida: np.ndarray,
+    demanda_original: np.ndarray,
+    atp_idx: np.ndarray,
+    hills_idx: np.ndarray,
+    atp_ests_vals_idx: np.ndarray,
+    series_n: int,
+    aux_na_idx: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Process atypical values in demand data by smoothing them using neighboring points.
+
+    Args:
+        demanda_valida: Array of validated demand values
+        demanda_original: Array of original demand values
+        atp_idx: Array of outliers indices
+        hills_idx: Array of indices identified as hills
+        atp_ests_vals_idx: Array of ATP estimated value indices
+        series_n: Length of the time series
+        aux_na_idx: Array of auxiliary NA indices
+
+    Returns:
+        tuple containing:
+            - Updated auxiliary NA indices array
+            - Array of ATP indices to consider
+    """
+    considerar_atp = np.array([], dtype=int)
+    if len(atp_idx) > 0 and series_n > 3:
+        q80_aux = round(np.nanpercentile(demanda_valida, 80), 1)
+        delete = np.union1d(atp_idx, atp_ests_vals_idx)
+        remaining = np.setdiff1d(np.arange(series_n), delete)
+        max_cot_atp = np.nanmax(demanda_valida[remaining]) if len(remaining) > 0 else 0
+        q50_aux = math.ceil(np.nanmedian(demanda_valida))
+        demanda_valida_cp = demanda_valida.copy()
+
+        logger.debug(f"D incial atipicos: {demanda_valida}")
+        for index_atp in atp_idx:
+            if index_atp == 0:
+                vecinos_idx = np.array([index_atp + 1, index_atp + 2])
+            elif index_atp == series_n - 1:
+                vecinos_idx = np.array([index_atp - 2, index_atp - 1])
+            else:
+                vecinos_idx = np.array([index_atp - 1, index_atp + 1])
+
+            logger.debug(
+                f"vecinos_idx: {vecinos_idx}, index_atp: {index_atp}, n: {series_n}"
+            )
+            pos_set = np.union1d(vecinos_idx, np.array([index_atp]))
+            vecinos_idx = np.setdiff1d(vecinos_idx, hills_idx)
+
+            # In Polars: cond = aux.is_null() | (aux < q50_aux)
+            cond = np.isnan(demanda_valida_cp) | (demanda_valida_cp < q50_aux)
+            vecinos_idx = np.intersect1d(vecinos_idx, np.where(cond)[0])
+            vecinos_idx = np.union1d(vecinos_idx, np.array([index_atp]))
+
+            vecinos_idx = vecinos_idx.astype(np.int32)
+            index_atp = int(index_atp)
+            if len(vecinos_idx) <= 1:
+                if index_atp < series_n - 2:
+                    candidate = max(
+                        np.nanmean(demanda_original[pos_set]),
+                        np.nansum(demanda_valida[pos_set]) / len(pos_set)
+                        if len(pos_set) > 0
+                        else 0,
+                    )
+                    demanda_valida[index_atp] = min(candidate, max_cot_atp)
+                if demanda_valida[index_atp] > q80_aux:
+                    considerar_atp = np.union1d(considerar_atp, [index_atp])
+            else:
+                val = max(
+                    np.nanmean(demanda_original[vecinos_idx]),
+                    np.nansum(demanda_valida[vecinos_idx]) / len(vecinos_idx)
+                    if len(vecinos_idx) > 0
+                    else 0,
+                )
+                demanda_valida[vecinos_idx] = val
+                if demanda_valida[index_atp] > max_cot_atp and index_atp < series_n - 1:
+                    demanda_valida[vecinos_idx] = max_cot_atp
+                if demanda_valida[index_atp] > q80_aux:
+                    considerar_atp = np.union1d(considerar_atp, vecinos_idx)
+                aux_na_idx = np.setdiff1d(aux_na_idx, vecinos_idx)
+
+    logger.debug(f"D post Atipicos: {demanda_valida}")
+    return aux_na_idx, considerar_atp
+
+
+def procesar_hills(
+    demanda_valida: np.ndarray,
+    demanda_original: np.ndarray,
+    atp_idx: np.ndarray,
+    hills_idx: np.ndarray,
+    series_n: int,
+    q50_no_na: float,
+    aux_na_idx: np.ndarray,
+    el_no_hills: np.ndarray,
+    hill_y_atp: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Process hills in demand data by smoothing values using neighboring points.
+
+    Args:
+        demanda_valida: Array of validated demand values
+        demanda_original: Array of original demand values
+        atp_idx: Array of outliers indices
+        hills_idx: Array of indices identified as hills
+        series_n: Length of the time series
+        q50_no_na: 50th percentile of non-NA values
+        aux_na_idx: Array of auxiliary NA indices
+        el_no_hills: Array of indices not identified as hills
+        hill_y_atp: Array of indices that are both hills and ATP
+
+    Returns:
+        tuple containing:
+            - Updated ATP indices array
+            - Updated auxiliary NA indices array
+    """
+    if len(hills_idx) > 0:
+        for h in hills_idx:
+            val = 0
+            if h in hill_y_atp:
+                vecinos_idx_candidates = np.array([h - 2, h - 1, h + 1, h + 2])
+                # Keep only valid indices within range
+                vecinos_idx_candidates = vecinos_idx_candidates[
+                    (vecinos_idx_candidates >= 0) & (vecinos_idx_candidates < series_n)
+                ]
+                vecinos_idx = np.union1d(
+                    np.intersect1d(vecinos_idx_candidates, aux_na_idx),
+                    np.array([h]),
+                )
+
+                if len(vecinos_idx) > 1:
+                    if (len(el_no_hills) / (series_n - len(aux_na_idx))) > 0.5:
+                        val = max(
+                            float(np.nanmean(demanda_original[vecinos_idx])),
+                            float(
+                                np.nansum(demanda_valida[vecinos_idx])
+                                / len(vecinos_idx)
+                            )
+                            if len(vecinos_idx) > 0
+                            else 0.0,
+                            float(np.nanpercentile(demanda_original[el_no_hills], 50.0))
+                            if len(el_no_hills) > 0
+                            else 0.0,
+                        )
+                    else:
+                        val = max(
+                            float(np.nanmean(demanda_original[vecinos_idx])),
+                            np.nansum(demanda_valida[vecinos_idx]) / len(vecinos_idx)
+                            if len(vecinos_idx) > 0
+                            else 0,
+                            q50_no_na,
+                        )
+                    demanda_valida[vecinos_idx] = val
+                else:
+                    atp_idx = np.union1d(atp_idx, np.array([h]))
+            else:
+                vecinos_idx_candidates = np.array([h - 1, h + 1])
+                vecinos_idx = np.union1d(
+                    np.intersect1d(vecinos_idx_candidates, aux_na_idx),
+                    np.array([h]),
+                )
+
+                if len(vecinos_idx) > 1:
+                    if (len(el_no_hills) / (series_n - len(aux_na_idx))) > 0.5:
+                        val = max(
+                            float(
+                                np.nansum(demanda_original[vecinos_idx])
+                                / len(vecinos_idx)
+                            ),
+                            float(
+                                np.nansum(demanda_valida[vecinos_idx])
+                                / len(vecinos_idx)
+                            ),
+                            float(np.nanpercentile(demanda_original[el_no_hills], 50.0))
+                            if len(el_no_hills) > 0
+                            else 0.0,
+                        )
+                    else:
+                        val = max(
+                            float(
+                                np.nansum(demanda_original[vecinos_idx])
+                                / len(vecinos_idx)
+                            ),
+                            float(
+                                np.nansum(demanda_valida[vecinos_idx])
+                                / len(vecinos_idx)
+                            ),
+                            float(q50_no_na),
+                        )
+                    demanda_valida[vecinos_idx] = val
+
+            logger.debug(
+                f"val: {val}, vecinos_hills_idx: {vecinos_idx}, D[vecinos_hills_idx]: {demanda_valida[vecinos_idx]}"
+            )
+            el_no_hills = np.union1d(el_no_hills, vecinos_idx)
+            aux_na_idx = np.setdiff1d(aux_na_idx, vecinos_idx)
+    return atp_idx, aux_na_idx
 
 
 def read_from_files(
@@ -770,26 +1003,32 @@ def process_dataframes(
 
     # Función para calcular la fecha inicial y final y rellenar
     # Fecha Final para el main
+    # dates# logger.debug(f"current_stock antes fechas_main_max: {current_stock.head(40)}")
     fechas_main_max = (
         current_hist.select("main", "main_stock", *llaves_grupo_hist)
         .unique()
         .with_columns(pl.lit(current_hist["Fecha_Id"].max()).alias("Fecha_Id"))
     )
+    # dates# logger.debug(f"fechas_main_max: {fechas_main_max.head(40)}")
     fechas_main_min = (
         (
-            current_stock.group_by("main_stock")
-            .agg(pl.col("Fecha_Id").min().alias("Fecha_Id"))
-            .join(fechas_main_max, on="main_stock", how="left")
+            (
+                current_stock.group_by("main_stock").agg(
+                    pl.col("Fecha_Id").min().alias("Fecha_Id")
+                )
+            )
+            .join(fechas_main_max, on="main_stock", how="inner", validate="1:m")
             .select("main", "main_stock", *llaves_grupo_hist, "Fecha_Id")
         )
         .join(current_hist, on=["main", "main_stock", "Fecha_Id"], how="anti")
         .unique()
     )
-
+    # dates# logger.debug(f"fechas_main_min: {fechas_main_min.head(2)}")
     fechas_main_max = fechas_main_max.join(
         current_hist, on=["main", "main_stock", "Fecha_Id"], how="anti"
     ).unique()
 
+    # dates# logger.debug(f"fechas_main_max: {fechas_main_max.head(2)}")
     # Expandir fechas
     current_hist = (
         pl.concat([current_hist, fechas_main_max, fechas_main_min], how="diagonal")
@@ -806,6 +1045,7 @@ def process_dataframes(
             .alias("Fecha_Id"),  # Volver a Fecha Final para joins
         )
     ).unique(subset=("Fecha_Id", "main"))
+    # dates# logger.debug(f"current_hist despues ups: {current_hist.head(40)}")
 
     # with pl.Config() as cfg:
     #     cfg.set_tbl_cols(-1)
@@ -845,7 +1085,7 @@ def process_dataframes(
 
     # Agregar resumen (acumulado de demanda positiva)
     C_H = current_hist.group_by(["main_stock", "Fecha_Id"]).agg(
-        pl.col("Demanda_Positiva").sum().alias("Demanda_Acum_Pos")
+        pl.col("Demanda_Positiva").sum().alias("Demanda_Total_Sku")
     )
     current_hist = current_hist.join(
         C_H,
@@ -859,7 +1099,7 @@ def process_dataframes(
     # asi como las unidades que entraron
     current_hist = (
         current_hist.with_columns(
-            Stock_Acum=pl.col("Stock_Cierre") + pl.col("Demanda_Acum_Pos"),
+            Stock_Acum=pl.col("Stock_Cierre") + pl.col("Demanda_Total_Sku"),
         )
         .with_columns(
             # Agregar variable Primer_Demanda: primer mes con demanda positiva
@@ -909,7 +1149,7 @@ def procesar_con_mddme(
     current_hist: pl.DataFrame,
     current_stock: pl.DataFrame,
     procesar_stats: bool = True,
-    umbral: float = 0.4,
+    umbral_min: float = 0.4,
     ruta_write: Optional[str] = None,
 ) -> pl.DataFrame:
     """
@@ -928,25 +1168,26 @@ def procesar_con_mddme(
 
         def process_group(df: pl.DataFrame) -> pl.DataFrame:
             """Polars version of process_group function"""
+            logger.debug(f"Entra process group df: {df.head(40)}")
             # Sort by date
             df = df.sort("Fecha_Id")
             # with pl.Config() as cfg:
             #     cfg.set_tbl_cols(-1)
             #     logger.debug(f"res: {df.select(['main', 'Fecha_Id', 'Demanda_Positiva']).head(10)}")
             # Get numpy arrays for calculations
-            DC = df.get_column("Demanda_Positiva").to_numpy()
-            SA = df.get_column("Stock_Acum").to_numpy()
-            VA = df.get_column("Demanda_Acum_Pos").to_numpy()
-            Dss = df.get_column("DiasSin_Stock").to_numpy()
+            demanda_original = df.get_column("Demanda_Positiva").to_numpy()
+            stock_acum = df.get_column("Stock_Acum").to_numpy()
+            demanda_sku = df.get_column("Demanda_Total_Sku").to_numpy()
+            dias_sin_stock = df.get_column("DiasSin_Stock").to_numpy()
 
             # Marginalization
-            res = marginalizacion_demanda(
-                DC=DC,
-                SA=SA,
-                VA=VA,
-                Dss=Dss,
+            demanda_valida = marginalizacion_demanda(
+                demanda_original=demanda_original,
+                stock_acum=stock_acum,
+                demanda_sku=demanda_sku,
+                dias_sin_stock=dias_sin_stock,
             )
-            logger.debug(f"res: {res}")
+            logger.debug(f"Entran desde res_marginalizados: {demanda_valida}")
             # Get first date for start tuple
             first_date = df.get_column("Primer_Demanda").first()
             if isinstance(first_date, (datetime, date)):
@@ -957,7 +1198,7 @@ def procesar_con_mddme(
                 )
 
             # Get atypical values
-            atp_vals = obtener_atp(DC, res["D"], start_tuple)
+            atp_vals = obtener_atp(demanda_original, demanda_valida["D"], start_tuple)
 
             # Create atypical indicators array
             atipicos = np.zeros(len(df))
@@ -965,16 +1206,19 @@ def procesar_con_mddme(
                 atipicos[atp_vals] = 1
 
             # Get seasonal atypicals
-            atp_est = atp_ests(atp_vals, res["D"])
-            atipicos_est = np.zeros(len(df))
-            if len(atp_est) > 0:
-                atipicos_est[atp_est] = 1
+            atp_est_idx = atp_ests_idx(atp_vals, demanda_valida["D"])
+            atipicos_est_idx = np.zeros(len(df))
+            if len(atp_est_idx) > 0:
+                atipicos_est_idx[atp_est_idx] = 1
 
             # Get hills
-            hills_vals = find_hills(
-                DC,
-                res["D"],
-                atipicos_est == 1,
+            logger.debug(
+                f"Entran A hills_vals: {demanda_original=}, {demanda_valida['D']=}, {atipicos_est_idx== 1=}"
+            )
+            hills_vals = encontrar_hills_idx(
+                demanda_original,
+                demanda_valida["D"],
+                atipicos_est_idx == 1,
             )
 
             hills = np.zeros(len(df))
@@ -985,9 +1229,11 @@ def procesar_con_mddme(
             # Return processed dataframe with new columns
             df = df.with_columns(
                 [
-                    pl.Series("Seleccionados", res["D"]),
+                    pl.Series("Seleccionados", demanda_valida["D"]),
                     pl.Series("Atipicos", atipicos).cast(pl.Boolean),
-                    pl.Series("Atipicos_Estacionales", atipicos_est).cast(pl.Boolean),
+                    pl.Series("Atipicos_Estacionales", atipicos_est_idx).cast(
+                        pl.Boolean
+                    ),
                     pl.Series("Hills", hills).cast(pl.Boolean),
                 ]
             )
@@ -1007,12 +1253,14 @@ def procesar_con_mddme(
 
             # Get numpy arrays for calculations
             atp = df["Atipicos"].arg_true().to_numpy()
-            atp_ests_vals = df.get_column("Atipicos_Estacionales").arg_true().to_numpy()
-            hills = df.get_column("Hills").arg_true().to_numpy()
-            D = df.get_column("Seleccionados").to_numpy()
-            DC = df.get_column("Demanda_Positiva").to_numpy()
+            atp_ests_vals_idx = (
+                df.get_column("Atipicos_Estacionales").arg_true().to_numpy()
+            )
+            hills_idx = df.get_column("Hills").arg_true().to_numpy()
+            demanda_valida = df.get_column("Seleccionados").to_numpy()
+            demanda_original = df.get_column("Demanda_Positiva").to_numpy()
             # SA = df.get_column("Stock_Acum").to_numpy()
-            # VA = df.get_column("Demanda_Acum_Pos").to_numpy()
+            # VA = df.get_column("Demanda_Total_Sku").to_numpy()
             # Dss = df.get_column("DiasSin_Stock").to_numpy()
 
             # Calculate q60noNA
@@ -1031,51 +1279,53 @@ def procesar_con_mddme(
                 )
 
             # Process RPD calculations
+
             limpios_forecast = rpd(
-                D=D,
+                demanda_valida=demanda_valida,
                 start=start_tuple,
-                DC=DC,
-                umbral=umbral,
-                atp=atp,
+                demanda_original=demanda_original,
+                umbral_min=umbral_min,
+                atp_idx=atp,
                 q60_no_na=q60noNA,
-                hills=hills,
-                atp_ests_vals=atp_ests_vals,
-                para_prom=False,
+                hills_idx=hills_idx,
+                atp_ests_vals_idx=atp_ests_vals_idx,
+                decaimiento=False,
             )
+            logger.debug(f"Entran desde limpios_forecast: {limpios_forecast=}")
 
             limpios_promedio = rpd(
-                D=D,
+                demanda_valida=demanda_valida,
                 start=start_tuple,
-                DC=DC,
-                umbral=0,
-                atp=atp,
+                demanda_original=demanda_original,
+                umbral_min=0,
+                atp_idx=atp,
                 q60_no_na=1,
-                hills=hills,
-                atp_ests_vals=np.array([]),
-                para_prom=True,
+                hills_idx=hills_idx,
+                atp_ests_vals_idx=np.array([]),
+                decaimiento=True,
             )
 
-            rachas = rpd(
-                D=D,
+            rachas_idx = rpd(
+                demanda_valida=demanda_valida,
                 start=start_tuple,
-                DC=DC,
-                umbral=0,
-                atp=atp,
+                demanda_original=demanda_original,
+                umbral_min=0,
+                atp_idx=atp,
                 q60_no_na=1,
-                hills=hills,
-                atp_ests_vals=atp_ests_vals,
-                para_prom=False,
+                hills_idx=hills_idx,
+                atp_ests_vals_idx=atp_ests_vals_idx,
+                decaimiento=False,
                 only_rachas=True,
             )
 
             # Create rachas indicator array
-            ret = np.zeros(len(df))
-            ret[rachas] = 1
+            es_racha = np.zeros(len(df))
+            es_racha[rachas_idx] = 1
 
             # Calculate se_limpio
             seleccionados_len = len(df) - (df.get_column("Seleccionados").null_count())
             se_limpio = (
-                1 if (seleccionados_len / len(df) >= umbral and q60noNA > 0) else 0
+                1 if (seleccionados_len / len(df) >= umbral_min and q60noNA > 0) else 0
             )
 
             # Return processed dataframe with new columns
@@ -1085,12 +1335,11 @@ def procesar_con_mddme(
                     pl.Series("Limpios_Para_Promedio", limpios_promedio).cast(
                         pl.Float64
                     ),
-                    pl.Series("Rachas", ret).cast(pl.Boolean),
+                    pl.Series("Rachas", es_racha).cast(pl.Boolean),
                     pl.Series("Se_limpio", [se_limpio] * len(df)).cast(pl.Boolean),
                 ]
             )
 
-        # Replace the pandas groupby with polars
         processed_groups: deque = deque()
         for group in current_hist.partition_by("main"):
             processed_groups.append(process_group_forecast(group))
@@ -1136,7 +1385,7 @@ if __name__ == "__main__":
         current_hist,
         current_stock,
         procesar_stats=True,
-        umbral=umbral,
+        umbral_min=umbral,
         ruta_write=ruta_write,
     )
 
@@ -1148,7 +1397,7 @@ if __name__ == "__main__":
     mem_used = mem_after - mem_before
 
     time_str = f"El tiempo que se tardó fue: {time_taken:.3f} minutos"
-    mem_str = f"La memoria usada fue de: {round(mem_used)} MB"
+    mem_str = f"La memoria usada fue de: {round(mem_used, 1)} MB"
 
     print(time_str)
     print(mem_str)
