@@ -10,8 +10,8 @@ Group={{ env["DAGSTER_GROUP"] | default("analitica") }}
 Environment=PYTHONUNBUFFERED=1
 WorkingDirectory={{ env["DAGSTER_HOME"] }}
 EnvironmentFile={{ env["DAGSTER_HOME"] }}/.env
-ExecStart={{ env["DAGSTER_HOME"] }}/.venv_main_dagster/bin/dagster-daemon run
-Environment="PATH={{ env["DAGSTER_HOME"] }}/.venv_main_dagster/bin/:/usr/bin"
+ExecStart={{ env["DAGSTER_HOME"] }}/.venv/bin/dagster-daemon run
+Environment="PATH={{ env["DAGSTER_HOME"] }}/.venv/bin/:/usr/bin"
 
 [Install]
 WantedBy=multi-user.target

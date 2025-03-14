@@ -3,15 +3,25 @@
 Para instalar los requisitos en un entorno virtual:
 
 ```bash
-# Opción 1: Usando el script de desarrollo
+# Opción 1: Usando el script de desarrollo (recomendado)
 python scripts/deployment.py dev
+```
 
-# Opción 2: Instalación manual (esto no realiza todos los procedimientos para dev.)
-python3.12 -m venv .venv_main_dagster
+Este comando ahora utiliza `uv` para:
+- Instalar la versión correcta de Python desde el pyproject.toml
+- Crear un entorno virtual optimizado
+- Instalar todas las dependencias incluyendo las de desarrollo
+- Configurar las llaves SSH para repositorios privados
+- Configurar git commit templates y pre-commit hooks
 
-pip install -e dagster_shared_gf --config-settings editable_mode=compat
-pip install -e dagster_sap_gf --config-settings editable_mode=compat
-pip install -e dagster_kielsa_gf --config-settings editable_mode=compat
+```bash
+# Opción 2: Instalación de componentes específicos
+python scripts/deployment.py install-deps        # Instala dependencias básicas
+python scripts/deployment.py install-deps --dev  # Instala dependencias de desarrollo
+python scripts/deployment.py install-deps --only-external  # Solo instala dependencias externas
+
+# Opción 3: Manual
+utiliza uv para instalar las dependencias
 ```
 
 ## Configuración de GitHub ##
@@ -32,13 +42,15 @@ python scripts/deployment.py check-deploy-key
 # Generar una nueva llave SSH para un repositorio específico
 python scripts/deployment.py setup-deploy-key --repo=algoritmos-gf --org=farinter-analitica
 
+# Forzar la creación de una nueva llave (sobreescribe la existente)
+python scripts/deployment.py setup-deploy-key --repo=algoritmos-gf --org=farinter-analitica --force
+
 # Probar la conexión SSH a un repositorio
 python scripts/deployment.py test-deploy-key --repo=algoritmos-gf --org=farinter-analitica
 ```
 
 Después de generar la llave, agrégala como deploy key en la configuración del repositorio en GitHub:
 https://github.com/farinter-analitica/algoritmos-gf/settings/keys
-
 ## Configuración Local ##
 1. Crear los archivos de configuración basándose en los archivos .sample
 2. Configurar las variables de entorno necesarias en el archivo .env
@@ -75,24 +87,33 @@ Se utiliza github actions para el despliegue automatico. Para configurarlo:
 
 Para más detalles sobre los workflows disponibles, revisar los archivos en .github/workflows/
 ## Despliegue ##
-El sistema cuenta con despliegue automático a través de GitHub Actions:
+El sistema cuenta con despliegue automático a través de GitHub Actions y el nuevo script deployment.py con soporte para uv:
 
 1. **Entornos**:
   - Desarrollo (dev): Al hacer push a la rama `dev`
   - Producción (prd): Al hacer push a la rama `main`
 
 2. **Tipos de Despliegue**:
-  - `deploy-full`: Regenera plantillas de servicio y actualiza todo (cuando hay cambios en scripts/generate_dagster_service.py)
-  - `deploy-partial`: Actualiza Python y dependencias (cuando hay cambios en .python-version)
-  - `deploy-fast`: Solo actualiza dependencias (cuando hay cambios en pyproject.toml)
-  - `deploy-continuous`: Actualiza solo el código (para otros cambios) Siempre se requiere recargar en dagster manualmente.
+  - `deploy-full`: Regenera plantillas de servicio, Python, y actualiza todas las dependencias
+  - `deploy-partial`: Actualiza Python y dependencias 
+  - `deploy-fast`: Solo actualiza dependencias
+  - `deploy-continuous`: Actualiza solo el código (cambios mínimos)
 
-3. **El proceso de despliegue**:
-  - Detecta automáticamente el tipo de cambios
-  - Actualiza el código desde el repositorio
-  - Procesa archivos DBT
-  - Ejecuta la estrategia de despliegue correspondiente
-  - Verifica el estado de los servicios
+3. **Ejecución manual de despliegue**:
+```bash
+# Configurar variables de entorno
+export ENV=dev
+export DEPLOY_DIR=/path/to/deployment
+
+# Ejecutar el tipo de despliegue deseado
+python scripts/deployment.py deploy-full
+python scripts/deployment.py deploy-partial
+python scripts/deployment.py deploy-fast
+python scripts/deployment.py deploy-continuous
+```
+
+El nuevo sistema utiliza `uv` para gestionar versiones de Python y dependencias, lo que proporciona instalaciones más rápidas y consistentes entre entornos.
+
 
 ## Dependencias Externas ##
 El proyecto utiliza dependencias externas de repositorios privados:

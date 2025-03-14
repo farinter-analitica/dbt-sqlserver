@@ -1,6 +1,6 @@
 [tool.pyright]
 venvPath = "."
-venv = ".venv_main_dagster"
+venv = ".venv"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
@@ -17,4 +17,10 @@ testpaths = [
 ]
 
 [tool.main_dagster]
-python_version = "3.12"  # Explicitly specify the required Python version
+python_version = "3.12" # Explicitly specify the required Python version
+
+[tool.uv]
+config-settings = { editable_mode = "compat" }
+
+[tool.uv.workspace]
+members = ["dagster_shared_gf", "dagster_sap_gf", "dagster_kielsa_gf"] 
