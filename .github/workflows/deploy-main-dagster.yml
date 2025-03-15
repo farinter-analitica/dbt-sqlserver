@@ -25,8 +25,9 @@ jobs:
       - name: Check commit message for deployment type
         id: commit_override
         run: |
-          OVERRIDE=$(git log -1 --pretty=%B | grep -oP "github_actions:deployment_type=\K\S+")
-          if [ -n "$OVERRIDE" ]; then
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$COMMIT_MSG" | grep -q "github_actions:deployment_type="; then
+            OVERRIDE=$(echo "$COMMIT_MSG" | grep -oP "github_actions:deployment_type=\K\S+")
             echo "deployment_type=${OVERRIDE}" >> $GITHUB_OUTPUT
           else
             echo "deployment_type=deploy-continuous" >> $GITHUB_OUTPUT
