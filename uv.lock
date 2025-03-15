@@ -51,8 +51,8 @@ wheels = [
 
 [[package]]
 name = "algoritmo-mddme-gf"
-version = "1.0.1"
-source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_algoritmo_mddme_gf#57a63232e9716ddec62bee4bc798fd176ff8d875" }
+version = "1.0.2"
+source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_algoritmo_mddme_gf&rev=v1.0.2#70753d90738912ef51049e153790e66c4fd24e13" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
@@ -722,7 +722,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "algoritmo-mddme-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_algoritmo_mddme_gf" },
+    { name = "algoritmo-mddme-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_algoritmo_mddme_gf&rev=v1.0.2" },
     { name = "arrow-odbc" },
     { name = "dagster", specifier = ">=1.9.7,<1.10.5" },
     { name = "dagster-cloud" },
@@ -747,7 +747,7 @@ requires-dist = [
     { name = "pymongoarrow" },
     { name = "pyodbc" },
     { name = "smbprotocol" },
-    { name = "statstools-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_statstools_gf&rev=v1.0.1" },
+    { name = "statstools-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_statstools_gf&rev=v1.0.2" },
     { name = "trycast" },
     { name = "wheel" },
     { name = "xlsx2csv" },
@@ -3865,8 +3865,8 @@ wheels = [
 
 [[package]]
 name = "statstools-gf"
-version = "0.7.1"
-source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_statstools_gf&rev=v1.0.1#57a63232e9716ddec62bee4bc798fd176ff8d875" }
+version = "0.7.2"
+source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=py_statstools_gf&rev=v1.0.2#70753d90738912ef51049e153790e66c4fd24e13" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
