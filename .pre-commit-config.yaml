@@ -1,7 +1,7 @@
 # .pre-commit-config.yaml
 default_stages: [pre-commit]
 default_language_version:
-    python: python3.12
+  python: python3.12
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.9.7
@@ -31,3 +31,9 @@ repos:
         args: [--level=warning, --warnings]
         language: python
         types: [python]
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.6.6
+    hooks:
+      - id: uv-lock
