@@ -66,8 +66,8 @@ dependencies = [
 
 [project.optional-dependencies]
 external = [
-    "statstools_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.3#subdirectory=py_statstools_gf",
-    "algoritmo_mddme_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.3#subdirectory=py_algoritmo_mddme_gf",
+    "statstools_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_statstools_gf",
+    "algoritmo_mddme_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_algoritmo_mddme_gf",
 ]
 
 [project.urls]
