@@ -16,4 +16,5 @@ sources:
       - name: BI_Dim_Sociedad_SAP
       - name: BI_Dim_Centro_SAP
       - name: BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia
+      - name: BI_SAP_Hecho_SocAlmArtGpoCli_Forecast
 

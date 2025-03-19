@@ -11,6 +11,8 @@
 }}
 
 {#
+-- Solo se debe usar esta vista para el EXCEL de la herramienta de analisis de pedidos.
+
 let
     Source = Excel.Workbook(File.Contents("\\10.0.5.157\ftpfarinter\Planning\BaseDatos\Stock_Cubo.xlsx"), null, true),
     TbStockMensual_Table = Source{[Item="TbStockMensual",Kind="Table"]}[Data],

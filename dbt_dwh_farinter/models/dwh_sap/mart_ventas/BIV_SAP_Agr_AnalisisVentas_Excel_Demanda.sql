@@ -11,6 +11,8 @@
 }}
 
 {#
+-- Solo se debe usar esta vista para el EXCEL de la herramienta de analisis de pedidos.
+
 --Table.TransformColumnTypes(TbVentasTotales_Table,{{"sociedad_id", type text}, {"almacen_id", type text}, {"casa_id", type text}, {"material", type text}, {"material_nombre", type text}, {"grupo_cliente", type text}, {"gpo_cliente", type text}, {"periodo", type text}, {"valor_neto_vta", type number}, {"cantidad_vta", type number}, {"valor_costo_vta", type number}, {"valor_util_vta", type number}, {"valor_vta", type number}})
 
 sociedad_id	almacen_id	casa_id	material	material_nombre	grupo_cliente	gpo_cliente	periodo	valor_neto_vta	cantidad_vta	valor_costo_vta	valor_util_vta	valor_vta
