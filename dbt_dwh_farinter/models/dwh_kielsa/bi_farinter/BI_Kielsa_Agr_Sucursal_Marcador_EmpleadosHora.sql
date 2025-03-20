@@ -62,7 +62,7 @@ InnerCross_Horas AS (
         CAST(H.hora_id AS INT) AS hora_id,
 		DATEADD(HOUR, H.hora_id, CAST(ICF.Fecha_Calendario AS datetime)) as FechaHora_Id
     FROM InnerCross_Fecha [ICF]
-    CROSS JOIN BI_FARINTER.dbo.BI_Dim_Hora H -- {{ source('BI_FARINTER','BI_Dim_Hora') }}
+    CROSS JOIN BI_FARINTER.dbo.BI_Dim_Hora H -- {{ ref('BI_Dim_Hora') }}
     WHERE ICF.FH_Entrada <= DATEADD(HOUR, H.hora_id, CAST(ICF.Fecha_Calendario AS datetime))
         AND ICF.FH_Salida >= DATEADD(HOUR, H.hora_id, CAST(ICF.Fecha_Calendario AS datetime))
 ),

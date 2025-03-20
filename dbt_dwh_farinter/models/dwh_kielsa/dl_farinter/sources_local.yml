@@ -130,6 +130,7 @@ sources:
       - name: DL_Kielsa_Orden_Exterior_Encabezado
       - name: DL_Kielsa_VendedorSucursal
       - name: DL_Kielsa_Libros_Cliente
+      - name: DL_Kielsa_Libros_Historico
       - name: DL_Kielsa_Libros_Tipo
       - name: DL_MDBECOMM_Usuarios
       - name: DL_Kielsa_KPP_Suscripcion
@@ -147,6 +148,9 @@ sources:
       - name: DL_Kielsa_eCommerceOrigen
       - name: DL_Kielsa_Seg_Rol
       - name: DL_Kielsa_Cliente_ArticuloRecomendado
+      - name: DL_Kielsa_Enfermedades
+      - name: DL_Kielsa_Patologia_Cronico_Excel
+
 
 
   - name: DL_FARINTER_mdb_ecommerce_hn

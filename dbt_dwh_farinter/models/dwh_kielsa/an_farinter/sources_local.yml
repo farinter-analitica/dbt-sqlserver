@@ -15,4 +15,5 @@ sources:
       - name: AN_Cal_AtributosCliente_Kielsa
       - name: AN_Cal_CasaXProveedor_Kielsa
       - name: AN_SAP_Cal_VentaCero
+      - name: AN_Cal_ClientesTemp_Kielsa
       

@@ -4,7 +4,7 @@
 		materialized="view",
 	) 
 }}
---Vista 
+--Solo editable en dbt DAGSTER
 --AXELL PADILLA -- 20230727 
 SELECT --top 1000
 	CA.Emp_Id
@@ -82,7 +82,7 @@ FROM
 		, MAX(AnioMes_Id) AS AnioMes_Id_Ultima_Compra
 		, COUNT(DISTINCT Factura_Id) AS Veces_Comprado
 	FROM	BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaPosicion FP -- {{ ref('BI_Kielsa_Hecho_FacturaPosicion') }}
-	INNER JOIN DL_FARINTER.dbo.DL_Kielsa_Libros_Cliente LK
+	INNER JOIN DL_FARINTER.dbo.DL_Kielsa_Libros_Cliente LK -- {{ source('DL_FARINTER', 'DL_Kielsa_Libros_Cliente') }}
 		ON LK.Identidad_Limpia = FP.MonederoTarj_Id_Limpio AND LK.Pais_Id = FP.Emp_Id	---OJOOOOOOOOO
 
 	WHERE FP.Factura_Fecha BETWEEN DATEADD(Month, -6, GETDATE()) AND GETDATE()
@@ -90,15 +90,15 @@ FROM
 		AND FP.AnioMes_Id >= YEAR(DATEADD(Month, -6, GETDATE())) * 100 + MONTH(DATEADD(Month, -6, GETDATE()))
 		AND EXISTS
 		(SELECT TOP 100 * --LH.Identidad_Limpia
-		FROM	DL_Kielsa_Libros_Historico LH
+		FROM	DL_Kielsa_Libros_Historico LH -- {{ source('DL_FARINTER', 'DL_Kielsa_Libros_Historico') }}
 		WHERE LH.Identidad_Limpia = LK.Identidad_Limpia
 			AND LH.Pais_Id = LK.Pais_Id
 			AND LH.Fecha_Creacion BETWEEN DATEADD(Month, -6, GETDATE()) AND GETDATE()
 			AND LH.AnioMes_Id = YEAR(LH.Fecha_Creacion) * 100 + MONTH(LH.Fecha_Creacion))
 	GROUP BY FP.MonederoTarj_Id_Limpio, FP.Articulo_Id, FP.Emp_Id) CA
-INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_ArticuloPresentacion AP
+INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_ArticuloPresentacion AP -- {{ source('BI_FARINTER', 'BI_Kielsa_Dim_ArticuloPresentacion') }}
 	ON AP.Articulo_Id = CA.Articulo_Id
-INNER JOIN DL_FARINTER.dbo.VDL_Kielsa_RecetasCalculosArticulo RA
+INNER JOIN DL_FARINTER.dbo.VDL_Kielsa_RecetasCalculosArticulo RA -- {{ ref('VDL_Kielsa_RecetasCalculosArticulo') }}
 	ON RA.Articulo_Id = CA.Articulo_Id and RA.Emp_Id = CA.Emp_Id
 LEFT JOIN
 	(SELECT
@@ -108,7 +108,7 @@ LEFT JOIN
 	ON UFACTURA.Consecutivo_Factura = CA.Consecutivo_Ultima_Compra
 	AND UFACTURA.Articulo_Id = CA.Articulo_Id
 	AND UFACTURA.AnioMes_Id = CA.AnioMes_Id_Ultima_Compra
-LEFT JOIN AN_FARINTER.dbo.VAN_Cal_AtributosCliente_Kielsa ATR
+LEFT JOIN AN_FARINTER.dbo.VAN_Cal_AtributosCliente_Kielsa ATR -- {{ ref('VAN_Cal_AtributosCliente_Kielsa') }}
 	ON ATR.Cliente_Id = CA.Monedero_Id AND ATR.Pais_Id = CA.Emp_Id
 LEFT JOIN
 	(SELECT
@@ -118,6 +118,6 @@ LEFT JOIN
 		AND AnioMes_Id = YEAR(fecha_Receta) * 100 + MONTH(fecha_Receta)
 	GROUP BY idpais, identidad) RC
 	ON RC.Monedero_Id = CA.Monedero_Id AND RC.idpais = CA.Emp_Id
-INNER JOIN DL_FARINTER.dbo.VDL_Kielsa_Libros_Historico_Resumido LHR
+INNER JOIN DL_FARINTER.dbo.VDL_Kielsa_Libros_Historico_Resumido LHR -- {{ ref('VDL_Kielsa_Libros_Historico_Resumido') }}
 	ON LHR.Monedero_Id = CA.Monedero_Id AND LHR.Pais_Id = CA.Emp_Id --OJJOOOOOOOOOOOOOOOOOO
 																	--OFFSET 0 ROWS FETCH NEXT 1000 ROWS ONLY
