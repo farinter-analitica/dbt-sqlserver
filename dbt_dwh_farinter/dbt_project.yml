@@ -61,6 +61,10 @@ models:
       dl_farinter:
         +group: 'sap_etl_dwh'
         +database: 'DL_FARINTER'
+      bi_db_planning:
+        +schema: 'db_planning'
+        +group: 'db_planning'
+        +database: 'BI_FARINTER'
         
     dwh_kielsa:
       +tags: ["dagster_kielsa_gf/dbt"]
