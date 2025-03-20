@@ -1,7 +1,6 @@
 {% set unique_key_list = ["almacen_id","casa_id","material","periodo","gpo_cliente"] %}
 {{ 
     config(
-		as_columnstore=true,
 		tags=["periodo/mensual"],
 		materialized="view",
 		post_hook=[

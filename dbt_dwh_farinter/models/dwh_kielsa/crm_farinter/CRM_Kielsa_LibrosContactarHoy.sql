@@ -88,7 +88,7 @@ LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Articulo A
 LEFT JOIN CRM_Kielsa_RecetasContactarHoy RCH
 	ON LB.Emp_Id = RCH.Pais_Id AND LB.Sucursal_Id = RCH.Sucursal_Id AND LB.Identidad = RCH.Identidad
 WHERE LB.Orden_Vendedor_Identidad =1 AND RCH.Identidad IS NULL
-AND LB.Identidad = '0501196909896'
+--AND LB.Identidad = '0501196909896'
 
 /*
 select * from(
