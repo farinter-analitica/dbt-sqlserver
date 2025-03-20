@@ -72,11 +72,9 @@ SELECT
     -- Indicador de validez estadística basado en:
     -- 1. Suficientes días de compra (al menos 3)
     -- 2. Porcentaje significativo de compras en el día preferido (>25%)
-    -- 3. Frecuencia de compra razonable (>5%)
     CASE 
         WHEN CT.Total_Dias_Compra >= 3 
              AND (CAST(DSP.Conteo_Dias AS FLOAT) / NULLIF(CT.Total_Dias_Compra, 0)) > 0.25
-             AND (CAST(CT.Total_Dias_Compra AS FLOAT) / NULLIF(CT.Total_Dias_Ventana, 0)) > 0.05
         THEN 1
         ELSE 0
     END AS Indicador_Validez_Estadistica,

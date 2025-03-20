@@ -3,12 +3,12 @@
     config(
         as_columnstore=true,
         tags=["periodo/diario","periodo_unico/si"],
-        materialized="table",
+        materialized="incremental",
         incremental_strategy="farinter_merge",
         unique_key=unique_key_list,
         on_schema_change = "append_new_columns",
-        merge_exclude_columns=unique_key_list + ["Fecha_Procesado"],
-        merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Procesado","Es_Hora_Actual"],
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
         post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
         "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
@@ -59,7 +59,7 @@ SELECT
         WHEN Hora_Id = 12 THEN 3
         ELSE 99
     END AS Periodo_Hora_Orden,
-    GETDATE() AS Fecha_Procesado
+    GETDATE() AS Fecha_Actualizado
 FROM 
     Horas
 WHERE 

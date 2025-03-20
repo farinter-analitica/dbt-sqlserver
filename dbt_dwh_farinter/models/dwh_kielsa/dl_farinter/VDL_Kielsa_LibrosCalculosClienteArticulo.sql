@@ -69,8 +69,8 @@ SELECT --top 1000
 			THEN 1
 		ELSE 0
 	END AS Indicador_A_Tiempo
-	, ATR.Dia_Semana DiaSemana_Preferido
-	, ATR.Hora Hora_Preferida
+	, ISNULL(CAST(DSD.Dia_Semana_Nombre AS VARCHAR(50)),'')  DiaSemana_Preferido
+	, ISNULL(CAST(HORP.Hora_Id AS VARCHAR(2)),'') AS Hora_Preferida
 FROM
 	(SELECT
 		MonederoTarj_Id_Limpio AS Monedero_Id
@@ -108,8 +108,16 @@ LEFT JOIN
 	ON UFACTURA.Consecutivo_Factura = CA.Consecutivo_Ultima_Compra
 	AND UFACTURA.Articulo_Id = CA.Articulo_Id
 	AND UFACTURA.AnioMes_Id = CA.AnioMes_Id_Ultima_Compra
-LEFT JOIN AN_FARINTER.dbo.VAN_Cal_AtributosCliente_Kielsa ATR -- {{ ref('VAN_Cal_AtributosCliente_Kielsa') }}
-	ON ATR.Cliente_Id = CA.Monedero_Id AND ATR.Pais_Id = CA.Emp_Id
+LEFT JOIN {{ ref("BI_Kielsa_Agr_Monedero_DiaSemana_Ventana") }} DSP
+	ON DSP.Monedero_Id = CA.Monedero_Id 
+	AND DSP.Emp_Id = CA.Emp_Id 
+	AND DSP.Ranking=1 AND DSP.Indicador_Validez_Estadistica=1
+LEFT JOIN {{ ref("BI_Dim_Dia_Semana")}} DSD
+	ON DSD.Dia_Semana_Iso_Id = DSP.Dia_Semana_Iso
+LEFT JOIN {{ ref("BI_Kielsa_Agr_Monedero_Hora_Ventana") }} HORP
+	ON HORP.Monedero_Id = CA.Monedero_Id 
+	AND HORP.Emp_Id = CA.Emp_Id 
+	AND HORP.Ranking=1 AND HORP.Indicador_Validez_Estadistica=1
 LEFT JOIN
 	(SELECT
 		idpais, identidad AS Monedero_Id, COUNT(1) AS Cantidad_Recetas_Cliente
