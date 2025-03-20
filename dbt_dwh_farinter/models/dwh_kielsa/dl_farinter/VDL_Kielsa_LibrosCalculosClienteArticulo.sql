@@ -113,7 +113,7 @@ LEFT JOIN AN_FARINTER.dbo.VAN_Cal_AtributosCliente_Kielsa ATR -- {{ ref('VAN_Cal
 LEFT JOIN
 	(SELECT
 		idpais, identidad AS Monedero_Id, COUNT(1) AS Cantidad_Recetas_Cliente
-	FROM	DL_FARINTER.dbo.DL_Kielsa_RecetasCabecera
+	FROM	DL_FARINTER.dbo.DL_Kielsa_RecetasCabecera --{{ source('DL_FARINTER', 'DL_Kielsa_RecetasCabecera') }}
 	WHERE fecha_Receta BETWEEN DATEADD(Month, -12, GETDATE()) AND GETDATE()
 		AND AnioMes_Id = YEAR(fecha_Receta) * 100 + MONTH(fecha_Receta)
 	GROUP BY idpais, identidad) RC

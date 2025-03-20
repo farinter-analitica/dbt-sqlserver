@@ -27,7 +27,7 @@ WITH Horas AS (
                (1),(1),(1),(1),(1),(1),(1),(1),(1),(1),(1),(1)) AS nums(n)
 )
 SELECT
-    Hora_Id,
+    ISNULL(Hora_Id,0) AS Hora_Id,
     FORMAT(DATEADD(HOUR, Hora_Id, '00:00:00'), 'HH:mm') AS Hora_Formato,
     CASE 
         WHEN Hora_Id BETWEEN 0 AND 5 THEN 'MADRUGADA'

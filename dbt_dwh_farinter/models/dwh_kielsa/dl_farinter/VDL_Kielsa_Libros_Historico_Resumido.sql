@@ -47,7 +47,7 @@ INNER JOIN (
         FROM (
             SELECT --top 100 
                 autoid, AnioMes_Id,PatologiaTexto, UPV.Patologias_Id,  UPV.Patologia_N
-            FROM  DL_FARINTER.dbo.DL_Kielsa_Libros_Historico PV
+            FROM  DL_FARINTER.dbo.DL_Kielsa_Libros_Historico PV  --{{source('DL_FARINTER','DL_Kielsa_Libros_Historico')}}
             UNPIVOT (Patologias_Id FOR Patologia_N IN ( PV.Patologia_Id
                 , PV.Patologia_2_Id
                 , PV.Patologia_3_Id
