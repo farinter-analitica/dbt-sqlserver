@@ -82,6 +82,7 @@ WITH agr_monedero as
             )
       AND [AN_FARINTER].[dbo].[AN_fnc_Verificacion Id](B.Emp_Id, B.Monedero_Id) = 1
     GROUP BY
+          B.Emp_Id,
          B.Monedero_Id,
          B.Monedero_Nombre,
          B.Celular,
