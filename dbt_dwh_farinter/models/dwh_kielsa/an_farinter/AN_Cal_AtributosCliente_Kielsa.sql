@@ -37,7 +37,8 @@ WITH agr_monedero as
           M.Genero,
           M.RangoEdad,
           M.Saldo_Puntos,
-          M.Ingreso
+          M.Ingreso,
+          M.Monedero_Nombre
      FROM {{ref('BI_Kielsa_Agr_Monedero')}} MAGR
      INNER JOIN {{ref('BI_Kielsa_Dim_Monedero')}} M
      ON M.Monedero_Id = MAGR.Monedero_Id
