@@ -116,23 +116,10 @@ class ACSSensorFactory:
         # Start with a copy of base selections
         final_selections = {k: v for k, v in self.base_selections.items()}
 
-        # Add custom selections
-        for name, selection in self.custom_selections.items():
-            final_selections[name] = selection
-
         # Apply exclusions in priority order
-        priority_order = ["hourly", "daily", "weekly", "monthly"] + list(
-            self.custom_selections.keys()
-        )
+        priority_order = ["hourly", "daily", "weekly", "monthly"]
 
-        # First, exclude custom selections from standard selections
-        for std_name in ["hourly", "daily", "weekly", "monthly"]:
-            for custom_name, custom_selection in self.custom_selections.items():
-                final_selections[std_name] = (
-                    final_selections[std_name] - custom_selection
-                )
-
-        # Then apply the hierarchical exclusions
+        # Apply the hierarchical exclusions
         for i, higher_priority in enumerate(priority_order):
             for lower_priority in priority_order[i + 1 :]:
                 if (
@@ -143,6 +130,17 @@ class ACSSensorFactory:
                         final_selections[lower_priority]
                         - final_selections[higher_priority]
                     )
+
+        # Exclude custom selections from standard selections
+        for std_name in priority_order:
+            for custom_name, custom_selection in self.custom_selections.items():
+                final_selections[std_name] = (
+                    final_selections[std_name] - custom_selection
+                )
+
+        # Add custom selections
+        for name, selection in self.custom_selections.items():
+            final_selections[name] = selection
 
         # Add the "remaining" selection that excludes everything else
         all_other_selections = AssetSelection.all()
@@ -163,7 +161,8 @@ class ACSSensorFactory:
         status: DefaultSensorStatus | None = None,
     ):
         """
-        Add a custom sensor with specific parameters
+        Add a custom sensor with specific parameters, this will exclude the selection from default sensors.
+        No exclusion is done between custom added sensors, duplicate assets will cause an error.
 
         Args:
             name: Name of the sensor

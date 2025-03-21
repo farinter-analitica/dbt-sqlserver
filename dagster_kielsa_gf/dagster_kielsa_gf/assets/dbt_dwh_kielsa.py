@@ -105,7 +105,7 @@ dbt_group_assets.append(
 
 @dbt_assets(
     manifest=dbt_manifest,
-    select=f"{MAIN_SELECT_STR},tag:particionado/auto",
+    select=f"{MAIN_SELECT_STR},tag:{tags_repo.PartitionedAuto.key}",
     dagster_dbt_translator=MyDbtSourceTranslator(),
     partitions_def=diario_desde_360_dias_atras_hasta_hoy,
     backfill_policy=BackfillPolicy.single_run(),

@@ -81,7 +81,7 @@ group_names = {
     if any(MAIN_SELECT_STR in tag for tag in group_def.get("tags", []))
 }
 
-# Create assets for each group
+# Create assets for each group, coma es AND
 for group_name in group_names:
     dbt_group_assets.append(
         create_group_asset_function(
@@ -91,7 +91,7 @@ for group_name in group_names:
         )
     )
 
-# Add remaining models that don't belong to any group
+# Add remaining models that don't belong to any group, espacio es OR
 dbt_group_assets.append(
     create_group_asset_function(
         select=f"{MAIN_SELECT_STR}",
