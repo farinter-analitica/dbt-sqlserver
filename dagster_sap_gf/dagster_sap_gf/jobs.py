@@ -46,7 +46,7 @@ dbt_dwh_sap_etl_dwh_full_refresh_job = define_asset_job(
     selection=AssetSelection.groups("sap_etl_dwh")
     & AssetSelection.tag_string("dagster_sap_gf/dbt"),
     config=RunConfig(
-        {"dbt_sap_etl_dwh_assets": MyDbtConfig(full_refresh=True)},
+        {"sap_etl_dwh_assets": MyDbtConfig(full_refresh=True)},
         execution=execution_run_config_default.execution,
     ),
 )
