@@ -3,12 +3,7 @@ from dagster_shared_gf.definitions import (
     all_shared_resources,
     all_jobs,
     all_schedules,
-    all_shared_sensors,
-    asset_selection_hora,
-    asset_selection_dia,
-    asset_selection_mes,
-    asset_selection_semana,
-    asset_selection_restante,
+    ACSSensorFactory,
 )
 
 __all__ = [
@@ -16,10 +11,5 @@ __all__ = [
     "all_shared_resources",
     "all_jobs",
     "all_schedules",
-    "all_shared_sensors",
-    "asset_selection_hora",
-    "asset_selection_dia",
-    "asset_selection_mes",
-    "asset_selection_semana",
-    "asset_selection_restante",
+    "ACSSensorFactory",
 ]

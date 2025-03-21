@@ -26,7 +26,7 @@ from dagster_sap_gf.sensors import (
 )
 from dagster_shared_gf import (
     all_shared_resources,
-    all_shared_sensors,
+    ACSSensorFactory,
 )
 from dagster_shared_gf.shared_constants import (
     hourly_freshness_seconds_per_environ,
@@ -75,7 +75,7 @@ defs = Definitions(
     jobs=all_jobs,
     sensors=(
         *all_sensors,
-        *all_shared_sensors,
+        *ACSSensorFactory().get_sensors(),
         all_sap_assets_freshness_checks_sensor,
     ),
     schedules=all_schedules,

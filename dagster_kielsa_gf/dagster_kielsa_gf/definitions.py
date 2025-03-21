@@ -1,4 +1,5 @@
 from dagster import (
+    AssetSelection,
     Definitions,
     build_sensor_for_freshness_checks,
 )
@@ -24,7 +25,7 @@ from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
 from dagster_shared_gf import (
     all_shared_resources,
-    all_shared_sensors,
+    ACSSensorFactory,
 )
 from dagster_shared_gf.shared_constants import (
     hourly_freshness_seconds_per_environ,
@@ -34,6 +35,7 @@ from dagster_shared_gf.shared_helpers import (
     create_freshness_checks_for_assets,
     get_unique_source_assets,
 )
+from dagster_shared_gf.shared_variables import tags_repo
 
 all_assets = (
     *examples.all_assets,
@@ -75,6 +77,15 @@ all_kielsa_assets_freshness_checks_sensor = build_sensor_for_freshness_checks(
     name="all_kielsa_assets_freshness_checks_sensor",
 )
 
+acs_factory = ACSSensorFactory()
+acs_factory = acs_factory.add_sensor(
+    name="acs_kielsa_analitica_atributos",
+    selection=AssetSelection.groups("kielsa_analitica_atributos"),
+    interval_seconds=60 * 5,
+    tags=tags_repo.Daily,
+    run_tags=tags_repo.Daily,
+)
+
 defs = Definitions.merge(
     # dlt_defs.defs, #antes todos los subrepos
     Definitions(
@@ -93,7 +104,7 @@ defs = Definitions.merge(
         schedules=all_schedules,
         sensors=(
             *all_sensors,
-            *all_shared_sensors,
+            *acs_factory.get_sensors(),
             all_kielsa_assets_freshness_checks_sensor,
         ),
     ),

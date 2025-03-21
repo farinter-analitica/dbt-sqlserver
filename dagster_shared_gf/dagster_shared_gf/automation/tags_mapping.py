@@ -1,3 +1,4 @@
+from typing import Mapping, Optional
 from dagster_shared_gf.automation.time_based import (
     automation_daily_delta_2_cron,
     automation_hourly_delta_12_cron,
@@ -6,7 +7,7 @@ from dagster_shared_gf.automation.time_based import (
     automation_monthly_end_delta_1_cron,
     automation_weekly_1_delta_1_cron,
 )
-from dagster_shared_gf.shared_variables import tags_repo
+from dagster_shared_gf.shared_variables import tags_repo, Tags
 from dagster import AutomationCondition
 
 tag_automation_mapping: dict[str, AutomationCondition] = {
@@ -24,3 +25,19 @@ tag_automation_mapping: dict[str, AutomationCondition] = {
     tags_repo.MonthlyEnd.key: automation_monthly_end_delta_1_cron,  # End of month
     tags_repo.MonthlyStart.key: automation_monthly_start_delta_1_cron,  # Start of month
 }
+
+
+def get_mapped_automation_condition(
+    tags: Mapping[str, str] | Tags,
+) -> Optional[AutomationCondition]:
+    auto_tags_keys = tags_repo.get_automation_tags_keys()
+    all_automations: AutomationCondition | None = None
+    if any(item in tags.keys() for item in auto_tags_keys):
+        for tag, automation in tag_automation_mapping.items():
+            if tag in tags:
+                all_automations = (
+                    automation
+                    if all_automations is None
+                    else all_automations | automation
+                )
+    return all_automations

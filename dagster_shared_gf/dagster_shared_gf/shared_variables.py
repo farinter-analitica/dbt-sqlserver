@@ -202,7 +202,7 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
 
     def get_automation_tags(self) -> tuple[Tags, ...]:
         """
-        Returns all tags that are automation-related (start with 'automation/' or 'particionado/auto').
+        Returns all tags class groups that are automation-related (start with 'automation/' or 'particionado/auto').
         """
         return tuple(
             getattr(self, name)
@@ -212,6 +212,18 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
                 k.startswith("automation/") or k.startswith("particionado/auto")
                 for k in getattr(self, name).keys()
             )
+        )
+
+    def get_automation_tags_keys(self) -> tuple[str, ...]:
+        """
+        Returns all keys of individual tags that are automation-related (start with 'automation/' or 'particionado/auto').
+        """
+        automation_tags = self.get_automation_tags()
+        return tuple(
+            key
+            for tag in automation_tags
+            for key in tag.keys()
+            if key.startswith("automation/") or key.startswith("particionado/auto")
         )
 
     def get_unselected_for_jobs_tags(self) -> tuple[Tags, ...]:

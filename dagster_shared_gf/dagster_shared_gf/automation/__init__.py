@@ -6,7 +6,10 @@ from dagster_shared_gf.automation.time_based import (
     automation_monthly_end_delta_1_cron,
     automation_weekly_1_delta_1_cron,
 )
-from dagster_shared_gf.automation.tags_mapping import tag_automation_mapping
+from dagster_shared_gf.automation.tags_mapping import (
+    tag_automation_mapping,
+    get_mapped_automation_condition,
+)
 
 
 # https://docs.dagster.io/concepts/automation/declarative-automation
@@ -29,4 +32,5 @@ __all__ = (
     "automation_monthly_end_delta_1_cron",
     "automation_weekly_1_delta_1_cron",
     "tag_automation_mapping",
+    "get_mapped_automation_condition",
 )

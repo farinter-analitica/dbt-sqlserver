@@ -10,7 +10,9 @@ from dagster._utils.tags import normalize_tags
 from dagster_dbt import DagsterDbtTranslator, DbtCliResource
 
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf.automation import tag_automation_mapping
+from dagster_shared_gf.automation import (
+    get_mapped_automation_condition,
+)
 from dagster_shared_gf.shared_functions import get_for_current_env
 from pydantic import Field
 
@@ -143,18 +145,12 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         self, dbt_resource_props
     ) -> Optional[AutomationCondition]:
         tags = self.get_tags(dbt_resource_props)
-        auto_tags_keys = (
-            shared_vars.tags_repo.AutomationOnly.key,
-            shared_vars.tags_repo.PartitionedAuto.key,
-        )
-
         all_automations = super().get_automation_condition(dbt_resource_props)
-        if any(item in tags.keys() for item in auto_tags_keys):
-            for tag, automation in tag_automation_mapping.items():
-                if tag in tags:
-                    all_automations = (
-                        automation
-                        if all_automations is None
-                        else all_automations | automation
-                    )
+        mapped_automations = get_mapped_automation_condition(tags)
+        if mapped_automations is not None:
+            all_automations = (
+                mapped_automations
+                if all_automations is None
+                else all_automations | mapped_automations
+            )
         return all_automations

@@ -1,4 +1,5 @@
 from dagster import (
+    AutomationCondition,
     asset,
     AssetKey,
     load_asset_checks_from_current_module,
@@ -11,6 +12,7 @@ from dagster import (
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo
+from dagster_shared_gf.automation import get_mapped_automation_condition
 from typing import Sequence, List, Dict, Any
 
 
@@ -372,7 +374,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "DL_Cal_MaxFechasHist_ClientesMetricas_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
@@ -382,7 +386,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["AN_FARINTER", "dbo"],
         "name": ["AN_Cal_ClientesEstados_Kielsa", "AN_Cal_ClientesEstadosHist_Kielsa"],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
@@ -396,7 +402,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "AN_Cal_ClientesCategoriasHist_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
             AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ExpressVentasHist_Kielsa"]),
@@ -410,7 +418,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "AN_Cal_ClientesEstadisticasHist_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
@@ -420,7 +430,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Acum_ClientesXLista_CRM",
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
             AssetKey(["CRM_FARINTER", "dbo", "CLIENTE_X_PRELISTA"]),
@@ -431,7 +443,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_KN_RegistroEncabezadoRadar_Kielsa",
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
             AssetKey(["AN_FARINTER", "dbo", "DL_KN_TipoRadar_Kielsa"]),
@@ -443,7 +457,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "group_name": "kielsa_analitica_atributos",
         "name": "DL_KN_ArticulosRecomendadosSMS_Kielsa",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
             AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
@@ -454,7 +470,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "group_name": "kielsa_analitica_atributos",
         "name": "DL_KN_ClientesValidacion_Kielsa",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
@@ -464,7 +482,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_KN_RegistroPeriodicoSMS_Kielsa",
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
         ],
@@ -491,7 +511,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ClientesVisitasHist",
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "tags": tags_repo.Daily.tag
+        | tags_repo.UniquePeriod.tag
+        | tags_repo.AutomationOnly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
         ],
@@ -806,6 +828,11 @@ store_procedures: Dict[str, Dict[str, Any]] = {
 def create_store_procedure_asset(
     stored_procedure_name: str, group_name: str, params: Dict
 ) -> AssetsDefinition:
+    tags = params.get("tags", None)
+    automation_condition: AutomationCondition | None = None
+    if tags:
+        automation_condition = get_mapped_automation_condition(tags)
+
     if (
         not isinstance(params.get("name", []), List)
         and params.get("keys_out", None) is None
@@ -814,12 +841,13 @@ def create_store_procedure_asset(
         @asset(
             key_prefix=params["key_prefix"],
             name=params["name"],
-            tags=params.get("tags", None),
+            tags=tags,
             deps=params.get("deps", None),
             owners=params.get("owners", None),
             group_name=group_name,
             compute_kind="sqlserver",
             description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
+            automation_condition=automation_condition,
         )
         def store_procedure_execution_asset(
             context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
@@ -839,8 +867,9 @@ def create_store_procedure_asset(
             final_outs = {
                 name: AssetOut(
                     key_prefix=params["key_prefix"],
-                    tags=params.get("tags", None),
+                    tags=tags,
                     owners=params.get("owners", None),
+                    automation_condition=automation_condition,
                 )
                 for name in params["name"]
             }
@@ -848,8 +877,9 @@ def create_store_procedure_asset(
             final_outs = {
                 current_key.path[-1]: AssetOut(
                     key=current_key,
-                    tags=params.get("tags", None),
+                    tags=tags,
                     owners=params.get("owners", None),
+                    automation_condition=automation_condition,
                 )
                 for current_key in params["keys_out"]
             }
