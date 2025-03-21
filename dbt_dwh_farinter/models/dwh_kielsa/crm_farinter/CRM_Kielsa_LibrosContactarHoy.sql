@@ -42,7 +42,7 @@ SELECT
     , RC.Contactar_Estimado_El AS Contactar_El
 	--, RC.Indicacion_Receta
 	--, COUNT(*) OVER (PARTITION BY RC.Pais_Id, RC.Sucursal_Id ) AS Clientes_Sucursal
-FROM	DL_FARINTER.[dbo].[VDL_Kielsa_LibrosCalculosClienteArticulo] RC
+FROM	DL_FARINTER.[dbo].[VDL_Kielsa_LibrosCalculosClienteArticulo] RC --{{ ref('VDL_Kielsa_LibrosCalculosClienteArticulo') }}
 WHERE RC.Indicador_A_Tiempo = 1
 	AND RC.Contactar_Estimado_El >= CONVERT(DATE, GETDATE())
 	AND RC.Contactar_Estimado_El < CONVERT(DATE, GETDATE() + 1)
@@ -77,15 +77,15 @@ SELECT
 	, V.Empleado_Nombre
     , ISNULL(LB.Contactar_El,'19000101') Contactar_El
 FROM	LBReparticion LB
-LEFT JOIN DL_fARINTER.dbo.DL_Kielsa_Empleado V
+LEFT JOIN DL_fARINTER.dbo.DL_Kielsa_Empleado V --{{ source('DL_FARINTER', 'DL_Kielsa_Empleado') }}
 	ON LB.Vendedor_Id = V.Empleado_Id AND LB.Emp_Id = V.Emp_Id
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Sucursal S
+LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Sucursal S --{{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }}
 	ON LB.Sucursal_Id = S.Sucursal_Id AND LB.Emp_Id = S.Emp_Id
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Monedero M
+LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Monedero M --{{ source('DL_FARINTER', 'DL_Kielsa_Monedero') }}
 	ON LB.Identidad = M.Monedero_Id  AND LB.Emp_Id = M.Emp_Id
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Articulo A
+LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Articulo A --{{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }}
 	ON LB.Articulo_Id = A.Articulo_Id AND LB.Emp_Id = A.Emp_Id
-LEFT JOIN CRM_Kielsa_RecetasContactarHoy RCH
+LEFT JOIN CRM_Kielsa_RecetasContactarHoy RCH --{{ ref('CRM_Kielsa_RecetasContactarHoy') }}
 	ON LB.Emp_Id = RCH.Pais_Id AND LB.Sucursal_Id = RCH.Sucursal_Id AND LB.Identidad = RCH.Identidad
 WHERE LB.Orden_Vendedor_Identidad =1 AND RCH.Identidad IS NULL
 --AND LB.Identidad = '0501196909896'
