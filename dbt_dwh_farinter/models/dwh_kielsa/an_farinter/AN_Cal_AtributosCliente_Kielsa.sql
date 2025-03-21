@@ -38,7 +38,8 @@ WITH agr_monedero as
           M.RangoEdad,
           M.Saldo_Puntos,
           M.Ingreso,
-          M.Monedero_Nombre
+          M.Monedero_Nombre,
+          MAGR.Fecha_Actualizado
      FROM {{ref('BI_Kielsa_Agr_Monedero')}} MAGR
      INNER JOIN {{ref('BI_Kielsa_Dim_Monedero')}} M
      ON M.Monedero_Id = MAGR.Monedero_Id
@@ -62,13 +63,13 @@ WITH agr_monedero as
          B.Ingreso,
          B.Fecha_Primer_Factura AS Primer_Compra,
          B.Fecha_Ultima_Factura AS Ultima_Compra,
-         A.Ticket_Promedio,
+         ISNULL(A.Ticket_Promedio, 0) AS Ticket_Promedio,
          B.Cantidad_Facturas AS Trx_Total,
          B.Cantidad_Dias AS Dias_Total,
-         A.Recencia,
-         A.Marcas_Propias,
-         A.Margen_Promedio,
-         A.Fecha_Actualizado
+         ISNULL(A.Recencia, 9999) AS Recencia,
+         ISNULL(A.Marcas_Propias, 0) AS Marcas_Propias,
+         ISNULL(A.Margen_Promedio, 0) AS Margen_Promedio,
+         ISNULL(A.Fecha_Actualizado, B.Fecha_Actualizado) AS Fecha_Actualizado
     FROM agr_monedero B 
     LEFT JOIN
      (SELECT A.Pais_Id, 
