@@ -62,38 +62,35 @@ WITH agr_monedero as
          B.Ingreso,
          B.Fecha_Primer_Factura AS Primer_Compra,
          B.Fecha_Ultima_Factura AS Ultima_Compra,
-         SUM(A.Venta_Neta) / (1.0 * COUNT(DISTINCT A.Factura_Id)) AS Ticket_Promedio,
+         A.Ticket_Promedio,
          B.Cantidad_Facturas AS Trx_Total,
          B.Cantidad_Dias AS Dias_Total,
-         DATEDIFF(day, MAX(A.Fecha_Id), GETDATE()) AS Recencia,
-         SUM(CASE WHEN A.DeptoArt_Id IN ('1-4', '1-5') THEN A.Venta_Neta ELSE 0 END) / SUM(A.Venta_Neta) AS Marcas_Propias,
-         1.0 * SUM(A.Utilidad) / SUM(A.Venta_Neta) AS Margen_Promedio,
-         MAX(A.Fecha_Id) AS Fecha_Actualizado
+         A.Recencia,
+         A.Marcas_Propias,
+         A.Margen_Promedio,
+         A.Fecha_Actualizado
     FROM agr_monedero B 
-    LEFT JOIN DL_FARINTER.dbo.DL_Acum_VentasHist_Kielsa A -- {{ ref('DL_Acum_VentasHist_Kielsa') }}
-         ON A.Monedero_Id = B.Monedero_Id
-         AND A.Pais_Id = B.Emp_Id
-    WHERE A.Pais_Id = 1
-      AND A.Venta_Neta > 0
-      AND A.Fecha_Id >= DATEFROMPARTS(
-                YEAR(DATEADD(MONTH, -6, GETDATE())),
-                MONTH(DATEADD(MONTH, -6, GETDATE())),
-                1
-            )
-      AND [AN_FARINTER].[dbo].[AN_fnc_Verificacion Id](B.Emp_Id, B.Monedero_Id) = 1
-    GROUP BY
-          B.Emp_Id,
-         B.Monedero_Id,
-         B.Monedero_Nombre,
-         B.Celular,
-         B.Telefono,
-         B.Tipo_Plan,
-         B.Edad,
-         B.Correo,
-         B.Genero,
-         B.RangoEdad,
-         B.Saldo_Puntos,
-         B.Ingreso
+    LEFT JOIN
+     (SELECT A.Pais_Id, 
+               A.Monedero_Id, 
+               SUM(A.Venta_Neta) / (1.0 * COUNT(DISTINCT A.Factura_Id)) AS Ticket_Promedio,
+               DATEDIFF(day, MAX(A.Fecha_Id), GETDATE()) AS Recencia,
+               SUM(CASE WHEN A.DeptoArt_Id IN ('1-4', '1-5') THEN A.Venta_Neta ELSE 0 END) / SUM(A.Venta_Neta) AS Marcas_Propias,
+               1.0 * SUM(A.Utilidad) / SUM(A.Venta_Neta) AS Margen_Promedio,
+               MAX(A.Fecha_Id) AS Fecha_Actualizado
+          FROM DL_FARINTER.dbo.DL_Acum_VentasHist_Kielsa A -- {{ ref('DL_Acum_VentasHist_Kielsa') }}
+          WHERE A.Pais_Id = 1
+               AND A.Venta_Neta > 0
+               AND A.Fecha_Id >= DATEFROMPARTS(
+                         YEAR(DATEADD(MONTH, -6, GETDATE())),
+                         MONTH(DATEADD(MONTH, -6, GETDATE())),
+                         1
+                    )
+          GROUP BY A.Pais_Id, A.Monedero_Id
+          ) A
+     ON A.Monedero_Id = B.Monedero_Id
+     AND A.Pais_Id = B.Emp_Id
+     WHERE [AN_FARINTER].[dbo].[AN_fnc_Verificacion Id](B.Emp_Id, B.Monedero_Id) = 1
 ),
 final as (
     /* -- Join base with lookup tables, applying the same COALESCE logic as the SP update -- */
