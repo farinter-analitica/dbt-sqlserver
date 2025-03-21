@@ -68,4 +68,7 @@ groups:
       email: brian.padilla@farinter.com
   - name: db_planning
     owner:
+      email: brian.padilla@farinter.com+
+  - name: dbt_dwh_kielsa_mart_compras
+    owner:
       email: brian.padilla@farinter.com
