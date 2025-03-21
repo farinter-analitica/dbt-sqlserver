@@ -40,6 +40,8 @@ WITH agr_monedero as
           M.Ingreso
      FROM {{ref('BI_Kielsa_Agr_Monedero')}} MAGR
      INNER JOIN {{ref('BI_Kielsa_Dim_Monedero')}} M
+     ON M.Monedero_Id = MAGR.Monedero_Id
+     AND M.Emp_Id = MAGR.Emp_Id
      WHERE M.Emp_Id =1
 ), base as (
 
