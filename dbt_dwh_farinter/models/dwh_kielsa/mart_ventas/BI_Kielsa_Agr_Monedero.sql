@@ -20,7 +20,7 @@
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="fail",
+		on_schema_change="append_new_columns",
 		merge_exclude_columns= v_merge_exclude_columns,
 		merge_check_diff_exclude_columns= v_merge_check_diff_exclude_columns,
 		post_hook=[
@@ -58,6 +58,7 @@ Resumen_FacturaEncabezado AS
         , MIN(FE.Factura_Fecha) AS Fecha_Primer_Factura
         , MAX(FE.Factura_Fecha) AS Fecha_Ultima_Factura
 		, COUNT(FE.Factura_Id) AS Cantidad_Facturas
+		, COUNT(DISTINCT FE.Factura_Fecha) AS Cantidad_Dias
 
     FROM {{source('DL_FARINTER', 'DL_Kielsa_FacturaEncabezado')}}  FE
 {% if is_incremental() %}
@@ -80,8 +81,10 @@ Resumen_FacturaEncabezado AS
 		, RFE.Fecha_Ultima_Factura Fecha_Ultima_Factura
 {% if is_incremental() %}
 		, RFE.Cantidad_Facturas + ISNULL(MAGR.Cantidad_Facturas,0) Cantidad_Facturas
+		, RFE.Cantidad_Dias + ISNULL(MAGR.Cantidad_Dias,0) Cantidad_Dias
 {% else %}
 		, RFE.Cantidad_Facturas Cantidad_Facturas
+		, RFE.Cantidad_Dias Cantidad_Dias
 {% endif %}
 		, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Monedero_Id'], input_length=49, table_alias='RFE')}} [EmpMon_Id]
 		, GETDATE() AS Fecha_Actualizado

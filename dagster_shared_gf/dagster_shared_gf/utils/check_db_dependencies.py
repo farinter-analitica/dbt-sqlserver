@@ -81,7 +81,7 @@ def if_debug_print(
 
 def get_user_databases_tuples(
     sql_server: SQLServerNonRuntimeResource,
-) -> list[Row | tuple]:
+) -> list[Row | tuple] | Any:
     cache_key = f"user_databases_{get_server_name_str(sql_server)}"
     cached_data = get_cached_data(cache_key)
     if cached_data:
@@ -119,7 +119,7 @@ def get_server_name_str(sql_server: SQLServerNonRuntimeResource) -> str:
 
 def get_all_dependencies_tuples(
     sql_server: SQLServerNonRuntimeResource, db_id: int, db_name: str
-) -> list[Row | tuple]:
+) -> list[Row | tuple] | Any:
     cache_key = f"dependencies_{get_server_name_str(sql_server)}_{db_id}_{db_name}"
     cached_data = get_cached_data(cache_key)
     if cached_data:
@@ -162,7 +162,7 @@ def get_all_dependencies_tuples(
 
 def get_all_object_definitions_tuples(
     sql_server: SQLServerNonRuntimeResource, db_name: str
-) -> list[Row | tuple]:
+) -> list[Row | tuple] | Any:
     with sql_server.get_connection(database=db_name, engine="pyodbc") as conn:
         query = f"""
         SELECT 
@@ -210,9 +210,10 @@ def search_object_definitions_for_pattern(
     for path, definition in object_definitions:
         if search(path):
             continue
-        if search(definition):
+        search_result = search(definition)
+        if search_result:
             if_debug_print(
-                f"Match found: {search(definition).group()} in {definition[:100]}",
+                f"Match found: {search_result.group()} in {definition[:100]}",
                 printing_events_name="search_object_definitions_for_pattern",
             )
             append_result(
@@ -232,7 +233,7 @@ def get_object_dependencies_tuples_by_definition(
     full_starting_relation_path: str,
     db_name: str,
     connection=None,
-) -> list[Row | tuple]:
+) -> list[Row | tuple] | Any:
     server_name = full_starting_relation_path.split(".")[0]
     database_name = full_starting_relation_path.split(".")[1]
     schema_name = full_starting_relation_path.split(".")[2]
@@ -538,20 +539,24 @@ def generate_dag(graph_dict: GraphDict):
         subset_key="layer",
         # , seed=42
     )
+    node_colors = [
+        graph.nodes[node].get("node_color", "gray") for node in graph.nodes()
+    ]
+    node_sizes = [graph.nodes[node].get("node_size", 200) for node in graph.nodes()]
+    edge_colors = [
+        graph.edges[edge].get("edge_color", "gray") for edge in graph.edges()
+    ]
+
     nx.draw_networkx_nodes(
         graph,
         pos,
-        node_color=[
-            graph.nodes[node].get("node_color", "gray") for node in graph.nodes()
-        ],
-        node_size=[graph.nodes[node].get("node_size", 200) for node in graph.nodes()],
+        node_color=node_colors,  # type: ignore
+        node_size=node_sizes,  # type: ignore
     )
     nx.draw_networkx_edges(
         graph,
         pos,
-        edge_color=[
-            graph.edges[edge].get("edge_color", "gray") for edge in graph.edges()
-        ],
+        edge_color=edge_colors,  # type: ignore
         arrows=True,
         alpha=0.5,
         connectionstyle="arc3,rad=0.1",
@@ -580,9 +585,9 @@ if __name__ == "__main__":
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_db_name = "BI_FARINTER"
+    starting_node_db_name = "DL_FARINTER"
     starting_node_schema_name = "dbo"
-    starting_node_object_name = "BI_Kielsa_Hecho_FacturaPosicion"
+    starting_node_object_name = "DL_KN_RegistroEncabezadoSMS_Kielsa"
     full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
     if_debug_print(
         "Starting point: " + full_starting_relation_path,

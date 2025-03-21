@@ -12,8 +12,11 @@ sources:
             group: "analitica_dwh"
     tables:
       - name: AN_Cal_ArticulosEstado_Kielsa
-      - name: AN_Cal_AtributosCliente_Kielsa
       - name: AN_Cal_CasaXProveedor_Kielsa
       - name: AN_SAP_Cal_VentaCero
       - name: AN_Cal_ClientesTemp_Kielsa
-      
+      - name: AN_Cal_ClientesCategorias_Kielsa
+      - name: AN_Cal_ClientesMetricas_Kielsa
+      - name: AN_Cal_ClientesEstadisticas_Kielsa
+      - name: AN_Cal_ClientesEstados_Kielsa
+

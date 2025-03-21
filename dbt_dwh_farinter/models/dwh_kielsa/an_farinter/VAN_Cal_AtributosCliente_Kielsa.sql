@@ -94,7 +94,7 @@ SELECT A.Pais_Id,
               WHEN ISNULL(MAGR.Fecha_Primer_Factura, '19000101') = '19000101' THEN 1
               ELSE 0
        END AS Sin_Compra
-FROM AN_FARINTER.dbo.AN_Cal_AtributosCliente_Kielsa A -- {{ source('AN_FARINTER', 'AN_Cal_AtributosCliente_Kielsa') }}
+FROM AN_FARINTER.dbo.AN_Cal_AtributosCliente_Kielsa A -- {{ ref('AN_Cal_AtributosCliente_Kielsa') }}
        LEFT JOIN AN_FARINTER.dbo.AN_Cal_ClientesTemp_Kielsa B -- {{ source('AN_FARINTER', 'AN_Cal_ClientesTemp_Kielsa') }}
        ON A.Pais_Id = B.Pais_Id 
        AND A.Cliente_Id = B.Cliente_Id

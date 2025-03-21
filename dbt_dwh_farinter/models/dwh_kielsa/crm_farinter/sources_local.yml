@@ -1,0 +1,7 @@
+sources:
+- name: CRM_FARINTER
+  tables:
+    - name: CRM_Kielsa_CarritoSeguimiento
+    - name: CAMPANA
+    - name: CLIENTE_X_LISTA
+

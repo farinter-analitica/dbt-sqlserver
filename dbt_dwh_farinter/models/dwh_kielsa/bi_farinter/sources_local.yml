@@ -45,6 +45,15 @@ sources:
                 group: "dbt_dwh_kielsa_mart_datos_maestros"
       - name: BI_Hecho_ProyeccionVentaseCommerce_Kielsa
       - name: BI_Kielsa_Dim_ClienteGeneral
-
-
+      - name: BI_Kielsa_Dim_TipoSucursal
+      - name: BI_Kielsa_Dim_Dias
+      - name: BI_Kielsa_Dim_DeptoArt
+      - name: BI_Hecho_VentasHist_Kielsa
+      - name: BI_Dim_Monedero_Kielsa
+      - name: BI_Dim_Sucursal_Kielsa
+      - name: BI_Dim_TipoSucursal_Kielsa
+      - name: BI_Dim_Dias
+      - name: BI_Dim_CanalVenta_Kielsa
+      - name: BI_Dim_DeptoArt_Kielsa
+      - name: BI_Dim_TipoCliente_Kielsa
 

@@ -357,11 +357,117 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Tarjetas_Replica"]),
         ],
     },
-    "DL_paCargarAcum_VentasHist_Kielsa": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Acum_VentasHist_Kielsa",
+    # Migrado a DBT y hecho columnstore
+    # "DL_paCargarAcum_VentasHist_Kielsa": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": "DL_Acum_VentasHist_Kielsa",
+    #     "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    #     "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
+    # },
+    "AN_paCargarCal_ClientesMetricas_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": [
+            "AN_Cal_ClientesMetricas_Kielsa",
+            "AN_Cal_ClientesMetricasHist_Kielsa",
+            "DL_Cal_MaxFechasHist_ClientesMetricas_Kielsa",
+        ],
+        "group_name": "kielsa_analitica_atributos",
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-        "deps": [AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"])],
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
+        ],
+    },
+    "AN_paCargarCal_ClientesEstados_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": ["AN_Cal_ClientesEstados_Kielsa", "AN_Cal_ClientesEstadosHist_Kielsa"],
+        "group_name": "kielsa_analitica_atributos",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
+        ],
+    },
+    "AN_paCargarCal_ClientesCategorias_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": [
+            "AN_Cal_ClientesCategorias_Kielsa",
+            "AN_Cal_ClientesCategoriasDetalle_Kielsa",
+            "AN_Cal_ClientesCategoriasHist_Kielsa",
+        ],
+        "group_name": "kielsa_analitica_atributos",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ExpressVentasHist_Kielsa"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Dim_OrdenExp_Kielsa"]),
+        ],
+    },
+    "AN_paCargarCal_ClientesEstadisticas_Kielsa": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": [
+            "AN_Cal_ClientesEstadisticas_Kielsa",
+            "AN_Cal_ClientesEstadisticasHist_Kielsa",
+        ],
+        "group_name": "kielsa_analitica_atributos",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
+        ],
+    },
+    "DL_paCargarAcum_ClientesXLista_CRM": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Acum_ClientesXLista_CRM",
+        "group_name": "kielsa_analitica_atributos",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
+            AssetKey(["CRM_FARINTER", "dbo", "CLIENTE_X_PRELISTA"]),
+            AssetKey(["CRM_FARINTER", "dbo", "PRE_LISTA"]),
+        ],
+    },
+    "DL_paCargarKN_RegistroEncabezadoRadar_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_KN_RegistroEncabezadoRadar_Kielsa",
+        "group_name": "kielsa_analitica_atributos",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
+            AssetKey(["AN_FARINTER", "dbo", "DL_KN_TipoRadar_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_KN_BeneficiosKielsaCash_Hist"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesContactados_Hist"]),
+        ],
+    },
+    "DL_paCargarKN_ArticulosRecomendados_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "group_name": "kielsa_analitica_atributos",
+        "name": "DL_KN_ArticulosRecomendadosSMS_Kielsa",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
+            AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_KN_RegistroEncabezadoSMS_Kielsa"]),
+        ],
+    },
+    "DL_paCargarKN_ClientesValidacion_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "group_name": "kielsa_analitica_atributos",
+        "name": "DL_KN_ClientesValidacion_Kielsa",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
+        ],
+    },
+    "DL_paCargarKN_RegistroPeriodicoSMS_Kielsa": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_KN_RegistroPeriodicoSMS_Kielsa",
+        "group_name": "kielsa_analitica_atributos",
+        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+        "deps": [
+            AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
+        ],
     },
     "AN_pacargarParam_Pesos_Kielsa": {
         "key_prefix": ["AN_FARINTER", "dbo"],
@@ -384,6 +490,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_ClientesVisitasHist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ClientesVisitasHist",
+        "group_name": "kielsa_analitica_atributos",
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
@@ -727,6 +834,7 @@ def create_store_procedure_asset(
         isinstance(params.get("name", None), List)
         or params.get("keys_out", None) is not None
     ):
+        final_outs = {}
         if isinstance(params.get("name", None), List):
             final_outs = {
                 name: AssetOut(
@@ -773,7 +881,9 @@ def create_store_procedure_asset(
 def store_procedure_asset_factory(store_procedures: Dict) -> List[AssetsDefinition]:
     return [
         create_store_procedure_asset(
-            stored_procedure_name=sp, group_name="ldcom_etl_dwh", params=params
+            stored_procedure_name=sp,
+            group_name=params.get("group_name", "ldcom_etl_dwh"),
+            params=params,
         )
         for sp, params in store_procedures.items()
     ]

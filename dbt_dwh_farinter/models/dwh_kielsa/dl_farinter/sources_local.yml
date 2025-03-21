@@ -150,6 +150,7 @@ sources:
       - name: DL_Kielsa_Cliente_ArticuloRecomendado
       - name: DL_Kielsa_Enfermedades
       - name: DL_Kielsa_Patologia_Cronico_Excel
+      - name: DL_Acum_VentasHist_Kielsa
 
 
 

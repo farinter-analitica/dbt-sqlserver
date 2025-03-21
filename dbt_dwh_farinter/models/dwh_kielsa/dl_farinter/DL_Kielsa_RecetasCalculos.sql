@@ -201,7 +201,7 @@ LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_RecetasMedicos MED --{{ source('DL_FARINTER'
 	ON MED.autoid = RD.cod_medico
 LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Monedero MOK --{{ ref('BI_Kielsa_Dim_Monedero') }}
 	ON MOK.Monedero_Id = RD.identidad AND MOK.Emp_Id = RD.idpais
-LEFT JOIN AN_FARINTER.dbo.AN_Cal_AtributosCliente_Kielsa ATR --{{ source('AN_FARINTER', 'AN_Cal_AtributosCliente_Kielsa') }}
+LEFT JOIN AN_FARINTER.dbo.AN_Cal_AtributosCliente_Kielsa ATR --{{ ref('AN_Cal_AtributosCliente_Kielsa') }}
 	ON ATR.Cliente_Id = RD.identidad
 	and ATR.Pais_Id = RD.idpais
 -- WHERE DATEADD(DAY, (1.0*RD.Comprado_Presentacion) / NULLIF(consumo_diario, 0), Factura_Fecha) > CAST(DATEADD(DAY,-3,GETDATE()) AS DATE)
