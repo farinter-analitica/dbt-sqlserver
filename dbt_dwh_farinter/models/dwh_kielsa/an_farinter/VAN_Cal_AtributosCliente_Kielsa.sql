@@ -2,8 +2,9 @@
 
 {{ 
     config(
-		tags=["periodo/diario","periodo_unico/si"],
-        materialized="view",
+       group="kielsa_analitica_atributos",
+       tags=["periodo/diario","periodo_unico/si"],
+       materialized="view",
     )
 }}
 

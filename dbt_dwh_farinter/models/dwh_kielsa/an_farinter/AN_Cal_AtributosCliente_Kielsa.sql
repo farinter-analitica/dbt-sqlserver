@@ -1,20 +1,21 @@
 {% set unique_key_list = ["Pais_Id", "Cliente_Id"] %}
 
 {{ 
-    config(
-        as_columnstore=true,
-        materialized="table",
-        incremental_strategy="farinter_merge",
-        unique_key=unique_key_list,
-        merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
-        merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga", "Fecha_Actualizado"],
-          tags=["periodo/diario", "periodo_unico/si"],
-        post_hook=[
-            "{{ dwh_farinter_remove_incremental_temp_table() }}",
-            "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
-            "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}"
-        ]
-    )
+	config(
+		group="kielsa_analitica_atributos",
+		as_columnstore=true,
+		materialized="table",
+		incremental_strategy="farinter_merge",
+		unique_key=unique_key_list,
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga", "Fecha_Actualizado"],
+			tags=["periodo/diario", "periodo_unico/si"],
+		post_hook=[
+			"{{ dwh_farinter_remove_incremental_temp_table() }}",
+			"{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+			"{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}"
+		]
+	)
 }}
 WITH agr_monedero as
 (

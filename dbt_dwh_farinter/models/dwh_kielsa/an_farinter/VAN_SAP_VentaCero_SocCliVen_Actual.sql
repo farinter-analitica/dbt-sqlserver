@@ -2,8 +2,8 @@
 
 {{ 
     config(
-		tags=["periodo/diario"],
-        materialized="view",
+       tags=["periodo/diario"],
+       materialized="view",
     )
 }}
 
