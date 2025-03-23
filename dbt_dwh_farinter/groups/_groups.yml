@@ -72,3 +72,7 @@ groups:
   - name: dbt_dwh_kielsa_mart_compras
     owner:
       email: brian.padilla@farinter.com
+  - name: kielsa_analitica_atributos
+    owner:
+      email: brian.padilla@farinter.com
+      email: edwin.martinez@farinter.com
