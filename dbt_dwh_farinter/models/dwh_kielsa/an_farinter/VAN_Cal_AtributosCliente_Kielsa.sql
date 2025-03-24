@@ -3,7 +3,7 @@
 {{ 
     config(
        group="kielsa_analitica_atributos",
-       tags=["periodo/diario","periodo_unico/si"],
+       tags=["periodo/diario","periodo_unico/si", "automation/only"],
        materialized="view",
     )
 }}
