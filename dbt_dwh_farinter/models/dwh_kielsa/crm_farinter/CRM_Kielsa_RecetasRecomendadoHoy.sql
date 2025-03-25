@@ -54,20 +54,6 @@ CiudadSelecta as
     FROM RecetasHoy
     GROUP BY Emp_Id, Identidad
 ),
-ExistenciasVentas AS
-(
-SELECT EC.Emp_Id,
-    EC.ArticuloPadre_Id AS Articulo_Id,
-    EC.Departamento_Id,
-    EC.Municipio_Id,
-    EC.Ciudad_Id,
-    EC.Cantidad_Existencia
-FROM BI_FARINTER.dbo.BI_Kielsa_Agr_Existencia_Ciudad EC -- {{ ref('BI_Kielsa_Agr_Existencia_Ciudad') }}
-INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_TipoBodega TB -- {{ ref('BI_Kielsa_Dim_TipoBodega') }}
-    ON EC.Emp_Id = TB.Emp_Id
-    AND EC.TipoBodega_Id = TB.TipoBodega_Id
-WHERE TipoBodega_Nombre = 'VENTAS' AND EC.Cantidad_Existencia > 0
-),
 RecetasHoyClienteArticulo AS
 (
     SELECT 
@@ -93,44 +79,12 @@ RecetasHoyClienteArticuloExisteCiudad AS
         RH.Articulo_Nombre,
         ROW_NUMBER() OVER(PARTITION BY RH.Emp_Id, RH.Cliente_Id ORDER BY EC.Cantidad_Existencia DESC) AS Orden
     FROM RecetasHoyClienteArticulo AS RH
-    INNER JOIN ExistenciasVentas EC 
+    INNER JOIN {{ ref('BI_Kielsa_Agr_ExistenciaVentas_Ciudad') }} EC 
     ON RH.Emp_Id = EC.Emp_Id
     AND RH.Departamento_Id = EC.Departamento_Id
     AND RH.Municipio_Id = EC.Municipio_Id
     AND RH.Ciudad_Id = EC.Ciudad_Id
     AND RH.Articulo_Id = EC.Articulo_Id
-),
-Articulos_Recomendables as
-(
-    SELECT Emp_Id,
-        Articulo_Id,
-        Articulo_Nombre
-    FROM BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo A
-    WHERE A.SubCategoria2Art_Nombre NOT IN (
-            'ALIMENTOS',
-            'BATERIAS Y ENCENDEDORES',
-            'BEBE ACCES',
-            'BEBIDAS',
-            'BELLEZA ACCES',
-            'COSMETICOS ACCES',
-            'DECORACION/UTIL HOG',
-            'DULCES/SNACKS',
-            'EQUIPO/MATERIAL MED',
-            'HIGIENE DEL HOG',
-            'LIBRERIA',
-            'MAMA ACCES',
-            'OTROS DONACIONES',
-            'PAQUETES CLARO',
-            'PAQUETES TIGO',
-            'PRESENCIAL',
-            'PRIMEROS AUXILIOS',
-            'PROMOCIONALES',
-            'RECARGAS CLARO',
-            'RECARGAS TIGO',
-            'SIM CARD TIGO',
-            'TARJETA TENGO',
-            'TECNOLOGÍA'
-        )
 ),
 Articulos_Relacionados AS (
     SELECT --TOP (1000) 
@@ -144,8 +98,8 @@ Articulos_Relacionados AS (
         AR.[Combined_Score],
         AR.[Fecha_Generacion],
         AR.[Rank]
-    FROM [DL_FARINTER].[dbo].[DL_Kielsa_Articulo_ArticuloRelacionado] AR
-    INNER JOIN Articulos_Recomendables A
+    FROM [DL_FARINTER].[dbo].[DL_Kielsa_Articulo_ArticuloRelacionado] AR  -- {{ source('DL_FARINTER', 'DL_Kielsa_Articulo_ArticuloRelacionado') }}
+    INNER JOIN {{ ref('CRM_Kielsa_ArticuloRecomendable') }} A
         ON AR.Articulo_Id_Relacionado = A.Articulo_Id
         AND 1 = A.Emp_Id
 ),
@@ -165,7 +119,7 @@ FROM Articulos_Relacionados AS AR
 INNER JOIN RecetasHoyClienteArticulo AS RH
     ON RH.Emp_Id = AR.Emp_Id
     AND RH.Articulo_Id = AR.Articulo_Id
-INNER JOIN ExistenciasVentas EC 
+INNER JOIN {{ ref('BI_Kielsa_Agr_ExistenciaVentas_Ciudad') }} EC 
     ON RH.Emp_Id = EC.Emp_Id
     AND RH.Departamento_Id = EC.Departamento_Id
     AND RH.Municipio_Id = EC.Municipio_Id
@@ -188,7 +142,7 @@ TopComprasExisteCiudad AS
         MTA.Combined_Score,
         MTA.Rank
     FROM BI_FARINTER.dbo.BI_Kielsa_Agr_Monedero_TopArticulos MTA -- {{ ref('BI_Kielsa_Agr_Monedero_TopArticulos') }}
-    INNER JOIN Articulos_Recomendables AS A -- {{ ref('BI_Kielsa_Dim_Articulo') }}
+    INNER JOIN {{ ref('CRM_Kielsa_ArticuloRecomendable') }} AS A -- {{ ref('BI_Kielsa_Dim_Articulo') }}
     ON A.Emp_Id = MTA.Emp_Id
     AND A.Articulo_Id = MTA.Articulo_Id
     INNER JOIN CiudadSelecta SS
@@ -197,7 +151,7 @@ TopComprasExisteCiudad AS
     INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Sucursal S -- {{ ref('BI_Kielsa_Dim_Sucursal') }}
     ON SS.Sucursal_Id = S.Sucursal_Id
     AND MTA.Emp_Id = S.Emp_Id
-    INNER JOIN ExistenciasVentas EC 
+    INNER JOIN {{ ref('BI_Kielsa_Agr_ExistenciaVentas_Ciudad') }} EC 
     ON S.Emp_Id = EC.Emp_Id
     AND S.Departamento_Id = EC.Departamento_Id
     AND S.Municipio_Id = EC.Municipio_Id
@@ -226,7 +180,7 @@ INNER JOIN CiudadSelecta SS
 INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Sucursal S -- {{ ref('BI_Kielsa_Dim_Sucursal') }}
     ON SS.Sucursal_Id = S.Sucursal_Id
     AND MTA.Emp_Id = S.Emp_Id
-INNER JOIN ExistenciasVentas EC 
+INNER JOIN {{ ref('BI_Kielsa_Agr_ExistenciaVentas_Ciudad') }} EC 
     ON S.Emp_Id = EC.Emp_Id
     AND S.Departamento_Id = EC.Departamento_Id
     AND S.Municipio_Id = EC.Municipio_Id

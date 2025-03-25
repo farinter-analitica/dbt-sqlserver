@@ -47,6 +47,15 @@ Monederos AS
 		, ISNULL(MUM.Fecha_Primera_Factura, '19000101') AS Fecha_Primera_Factura
 		, ISNULL(MUM.Fecha_Ultima_Factura, '19000101') AS Fecha_Ultima_Factura
 		, ISNULL(MDS.Dia_Semana_Iso,0) AS Dia_Semana_Iso_Preferido
+		, ISNULL(MDS.Indicador_Validez_Estadistica,0) AS Dia_Semana_Validez_Estadistica
+		, ISNULL(MUM.Dia_Minimo_Mes,0) AS Dia_Minimo_Mes
+		, ISNULL(MUM.Dia_Maximo_Mes,0) AS Dia_Maximo_Mes
+		, ISNULL(MUM.Dia_Promedio_Mes,0) AS Dia_Promedio_Mes
+		, ISNULL(MUM.Dia_Mes_Validez_Estadistica,0) AS Dia_Mes_Validez_Estadistica
+		, ISNULL(MSS.Sucursal_Id,0) AS Sucursal_Id_Preferido
+		, ISNULL(MSS.Indicador_Validez_Estadistica,0) AS Sucursal_Validez_Estadistica
+		, ISNULL(MHS.Hora_Id,0) AS Hora_Id_Preferido
+		, ISNULL(MHS.Indicador_Validez_Estadistica,0) AS Hora_Validez_Estadistica
 		, {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Monedero_Id'], input_length=49, table_alias='M')}} [EmpMon_Id]
 		, GETDATE() AS Fecha_Actualizado
 		, ISNULL(MUM.Ventana_Desde, MDS.Ventana_Desde) AS Ventana_Desde
@@ -60,6 +69,16 @@ Monederos AS
 		ON MDS.Monedero_Id = M.Monedero_Id
 		AND MDS.Emp_Id = M.Emp_Id
 		AND MDS.Ranking = 1
+	LEFT JOIN {{ ref('BI_Kielsa_Agr_Monedero_Sucursal_Ventana') }} MSS
+		ON MSS.Monedero_Id = M.Monedero_Id
+		AND MSS.Emp_Id = M.Emp_Id
+		AND MSS.Ranking = 1
+	LEFT JOIN {{ ref('BI_Kielsa_Agr_Monedero_Hora_Ventana') }} MHS
+		ON MHS.Monedero_Id = M.Monedero_Id
+		AND MHS.Emp_Id = M.Emp_Id
+		AND MHS.Ranking = 1
+
+
 	WHERE MUM.Monedero_Id IS NOT NULL
 	OR MDS.Monedero_Id IS NOT NULL
 

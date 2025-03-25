@@ -70,10 +70,10 @@ SELECT
     -- Frecuencia de compra (días de compra / días totales en ventana)
     CAST(CT.Total_Dias_Compra AS FLOAT) / NULLIF(CT.Total_Dias_Ventana, 0) AS Frecuencia_Compra,
     -- Indicador de validez estadística basado en:
-    -- 1. Suficientes días de compra (al menos 3)
-    -- 2. Porcentaje significativo de compras en el día preferido (>25%)
+    -- 1. Suficientes días de compra
+    -- 2. Porcentaje significativo de compras en el día preferido
     CASE 
-        WHEN CT.Total_Dias_Compra >= 3 
+        WHEN CT.Total_Dias_Compra >= 6 
              AND (CAST(DSP.Conteo_Dias AS FLOAT) / NULLIF(CT.Total_Dias_Compra, 0)) > 0.25
         THEN 1
         ELSE 0
