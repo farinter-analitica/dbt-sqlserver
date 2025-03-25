@@ -126,7 +126,9 @@ def my_cron_automation_condition(
     ).with_label(f"cron_schedule_passed_and_complied: {cron_schedule_label}")
 
 
-daily_cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "5 0 * * *"})
+# El cron no puede estar antes que la primera evaluacion
+# de las nuevas particiones en los particionados.
+daily_cron_schedule = get_for_current_env({"dev": "0 1 * * *", "prd": "8 0 * * *"})
 automation_daily_delta_2_cron = my_cron_automation_condition(
     cron_schedule=daily_cron_schedule,
     allowed_deps_updated_selection=(
@@ -166,8 +168,10 @@ automation_weekly_1_delta_1_cron = my_cron_automation_condition(
     lookback_delta=timedelta(weeks=1),
 )
 
+# El cron no puede estar antes que la primera evaluacion
+# de las nuevas particiones en los particionados.
 monthly_start_cron_schedule = get_for_current_env(
-    {"dev": "0 3 1 * *", "prd": "30 0 1 * *"}
+    {"dev": "0 3 1 * *", "prd": "41 0 1 * *"}
 )
 automation_monthly_start_delta_1_cron = my_cron_automation_condition(
     cron_schedule=monthly_start_cron_schedule,
@@ -178,7 +182,7 @@ automation_monthly_start_delta_1_cron = my_cron_automation_condition(
 )
 
 monthly_end_cron_schedule = get_for_current_env(
-    {"dev": "0 3 L * *", "prd": "30 0 L * *"}
+    {"dev": "0 3 L * *", "prd": "41 0 L * *"}
 )
 automation_monthly_end_delta_1_cron = my_cron_automation_condition(
     cron_schedule=monthly_end_cron_schedule,

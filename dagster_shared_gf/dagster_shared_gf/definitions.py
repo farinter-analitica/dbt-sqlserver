@@ -204,7 +204,7 @@ class ACSSensorFactory:
                 "automation_condition_sensor",
                 target=final_selections["daily"],
                 use_user_code_server=True,
-                minimum_interval_seconds=60 * 5,
+                minimum_interval_seconds=60 * 2,
                 tags=tags_repo.Daily,
                 run_tags=tags_repo.Daily,
                 default_status=self.default_status,
@@ -218,7 +218,7 @@ class ACSSensorFactory:
                 | final_selections["weekly"]
                 | final_selections["remaining"],
                 use_user_code_server=True,
-                minimum_interval_seconds=60 * 60,
+                minimum_interval_seconds=60 * 20,
                 tags=tags_repo.Monthly | tags_repo.Weekly,
                 run_tags=tags_repo.Monthly | tags_repo.Weekly,
                 default_status=self.default_status,
