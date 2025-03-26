@@ -41,4 +41,4 @@ SELECT --TOP (1000)
     , ISNULL({{ dwh_farinter_hash_column( columns = unique_key_list, table_alias="A") }},'') AS [HashStr_AleEmp]   
     , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
     , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
-FROM [DL_FARINTER].[dbo].[DL_Kielsa_PV_Alerta] A
+FROM [DL_FARINTER].[dbo].[DL_Kielsa_PV_Alerta] A -- {{source('DL_FARINTER','DL_Kielsa_PV_Alerta')}}
