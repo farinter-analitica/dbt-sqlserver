@@ -31,13 +31,13 @@ WITH Transacciones_Iniciales AS (
         ISNULL(l.Id, 0) as Log_Id,
         ISNULL(t.Transaccion_Id, l.Id) as Evento_Id,
         s.Suscripcion_Id,
-        COALESCE(t.TarjetaKC_Id, l.TarjetaKC_Id) COLLATE DATABASE_DEFAULT AS TarjetaKC_Id,
+        COALESCE(t.TarjetaKC_Id COLLATE DATABASE_DEFAULT, l.TarjetaKC_Id COLLATE DATABASE_DEFAULT) AS TarjetaKC_Id,
         s.Identidad_Limpia,
         t.Monto_Rebajado AS Monto_Rebajado,
         cast(COALESCE(t.Fecha, l.Fecha) as date) AS Fecha_Transaccion,
-        COALESCE(l.Usuario_Registro, s.Usuario_Registro) COLLATE DATABASE_DEFAULT AS Usuario_Id,
+        COALESCE(l.Usuario_Registro COLLATE DATABASE_DEFAULT, s.Usuario_Registro COLLATE DATABASE_DEFAULT) AS Usuario_Id,
         COALESCE(l.Sucursal_Registro, s.Sucursal_Registro) AS Sucursal_Id,
-        COALESCE(l.CodPlanKielsaClinica, s.CodPlanKielsaClinica) COLLATE DATABASE_DEFAULT AS Articulo_Id,
+        COALESCE(l.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT, s.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT) AS Articulo_Id,
         COALESCE(l.TipoPlan, s.TipoPlan) AS Plan_Id,
         l.Tipo_Ingreso,
         l.Origen,
@@ -51,7 +51,7 @@ WITH Transacciones_Iniciales AS (
         AND l.Tipo_Documento = 'suscripcion'
         AND l.id>0
     INNER JOIN {{ source('DL_FARINTER', 'DL_Kielsa_KPP_Suscripcion') }} s
-        ON s.TarjetaKC_Id = COALESCE(t.TarjetaKC_Id, l.TarjetaKC_Id) COLLATE DATABASE_DEFAULT
+        ON s.TarjetaKC_Id COLLATE DATABASE_DEFAULT = COALESCE(t.TarjetaKC_Id COLLATE DATABASE_DEFAULT, l.TarjetaKC_Id COLLATE DATABASE_DEFAULT) 
     WHERE ((t.Es_Transaccion_Valida = 1 and t.Es_Transaccion_Sospechosa =0) OR l.Id IS NOT NULL)
         {% if is_incremental() %}
         AND s.Fecha_Actualizado >= '{{ last_date }}'
@@ -67,9 +67,9 @@ Suscripciones_Nuevas AS (
         s.Identidad_Limpia,
         COALESCE(t.Monto_Rebajado, p.Costo) AS Monto_Rebajado,
         CONVERT(DATE, s.FRegistro) AS Fecha_Transaccion,
-        COALESCE(l.Usuario_Registro, s.Usuario_Registro) COLLATE DATABASE_DEFAULT AS Usuario_Id,
+        COALESCE(l.Usuario_Registro COLLATE DATABASE_DEFAULT, s.Usuario_Registro COLLATE DATABASE_DEFAULT) AS Usuario_Id,
         COALESCE(l.Sucursal_Registro, s.Sucursal_Registro) AS Sucursal_Id,
-        COALESCE(l.CodPlanKielsaClinica, s.CodPlanKielsaClinica) COLLATE DATABASE_DEFAULT AS Articulo_Id,
+        COALESCE(l.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT, s.CodPlanKielsaClinica COLLATE DATABASE_DEFAULT) AS Articulo_Id,
         COALESCE(l.TipoPlan, s.TipoPlan) AS Plan_Id,
         l.Tipo_Ingreso,
         l.Origen,
