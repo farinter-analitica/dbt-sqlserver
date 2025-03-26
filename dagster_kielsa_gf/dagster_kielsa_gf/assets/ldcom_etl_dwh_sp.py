@@ -440,20 +440,6 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             AssetKey(["CRM_FARINTER", "dbo", "PRE_LISTA"]),
         ],
     },
-    "DL_paCargarKN_RegistroEncabezadoRadar_Kielsa": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_KN_RegistroEncabezadoRadar_Kielsa",
-        "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
-        | tags_repo.UniquePeriod.tag
-        | tags_repo.AutomationOnly.tag,
-        "deps": [
-            AssetKey(["AN_FARINTER", "dbo", "AN_Cal_AtributosCliente_Kielsa"]),
-            AssetKey(["AN_FARINTER", "dbo", "DL_KN_TipoRadar_Kielsa"]),
-            AssetKey(["DL_FARINTER", "dbo", "DL_KN_BeneficiosKielsaCash_Hist"]),
-            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesContactados_Hist"]),
-        ],
-    },
     "DL_paCargarKN_ArticulosRecomendados_Kielsa": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "group_name": "kielsa_analitica_atributos",
