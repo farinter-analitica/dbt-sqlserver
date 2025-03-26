@@ -33,7 +33,9 @@ SELECT --TOP (1000)
     ,[Bit_MPA]
     ,[Hash_AlertaEmp]
     ,[Cuadro_Basico]
-    , CASE WHEN Bit_MPA = 1 THEN 'Marcas Propias y Alianzas'
+    , CASE 
+        WHEN Cuadro_Basico LIKE '%cuadro%' THEN  'Cuadro Basico'
+        WHEN Bit_MPA = 1 THEN 'Marcas Propias y Alianzas'
         WHEN Bit_Recomendacion = 1 THEN 'Recomendacion'
         ELSE 'Otros' END AS [Grupo_Meta]
     , ISNULL({{ dwh_farinter_hash_column( columns = unique_key_list, table_alias="A") }},'') AS [HashStr_AleEmp]   
