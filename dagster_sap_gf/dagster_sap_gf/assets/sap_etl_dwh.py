@@ -1,43 +1,25 @@
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import Any, List, Mapping, NamedTuple, Sequence
+
 from dagster import (
-    asset,
-    multi_asset,
-    AssetOut,
     AssetChecksDefinition,
     AssetExecutionContext,
-    AssetsDefinition,
-    load_assets_from_current_module,
-    load_asset_checks_from_current_module,
-    Field,
     AssetKey,
+    AssetOut,
+    AssetsDefinition,
+    Field,
+    asset,
+    load_asset_checks_from_current_module,
+    load_assets_from_current_module,
+    multi_asset,
 )
+
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, tags_repo
-from pathlib import Path
-from typing import List, Any, Mapping, NamedTuple, Sequence
-from datetime import datetime, date, timedelta
 
 # vars
 file_path = Path(__file__).parent.resolve()
-
-
-# Helper function to execute stored procedures
-def execute_sp(
-    context: AssetExecutionContext,
-    dwh_farinter_dl: SQLServerResource,
-    procedure_name: str,
-) -> None:
-    database = "DL_FARINTER"
-    schema = "dbo"
-
-    final_query = f"EXEC [{database}].[{schema}].[{procedure_name}];"
-    context.log.info(f"Executing: {final_query}")
-
-    try:
-        dwh_farinter_dl.execute_and_commit(final_query)
-        context.log.info(f"Successfully executed {procedure_name}")
-    except Exception as e:
-        context.log.error(f"Error executing {procedure_name}: {str(e)}")
-        raise
 
 
 # Helper function to execute stored procedures with parameters
@@ -45,11 +27,10 @@ def execute_sp_with_params(
     context: AssetExecutionContext,
     dwh_farinter_dl: SQLServerResource,
     procedure_name: str,
+    database: str = "DL_FARINTER",
+    schema: str = "dbo",
     params: dict[str, Any] | None = None,
 ) -> None:
-    database = "DL_FARINTER"
-    schema = "dbo"
-
     # Build parameter string if params are provided
     param_str = ""
     if params:
@@ -290,7 +271,9 @@ def cargar_sap_replica_datos_maestros(
     Loads master data from SAP into the data warehouse.
     This includes data from tables like CSKA, CSKS, CSKU, FAGL_011PC, etc.
     """
-    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_DatosMaestros")
+    execute_sp_with_params(
+        context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_DatosMaestros"
+    )
 
     # Return None for each output
     return tuple(
@@ -383,10 +366,10 @@ def cargar_sap_replica_sd(
             context,
             dwh_farinter_dl,
             "DL_paCargarSAP_REPLICA_SD",
-            {"ListaActualizar": "VBAP", "ForzarMeses": 3},
+            params={"ListaActualizar": "VBAP", "ForzarMeses": 3},
         )
     # For regular runs and after daily special, use the standard procedure
-    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_SD")
+    execute_sp_with_params(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_SD")
 
     # Return None for each output
     return tuple(None for _ in cargar_sap_replica_sd.keys_by_output_name.keys())
@@ -444,7 +427,7 @@ def cargar_sap_replica_mm(
     Loads Materials Management (MM) data from SAP into the data warehouse.
     This includes data from tables like EBAN, EKBE, EKET, EKKN, etc.
     """
-    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_MM")
+    execute_sp_with_params(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_MM")
 
     # Return None for each output
     return tuple(None for _ in cargar_sap_replica_mm.keys_by_output_name.keys())
@@ -475,7 +458,7 @@ def cargar_sap_replica_wm(
     Loads Warehouse Management (WM) data from SAP into the data warehouse.
     This includes data from tables like LTAK, LTAP.
     """
-    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_WM")
+    execute_sp_with_params(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_WM")
 
     # Return None for each output
     return tuple(None for _ in cargar_sap_replica_wm.keys_by_output_name.keys())
@@ -534,10 +517,10 @@ def cargar_sap_replica_vbfa(
             context,
             dwh_farinter_dl,
             "DL_paCargarSAP_REPLICA_VBFA",
-            {"@ListaActualizar": "VBFA", "@ForzarMeses": 3},
+            params={"@ListaActualizar": "VBFA", "@ForzarMeses": 3},
         )
     # For regular runs and after daily special, use the standard procedure
-    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_VBFA")
+    execute_sp_with_params(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_VBFA")
 
     # Return None for each output
     return tuple(None for _ in cargar_sap_replica_vbfa.keys_by_output_name.keys())
@@ -587,7 +570,7 @@ def cargar_sap_replica_fi(
     Loads Financial Accounting (FI) data from SAP into the data warehouse.
     This includes data from tables like BKPF, BSAD, BSID, COBK, COEP, etc.
     """
-    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_FI")
+    execute_sp_with_params(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_FI")
 
     # Return None for each output
     return tuple(None for _ in cargar_sap_replica_fi.keys_by_output_name.keys())
@@ -700,7 +683,10 @@ def cargar_sap_atributos_cliente(
 ) -> None:
     """Loads client attributes from SAP data."""
     execute_sp_with_params(
-        context, dwh_farinter_dl, "DL_paCargarSAP_Atributos_Cliente", get_date_params()
+        context,
+        dwh_farinter_dl,
+        "DL_paCargarSAP_Atributos_Cliente",
+        params=get_date_params(),
     )
 
 
@@ -724,7 +710,7 @@ def cargar_sap_atributos_cliente_categorias(
         context,
         dwh_farinter_dl,
         "DL_paCargarSAP_Atributos_Cliente_Categorias",
-        get_date_params(),
+        params=get_date_params(),
     )
 
 
@@ -753,7 +739,7 @@ def actualizar_sap_atributos_cliente(
         context,
         dwh_farinter_dl,
         "DL_paActualizarSAP_Atributos_Cliente",
-        get_date_params(),
+        params=get_date_params(),
     )
 
 
@@ -776,7 +762,7 @@ def actualizar_sap_atributos_cliente_estadisticas(
         context,
         dwh_farinter_dl,
         "DL_paActualizarSAP_Atributos_Cliente_Estadisticas",
-        get_date_params(),
+        params=get_date_params(),
     )
 
 
@@ -830,7 +816,11 @@ def cargar_cal_atributos_cliente_sap(
 ) -> None:
     """Loads client attributes into the analytics database for reporting."""
     execute_sp_with_params(
-        context, dwh_farinter_dl, "AN_FARINTER.dbo.AN_paCargarCal_AtributosCliente_SAP"
+        context,
+        dwh_farinter_dl,
+        "AN_paCargarCal_AtributosCliente_SAP",
+        database="AN_FARINTER",
+        schema="dbo",
     )
 
 
