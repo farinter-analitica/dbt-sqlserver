@@ -33,3 +33,5 @@ sources:
 
       - name: DL_Planning_ParamSocMat
       - name: DL_Edit_AlmacenFP_SAP
+      - name: DL_SAP_Acum_JerarquiaClientes
+      - name: DL_SAP_Acum_PagosCreditoVentasHist

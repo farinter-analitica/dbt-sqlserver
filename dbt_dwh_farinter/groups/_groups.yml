@@ -76,3 +76,6 @@ groups:
     owner:
       email: brian.padilla@farinter.com
       email: edwin.martinez@farinter.com
+  - name: dbt_dwh_sap_an
+    owner:
+      email: brian.padilla@farinter.com

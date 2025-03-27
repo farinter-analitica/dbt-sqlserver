@@ -593,7 +593,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "BI_paCargarDim_Tiempo": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Dim_Tiempo",
-        "tags": tags_repo.Daily.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
     },
     ##eCommerce
     "AN_pacargarParam_PesoseCommerce_Kielsa": {

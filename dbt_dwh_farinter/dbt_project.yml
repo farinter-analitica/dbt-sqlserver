@@ -138,6 +138,7 @@ sources:
       mart_kpp:
         +group: 'dbt_dwh_kielsa_mart_kpp'
       an_farinter:
+        +group: 'dbt_dwh_kielsa_an'
         +database: 'AN_FARINTER'
       bi_farinter:
         +database: 'BI_FARINTER'
@@ -165,6 +166,9 @@ sources:
       sap_etl_mm:
         +group: 'sap_prd'
         +database: 'DL_FARINTER'
+      an_farinter:
+        +group: 'dbt_dwh_sap_an'
+        +database: 'AN_FARINTER'
       bi_farinter:
         +group: 'dbt_dwh_sap_marts'
         +database: 'BI_FARINTER'

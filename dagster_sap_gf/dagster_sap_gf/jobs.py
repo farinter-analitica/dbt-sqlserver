@@ -66,7 +66,7 @@ sap_dwh_daily_downstream_assets = (
 ) - seleccion_no_programar
 sap_dwh_daily_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="sap_dwh_daily_all_downstream_job",
-    selection=sap_dwh_daily_downstream_assets,
+    selection=sap_dwh_daily_downstream_assets.required_multi_asset_neighbors(),
     tags={
         "dagster/max_runtime": (5 * 60 * 60)
     }  # max 4 hours in seconds, then mark it as failed.
@@ -91,7 +91,7 @@ sap_dwh_hourly_assets = (
 ) - seleccion_no_programar
 sap_dwh_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="sap_dwh_hourly_job",
-    selection=sap_dwh_hourly_assets,
+    selection=sap_dwh_hourly_assets.required_multi_asset_neighbors(),
     tags={
         "dagster/max_runtime": (100 * 60)
     }  # max 100 minutes in seconds, then mark it as failed.

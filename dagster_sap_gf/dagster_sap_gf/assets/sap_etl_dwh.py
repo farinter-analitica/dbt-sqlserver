@@ -1,4 +1,3 @@
-from collections import deque
 from dagster import (
     asset,
     multi_asset,
@@ -19,6 +18,58 @@ from datetime import datetime, date, timedelta
 
 # vars
 file_path = Path(__file__).parent.resolve()
+
+
+# Helper function to execute stored procedures
+def execute_sp(
+    context: AssetExecutionContext,
+    dwh_farinter_dl: SQLServerResource,
+    procedure_name: str,
+) -> None:
+    database = "DL_FARINTER"
+    schema = "dbo"
+
+    final_query = f"EXEC [{database}].[{schema}].[{procedure_name}];"
+    context.log.info(f"Executing: {final_query}")
+
+    try:
+        dwh_farinter_dl.execute_and_commit(final_query)
+        context.log.info(f"Successfully executed {procedure_name}")
+    except Exception as e:
+        context.log.error(f"Error executing {procedure_name}: {str(e)}")
+        raise
+
+
+# Helper function to execute stored procedures with parameters
+def execute_sp_with_params(
+    context: AssetExecutionContext,
+    dwh_farinter_dl: SQLServerResource,
+    procedure_name: str,
+    params: dict[str, Any] | None = None,
+) -> None:
+    database = "DL_FARINTER"
+    schema = "dbo"
+
+    # Build parameter string if params are provided
+    param_str = ""
+    if params:
+        param_parts = []
+        for key, value in params.items():
+            if isinstance(value, str):
+                param_parts.append(f"@{key}='{value}'")
+            else:
+                param_parts.append(f"@{key}={value}")
+        param_str = ", ".join(param_parts)
+
+    final_query = f"EXEC [{database}].[{schema}].[{procedure_name}] {param_str};"
+    context.log.info(f"Executing: {final_query}")
+
+    try:
+        dwh_farinter_dl.execute_and_commit(final_query)
+        context.log.info(f"Successfully executed {procedure_name}")
+    except Exception as e:
+        context.log.error(f"Error executing {procedure_name}: {str(e)}")
+        raise
 
 
 @asset(
@@ -140,6 +191,408 @@ def DL_SAP_BSEG(
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
 
 
+tags_rep_dai_hour = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.Hourly.tag
+
+
+# Multi-asset for DL_paCargarSAP_REPLICA_DatosMaestros
+@multi_asset(
+    name="DL_paCargarSAP_REPLICA_DatosMaestros",
+    outs={
+        "DL_SAP_CSKA": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_CSKS": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_CSKU": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_FAGL_011PC": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_FAGL_011QT": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_FAGL_011SC": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_FAGL_011ZC": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_KNVV": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_SKA1": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_SKAT": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_SKB1": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_T004": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_T011": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_T024B": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_T156": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_TVAG": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_TVST": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_TVSTT": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+    },
+    compute_kind="sqlserver",
+    op_tags=tags_rep_dai_hour,
+    deps=[
+        AssetKey(["SAPPRD", "dbo", "CSKA"]),
+        AssetKey(["SAPPRD", "dbo", "CSKS"]),
+        AssetKey(["SAPPRD", "dbo", "CSKU"]),
+        AssetKey(["SAPPRD", "dbo", "FAGL_011PC"]),
+        AssetKey(["SAPPRD", "dbo", "FAGL_011QT"]),
+        AssetKey(["SAPPRD", "dbo", "FAGL_011SC"]),
+        AssetKey(["SAPPRD", "dbo", "FAGL_011ZC"]),
+        AssetKey(["SAPPRD", "dbo", "KNVV"]),
+        AssetKey(["SAPPRD", "dbo", "MARA"]),
+        AssetKey(["SAPPRD", "dbo", "MARC"]),
+        AssetKey(["SAPPRD", "dbo", "MARD"]),
+        AssetKey(["SAPPRD", "dbo", "MBEW"]),
+        AssetKey(["SAPPRD", "dbo", "MCH1"]),
+        AssetKey(["SAPPRD", "dbo", "MCHA"]),
+        AssetKey(["SAPPRD", "dbo", "MCHB"]),
+        AssetKey(["SAPPRD", "dbo", "SKA1"]),
+        AssetKey(["SAPPRD", "dbo", "SKAT"]),
+        AssetKey(["SAPPRD", "dbo", "SKB1"]),
+        AssetKey(["SAPPRD", "dbo", "T004"]),
+        AssetKey(["SAPPRD", "dbo", "T011"]),
+        AssetKey(["SAPPRD", "dbo", "T024B"]),
+        AssetKey(["SAPPRD", "dbo", "T156"]),
+        AssetKey(["SAPPRD", "dbo", "TVAG"]),
+        AssetKey(["SAPPRD", "dbo", "TVST"]),
+        AssetKey(["SAPPRD", "dbo", "TVSTT"]),
+    ],
+)
+def cargar_sap_replica_datos_maestros(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+):
+    """
+    Loads master data from SAP into the data warehouse.
+    This includes data from tables like CSKA, CSKS, CSKU, FAGL_011PC, etc.
+    """
+    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_DatosMaestros")
+
+    # Return None for each output
+    return tuple(
+        None for _ in cargar_sap_replica_datos_maestros.keys_by_output_name.keys()
+    )
+
+
+# Multi-asset for DL_paCargarSAP_REPLICA_SD
+@multi_asset(
+    name="DL_paCargarSAP_REPLICA_SD",
+    outs={
+        "DL_SAP_LIKP": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_LIPS": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_VBAK": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_VBAP": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_VBBE": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_VBKD": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_VBRK": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_VBRP": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_VBUK": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_ZDT_ESTADO_T_NC": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_ZDT_ZCPV_LOG": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_ZFAR_SDT_0001": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_ZFAR_SDT_0002": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+    },
+    compute_kind="sqlserver",
+    op_tags=tags_rep_dai_hour,
+    deps=[
+        AssetKey(["SAPPRD", "dbo", "LIKP"]),
+        AssetKey(["SAPPRD", "dbo", "LIPS"]),
+        AssetKey(["SAPPRD", "dbo", "VBAK"]),
+        AssetKey(["SAPPRD", "dbo", "VBAP"]),
+        AssetKey(["SAPPRD", "dbo", "VBBE"]),
+        AssetKey(["SAPPRD", "dbo", "VBKD"]),
+        AssetKey(["SAPPRD", "dbo", "VBRK"]),
+        AssetKey(["SAPPRD", "dbo", "VBRP"]),
+        AssetKey(["SAPPRD", "dbo", "VBUK"]),
+        AssetKey(["SAPPRD", "dbo", "ZDT_ESTADO_T_NC"]),
+        AssetKey(["SAPPRD", "dbo", "ZDT_ZCPV_LOG"]),
+        AssetKey(["SAPPRD", "dbo", "ZFAR_SDT_0001"]),
+        AssetKey(["SAPPRD", "dbo", "ZFAR_SDT_0002"]),
+    ],
+)
+def cargar_sap_replica_sd(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+):
+    """
+    Loads Sales and Distribution (SD) data from SAP into the data warehouse.
+    This includes data from tables like LIKP, LIPS, VBAK, VBAP, etc.
+    """
+    # Check if this is a daily run by examining the tags
+    is_daily_run = False
+    for tag_key, tag_value in context.run_tags.items():
+        if tag_key == tags_repo.Daily.key:
+            is_daily_run = True
+            break
+
+    if is_daily_run:
+        # For daily runs, use specific parameters
+        context.log.info(
+            "Running daily SD replication with specific parameters for VBAP"
+        )
+        execute_sp_with_params(
+            context,
+            dwh_farinter_dl,
+            "DL_paCargarSAP_REPLICA_SD",
+            {"ListaActualizar": "VBAP", "ForzarMeses": 3},
+        )
+    # For regular runs and after daily special, use the standard procedure
+    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_SD")
+
+    # Return None for each output
+    return tuple(None for _ in cargar_sap_replica_sd.keys_by_output_name.keys())
+
+
+# Multi-asset for DL_paCargarSAP_REPLICA_MM
+@multi_asset(
+    name="DL_paCargarSAP_REPLICA_MM",
+    outs={
+        "DL_SAP_EBAN": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_EKBE": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_EKBE_Entregas": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_EKET": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_EKKN": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_EKKO": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_EKPO": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_MKPF": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_MSEG": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+    },
+    compute_kind="sqlserver",
+    op_tags=tags_rep_dai_hour,
+    deps=[
+        AssetKey(["SAPPRD", "dbo", "EBAN"]),
+        AssetKey(["SAPPRD", "dbo", "EKBE"]),
+        AssetKey(["SAPPRD", "dbo", "EKET"]),
+        AssetKey(["SAPPRD", "dbo", "EKKN"]),
+        AssetKey(["SAPPRD", "dbo", "EKKO"]),
+        AssetKey(["SAPPRD", "dbo", "EKPO"]),
+        AssetKey(["SAPPRD", "dbo", "MKPF"]),
+        AssetKey(["SAPPRD", "dbo", "MSEG"]),
+    ],
+)
+def cargar_sap_replica_mm(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+):
+    """
+    Loads Materials Management (MM) data from SAP into the data warehouse.
+    This includes data from tables like EBAN, EKBE, EKET, EKKN, etc.
+    """
+    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_MM")
+
+    # Return None for each output
+    return tuple(None for _ in cargar_sap_replica_mm.keys_by_output_name.keys())
+
+
+# Multi-asset for DL_paCargarSAP_REPLICA_WM
+@multi_asset(
+    name="DL_paCargarSAP_REPLICA_WM",
+    outs={
+        "DL_SAP_LTAK": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+        "DL_SAP_LTAP": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+        ),
+    },
+    compute_kind="sqlserver",
+    op_tags=tags_rep_dai_hour,
+    deps=[
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_LTAK"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_LTAP"]),
+    ],
+)
+def cargar_sap_replica_wm(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+):
+    """
+    Loads Warehouse Management (WM) data from SAP into the data warehouse.
+    This includes data from tables like LTAK, LTAP.
+    """
+    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_WM")
+
+    # Return None for each output
+    return tuple(None for _ in cargar_sap_replica_wm.keys_by_output_name.keys())
+
+
+tags_rep_dai_unique = (
+    tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod.tag
+)
+
+
+# Multi-asset for DL_paCargarSAP_REPLICA_VBFA
+@multi_asset(
+    name="DL_paCargarSAP_REPLICA_VBFA",
+    outs={
+        "DL_SAP_VBFA": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_VBFA_OrigenFactura": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_VBFA_OrigenPedido": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_VBFA_SiguienteFactura": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+    },
+    compute_kind="sqlserver",
+    op_tags=tags_rep_dai_unique,
+    deps=[
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_VBRK"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_VBFA"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_VBAK"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_VBRP"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_VBAP"]),
+    ],
+)
+def cargar_sap_replica_vbfa(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+):
+    """
+    Loads document flow data (VBFA) from SAP into the data warehouse.
+    This includes relationships between sales documents, deliveries, and invoices.
+    """
+    # Check if this is a daily run by examining the tags
+    is_daily_run = False
+    for tag_key, tag_value in context.run_tags.items():
+        if tag_key == tags_repo.Daily.key:
+            is_daily_run = True
+            break
+
+    if is_daily_run and env_str == "dev":
+        # For daily runs in dev environment, use specific parameters
+        context.log.info("Running daily VBFA replication with specific parameters")
+        execute_sp_with_params(
+            context,
+            dwh_farinter_dl,
+            "DL_paCargarSAP_REPLICA_VBFA",
+            {"@ListaActualizar": "VBFA", "@ForzarMeses": 3},
+        )
+    # For regular runs and after daily special, use the standard procedure
+    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_VBFA")
+
+    # Return None for each output
+    return tuple(None for _ in cargar_sap_replica_vbfa.keys_by_output_name.keys())
+
+
+# Multi-asset for DL_paCargarSAP_REPLICA_FI (continued)
+@multi_asset(
+    name="DL_paCargarSAP_REPLICA_FI",
+    outs={
+        "DL_SAP_BKPF": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_BSAD": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_BSID": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_COBK": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_COEP": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+        "DL_SAP_FAGLFLEXA": AssetOut(
+            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+        ),
+    },
+    compute_kind="sqlserver",
+    op_tags=tags_rep_dai_unique,
+    deps=[
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_BKPF"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_BSAD"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_BSID"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_COBK"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_COEP"]),
+        AssetKey(["SAPPRD", "dbo", "DL_SAP_FAGLFLEXA"]),
+        # AssetKey(["DL_FARINTER", "dbo", "sp_UtilAgregarParticionSiguienteAnioMes"]),
+        # AssetKey(["DL_FARINTER", "dbo", "sp_UtilComprimirColumnstoresSiAplica"]),
+        # AssetKey(["DL_FARINTER", "dbo", "sp_UtilComprimirIndicesParticionesAnteriores"]),
+    ],
+)
+def cargar_sap_replica_fi(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+):
+    """
+    Loads Financial Accounting (FI) data from SAP into the data warehouse.
+    This includes data from tables like BKPF, BSAD, BSID, COBK, COEP, etc.
+    """
+    execute_sp(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_FI")
+
+    # Return None for each output
+    return tuple(None for _ in cargar_sap_replica_fi.keys_by_output_name.keys())
+
+
 def create_store_procedure_asset(
     procedure_name: str, tags: Mapping[str, str]
 ) -> AssetsDefinition:
@@ -161,92 +614,10 @@ def create_store_procedure_asset(
     return store_procedure_execution
 
 
-def generate_hourly_store_procedure_assets() -> deque[AssetsDefinition]:
-    store_procedure_list: tuple[str, ...] = (
-        "DL_paCargarSAP_REPLICA_DatosMaestros",
-        "DL_paCargarSAP_REPLICA_SD",
-        "DL_paCargarSAP_REPLICA_MM",
-        "DL_paCargarSAP_REPLICA_WM",
-    )
-
-    store_procedure_assets: deque[AssetsDefinition] = deque()
-    tags = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.Hourly.tag
-    for procedure_name in store_procedure_list:
-        store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
-        store_procedure_assets.append(store_procedure_execution)
-
-    return store_procedure_assets
-
-
-def generate_daily_store_procedure_assets() -> deque[AssetsDefinition]:
-    store_procedure_list: tuple[str, ...] = (
-        "DL_paCargarSAP_REPLICA_VBFA",
-        "DL_paCargarSAP_REPLICA_FI",
-    )
-
-    store_procedure_assets: deque[AssetsDefinition] = deque()
-    tags = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod
-    for procedure_name in store_procedure_list:
-        store_procedure_execution = create_store_procedure_asset(procedure_name, tags)
-        store_procedure_assets.append(store_procedure_execution)
-
-    return store_procedure_assets
-
-
-generated_store_procedure_assets: list[
-    AssetsDefinition
-] = [  # si no es lista la funcion load_assets_from_current_module tiene problema
-    *generate_hourly_store_procedure_assets(),
-    *generate_daily_store_procedure_assets(),
-]
-
-
-@asset(
-    key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Replicas.tag | tags_repo.Hourly.tag | tags_repo.UniquePeriod.tag,
-    deps=(
-        *generated_store_procedure_assets,
-        DL_SAP_T001,
-        AssetKey(
-            [
-                "DL_FARINTER",
-                "dbo",
-                "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones",
-            ]
-        ),
-    ),
-    compute_kind="sqlserver",
-)
-def sp_start_job_sap_cadahora(
-    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
-    if env_str not in ("prd", "local"):
-        context.log.info(f"Skipping sp_start_job_sap_cadahora for env {env_str}")
-        return
-    job_name = "SAP_CadaHora"
-    final_query = f"""
-    SET NOCOUNT ON;
-    DECLARE @job_result int = 0; 
-    EXECUTE @job_result = msdb.dbo.sp_start_job @job_name = '{job_name}';
-    SELECT @job_result as job_result, '{job_name}' as job_name ;
-    """
-    results = dwh_farinter_dl.query(final_query, fetch_val=True)
-    # check if sp returned 1 for errors
-    if results is None:
-        context.log.error(f"Job {job_name} not executed, fail.")
-    elif results == 1:
-        context.log.error(f"Job {job_name} not executed, fail.")
-    elif results == 0:
-        context.log.info(f"Job {job_name} executed successfully.")
-    else:
-        context.log.error(f"Job {job_name} not executed, fail.")
-
-
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
     tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
     deps=(
-        *generated_store_procedure_assets,
         DL_SAP_T001,
         AssetKey(
             [
@@ -279,98 +650,194 @@ def sp_start_job_sap_diario(
     else:
         context.log.error(f"Job {job_name} not executed, fail.")
 
-    # "DL_paSecuenciaSAP_HechosDimensiones": {
-    #     "key_prefix": ["DL_FARINTER", "dbo"],
-    #     "name": ["SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente","DL_SAP_Atributos_Cliente","DL_SAP_Atributos_Cliente_CategoriasDistribucion"],
-    #     "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
-    #     "deps": [AssetKey(["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"])],
-    # },
-    # "DL_paSecuenciaSAP_Atributos_Cliente": {
-    #     "key_prefix": ["DL_FARINTER", "dbo"],
-    #     "name": ["SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente","DL_SAP_Atributos_Cliente","DL_SAP_Atributos_Cliente_CategoriasDistribucion"],
-    #     "tags": tags_repo.Daily.tag | tags_repo.DailyUnique.tag,
-    #     "deps": [AssetKey(["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente"])],
+
+# Helper function to get date parameters
+def get_date_params():
+    current_date = datetime.now().date()
+    prev_month_date = current_date - timedelta(days=30)
+
+    return {
+        "anio": current_date.year,
+        "mes": current_date.month,
+        "anioinicio": prev_month_date.year,
+        "mesinicio": prev_month_date.month,
+        "usarwhiles": 1,
+    }
 
 
+# Asset for DL_paActualizarClientesTiemposFechaFacturas_SAP
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    name="SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones",
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    name="DL_ClientesTiemposFechaFacturas_SAP",
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    compute_kind="sqlserver",
+    deps=[
+        AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Ventas_SAP"]),
+    ],
+)
+def actualizar_clientes_tiempos_fecha_facturas(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    """Updates client times and date information from invoices."""
+    execute_sp_with_params(
+        context, dwh_farinter_dl, "DL_paActualizarClientesTiemposFechaFacturas_SAP"
+    )
+
+
+# Asset for DL_paCargarSAP_Atributos_Cliente
+@asset(
+    key_prefix=["DL_FARINTER", "dbo"],
+    name="DL_SAP_Atributos_Cliente",
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    compute_kind="sqlserver",
+    deps=[
+        AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_Facturas"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_ClientesTiemposFechaFacturas_SAP"]),
+    ],
+)
+def cargar_sap_atributos_cliente(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    """Loads client attributes from SAP data."""
+    execute_sp_with_params(
+        context, dwh_farinter_dl, "DL_paCargarSAP_Atributos_Cliente", get_date_params()
+    )
+
+
+# Asset for DL_paCargarSAP_Atributos_Cliente_Categorias
+@asset(
+    key_prefix=["DL_FARINTER", "dbo"],
+    name="DL_SAP_Atributos_Cliente_CategoriasDistribucion",
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Mixto_Facturas"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Articulo_SAP"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente"]),
     ],
 )
-def DL_paSecuenciaSAP_HechosDimensiones(
+def cargar_sap_atributos_cliente_categorias(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
-    procedure = "DL_paSecuenciaSAP_HechosDimensiones"
-    database = "DL_FARINTER"
-    schema = "dbo"
-    p_ejecutar_todo = 0
-    if context.job_def.tags.get(tags_repo.Hourly.key, None) is not None:
-        p_ejecutar_todo = 0
-    else:
-        p_ejecutar_todo = 1
-
-    final_query = (
-        f"EXEC [{database}].[{schema}].[{procedure}] @EjecutarTodo = {p_ejecutar_todo};"
+    """Loads client category attributes from SAP data."""
+    execute_sp_with_params(
+        context,
+        dwh_farinter_dl,
+        "DL_paCargarSAP_Atributos_Cliente_Categorias",
+        get_date_params(),
     )
-    context.log.info(f"Executing: {final_query}")
-    dwh_farinter_dl.execute_and_commit(final_query)
 
 
-@multi_asset(
-    outs={
-        "SP_Ejecutado_DL_paSecuenciaSAP_Atributos_Cliente": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"],
-            tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-        ),
-        "DL_SAP_Atributos_Cliente": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"],
-            tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-        ),
-        "DL_SAP_Atributos_Cliente_CategoriasDistribucion": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"],
-            tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-        ),
-    },
-    name="DL_paSecuenciaSAP_Atributos_Cliente",
+# Asset for DL_paActualizarSAP_Atributos_Cliente
+@asset(
+    key_prefix=["DL_FARINTER", "dbo"],
+    name="DL_SAP_Atributos_Cliente_Actualizado",
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Cliente_SAP"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_CreditoHist_SAP"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_CalendarioBase"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_ClientesTiemposFechaFacturas_SAP"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente"]),
         AssetKey(
-            ["DL_FARINTER", "dbo", "SP_Ejecutado_DL_paSecuenciaSAP_HechosDimensiones"]
-        )
+            ["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente_CategoriasDistribucion"]
+        ),
     ],
 )
-def DL_paSecuenciaSAP_Atributos_Cliente(
+def actualizar_sap_atributos_cliente(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> tuple[None, None, None]:
-    procedure = "DL_paSecuenciaSAP_Atributos_Cliente"
-    database = "DL_FARINTER"
-    schema = "dbo"
-    final_query = f"EXEC [{database}].[{schema}].[{procedure}];"
-    dwh_farinter_dl.execute_and_commit(final_query)
+) -> None:
+    """Updates client attributes with additional information."""
+    execute_sp_with_params(
+        context,
+        dwh_farinter_dl,
+        "DL_paActualizarSAP_Atributos_Cliente",
+        get_date_params(),
+    )
 
-    return None, None, None
+
+# Asset for DL_paActualizarSAP_Atributos_Cliente_Estadisticas
+@asset(
+    key_prefix=["DL_FARINTER", "dbo"],
+    name="DL_SAP_Atributos_Cliente_Estadisticas",
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    compute_kind="sqlserver",
+    deps=[
+        AssetKey(["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente_Actualizado"]),
+    ],
+)
+def actualizar_sap_atributos_cliente_estadisticas(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    """Updates client statistics and trend information."""
+    execute_sp_with_params(
+        context,
+        dwh_farinter_dl,
+        "DL_paActualizarSAP_Atributos_Cliente_Estadisticas",
+        get_date_params(),
+    )
 
 
-# sp_start_job_sap_diario.with_attributes(group_names_by_key={list(sp_start_job_sap_diario.keys())[-1]: "sap_etl_dwh"})
-# all_assets = tuple(load_assets_from_current_module(group_name="sap_etl_dwh")) # no se puede usar ya que importamos otros assets desde assets.py
-# all_assets_without_group = get_all_instances_of_class([AssetsDefinition]) + store_procedure_assets
-# add group_name="sap_etl_dwh" to all_assets
-# all_assets = [*map(lambda asset: asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}), all_assets)]
-# list comprehension equivalent
-# print(all_assets_without_group)
-# como agregar atributos de grupo por ejemplo:
-# all_assets = [asset.with_attributes(group_names_by_key={list(asset.keys)[-1]: "sap_etl_dwh"}) for asset in all_assets_without_group]
+# Asset for DL_paCargarSAP_UltimosDatos_Cliente
+@asset(
+    key_prefix=["DL_FARINTER", "dbo"],
+    name="DL_SAP_UltimosDatos_Cliente",
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    compute_kind="sqlserver",
+    deps=[
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Factura_SAP"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente_Estadisticas"]),
+    ],
+)
+def cargar_sap_ultimos_datos_cliente(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    """Loads the latest client data from SAP."""
+    execute_sp_with_params(
+        context, dwh_farinter_dl, "DL_paCargarSAP_UltimosDatos_Cliente"
+    )
+
+
+@asset(
+    key_prefix=["AN_FARINTER", "dbo"],
+    name="AN_Cal_AtributosCliente_SAP",
+    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    compute_kind="sqlserver",
+    deps=[
+        AssetKey(["DL_FARINTER", "dbo", "DL_SAP_UltimosDatos_Cliente"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_TC_ClienteTicketProm_SAP"]),
+        AssetKey(["DL_FARINTER", "dbo", "VDL_SAP_Atributos_Cliente_CategoriasUltPref"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_GrupoMaterial"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Zona_SAP"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Dias"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Vendedor_SAP"]),
+        AssetKey(["DL_FARINTER", "dbo", "VDL_SAP_Atributos_Cliente_EstadoUltimaTrx"]),
+        AssetKey(["DL_FARINTER", "dbo", "VDL_SAP_Atributos_Cliente_EstadoAnterior"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Cliente_SAP"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_SociedadCliente"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_GrupoCliente"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Dim_TipoArt2_SAP"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_Cliente_Estado"]),
+        AssetKey(["DL_FARINTER", "dbo", "DL_ClientesTiemposFechaFacturas_SAP"]),
+        AssetKey(["AN_FARINTER", "dbo", "AN_SAP_Cal_ClientesRecordCredito"]),
+    ],
+)
+def cargar_cal_atributos_cliente_sap(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
+) -> None:
+    """Loads client attributes into the analytics database for reporting."""
+    execute_sp_with_params(
+        context, dwh_farinter_dl, "AN_FARINTER.dbo.AN_paCargarCal_AtributosCliente_SAP"
+    )
+
 
 all_assets = tuple(
     load_assets_from_current_module(group_name="sap_etl_dwh")
 )  # + store_procedure_assets
 
-# all_asset_checks = tuple(load_asset_checks_from_current_module())
-# all_asset_checks: List[AssetChecksDefinition] = itertools.chain.from_iterable(get_all_instances_of_class([Sequence[AssetChecksDefinition]]))
 all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
     (load_asset_checks_from_current_module())
 )
@@ -378,29 +845,6 @@ all_asset_checks: Sequence[AssetChecksDefinition] = tuple(
 
 if __name__ == "__main__":
     ##testing
-    from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
-    from dagster import build_asset_context
-
-    ##
-    for gasset in generated_store_procedure_assets:
-        print(gasset.keys, gasset.tags_by_key)
-    # print((timedelta(days=-5*365) + datetime.now()).date().isoformat())
-    context = build_asset_context()
-
-    # env_str='PRD'
-    def tests1():
-        DL_SAP_T001(context, dwh_farinter_dl)
-
-    def tests2():
-        sp_start_job_sap_cadahora(context, dwh_farinter_dl)
-
-    # tests1()
-    #
-    # tests2()
-    # print("get_args " + str(get_args(all_assets_hourly_freshness_checks)))
-    # print("get_origin " +str(get_origin(all_assets_hourly_freshness_checks)))
-    # print("type " +  str(type(all_assets_hourly_freshness_checks)))
-    # print(sp_start_job_sap_diario.tags_by_key[list(sp_start_job_sap_diario.keys)[-1]])
-    # print("checks: " + str(all_asset_checks))
-    # print(all_assets)
-    # print("checks fres: " + str(all_asset_freshness_checks))
+    print(
+        str([asset.keys for asset in all_assets if isinstance(asset, AssetsDefinition)])
+    )

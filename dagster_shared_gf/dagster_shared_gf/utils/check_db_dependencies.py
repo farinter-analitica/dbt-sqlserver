@@ -468,8 +468,12 @@ def collect_dependencies_dict(
 
 def print_dag_as_json(dependencies: GraphDict):
     """print the GraphDict as json, nothing else"""
+    without_empty_deps_dict = {
+        k: v for k, v in dependencies.items() if v.get("<") or v.get(">")
+    }
+
     print(f"Dependencies JSON for {list(dependencies.keys())[0]}:")
-    print(json.dumps(dependencies, indent=4))
+    print(json.dumps(without_empty_deps_dict, indent=4))
 
 
 def generate_dag(graph_dict: GraphDict):
@@ -585,36 +589,42 @@ if __name__ == "__main__":
     starting_node_servername = get_server_name_str(
         sql_server=dwh_farinter_database_admin
     )
-    starting_node_db_name = "DL_FARINTER"
-    starting_node_schema_name = "dbo"
-    starting_node_object_name = "DL_KN_RegistroEncabezadoSMS_Kielsa"
-    full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
-    if_debug_print(
-        "Starting point: " + full_starting_relation_path,
-        printing_events_name="full_starting_relation_path",
-    )
 
-    max_direct_indirects_depth = 0  # Max depth for indirect dependencies of the starting point direct dependencies
-    max_direct_indirects_breadth = 0  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
+    sps = ("DL_paCargarSAPCRM_Acum_ClientesXLista",)
 
-    all_dependencies = collect_dependencies(
-        sql_server=dwh_farinter_database_admin,
-        starting_relation_path=full_starting_relation_path,
-    )
-    collected_dependencies = collect_dependencies_dict(
-        starting_relation_path=full_starting_relation_path,
-        all_dependencies=all_dependencies,
-        max_ind_depth=max_direct_indirects_depth,
-        max_ind_breadth=max_direct_indirects_breadth,
-    )
-    if_debug_print(
-        collected_dependencies, printing_events_name="collected_dependencies"
-    )
+    for sp_name in sps:
+        starting_node_db_name = (
+            "DL_FARINTER" if sp_name.startswith("DL_") else "BI_FARINTER"
+        )
+        starting_node_schema_name = "dbo"
+        starting_node_object_name = sp_name
+        full_starting_relation_path = f"{starting_node_servername}.{starting_node_db_name}.{starting_node_schema_name}.{starting_node_object_name}"
+        if_debug_print(
+            "Starting point: " + full_starting_relation_path,
+            printing_events_name="full_starting_relation_path",
+        )
 
-    # dependencies_for_starting = dependencies_from_starting_point(full_starting_relation_path, all_dependencies, max_direct_indirects_depth, max_direct_indirects_breadth)
+        max_direct_indirects_depth = 0  # Max depth for indirect dependencies of the starting point direct dependencies
+        max_direct_indirects_breadth = 0  # Max breadth for indirect dependencies of the starting point direct dependencies, if there are more add one artificial node named "...more"
 
-    # print(len(dependencies_for_starting))
+        all_dependencies = collect_dependencies(
+            sql_server=dwh_farinter_database_admin,
+            starting_relation_path=full_starting_relation_path,
+        )
+        collected_dependencies = collect_dependencies_dict(
+            starting_relation_path=full_starting_relation_path,
+            all_dependencies=all_dependencies,
+            max_ind_depth=max_direct_indirects_depth,
+            max_ind_breadth=max_direct_indirects_breadth,
+        )
+        if_debug_print(
+            collected_dependencies, printing_events_name="collected_dependencies"
+        )
 
-    if not DEBUG:
-        print_dag_as_json(collected_dependencies)
-        # generate_dag(collected_dependencies)
+        # dependencies_for_starting = dependencies_from_starting_point(full_starting_relation_path, all_dependencies, max_direct_indirects_depth, max_direct_indirects_breadth)
+
+        # print(len(dependencies_for_starting))
+
+        if not DEBUG:
+            print_dag_as_json(collected_dependencies)
+            # generate_dag(collected_dependencies)

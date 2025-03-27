@@ -17,4 +17,6 @@ sources:
       - name: BI_Dim_Centro_SAP
       - name: BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia
       - name: BI_SAP_Hecho_SocAlmArtGpoCli_Forecast
-
+      - name: BI_SAP_Dim_ClienteAreaCredito_Calc
+      - name: BI_SAP_Dim_ClienteAreaCredito
+      - name: BI_Dim_Cliente_SAP
