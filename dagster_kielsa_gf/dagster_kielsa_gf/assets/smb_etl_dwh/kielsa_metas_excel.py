@@ -257,6 +257,8 @@ def DL_Kielsa_MetaHist_Temp(
             "Emp_Id",
             "Fecha_Desde",
             "Fecha_Hasta",
+            "Alerta_Id",
+            "Atributo",
         ),
     )
 
@@ -283,6 +285,7 @@ if __name__ == "__main__":
     from dagster_shared_gf.resources.smb_resources import (
         smb_resource_analitica_nasgftgu02,
     )
+    from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
 
     escribir_en_destino = (
         True  # Cambiar para que se cree la tabla en destino con la prueba
@@ -297,7 +300,9 @@ if __name__ == "__main__":
             [DL_Kielsa_MetaHist_Temp],
             resources={
                 "smb_resource_analitica_nasgftgu02": smb_resource_analitica_nasgftgu02,
-                "dwh_farinter_dl": MagicMock(),
+                "dwh_farinter_dl": dwh_farinter_dl
+                if escribir_en_destino
+                else MagicMock(),
             },
         )
         if not escribir_en_destino and isinstance(mock_write_database, MagicMock):
