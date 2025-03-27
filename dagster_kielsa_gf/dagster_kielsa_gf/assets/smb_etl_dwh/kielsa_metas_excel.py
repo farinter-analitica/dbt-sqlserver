@@ -250,6 +250,14 @@ def DL_Kielsa_MetaHist_Temp(
         blanks_allowed=False,
         exclude_colums=("Vendedor",),
         excel_sheet_name="carga",
+        final_table_primary_keys=(
+            "AnioMes_Id",
+            "Vendedor_Id",
+            "Sucursal_Id",
+            "Emp_Id",
+            "Fecha_Desde",
+            "Fecha_Hasta",
+        ),
     )
 
     processor = KielsaMetasProcessor(
@@ -276,8 +284,14 @@ if __name__ == "__main__":
         smb_resource_analitica_nasgftgu02,
     )
 
+    escribir_en_destino = (
+        True  # Cambiar para que se cree la tabla en destino con la prueba
+    )
     with patch(
-        "polars.DataFrame.write_database", MagicMock(return_value=MagicMock())
+        "polars.DataFrame.write_database",
+        pl.DataFrame.write_database
+        if escribir_en_destino
+        else MagicMock(return_value=MagicMock()),
     ) as mock_write_database:
         materialize_to_memory(
             [DL_Kielsa_MetaHist_Temp],
@@ -286,4 +300,8 @@ if __name__ == "__main__":
                 "dwh_farinter_dl": MagicMock(),
             },
         )
-        assert mock_write_database.call_count > 0 or mock_write_database.call_count == 0
+        if not escribir_en_destino and isinstance(mock_write_database, MagicMock):
+            assert (
+                mock_write_database.call_count > 0
+                or mock_write_database.call_count == 0
+            )

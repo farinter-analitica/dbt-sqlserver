@@ -280,7 +280,11 @@ class ExcelProcessConfig(Config):
     loaded_files_folder: str = Field(
         description="Loaded files folder", default="cargados"
     )
-    primary_keys: tuple[str, ...] = Field(
+    excel_primary_keys: tuple[str, ...] = Field(
+        description="Primary keys", default_factory=tuple
+    )
+
+    final_table_primary_keys: tuple[str, ...] = Field(
         description="Primary keys", default_factory=tuple
     )
 

@@ -137,7 +137,8 @@ def DL_Kielsa_Horario_Temp(
         polars_schema=KIELSA_HORARIOS_SCHEMA,
         blanks_allowed=True,
         excel_sheet_name="semana",
-        primary_keys=("SUC ID",),
+        excel_primary_keys=("SUC ID",),
+        final_table_primary_keys=("suc_id", "dia_id"),
     )
 
     processor = KielsaHorariosProcessor(
@@ -180,7 +181,7 @@ if __name__ == "__main__":
                 else MagicMock(),
             },
         )
-        if not escribir_en_destino:
+        if not escribir_en_destino and isinstance(mock_write_database, MagicMock):
             assert (
                 mock_write_database.call_count > 0
                 or mock_write_database.call_count == 0

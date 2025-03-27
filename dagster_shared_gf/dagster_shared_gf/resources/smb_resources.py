@@ -202,7 +202,7 @@ class SMBResource(ConfigurableResource):
         def get_unique_dst_path(dst_path: PureWindowsPath):
             counter = 1
             new_dst_path = dst_path.with_name(
-                f"{dst_path.stem}_{datetime.now().strftime('%Y%m%d%')}{dst_path.suffix}"
+                f"{dst_path.stem}_{datetime.now().strftime('%Y%m%d')}{dst_path.suffix}"
             )
 
             # Check if file already exists
@@ -255,7 +255,7 @@ smb_resource_independent_dagster_dwh = SMBResource(
     credentials="analitica",
     server="DWH",
     username=all_credentials["analitica"].username,
-    password=all_credentials["analitica"].password.get_value(),
+    password=str(all_credentials["analitica"].password.get_value("")),
     server_ip=all_servers["DWH"],
 )
 
@@ -266,6 +266,6 @@ if __name__ == "__main__":
 
     print(
         smb_resource_independent_dagster_dwh.client.listdir(
-            f"\\{all_servers['DWH']}\staging_dagster"
+            f"\\{all_servers['DWH']}\\staging_dagster"
         )
     )

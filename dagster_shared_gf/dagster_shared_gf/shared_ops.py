@@ -4,7 +4,8 @@ import json
 from pathlib import PureWindowsPath
 import re
 import time
-from typing import Any
+from typing import Any, Callable
+from dagster_shared_gf.shared_helpers import SQLScriptGenerator
 import polars as pl
 from dagster import (
     AssetExecutionContext,
@@ -34,7 +35,7 @@ from dagster_shared_gf.shared_variables import (
 from ydata_profiling import ProfileReport
 
 
-def wait_if_job_running_to_execute_next_op(current_location_name: str) -> op:
+def wait_if_job_running_to_execute_next_op(current_location_name: str) -> Callable:
     @op(
         description="Wait for a job to complete if running and afterwards execute another job.",
         config_schema={
@@ -144,7 +145,7 @@ class ExcelFileProcessor:
         self.schema_config = config
         self.table = table
         self.db_schema = db_schema
-        self.directory_path = directory_path
+        self.directory_path = smb_resource.get_full_server_path(directory_path)
         self.context = context
         self.smb_resource = smb_resource
         self.dwh_resource = dwh_resource
@@ -270,8 +271,10 @@ class ExcelFileProcessor:
         if self.schema_config.exclude_colums:
             df = df.drop(self.schema_config.exclude_colums, strict=False)
 
-        if self.schema_config.primary_keys:
-            unique_check_height = df.n_unique(subset=self.schema_config.primary_keys)
+        if self.schema_config.excel_primary_keys:
+            unique_check_height = df.n_unique(
+                subset=self.schema_config.excel_primary_keys
+            )
             if unique_check_height != df.height:
                 raise ErrorsOccurred(
                     "Los registros no son únicos por las claves especificadas."
@@ -310,15 +313,25 @@ class ExcelFileProcessor:
             df = df.fill_null(strategy="zero")
 
     def _write_to_database(self, df: pl.DataFrame) -> int:
+        sg = SQLScriptGenerator(
+            primary_keys=self.schema_config.final_table_primary_keys,
+            db_schema=self.db_schema,
+            table_name=self.table,
+            df=df,
+        )
+
         with self.dwh_resource.get_sqlalchemy_conn() as conn:
             if self.drop_table_count == 0:
-                conn.execute(
-                    self.dwh_resource.text(
-                        f"IF OBJECT_ID('{self.db_schema}.{self.table}', 'U') IS NOT NULL BEGIN DROP TABLE {self.db_schema}.{self.table} END; "
-                    )
+                self.dwh_resource.execute_and_commit(
+                    sg.drop_table_sql_script(), connection=conn
+                )
+                self.dwh_resource.execute_and_commit(
+                    sg.create_table_sql_script(), connection=conn
+                )
+                self.dwh_resource.execute_and_commit(
+                    sg.primary_key_table_sql_script(), connection=conn
                 )
                 self.drop_table_count += 1
-            conn.commit()
             return df.write_database(
                 table_name=f"{self.db_schema}.{self.table}",
                 connection=conn,
