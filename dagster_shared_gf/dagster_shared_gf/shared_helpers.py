@@ -287,6 +287,7 @@ class SQLScriptGenerator:
             pl.UInt16: "SMALLINT",
             pl.UInt32: "INT",
             pl.UInt64: "BIGINT",
+            pl.Time: "TIME(0)",
         }
 
         # Iterate over the columns in the schema
