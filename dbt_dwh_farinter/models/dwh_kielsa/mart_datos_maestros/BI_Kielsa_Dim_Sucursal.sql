@@ -56,9 +56,14 @@ SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
           table_alias='S')}} AS EmpDepMunCiu_Id
         ,[Ciudad_Nombre]
         ,[TipoSucursal_Id]
-        ,[TipoSucursal_Nombre] 
+        ,[TipoSucursal_Nombre]
+        , CASE 
+          WHEN S.Emp_Id = 1 THEN CONCAT('kielsa',Sucursal_Numero,'@kielsa.hn') 
+          WHEN S.Emp_Id = 5 THEN CONCAT('b',Sucursal_Numero,'@grupobrasilsv.com') 
+          ELSE 'No Definido' 
+          END AS [Correo_e]
         ,[Direccion]
-        ,[Estado] 
+        ,[Estado]
         ,ISNULL(RSJ.[Usuario_Id], '0') as [Usuario_JOP_Id]
         -- TODO: Migrar tablero de Jefrey a usar ID en lugar de nombres, implementar nuevamente el control por usuario.
         ,CASE WHEN S.Emp_id = 1 then S.JOB  COLLATE DATABASE_DEFAULT ELSE  ISNULL(RSJ.[Usuario_Nombre], 'No Definido') END as [JOP]
