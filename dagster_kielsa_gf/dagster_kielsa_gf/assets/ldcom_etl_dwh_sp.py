@@ -198,6 +198,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta_Articulo"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Bitacora_Cambio_Precio"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta_Tipo_Cliente"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Descuento_Venta_Sucursal"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Tipo_Cliente"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Sucursal"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_x_Sucursal"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
         ],
     },
     "DL_paCargarKielsa_Articulo_Proveedor": {
