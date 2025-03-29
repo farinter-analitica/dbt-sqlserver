@@ -24,9 +24,11 @@ from dagster_shared_gf.sling_shared.sling_resources import MyDagsterSlingTransla
 from dagster_shared_gf.shared_constants import (
     running_default_sensor_status,
 )
-
+from dagster_shared_gf.load_env_run import load_env_vars, os
 
 replication_config = Path(__file__).parent / "sling_nocodb_data_gf.yaml"
+if os.environ.get("SLING_HOME_DIR") is None:
+    load_env_vars()
 
 
 @sling_assets(
@@ -40,6 +42,7 @@ replication_config = Path(__file__).parent / "sling_nocodb_data_gf.yaml"
     ),
 )
 def nocodb_data_gf(context, sling: SlingResource):
+    context.log.info(f"{replication_config=}")
     yield from sling.replicate(context=context)
 
 
