@@ -155,6 +155,16 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Descuento_Venta",
         "tags": tags_repo.Daily.tag,
     },
+    "DL_paCargarKielsa_Descuento_Venta_Tipo_Cliente": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Descuento_Venta_Tipo_Cliente",
+        "tags": tags_repo.Daily.tag,
+    },
+    "DL_paCargarKielsa_Descuento_Venta_Sucursal": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Kielsa_Descuento_Venta_Sucursal",
+        "tags": tags_repo.Daily.tag,
+    },
     "DL_paCargarKielsa_Boleta_CEDI_Detalle": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Boleta_CEDI_Detalle",
