@@ -54,8 +54,8 @@ nocodb_data_gf_job = define_asset_job(
 @sensor(
     name="nocodb_data_gf_change_sensor",
     minimum_interval_seconds=get_for_current_env(
-        {"dev": 60 * 60 * 8, "prd": 60 * 5}
-    ),  # Check every 5 minutes
+        {"dev": 60 * 60 * 8, "prd": 60 * 2}
+    ),  # Check every 2 minutes
     target=nocodb_data_gf_job,
     default_status=running_default_sensor_status,
 )
@@ -93,8 +93,9 @@ def nocodb_data_gf_change_sensor(context: SensorEvaluationContext):
         if not last_run_timestamp or state_string != last_run_timestamp.split("|")[0]:
             context.log.info(f"Detected changes {state_string}")
 
-            # Wait 5 seconds to ensure all changes are complete
-            time.sleep(5)
+            if last_run_timestamp:
+                # Esperar un tiempo promedio en el que las personas terminan de llenar un campo.
+                time.sleep(60)
 
             # Create a run request for the asset
             run_request = RunRequest(
