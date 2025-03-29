@@ -286,47 +286,60 @@ def cargar_sap_replica_datos_maestros(
     name="DL_paCargarSAP_REPLICA_SD",
     outs={
         "DL_SAP_LIKP": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_LIPS": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_VBAK": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_VBAP": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_VBBE": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_VBKD": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_VBRK": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_VBRP": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_VBUK": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_ZDT_ESTADO_T_NC": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_ZDT_ZCPV_LOG": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_ZFAR_SDT_0001": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
         "DL_SAP_ZFAR_SDT_0002": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour | tags_repo.Weekly7,
         ),
     },
     compute_kind="sqlserver",
-    op_tags=tags_rep_dai_hour,
+    op_tags=tags_rep_dai_hour | tags_repo.Weekly7,
     deps=[
         AssetKey(["SAPPRD", "dbo", "LIKP"]),
         AssetKey(["SAPPRD", "dbo", "LIPS"]),
@@ -352,12 +365,14 @@ def cargar_sap_replica_sd(
     """
     # Check if this is a daily run by examining the tags
     is_daily_run = False
+    is_weekly_run = False
     for tag_key, tag_value in context.run_tags.items():
         if tag_key == tags_repo.Daily.key:
             is_daily_run = True
-            break
+        if tag_key == tags_repo.Weekly7.key:
+            is_weekly_run = True
 
-    if is_daily_run:
+    if is_daily_run and env_str == "prd" or is_weekly_run and env_str == "dev":
         # For daily runs, use specific parameters
         context.log.info(
             "Running daily SD replication with specific parameters for VBAP"
@@ -474,20 +489,24 @@ tags_rep_dai_unique = (
     name="DL_paCargarSAP_REPLICA_VBFA",
     outs={
         "DL_SAP_VBFA": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique | tags_repo.Weekly7,
         ),
         "DL_SAP_VBFA_OrigenFactura": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique | tags_repo.Weekly7,
         ),
         "DL_SAP_VBFA_OrigenPedido": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique | tags_repo.Weekly7,
         ),
         "DL_SAP_VBFA_SiguienteFactura": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique | tags_repo.Weekly7,
         ),
     },
     compute_kind="sqlserver",
-    op_tags=tags_rep_dai_unique,
+    op_tags=tags_rep_dai_unique | tags_repo.Weekly7,
     deps=[
         AssetKey(["SAPPRD", "dbo", "DL_SAP_VBRK"]),
         AssetKey(["SAPPRD", "dbo", "DL_SAP_VBFA"]),
@@ -505,13 +524,15 @@ def cargar_sap_replica_vbfa(
     """
     # Check if this is a daily run by examining the tags
     is_daily_run = False
+    is_weekly_run = False
     for tag_key, tag_value in context.run_tags.items():
         if tag_key == tags_repo.Daily.key:
             is_daily_run = True
-            break
+        if tag_key == tags_repo.Weekly7.key:
+            is_weekly_run = True
 
-    if is_daily_run and env_str == "dev":
-        # For daily runs in dev environment, use specific parameters
+    if is_daily_run and env_str == "prd" or is_weekly_run and env_str == "dev":
+        # For daily runs in prd environment, use specific parameters
         context.log.info("Running daily VBFA replication with specific parameters")
         execute_sp_with_params(
             context,
