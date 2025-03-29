@@ -1,0 +1,20 @@
+source: NOCODB_DATA_GF
+target: DAGSTER_DWH_FARINTER
+
+defaults:
+  mode: incremental
+  primary_key: id
+  update_key: fecha_actualizado
+  object: nocodb_data_gf.{stream_schema}_{stream_table}
+  target_options:
+    #table_ddl: create table "nocodb_data_gf"."{stream_schema}_{stream_table}" ({col_types})
+    column_casing: snake
+  source_options:
+    flatten: true
+
+streams:
+  #kielsa.*: #Esto da error si existe alguna tabla sin las columnas necesarias
+  kielsa.dia_semana:
+  kielsa.sucursal:
+  kielsa.sucursal_horario_dia:
+  kielsa.sucursal_horario_periodo:

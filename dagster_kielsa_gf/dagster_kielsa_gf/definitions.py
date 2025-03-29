@@ -5,6 +5,7 @@ from dagster import (
 )
 
 import dagster_kielsa_gf.dlt_defs.definitions as dlt_defs
+import dagster_kielsa_gf.sling_defs as sling_defs
 import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
 from dagster_kielsa_gf import job_control_replicas, jobs
 from dagster_kielsa_gf.assets import (
@@ -108,6 +109,7 @@ defs = Definitions.merge(
             all_kielsa_assets_freshness_checks_sensor,
         ),
     ),
+    sling_defs.defs,
     gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos
 )
 

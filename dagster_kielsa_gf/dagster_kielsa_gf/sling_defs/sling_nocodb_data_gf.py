@@ -1,0 +1,171 @@
+import time
+from datetime import datetime
+from pathlib import Path
+
+from dagster import (
+    AssetSelection,
+    RunRequest,
+    SensorEvaluationContext,
+    SensorResult,
+    SkipReason,
+    define_asset_job,
+    sensor,
+)
+from dagster_sling import (
+    SlingResource,
+    sling_assets,
+)
+
+from dagster_shared_gf.automation import automation_daily_delta_2_cron
+from dagster_shared_gf.resources.postgresql_resources import db_nocodb_data_gf
+from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.shared_variables import tags_repo
+from dagster_shared_gf.sling_shared.sling_resources import MyDagsterSlingTranslator
+from dagster_shared_gf.shared_constants import (
+    running_default_sensor_status,
+)
+
+
+replication_config = Path(__file__).parent / "sling_nocodb_data_gf.yaml"
+
+
+@sling_assets(
+    replication_config=replication_config,
+    dagster_sling_translator=MyDagsterSlingTranslator(
+        asset_database="DL_FARINTER",
+        schema_name="nocodb_data_gf",
+        tags=tags_repo.Daily,
+        automation_condition=automation_daily_delta_2_cron,
+        group_name="nocodb_data_gf",
+    ),
+)
+def nocodb_data_gf(context, sling: SlingResource):
+    yield from sling.replicate(context=context)
+
+
+# Define a job that will materialize the nocodb_data_gf assets
+nocodb_data_gf_job = define_asset_job(
+    name="nocodb_data_gf_job",
+    selection=AssetSelection.groups("nocodb_data_gf"),
+    tags=tags_repo.Daily | {"by_sensor_job": ""},
+)
+
+
+@sensor(
+    name="nocodb_data_gf_change_sensor",
+    minimum_interval_seconds=get_for_current_env(
+        {"dev": 60 * 60 * 8, "prd": 60 * 5}
+    ),  # Check every 5 minutes
+    target=nocodb_data_gf_job,
+    default_status=running_default_sensor_status,
+)
+def nocodb_data_gf_change_sensor(context: SensorEvaluationContext):
+    """
+    Sensor that monitors the PostgreSQL database for changes and triggers
+    the nocodb_data_gf asset when changes are detected.
+    """
+    # Get the last run timestamp from context
+    last_run_timestamp = context.cursor or None
+
+    # Query to check for recent changes in the database using PostgreSQL 14 compatible functions
+    query = """
+    SELECT 
+        MAX(GREATEST(last_vacuum, last_autovacuum, last_analyze, last_autoanalyze)) as last_maintenance,
+        SUM(n_tup_ins + n_tup_upd + n_tup_del + n_live_tup + n_dead_tup) as n_mod_tup
+    FROM 
+        pg_stat_user_tables;
+    """
+
+    try:
+        # Execute the query
+        result = db_nocodb_data_gf.query(query)
+
+        if not result:
+            return SkipReason("No tables found or error querying database")
+
+        last_maintenance = result[0][0].strftime("%Y%m%d_%H%M%S")
+        n_mod_tup = str(result[0][1])
+
+        # Create a signature of the current state using hash
+        state_string = f"{last_maintenance=}_{n_mod_tup=}"
+        current_time = datetime.now().isoformat()
+        # If this is the first run or there are new changes
+        if not last_run_timestamp or state_string != last_run_timestamp.split("|")[0]:
+            context.log.info(f"Detected changes {state_string}")
+
+            # Wait 5 seconds to ensure all changes are complete
+            time.sleep(5)
+
+            # Create a run request for the asset
+            run_request = RunRequest(
+                run_key=f"nocodb_data_gf_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                job_name=nocodb_data_gf_job.name,
+                tags={
+                    "source": "nocodb_change_sensor",
+                    "detected_change": f"{state_string}",
+                },
+            )
+
+            return SensorResult(
+                run_requests=[run_request],
+                cursor=f"{state_string}|{current_time}",
+            )
+
+        last_run_time = (
+            last_run_timestamp.split("|")[1] if "|" in last_run_timestamp else "unknown"
+        )
+        return SkipReason(f"No new changes detected since {last_run_time}")
+
+    except Exception as e:
+        context.log.error(f"Error in nocodb_data_gf_change_sensor: {str(e)}")
+        return SkipReason(f"Error checking for changes: {str(e)}")
+
+
+if __name__ == "__main__":
+    from dagster import instance_for_test, materialize, build_sensor_context
+    import sys
+
+    # Determine what to test based on command line argument
+    test_mode = "asset"  # Default to testing the asset
+    if len(sys.argv) > 1 and sys.argv[1] == "sensor":
+        test_mode = "sensor"
+
+    with instance_for_test() as instance:
+        if test_mode == "asset":
+            print("Testing asset materialization...")
+            result = materialize(
+                assets=[nocodb_data_gf],
+                instance=instance,
+                resources={"sling": SlingResource()},
+            )
+            print(result.all_events)
+        else:
+            print("Testing sensor evaluation...")
+            # Create a sensor context
+            context = build_sensor_context(instance=instance)
+
+            # Evaluate the sensor
+            sensor_result = nocodb_data_gf_change_sensor(context)
+
+            if isinstance(sensor_result, SensorResult):
+                run_requests = sensor_result.run_requests or []
+                print(f"Sensor triggered with {len(run_requests)} run requests")
+                for request in run_requests:
+                    print(f"  Run key: {request.run_key}")
+                    print(f"  Tags: {request.tags}")
+                print(f"New cursor: {sensor_result.cursor}")
+            elif isinstance(sensor_result, SkipReason):
+                print(f"Sensor skipped: {str(sensor_result)}")
+
+            # Re-evaluate the sensor
+            sensor_result = nocodb_data_gf_change_sensor(context)
+
+            if isinstance(sensor_result, SensorResult):
+                run_requests = sensor_result.run_requests or []
+                print(f"Sensor triggered with {len(run_requests)} run requests")
+                for request in run_requests:
+                    print(f"  Run key: {request.run_key}")
+                    print(f"  Tags: {request.tags}")
+                print(f"New cursor: {sensor_result.cursor}")
+            elif isinstance(sensor_result, SkipReason):
+                print(f"Sensor skipped: {str(sensor_result)}")

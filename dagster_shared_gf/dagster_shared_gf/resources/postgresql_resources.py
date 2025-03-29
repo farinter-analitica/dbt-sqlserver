@@ -136,7 +136,10 @@ class PostgreSQLResource(ConfigurableResource):
             return None
 
     def execute_and_commit(
-        self, query: Union[str, Any], connection: Connection = None, database: str = ""
+        self,
+        query: Union[str, Any],
+        connection: Connection | None = None,
+        database: str = "",
     ):
         """
         Executes a SQL query on a database connection and commits the changes.
@@ -170,7 +173,7 @@ class PostgreSQLResource(ConfigurableResource):
         if self.independent_instance:
             return dagster_logger
         else:
-            return get_dagster_logger().log
+            return get_dagster_logger()
 
 
 db_analitica_etl = PostgreSQLResource(
@@ -179,6 +182,16 @@ db_analitica_etl = PostgreSQLResource(
     user=p_user,
     password=p_password,
     default_database="analitica",
+)
+
+db_nocodb_data_gf = PostgreSQLResource(
+    server=get_for_current_env({"dev": os.environ.get("NOCODB_PG_FARINTER_HOST")}),
+    databases=["nocodb_data_gf"],
+    user=get_for_current_env({"dev": os.environ.get("NOCODB_PG_FARINTER_USERNAME")}),
+    password=get_for_current_env(
+        {"dev": os.environ.get("NOCODB_PG_FARINTER_SECRET_PASSWORD")}
+    ),
+    default_database="nocodb_data_gf",
 )
 
 db_independent_analitica_etl = PostgreSQLResource(
