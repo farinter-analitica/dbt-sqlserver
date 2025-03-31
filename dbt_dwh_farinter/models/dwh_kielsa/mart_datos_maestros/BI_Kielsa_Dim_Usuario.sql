@@ -7,7 +7,7 @@
 		materialized="incremental",
         incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="fail",
+		on_schema_change="append_new_columns",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
@@ -31,17 +31,30 @@ WITH VendedorAsignacion AS (
         ) as rn
     FROM {{ ref("DL_Kielsa_Vendedor_x_Usuario") }} VxU
 )
-SELECT 
-    U.Usuario_Id,
+SELECT U.Usuario_Id,
     U.Emp_Id,
-	CONCAT(U.Emp_Id,'-',U.Usuario_Id) AS EmpUsu_Id,
+    CONCAT(U.Emp_Id, '-', U.Usuario_Id) AS EmpUsu_Id,
     U.Usuario_Nombre,
-	ROW_NUMBER() OVER(PARTITION BY U.Usuario_Nombre,U.Emp_Id ORDER BY U.Usuario_Id DESC) Numero_Por_Nombre,
+    ROW_NUMBER() OVER(
+        PARTITION BY U.Usuario_Nombre,
+        U.Emp_Id
+        ORDER BY U.Usuario_Id DESC
+    ) Numero_Por_Nombre,
     U.Usuario_Login,
-	CONCAT(U.Emp_Id,'-',U.Usuario_Login) AS EmpLogin_Id,
+    CONCAT(U.Emp_Id, '-', U.Usuario_Login) AS EmpLogin_Id,
     U.Usuario_Email,
-    LVA.Vendedor_Id as Ultimo_Vendedor_Id_Asignado,
-    COALESCE(LVA.Ult_Fec_Actualizacion,U.Usuario_Fec_Actualizacion) as Fecha_Actualizado
+    LVA.Vendedor_Id AS Ultimo_Vendedor_Id_Asignado,
+    CAST(CASE
+        WHEN U.Usuario_Eliminado = 1
+        OR U.Usuario_Cuenta_Deshabilitada = 1
+        OR U.Usuario_Cuenta_Bloqueada = 1
+        THEN 0
+        ELSE 1
+    END AS BIT) AS Es_Activo,
+    COALESCE(
+        LVA.Ult_Fec_Actualizacion,
+        U.Usuario_Fec_Actualizacion
+    ) AS Fecha_Actualizado
 FROM {{ ref("DL_Kielsa_Seg_Usuario") }} U
 LEFT JOIN VendedorAsignacion LVA ON  
     U.Usuario_Id = LVA.Usuario_Id 
