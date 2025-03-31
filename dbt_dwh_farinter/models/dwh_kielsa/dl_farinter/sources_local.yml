@@ -152,6 +152,7 @@ sources:
       - name: DL_Kielsa_Patologia_Cronico_Excel
       - name: DL_Acum_VentasHist_Kielsa
       - name: DL_Kielsa_Articulo_ArticuloRelacionado
+      - name: DL_Kielsa_MetaHist
 
 
 
