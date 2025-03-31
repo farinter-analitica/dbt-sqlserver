@@ -13,7 +13,7 @@
             "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
             "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha']) }}",
             "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Cliente_Id']) }}",
-            "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}"
+            "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=is_incremental()) }}"
         ]
     ) 
 }}
@@ -33,19 +33,19 @@ WITH origen_sap AS
 (
     SELECT 
         ISNULL(CAST(A.VBELN AS NVARCHAR(50)),'') COLLATE DATABASE_DEFAULT AS Factura_Id,
-        CAST(A.FKDAT AS DATE) AS Fecha,
-        CAST(A.BUKRS AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Sociedad_Id,
-        CAST(A.BZIRK AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Zona_Id,
-        CAST(A.FKART AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS TipoFactura_Id,
-        CAST(A.KUNRG AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Id,
-        ISNULL(CAST(B.STCD1 AS NVARCHAR(100)), 'X') COLLATE DATABASE_DEFAULT AS Cliente_Identidad, 
-        ISNULL(CAST(D.NAME1 AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Cliente_Nombre, 
-        ISNULL(CAST(D.TEL_NUMBER AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Telefono, 
-        ISNULL(CAST(D.REGION AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Region_Id, 
-        ISNULL(CAST(D.CITY1 AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Ciudad,
-        ISNULL(CAST(E.TEL_NUMBER AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Celular1,
-        ISNULL(MAX(CAST(F.TEL_NUMBER AS NVARCHAR(100))), 'No aplica') COLLATE DATABASE_DEFAULT AS Celular2,
-        ISNULL(CAST(G.REMARK AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Comentario
+        CAST(MAX(A.FKDAT) AS DATE) AS Fecha,
+        CAST(MAX(A.BUKRS) AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Sociedad_Id,
+        CAST(MAX(A.BZIRK) AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Zona_Id,
+        CAST(MAX(A.FKART) AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS TipoFactura_Id,
+        CAST(MAX(A.KUNRG) AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Id,
+        ISNULL(CAST(MAX(B.STCD1) AS NVARCHAR(100)), 'X') COLLATE DATABASE_DEFAULT AS Cliente_Identidad, 
+        ISNULL(CAST(MAX(D.NAME1) AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Cliente_Nombre, 
+        ISNULL(CAST(MAX(D.TEL_NUMBER) AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Telefono, 
+        ISNULL(CAST(MAX(D.REGION) AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Region_Id, 
+        ISNULL(CAST(MAX(D.CITY1) AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Ciudad,
+        ISNULL(CAST(MAX(E.TEL_NUMBER) AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Celular1,
+        ISNULL(CAST(MAX(F.TEL_NUMBER) AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Celular2,
+        ISNULL(CAST(MAX(G.REMARK) AS NVARCHAR(100)), 'No aplica') COLLATE DATABASE_DEFAULT AS Comentario
     FROM {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'VBRK') }} A WITH (NOLOCK)
     LEFT JOIN {{ var('P_SAPPRD_LS') }}.{{ source('SAPPRD', 'VBPA3') }} B WITH (NOLOCK)
         ON A.MANDT = B.MANDT AND A.VBELN = B.VBELN AND B.PARVW = 'AG' -- DATOS DEL PAGADOR
@@ -63,8 +63,7 @@ WITH origen_sap AS
     AND A.FKDAT> '{{ last_date }}'
 
     GROUP BY
-    A.VBELN, A.FKDAT, A.BUKRS, A.BZIRK, A.FKART, A.KUNRG, B.STCD1, D.NAME1,
-    D.TEL_NUMBER, D.REGION, D.CITY1, E.TEL_NUMBER, G.REMARK
+    A.VBELN
 )
 
 SELECT *,
@@ -76,15 +75,15 @@ UNION ALL
 -- Second source: From existing dimension tables
 SELECT
     ISNULL(CAST(V.Factura_Id AS NVARCHAR(50)),'') COLLATE DATABASE_DEFAULT AS Factura_Id,
-    CAST(V.Fecha_Id AS DATE) Fecha,
-    CAST(V.Sociedad_Id AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Sociedad_Id,
-    CAST(V.Zona_Id AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Zona_Id,
-    CAST(V.ClaseFactura_Id AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS TipoFactura_Id,
-    CAST(V.Cliente_Id AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Id,
-    CAST(V.Referencia_Id AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Identidad,
-    CAST(C.Cliente_Nombre AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Nombre,
-    CAST(C.Telefono AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Telefono,
-    CAST(V.Region_Id AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Region_Id,
+    CAST(MAX(V.Fecha_Id) AS DATE) Fecha,
+    CAST(MAX(V.Sociedad_Id) AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Sociedad_Id,
+    CAST(MAX(V.Zona_Id) AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS Zona_Id,
+    CAST(MAX(V.ClaseFactura_Id) AS NVARCHAR(50)) COLLATE DATABASE_DEFAULT AS TipoFactura_Id,
+    CAST(MAX(V.Cliente_Id) AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Id,
+    CAST(MAX(V.Referencia_Id) AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Identidad,
+    CAST(MAX(C.Cliente_Nombre) AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Cliente_Nombre,
+    CAST(MAX(C.Telefono) AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Telefono,
+    CAST(MAX(V.Region_Id) AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Region_Id,
     CAST('' AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Ciudad,
     CAST('No aplica' AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Celular1,
     CAST('No aplica' AS NVARCHAR(100)) COLLATE DATABASE_DEFAULT AS Celular2,
@@ -96,4 +95,5 @@ INNER JOIN {{ source('BI_FARINTER','BI_Dim_Cliente_SAP') }} C
 WHERE V.FechaCreado_Id > CAST('{{ last_date }}' AS DATE)
 AND V.Factura_Id NOT IN (SELECT Factura_Id FROM {{ this }})
 AND V.Factura_Id NOT IN (SELECT Factura_Id FROM origen_sap)
-
+GROUP BY
+    V.Factura_Id
