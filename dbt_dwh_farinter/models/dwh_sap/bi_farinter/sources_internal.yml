@@ -20,3 +20,4 @@ sources:
       - name: BI_SAP_Dim_ClienteAreaCredito_Calc
       - name: BI_SAP_Dim_ClienteAreaCredito
       - name: BI_Dim_Cliente_SAP
+      - name: BI_SAP_Dim_Lote

@@ -29,6 +29,14 @@ sources:
       - name: CEPC
       - name: USER_ADDR
       - name: ZFRM_EPT_0001
+      - name: VBRK
+      - name: VBRP
+      - name: VBPA3
+      - name: VBPA
+      - name: ADRC
+      - name: ADR2
+      - name: ADRCT
+
 
   - name: PLANNING_DB
     description: "Base de tablas cargadas (Data Lake)"

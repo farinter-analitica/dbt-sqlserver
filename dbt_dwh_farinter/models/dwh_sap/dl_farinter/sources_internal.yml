@@ -35,3 +35,10 @@ sources:
       - name: DL_Edit_AlmacenFP_SAP
       - name: DL_SAP_Acum_JerarquiaClientes
       - name: DL_SAP_Acum_PagosCreditoVentasHist
+      - name: DL_SAP_Hecho_ExistenciasHist_Actual
+      - name: DL_SAP_Hecho_ExistenciasLoteHist_Actual
+      - name: DL_SAP_Hecho_ExistenciasHist_Reciente
+      - name: DL_SAP_Hecho_ExistenciasLoteHist_Reciente
+      - name: DL_SAP_Hecho_ExistenciasHist_Archivo
+      - name: DL_SAP_Hecho_ExistenciasLoteHist_Archivo
+      - name: DL_SAP_Resumen_CartaCompras

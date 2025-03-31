@@ -8,6 +8,9 @@
         ]
 	) 
 }}
+
+--Solo editable en dbt
+
 SELECT CenAlm_Id AS Almacen_Id,
 	Almacen_Nombre,
 	Centro_Id AS C1,
