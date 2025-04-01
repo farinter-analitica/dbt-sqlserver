@@ -142,6 +142,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Hourly: Tags = Tags(key="periodo/por_hora", value="")
     """{"periodo/por_hora": ""}"""
 
+    AutomationHourly: Tags = Tags(key="automation/only/por_hora", value="")
+    """{"automation/only/por_hora": ""}"""
+
     Replicas: Tags = Tags(key="replicas_sap", value="")
     """{"replicas_sap": ""}"""
 
