@@ -1,6 +1,5 @@
 from datetime import datetime
 from io import BytesIO
-import json
 from pathlib import PureWindowsPath
 import re
 import time
@@ -32,7 +31,6 @@ from dagster_shared_gf.shared_variables import (
     NullsException,
     env_str,
 )
-from ydata_profiling import ProfileReport
 
 
 def wait_if_job_running_to_execute_next_op(current_location_name: str) -> Callable:
@@ -294,11 +292,7 @@ class ExcelFileProcessor:
                 "Cargado": False,
                 "Cant. Filas": row_count,
                 "Cant. Valores en Blanco": nulls_count,
-                "Perfil de Datos": json.loads(
-                    ProfileReport(
-                        df.to_pandas(), title="Pandas Profiling Report"
-                    ).to_json()
-                ).get("table", "error"),
+                "Perfil de Datos": df.describe().to_dicts(),
             }
         )
 
