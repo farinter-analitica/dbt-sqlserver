@@ -137,6 +137,24 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             AssetKey(["PLANNING_DB", "dbo", "Almacenes"]),
         ],
     },
+    "DL_paCargarDL_Planning_ParamSocMat": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Planning_ParamSocMat",
+        "group_name": "sap_planning_etl",
+        "tags": tags_repo.Daily.tag,
+        "deps": [
+            AssetKey(["PLANNING_DB", "dbo", "ParamSocMat"]),
+        ],
+    },
+    "DL_paCargarPlanning_ListaNegra": {
+        "key_prefix": ["DL_FARINTER", "dbo"],
+        "name": "DL_Planning_ListaNegra",
+        "group_name": "sap_planning_etl",
+        "tags": tags_repo.Daily.tag,
+        "deps": [
+            AssetKey(["PLANNING_DB", "dbo", "ListaNegra"]),
+        ],
+    },
     "DL_paCargarEdit_GrupoPlan_SAP": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Edit_GrupoPlan_SAP",
