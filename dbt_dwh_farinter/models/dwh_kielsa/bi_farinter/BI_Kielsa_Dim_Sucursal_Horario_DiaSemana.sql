@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Suc_Id", "Dia_Semana_Iso_Id"] -%}
+{% set unique_key_list = ["Suc_Id", "Dia_Semana_Iso_Id", "Emp_Id"] -%}
 
 {{ 
     config(
@@ -30,6 +30,7 @@ Horario_Bruto AS
 (
 
     SELECT 
+        CAST(1 AS INT) AS Emp_Id,
         CAST(h.Suc_Id AS INT) AS Suc_Id,
         h.dia_id as Dia_Semana_Iso_Id, 
 		h.H_Apertura,
@@ -63,7 +64,8 @@ Horario_Bruto AS
 Horarios AS 
 (
     SELECT 
-        ISNULL(CAST(Suc_Id AS INT), 0)AS Suc_Id,
+        ISNULL(Emp_Id, 0) AS Emp_Id,
+        ISNULL(Suc_Id, 0)AS Suc_Id,
         ISNULL(Dia_Semana_Iso_Id, 0) AS Dia_Semana_Iso_Id, 
 		H_Apertura,
 		H_Cierre,
