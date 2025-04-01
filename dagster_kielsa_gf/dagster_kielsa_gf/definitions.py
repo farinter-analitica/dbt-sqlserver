@@ -14,13 +14,14 @@ from dagster_kielsa_gf.assets import (
     dbt_dwh_kielsa,
     dbt_example,
     dbt_sources,
-    examples,
     knime_asset_factory,
     ldcom_etl_dwh,
     ldcom_etl_dwh_sp,
     recetas_libros_etl_dwh,
     recomendaciones,
     smb_etl_dwh,
+    all_assets as kielsa_all_assets,
+    all_asset_checks as kielsa_all_asset_checks,
 )
 from dagster_kielsa_gf.schedules import all_schedules
 from dagster_kielsa_gf.sensors import all_sensors
@@ -39,7 +40,6 @@ from dagster_shared_gf.shared_helpers import (
 from dagster_shared_gf.shared_variables import tags_repo
 
 all_assets = (
-    *examples.all_assets,
     *dbt_example.all_assets,
     *dbt_dwh_kielsa.all_assets,
     *ldcom_etl_dwh_sp.all_assets,
@@ -50,6 +50,7 @@ all_assets = (
     *smb_etl_dwh.all_assets,
     *cliente_general.all_assets,
     *recomendaciones.all_assets,
+    *kielsa_all_assets,
 )
 all_asset_checks = (
     *dbt_example.all_asset_checks,
@@ -61,6 +62,7 @@ all_asset_checks = (
     *ldcom_etl_dwh.all_asset_checks,
     *smb_etl_dwh.all_asset_checks,
     *recomendaciones.all_asset_checks,
+    *kielsa_all_asset_checks,
 )
 
 dbt_sources_assets: list = get_unique_source_assets(

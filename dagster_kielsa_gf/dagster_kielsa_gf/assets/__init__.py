@@ -1,7 +1,5 @@
-# from dagster import load_assets_from_modules, load_assets_from_current_module
-# from . import examples
-# examples = load_assets_from_modules([examples], group_name="examples")
-# #all_assets = tuple(load_assets_from_current_module(group_name="test"))
+from dagster import load_assets_from_modules, load_asset_checks_from_modules
+from dagster_kielsa_gf.assets import examples
 
-# #from . import my_assets
-# all_assets = examples
+all_assets = load_assets_from_modules([examples], group_name="examples")
+all_asset_checks = load_asset_checks_from_modules([examples])
