@@ -2,7 +2,7 @@
 {{ 
     config(
 		materialized="view",
-		tags=["periodo/diario", "periodo/por_hora"],
+		tags=["periodo/diario", "automation/periodo_por_hora"],
 	) 
 }}
 -- Solo editable en DBT DAGSTER

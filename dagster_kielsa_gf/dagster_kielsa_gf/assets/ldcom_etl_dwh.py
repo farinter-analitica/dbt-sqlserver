@@ -9,6 +9,7 @@ from dagster import (
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo, env_str
+from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 from datetime import timedelta, datetime, date
 from typing import Sequence
 import polars as pl
@@ -17,32 +18,33 @@ import re
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag | tags_repo.Monthly.tag,
     compute_kind="sqlserver",
     config_schema={"p_fecha_desde": Field(str, is_required=False, default_value="")},
     description="EXEC dbo.DL_paCargarKielsa_FacturaEncabezado condicional, por hora hoy/ayer, por dia los ultimos 7 dias, por mes, todo el mes anterior.",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def DL_Kielsa_FacturaEncabezado(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaEncabezado"
-    from_date: date
+    from_date: date | None = None
     if context.op_execution_context.op_config.get(
         "p_fecha_desde"
     ) != "" and context.op_execution_context.op_config.get("p_fecha_desde"):
         from_date = datetime.fromisoformat(
             context.op_execution_context.op_config.get("p_fecha_desde")
         ).date()
-    elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
+    elif context.run_tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None or (
-        context.job_def.tags.get(tags_repo.Hourly.key) is not None
+    elif context.run_tags.get(tags_repo.HourlyAdditional.key) is not None or (
+        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
         and datetime.now().hour not in [12, 4]
     ):  # Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
-    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+    elif context.run_tags.get(tags_repo.AutomationHourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
-    elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+    elif context.run_tags.get(tags_repo.Monthly.key) is not None:
         from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(
             day=1
         )
@@ -59,32 +61,33 @@ def DL_Kielsa_FacturaEncabezado(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag | tags_repo.Monthly.tag,
     compute_kind="sqlserver",
     config_schema={"p_fecha_desde": Field(str, is_required=False, default_value="")},
     description="EXEC dbo.DL_paCargarKielsa_FacturasPosiciones condicional, por hora hoy/ayer, por dia los ultimos 7 dias, por mes, todo el mes anterior.",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def DL_Kielsa_FacturasPosiciones(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturasPosiciones"
-    from_date: date
+    from_date: date | None = None
     if context.op_execution_context.op_config.get(
         "p_fecha_desde"
     ) != "" and context.op_execution_context.op_config.get("p_fecha_desde"):
         from_date = datetime.fromisoformat(
             context.op_execution_context.op_config.get("p_fecha_desde")
         ).date()
-    elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
+    elif context.run_tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None or (
-        context.job_def.tags.get(tags_repo.Hourly.key) is not None
+    elif context.run_tags.get(tags_repo.HourlyAdditional.key) is not None or (
+        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
         and datetime.now().hour not in [12, 4]
     ):  # Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
-    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+    elif context.run_tags.get(tags_repo.AutomationHourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
-    elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+    elif context.run_tags.get(tags_repo.Monthly.key) is not None:
         from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(
             day=1
         )
@@ -100,32 +103,33 @@ def DL_Kielsa_FacturasPosiciones(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag | tags_repo.Monthly.tag,
     compute_kind="sqlserver",
     config_schema={"p_fecha_desde": Field(str, is_required=False, default_value="")},
     description="EXEC dbo.DL_paCargarKielsa_FacturaPosicionDescuento condicional, por hora hoy/ayer, por dia los ultimos 7 dias, por mes, todo el mes anterior.",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def DL_Kielsa_FacturaPosicionDescuento(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaPosicionDescuento"
-    from_date: date
+    from_date: date | None = None
     if context.op_execution_context.op_config.get(
         "p_fecha_desde"
     ) != "" and context.op_execution_context.op_config.get("p_fecha_desde"):
         from_date = datetime.fromisoformat(
             context.op_execution_context.op_config.get("p_fecha_desde")
         ).date()
-    elif context.job_def.tags.get(tags_repo.Daily.key) is not None:
+    elif context.run_tags.get(tags_repo.Daily.key) is not None:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None or (
-        context.job_def.tags.get(tags_repo.Hourly.key) is not None
+    elif context.run_tags.get(tags_repo.HourlyAdditional.key) is not None or (
+        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
         and datetime.now().hour not in [12, 4]
     ):  # Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
-    elif context.job_def.tags.get(tags_repo.Hourly.key) is not None:
+    elif context.run_tags.get(tags_repo.AutomationHourly.key) is not None:
         from_date = datetime.now().date() - timedelta(days=1)
-    elif context.job_def.tags.get(tags_repo.Monthly.key) is not None:
+    elif context.run_tags.get(tags_repo.Monthly.key) is not None:
         from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(
             day=1
         )
@@ -141,12 +145,13 @@ def DL_Kielsa_FacturaPosicionDescuento(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag | tags_repo.Monthly.tag,
     compute_kind="sqlserver",
     config_schema={
         "p_actualizar_todo": Field(bool, is_required=False, default_value=False)
     },
     description="EXEC dbo.DL_paCargarKielsa_Monedero_Tarjetas_Replica condicional, por hora sin parametros, por dia actualizar todo.",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def DL_Kielsa_Monedero_Tarjetas_Replica(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
@@ -156,8 +161,8 @@ def DL_Kielsa_Monedero_Tarjetas_Replica(
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.job_def.tags.get(tags_repo.Daily.key) is not None
-        or context.job_def.tags.get(tags_repo.Monthly.key) is not None
+        context.run_tags.get(tags_repo.Daily.key) is not None
+        or context.run_tags.get(tags_repo.Monthly.key) is not None
     ):
         actualizar_todo = 1
     else:
@@ -177,28 +182,29 @@ def DL_Kielsa_Monedero_Tarjetas_Replica(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag | tags_repo.Monthly.tag,
     compute_kind="sqlserver",
     config_schema={
         "p_actualizar_todo": Field(bool, is_required=False, default_value=False)
     },
     description="EXEC dbo.DL_paCargarKielsa_Articulo condicional, por hora sin parametros, por dia actualizar todo.",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def DL_Kielsa_Articulo(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo"
-    actualizar_todo: int
+    actualizar_todo: int = 0
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.job_def.tags.get(tags_repo.Daily.key) is not None
-        or context.job_def.tags.get(tags_repo.Monthly.key) is not None
+        context.run_tags.get(tags_repo.Daily.key) is not None
+        or context.run_tags.get(tags_repo.Monthly.key) is not None
     ):
         actualizar_todo = 1
     elif (
-        context.job_def.tags.get(tags_repo.Hourly.key) is not None
-        or context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None
+        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
+        or context.run_tags.get(tags_repo.HourlyAdditional.key) is not None
     ):
         actualizar_todo = 0
 
@@ -216,28 +222,29 @@ def DL_Kielsa_Articulo(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag | tags_repo.Monthly.tag,
     compute_kind="sqlserver",
     config_schema={
         "p_actualizar_todo": Field(bool, is_required=False, default_value=False)
     },
     description="EXEC dbo.DL_paCargarKielsa_Articulo_x_Bodega condicional, por hora sin parametros, por dia actualizar todo.",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def DL_Kielsa_Articulo_x_Bodega(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo_x_Bodega"
-    actualizar_todo: int
+    actualizar_todo: int = 0
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.job_def.tags.get(tags_repo.Daily.key) is not None
-        or context.job_def.tags.get(tags_repo.Monthly.key) is not None
+        context.run_tags.get(tags_repo.Daily.key) is not None
+        or context.run_tags.get(tags_repo.Monthly.key) is not None
     ):
         actualizar_todo = 1
     elif (
-        context.job_def.tags.get(tags_repo.Hourly.key) is not None
-        or context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None
+        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
+        or context.run_tags.get(tags_repo.HourlyAdditional.key) is not None
     ):
         actualizar_todo = 0
 
@@ -254,28 +261,29 @@ def DL_Kielsa_Articulo_x_Bodega(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.Monthly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag | tags_repo.Monthly.tag,
     compute_kind="sqlserver",
     config_schema={
         "p_actualizar_todo": Field(bool, is_required=False, default_value=False)
     },
     description="EXEC dbo.DL_paCargarKielsa_Articulo_x_Sucursal condicional, por hora sin parametros, por dia actualizar todo.",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def DL_Kielsa_Articulo_x_Sucursal(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo_x_Sucursal"
-    actualizar_todo: int
+    actualizar_todo: int = 0
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.job_def.tags.get(tags_repo.Daily.key) is not None
-        or context.job_def.tags.get(tags_repo.Monthly.key) is not None
+        context.run_tags.get(tags_repo.Daily.key) is not None
+        or context.run_tags.get(tags_repo.Monthly.key) is not None
     ):
         actualizar_todo = 1
     elif (
-        context.job_def.tags.get(tags_repo.Hourly.key) is not None
-        or context.job_def.tags.get(tags_repo.HourlyAdditional.key) is not None
+        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
+        or context.run_tags.get(tags_repo.HourlyAdditional.key) is not None
     ):
         actualizar_todo = 0
 

@@ -4,7 +4,7 @@
     {{
         config(
             as_columnstore=true,
-            tags=["periodo/diario", "automation/only"],
+            tags=["automation/periodo_diario", "automation_only"],
             target_schema='dbt_snapshot',
             strategy='timestamp',
             unique_key="BNAME" ,

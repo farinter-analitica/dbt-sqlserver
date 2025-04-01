@@ -1,3 +1,4 @@
+from typing import Any
 from dagster import (
     AssetSelection,
     Definitions,
@@ -31,6 +32,7 @@ from dagster_shared_gf.shared_helpers import (
     create_freshness_checks_for_assets,
 )
 from dagster_shared_gf.shared_variables import tags_repo, Tags
+from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 
 all_assets = assets_repo.all_assets
 dbt_sources_assets: list = get_unique_source_assets(
@@ -71,9 +73,9 @@ all_shared_resources = {
 class ACSSensorFactory:
     def __init__(self, default_status=running_default_sensor_status):
         self.default_status = default_status
-        self.custom_sensors = []
-        self.base_selections = {}
-        self.custom_selections = {}
+        self.custom_sensors: list[Any] = []
+        self.base_selections: dict[str, AssetSelection] = {}
+        self.custom_selections: dict[str, AssetSelection] = {}
 
         # Initialize standard selections
         self._initialize_base_selections()
@@ -82,32 +84,44 @@ class ACSSensorFactory:
         """Initialize base selections without exclusions"""
         # Define base selections
         self.base_selections["hourly"] = AssetSelection.tag(
-            key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
+            key=tags_repo.AutomationHourly.key,
+            value=tags_repo.AutomationHourly.value,
+        ) | AssetSelection.tag(
+            key=tags_repo.AutomationHourlyAdditional.key,
+            value=tags_repo.AutomationHourlyAdditional.value,
         )
 
         self.base_selections["daily"] = AssetSelection.tag(
-            key=tags_repo.Daily.key, value=tags_repo.Daily.value
-        )
+            key=tags_repo.AutomationDaily.key, value=tags_repo.AutomationDaily.value
+        ) | AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
 
-        self.base_selections["weekly"] = (
-            AssetSelection.tag(key=tags_repo.Weekly.key, value=tags_repo.Weekly.value)
-            | AssetSelection.tag(
-                key=tags_repo.Weekly1.key, value=tags_repo.Weekly1.value
-            )
-            | AssetSelection.tag(
-                key=tags_repo.Weekly7.key, value=tags_repo.Weekly7.value
-            )
+        self.base_selections["weekly"] = AssetSelection.tag(
+            key=tags_repo.AutomationWeekly1.key,
+            value=tags_repo.AutomationWeekly1.value,
+        ) | AssetSelection.tag(
+            key=tags_repo.AutomationWeekly7.key,
+            value=tags_repo.AutomationWeekly7.value,
         )
 
         self.base_selections["monthly"] = (
             AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
             | AssetSelection.tag(
-                key=tags_repo.MonthlyStart.key, value=tags_repo.MonthlyStart.value
+                key=tags_repo.AutomationMonthlyStart.key,
+                value=tags_repo.AutomationMonthlyStart.value,
             )
             | AssetSelection.tag(
-                key=tags_repo.MonthlyEnd.key, value=tags_repo.MonthlyEnd.value
+                key=tags_repo.AutomationMonthlyEnd.key,
+                value=tags_repo.AutomationMonthlyEnd.value,
             )
         )
+
+        for name, selection in self.base_selections.items():
+            self.base_selections[name] = selection | (
+                selection.downstream(include_self=False)
+                - selection.downstream(include_self=False).tag(
+                    key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+                )
+            )
 
     def _get_final_selections(self):
         """
@@ -142,12 +156,12 @@ class ACSSensorFactory:
         for name, selection in self.custom_selections.items():
             final_selections[name] = selection
 
-        # Add the "remaining" selection that excludes everything else
+        # Add the "all_other" selection that excludes everything else
         all_other_selections = AssetSelection.all()
         for name, selection in final_selections.items():
             all_other_selections = all_other_selections - selection
 
-        final_selections["remaining"] = all_other_selections
+        final_selections["all_other"] = all_other_selections
 
         return final_selections
 
@@ -201,7 +215,7 @@ class ACSSensorFactory:
         # Build default sensors
         all_sensors.append(
             ACS(
-                "automation_condition_sensor",
+                "acs_daily",
                 target=final_selections["daily"],
                 use_user_code_server=True,
                 minimum_interval_seconds=60 * 2,
@@ -213,26 +227,47 @@ class ACSSensorFactory:
 
         all_sensors.append(
             ACS(
-                "automation_condition_sensor_slow",
-                target=final_selections["monthly"]
-                | final_selections["weekly"]
-                | final_selections["remaining"],
+                "acs_monthly",
+                target=final_selections["monthly"],
                 use_user_code_server=True,
                 minimum_interval_seconds=60 * 20,
-                tags=tags_repo.Monthly | tags_repo.Weekly,
-                run_tags=tags_repo.Monthly | tags_repo.Weekly,
+                tags=tags_repo.Monthly,
+                run_tags=tags_repo.Monthly,
                 default_status=self.default_status,
             )
         )
 
         all_sensors.append(
             ACS(
-                "automation_condition_sensor_hourly",
+                "acs_weekly",
+                target=final_selections["weekly"],
+                use_user_code_server=True,
+                minimum_interval_seconds=60 * 10,
+                tags=tags_repo.Weekly,
+                run_tags=tags_repo.Weekly,
+                default_status=self.default_status,
+            )
+        )
+
+        all_sensors.append(
+            ACS(
+                "acs_hourly",
                 target=final_selections["hourly"],
                 use_user_code_server=True,
                 minimum_interval_seconds=60,
                 tags=tags_repo.Hourly,
                 run_tags=tags_repo.Hourly,
+                default_status=self.default_status,
+                default_condition=automation_hourly_delta_12_cron,
+            )
+        )
+
+        all_sensors.append(
+            ACS(
+                "acs_others",
+                target=final_selections["all_other"],
+                use_user_code_server=True,
+                minimum_interval_seconds=60 * 10,
                 default_status=self.default_status,
             )
         )

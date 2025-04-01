@@ -125,7 +125,9 @@ collections_config = (
             # ),
         ),
         automation_condition=automation_daily_delta_2_cron,
-        tags=tags_repo.Daily | tags_repo.AutomationOnly | tags_repo.UniquePeriod,
+        tags=tags_repo.AutomationDaily
+        | tags_repo.AutomationOnly
+        | tags_repo.UniquePeriod,
         # columns_hints={
         #     "dataRoutes" : {"nullable" : True, "data_type": "json"},
         #     "address" : {"nullable" : True},

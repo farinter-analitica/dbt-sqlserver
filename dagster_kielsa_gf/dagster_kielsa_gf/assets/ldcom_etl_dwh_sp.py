@@ -32,7 +32,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Sucursal": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Sucursal",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_MarcaComercial"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_MarcaComercial_Sucursal"]),
@@ -100,7 +100,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Cliente": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Cliente",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     "DL_paCargarKielsa_Proveedor": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -127,7 +127,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     # "DL_paCargarKielsa_FacturaPosicionDescuento": {
     #     "key_prefix": ["DL_FARINTER", "dbo"],
     #     "name": "DL_Kielsa_FacturaPosicionDescuento",
-    #     "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    #     "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     # },
     "DL_paCargarKielsa_Seg_Rol": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -219,7 +219,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_KPP_Suscripcion": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_KPP_Suscripcion",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     "BI_paCargarHecho_VentasHist_Kielsa_V2": {
         "key_prefix": ["BI_FARINTER", "dbo"],
@@ -244,7 +244,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_BoletaLocal": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": ["DL_Kielsa_BoletaLocal_Encabezado", "DL_Kielsa_BoletaLocal_Detalle"],
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     "DL_paCargarKielsa_Articulo_ProveedorEstadistico_Hist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -287,7 +287,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Empleado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Empleado",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Seg_Rol"]),
@@ -331,12 +331,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Regalia_Encabezado": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Regalia_Encabezado",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     "DL_paCargarKielsa_Regalia_Detalle": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Regalia_Detalle",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     "DL_paCargarKielsa_Identificacion_Tributaria": {
         "key_prefix": ["DL_FARINTER", "dbo"],
@@ -392,7 +392,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "DL_Cal_MaxFechasHist_ClientesMetricas_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -404,7 +404,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["AN_FARINTER", "dbo"],
         "name": ["AN_Cal_ClientesEstados_Kielsa", "AN_Cal_ClientesEstadosHist_Kielsa"],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -420,7 +420,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "AN_Cal_ClientesCategoriasHist_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -436,7 +436,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "AN_Cal_ClientesEstadisticasHist_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -448,7 +448,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Acum_ClientesXLista_CRM",
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -461,7 +461,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "group_name": "kielsa_analitica_atributos",
         "name": "DL_KN_ArticulosRecomendadosSMS_Kielsa",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -474,7 +474,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "group_name": "kielsa_analitica_atributos",
         "name": "DL_KN_ClientesValidacion_Kielsa",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -486,7 +486,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_KN_RegistroPeriodicoSMS_Kielsa",
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -515,7 +515,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ClientesVisitasHist",
         "group_name": "kielsa_analitica_atributos",
-        "tags": tags_repo.Daily.tag
+        "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
@@ -554,14 +554,14 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Boleta_Exterior_Hist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Boleta_Exterior_Hist",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
         "owners": ["cleymer.mendoza@farinter.com"],
     },
     "DL_paCargarKielsa_Orden_Local_Detalle": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Orden_Local_Detalle",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [AssetKey(["multi_server_ldcom", "dbo", "multiples_tablas_prd"])],
         "owners": ["cleymer.mendoza@farinter.com"],
     },
@@ -609,7 +609,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "BI_paCargarDim_Tiempo": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Dim_Tiempo",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     ##eCommerce
     "AN_pacargarParam_PesoseCommerce_Kielsa": {
@@ -701,7 +701,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarTE_CDR_Kielsa": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_TE_CDR_Kielsa",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     "BI_paCargarHecho_RegaliasHist_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
@@ -738,7 +738,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Articulo_Alerta": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Articulo_Alerta",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"])],
     },
     "BI_paCargarHecho_ProyeccionDescuentoCupon_Kielsa": {
@@ -752,7 +752,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_Monedero": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Monedero",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Tarjetas_Replica"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Plan"]),
@@ -791,12 +791,12 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarTC_Sugeridos_Kielsa": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_TC_Sugeridos_Kielsa",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
     "BI_paCargarHecho_Sugeridos_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": ["BI_Hecho_Sugeridos_Kielsa", "BI_Hecho_SugeridosResumen_Kielsa"],
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Articulo"]),
             AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Sucursal"]),
@@ -816,7 +816,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKielsa_ExistenciaHist": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ExistenciaHist",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_x_Bodega"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo_x_Sucursal"]),
@@ -872,6 +872,7 @@ def create_store_procedure_asset(
                 name: AssetOut(
                     key_prefix=params["key_prefix"],
                     tags=tags,
+                    description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
                     owners=params.get("owners", None),
                     automation_condition=automation_condition,
                 )
@@ -882,6 +883,7 @@ def create_store_procedure_asset(
                 current_key.path[-1]: AssetOut(
                     key=current_key,
                     tags=tags,
+                    description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
                     owners=params.get("owners", None),
                     automation_condition=automation_condition,
                 )

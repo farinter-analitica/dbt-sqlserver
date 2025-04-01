@@ -36,7 +36,7 @@ if os.environ.get("SLING_HOME_DIR") is None:
     dagster_sling_translator=MyDagsterSlingTranslator(
         asset_database="DL_FARINTER",
         schema_name="nocodb_data_gf",
-        tags=tags_repo.Daily,
+        tags=tags_repo.AutomationDaily,
         automation_condition=automation_daily_delta_2_cron,
         group_name="nocodb_data_gf",
     ),

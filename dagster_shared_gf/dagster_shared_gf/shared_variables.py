@@ -84,9 +84,9 @@ class Tags(dict[str, str]):
         normalize_tags(tags, strict=True)
         super().__init__(tags)
 
-        self._is_all_schedule = all(k.startswith("periodo/") for k in self.keys())
+        self._is_all_schedule = all("periodo" in k for k in self.keys())
         self._is_schedule = self._is_all_schedule or any(
-            k.startswith("periodo/") for k in self.keys()
+            "periodo" in k for k in self.keys()
         )
         self._automation = automation_condition
         self._frozen = True
@@ -142,8 +142,8 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Hourly: Tags = Tags(key="periodo/por_hora", value="")
     """{"periodo/por_hora": ""}"""
 
-    AutomationHourly: Tags = Tags(key="automation/only/por_hora", value="")
-    """{"automation/only/por_hora": ""}"""
+    AutomationHourly: Tags = Tags(key="automation/periodo_por_hora", value="")
+    """{"automation/periodo_por_hora": ""}"""
 
     Replicas: Tags = Tags(key="replicas_sap", value="")
     """{"replicas_sap": ""}"""
@@ -154,6 +154,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Daily: Tags = Tags(key="periodo/diario", value="")
     """{"periodo/diario": ""}"""
 
+    AutomationDaily: Tags = Tags(key="automation/periodo_diario", value="")
+    """{"automation/periodo_diario": ""}"""
+
     SmbDataRepository: Tags = Tags(key="smb_data_repository/data_repo", value="")
     """{"smb_data_repository/data_repo": ""}"""
 
@@ -163,14 +166,29 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     MonthlyEnd: Tags = Tags(key="periodo/mensual_fin", value="")
     """{"periodo/mensual_fin": ""} fin del mes."""
 
+    AutomationMonthlyStart: Tags = Tags(
+        key="automation/periodo_mensual_inicio", value=""
+    )
+    """{"automation/periodo_mensual_inicio": ""} inicio del mes."""
+
     MonthlyStart: Tags = Tags(key="periodo/mensual_inicio", value="")
     """{"periodo/mensual_inicio": ""} inicio del mes."""
+
+    AutomationMonthlyEnd: Tags = Tags(key="automation/periodo_mensual_fin", value="")
+    """{"automation/periodo_mensual_fin": ""} fin del mes."""
 
     HourlyAdditional: Tags = Tags(key="periodo/por_hora_adicional", value="")
     """{"periodo/por_hora_adicional": ""}"""
 
-    PartitionedAuto: Tags = Tags(key="particionado/auto", value="")
-    """{"particionado/auto": ""} Usar para definir solo por automatizacion no por jobs."""
+    AutomationHourlyAdditional: Tags = Tags(
+        key="automation/periodo_por_hora_adicional", value=""
+    )
+    """{"automation/periodo_por_hora_adicional": ""}"""
+
+    AutomationOnlyParticionado: Tags = Tags(
+        key="automation_only/particionado", value=""
+    )
+    """{"automation_only/particionado": ""} Usar para definir solo por automatizacion no por jobs."""
 
     DetenerCarga: Tags = Tags(key="detener_carga/si", value="")
     """{"detener_carga/si": ""} Usar para detener la carga por cualquier motivo."""
@@ -178,8 +196,8 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Automation: Tags = Tags(key="automation/si", value="")
     """{"automation/si": ""} Usar para definir que tiene automatizacion pero puede usarse en jobs."""
 
-    AutomationOnly: Tags = Tags(key="automation/only", value="")
-    """{"automation/only": ""} Usar para definir solo por automatizacion no por jobs."""
+    AutomationOnly: Tags = Tags(key="automation_only", value="")
+    """{"automation_only": ""} Usar para definir solo por automatizacion no por jobs."""
 
     Weekly: Tags = Tags(key="periodo/semanal", value="")
     """{"periodo/semanal": ""} Domingos generalmente o cualquier dia."""
@@ -187,15 +205,21 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Weekly7: Tags = Tags(key="periodo/semanal_7", value="")
     """{"periodo/semanal_7": ""} Domingos"""
 
+    AutomationWeekly7: Tags = Tags(key="automation/periodo_semanal_7", value="")
+    """{"automation/periodo_semanal_7": ""}"""
+
     Weekly1: Tags = Tags(key="periodo/semanal_1", value="")
     """{"periodo/semanal_1": ""} Lunes"""
 
-    MultipleTags: Tags = Tags({"multiple/tags": "", "automation/only": ""})
-    """{"multiple/tags": "", "automation/only": ""}"""
+    AutomationWeekly1: Tags = Tags(key="automation/periodo_semanal_1", value="")
+    """{"automation/periodo_semanal_1": ""} Lunes"""
+
+    MultipleTags: Tags = Tags({"multiple/tags": "", "automation_only": ""})
+    """{"multiple/tags": "", "automation_only": ""}"""
 
     def get_schedule_tags(self) -> tuple[Tags, ...]:
         """
-        Returns all tags that are schedule-related (start with 'periodo/').
+        Returns all tags that are schedule-related (contains 'periodo').
         """
         return tuple(
             getattr(self, name)
@@ -205,42 +229,37 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
 
     def get_automation_tags(self) -> tuple[Tags, ...]:
         """
-        Returns all tags class groups that are automation-related (start with 'automation/' or 'particionado/auto').
+        Returns all tags class groups that are automation-related (start with 'automation').
         """
         return tuple(
             getattr(self, name)
             for name in dir(self)
             if isinstance(getattr(self, name), Tags)
-            and any(
-                k.startswith("automation/") or k.startswith("particionado/auto")
-                for k in getattr(self, name).keys()
-            )
+            and any(k.startswith("automation") for k in getattr(self, name).keys())
         )
 
     def get_automation_tags_keys(self) -> tuple[str, ...]:
         """
-        Returns all keys of individual tags that are automation-related (start with 'automation/' or 'particionado/auto').
+        Returns all keys of individual tags that are automation-related (start with 'automation/' or 'automation_only/particionado').
         """
         automation_tags = self.get_automation_tags()
         return tuple(
             key
             for tag in automation_tags
             for key in tag.keys()
-            if key.startswith("automation/") or key.startswith("particionado/auto")
+            if key.startswith("automation")
         )
 
     def get_unselected_for_jobs_tags(self) -> tuple[Tags, ...]:
         """
-        Returns all tags that are not selected for jobs (start with 'detener_carga/si' or 'particionado/auto' or 'automation/only').
+        Returns all tags that are not selected for jobs (start with 'detener_carga/si' or 'automation_only').
         """
         return tuple(
             getattr(self, name)
             for name in dir(self)
             if isinstance(getattr(self, name), Tags)
             and any(
-                k.startswith("detener_carga/si")
-                or k.startswith("particionado/auto")
-                or k.startswith("automation/only")
+                k.startswith("detener_carga/si") or k.startswith("automation_only")
                 for k in getattr(self, name).keys()
             )
         )
@@ -255,7 +274,7 @@ def get_execution_config(max_concurrent: int) -> RunConfig:
 tags_repo = TagsRepositoryGF()
 
 if __name__ == "__main__":
-    print(tags_repo.Hourly.key)
+    print(tags_repo.AutomationHourly.key)
 
 
 ##
@@ -314,6 +333,7 @@ seleccion_no_programar: AssetSelection = (
         key=tags_repo.AutomationOnly.key, value=tags_repo.AutomationOnly.value
     )
     | AssetSelection.tag(
-        key=tags_repo.PartitionedAuto.key, value=tags_repo.PartitionedAuto.value
+        key=tags_repo.AutomationOnlyParticionado.key,
+        value=tags_repo.AutomationOnlyParticionado.value,
     )
 )

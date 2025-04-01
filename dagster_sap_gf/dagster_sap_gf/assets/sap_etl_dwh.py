@@ -17,6 +17,7 @@ from dagster import (
 
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, tags_repo
+from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 
 # vars
 file_path = Path(__file__).parent.resolve()
@@ -172,7 +173,9 @@ def DL_SAP_BSEG(
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
 
 
-tags_rep_dai_hour = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.Hourly.tag
+tags_rep_dai_hour = (
+    tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.AutomationHourly.tag
+)
 
 
 # Multi-asset for DL_paCargarSAP_REPLICA_DatosMaestros
@@ -180,58 +183,94 @@ tags_rep_dai_hour = tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.Hou
     name="DL_paCargarSAP_REPLICA_DatosMaestros",
     outs={
         "DL_SAP_CSKA": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_CSKS": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_CSKU": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011PC": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011QT": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011SC": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011ZC": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_KNVV": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_SKA1": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_SKAT": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_SKB1": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T004": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T011": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T024B": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T156": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_TVAG": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_TVST": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
         "DL_SAP_TVSTT": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation_hourly_delta_12_cron,
         ),
     },
     compute_kind="sqlserver",

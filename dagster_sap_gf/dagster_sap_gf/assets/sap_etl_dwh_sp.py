@@ -5,12 +5,14 @@ from dagster import (
     AssetKey,
     AssetOut,
     AssetsDefinition,
+    AutomationCondition,
     Output,
     asset,
     load_asset_checks_from_current_module,
     multi_asset,
 )
 
+from dagster_shared_gf.automation.tags_mapping import get_mapped_automation_condition
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo
 
@@ -35,7 +37,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "BI_SAP_Hecho_Facturas_Posiciones_Reciente",
         ],
         "group_name": "sap_mart_ventas",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["SAPPRD", "prd", "MARA"]),
             AssetKey(["SAPPRD", "prd", "T001"]),
@@ -56,7 +58,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "BI_SAP_Dim_Facturas_Archivo",
             "BI_SAP_Dim_Facturas_Reciente",
         ],
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_SAP_T001"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_SAP_VBRK"]),
@@ -305,7 +307,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_SAP_Hecho_FlujoFacturacion",
         "group_name": "sap_mart_facturacion",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_SAP_LIPS"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_SAP_T001"]),
@@ -395,7 +397,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "DL_SAP_Hecho_ExistenciasLoteHist_Reciente",
         ],
         "group_name": "sap_dl_existencias",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_Lote"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_CnfBitacora"]),
@@ -619,7 +621,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "BI_SAP_Dim_ClienteAreaCredito_Calc_Hist",
         ],
         "group_name": "sap_mart_clientes",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_ClienteAreaCredito"]),
             AssetKey(["BI_FARINTER", "dbo", "C"]),
@@ -656,7 +658,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Dim_Articulo_SAP",
         "group_name": "sap_mart_dimensiones",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["SAPPRD", "prd", "EINA"]),
             AssetKey(["SAPPRD", "prd", "MAKT"]),
@@ -674,7 +676,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": ["BI_Dim_Cliente_SAP", "BI_SAP_Dim_Cliente"],
         "group_name": "sap_mart_clientes",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["SAPPRD", "prd", "ADR6"]),
             AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Region_SAP"]),
@@ -690,7 +692,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_SAP_Dim_ClienteSociedad",
         "group_name": "sap_mart_clientes",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["BI_FARINTER", "dbo", "C"]),
             AssetKey(["SAPPRD", "prd", "CDHDR"]),
@@ -706,7 +708,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_SAP_Dim_ClienteOrganizacionCanalSector",
         "group_name": "sap_mart_clientes",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["BI_FARINTER", "dbo", "C"]),
             AssetKey(["SAPPRD", "prd", "CDHDR"]),
@@ -721,7 +723,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": ["BI_SAP_Dim_ClienteAreaCredito", "BI_SAP_Dim_ClienteAreaCredito_Hist"],
         "group_name": "sap_mart_clientes",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["BI_FARINTER", "dbo", "C"]),
             AssetKey(["BI_FARINTER", "dbo", "H"]),
@@ -732,7 +734,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_SAP_Dim_SociedadCliente",
         "group_name": "sap_dl_clientes",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["SAPPRD", "prd", "KNB1"]),
             AssetKey(["SAPPRD", "prd", "KNVV"]),
@@ -746,7 +748,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_SAP_Dim_Lote",
         "group_name": "sap_mart_dimensiones",
-        "tags": tags_repo.Daily.tag | tags_repo.Hourly.tag,
+        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_SAP_MCH1"]),
             AssetKey(["BI_FARINTER", "dbo", "L"]),
@@ -758,6 +760,11 @@ store_procedures: Dict[str, Dict[str, Any]] = {
 def create_store_procedure_asset(
     stored_procedure_name: str, params: Dict
 ) -> AssetsDefinition:
+    tags = params.get("tags", None)
+    automation_condition: AutomationCondition | None = None
+    if tags:
+        automation_condition = get_mapped_automation_condition(tags)
+
     if params.get("group_name", None) is None:
         group_name = "sap_etl_dwh"
     else:
@@ -767,11 +774,12 @@ def create_store_procedure_asset(
         @asset(
             key_prefix=params["key_prefix"],
             name=params["name"],
-            tags=params.get("tags", None),
+            tags=tags,
             deps=params.get("deps", None),
             group_name=group_name,
             compute_kind="sqlserver",
             description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
+            automation_condition=automation_condition,
         )
         def store_procedure_execution_asset(dwh_farinter_dl: SQLServerResource) -> None:
             dwh_farinter_dl.execute_and_commit(
@@ -779,16 +787,33 @@ def create_store_procedure_asset(
             )
 
     else:
+        final_outs = {}
+        if isinstance(params.get("name", None), List):
+            final_outs = {
+                name: AssetOut(
+                    key_prefix=params["key_prefix"],
+                    tags=tags,
+                    description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
+                    owners=params.get("owners", None),
+                    automation_condition=automation_condition,
+                )
+                for name in params["name"]
+            }
+        elif params.get("keys_out", None) is not None:
+            final_outs = {
+                current_key.path[-1]: AssetOut(
+                    key=current_key,
+                    tags=tags,
+                    description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
+                    owners=params.get("owners", None),
+                    automation_condition=automation_condition,
+                )
+                for current_key in params["keys_out"]
+            }
 
         @multi_asset(
             name=stored_procedure_name,
-            outs={
-                name: AssetOut(
-                    key_prefix=params["key_prefix"],
-                    tags=params.get("tags", None),
-                )
-                for name in params["name"]
-            },
+            outs=final_outs,
             description=f"EXEC [{params['key_prefix'][0]}].[{params['key_prefix'][1]}].[{stored_procedure_name}]",
             deps=params.get("deps", None),
             group_name=group_name,

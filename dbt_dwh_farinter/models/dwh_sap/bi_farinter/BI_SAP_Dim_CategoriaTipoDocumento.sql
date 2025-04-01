@@ -2,7 +2,7 @@
 {{ 
     config(
         as_columnstore=true,
-        tags=["periodo/semanal", "automation/only"],
+        tags=["automation/periodo_semanal_1", "automation_only"],
         materialized="incremental",
         incremental_strategy="farinter_merge",
         unique_key=unique_key_list,

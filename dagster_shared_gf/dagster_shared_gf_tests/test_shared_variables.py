@@ -25,14 +25,15 @@ def test_tags_repository_gf():
 def test_tags_is_schedule():
     assert tags_repo.Daily.is_schedule is True
     assert tags_repo.Hourly.is_schedule is True
+    assert tags_repo.AutomationHourly.is_schedule is True
     assert tags_repo.Replicas.is_schedule is False
     assert tags_repo.AutomationOnly.is_schedule is False
 
 
 def test_tags_is_all_schedule():
     schedule_tag = Tags({"periodo/diario": "", "periodo/mensual": ""})
-    mixed_tag = Tags({"periodo/diario": "", "automation/only": ""})
-    non_schedule_tag = Tags({"automation/only": "", "replicas_sap": ""})
+    mixed_tag = Tags({"periodo/diario": "", "automation_only": ""})
+    non_schedule_tag = Tags({"automation_only": "", "replicas_sap": ""})
 
     assert schedule_tag.is_all_schedule is True
     assert mixed_tag.is_all_schedule is False
@@ -43,7 +44,7 @@ def test_tags_repository_get_schedule_tags():
     schedule_tags = tags_repo.get_schedule_tags()
     assert all(tag.is_schedule for tag in schedule_tags)
     assert tags_repo.Daily in schedule_tags
-    assert tags_repo.Hourly in schedule_tags
+    assert tags_repo.AutomationHourly in schedule_tags
     assert tags_repo.Monthly in schedule_tags
     assert tags_repo.Weekly in schedule_tags
     assert tags_repo.Replicas not in schedule_tags
@@ -52,15 +53,11 @@ def test_tags_repository_get_schedule_tags():
 def test_tags_repository_get_automation_tags():
     automation_tags = tags_repo.get_automation_tags()
     assert all(
-        any(
-            k.startswith("automation/") or k.startswith("particionado/auto")
-            for k in tags.keys()
-        )
-        for tags in automation_tags
+        any(k.startswith("automation") for k in tags.keys()) for tags in automation_tags
     )
     assert tags_repo.Automation in automation_tags
     assert tags_repo.AutomationOnly in automation_tags
-    assert tags_repo.PartitionedAuto in automation_tags
+    assert tags_repo.AutomationOnlyParticionado in automation_tags
     assert tags_repo.Daily not in automation_tags
     assert tags_repo.Replicas not in automation_tags
 
@@ -69,15 +66,13 @@ def test_tags_repository_get_unselected_for_jobs_tags():
     unselected_tags = tags_repo.get_unselected_for_jobs_tags()
     assert all(
         any(
-            k.startswith("detener_carga/si")
-            or k.startswith("particionado/auto")
-            or k.startswith("automation/only")
+            k.startswith("detener_carga/si") or k.startswith("automation_only")
             for k in tags.keys()
         )
         for tags in unselected_tags
     )
     assert tags_repo.DetenerCarga in unselected_tags
     assert tags_repo.AutomationOnly in unselected_tags
-    assert tags_repo.PartitionedAuto in unselected_tags
+    assert tags_repo.AutomationOnlyParticionado in unselected_tags
     assert tags_repo.Automation not in unselected_tags
     assert tags_repo.Daily not in unselected_tags

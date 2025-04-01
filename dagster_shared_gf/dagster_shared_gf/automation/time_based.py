@@ -145,7 +145,9 @@ hourly_cron_schedule = get_for_current_env(
 automation_hourly_delta_12_cron = my_cron_automation_condition(
     cron_schedule=hourly_cron_schedule,
     allowed_deps_updated_selection=(
-        AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
+        AssetSelection.tag(
+            key=tags_repo.AutomationHourly.key, value=tags_repo.AutomationHourly.value
+        )
     ),
     lookback_delta=timedelta(hours=12),
 )

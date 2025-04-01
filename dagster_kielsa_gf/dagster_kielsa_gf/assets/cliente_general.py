@@ -44,9 +44,6 @@ from dagster_shared_gf.shared_functions import (
 )
 from dagster_shared_gf.shared_variables import env_str, tags_repo
 
-if __name__ == "__main__":
-    from dagster_polars import PolarsParquetIOManager
-
 top_clause = get_for_current_env(
     {"local": "TOP 100", "dev": "--TOP 100", "prd": "--TOP 100"}
 )
@@ -1005,7 +1002,7 @@ BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
         "result": AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_ClienteGeneral"])
     },
     tags_by_output_name={
-        "result": tags_repo.Daily.tag
+        "result": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag
         | {f"dagster/kind/{kind}": "" for kind in ("sql_server", "polars", "smb")}
@@ -1024,6 +1021,7 @@ BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
 
 
 if __name__ == "__main__":
+    from dagster_polars import PolarsParquetIOManager
 
     class TestPhoneNumberValidation(unittest.TestCase):
         def test_honduras_phone_numbers(self):

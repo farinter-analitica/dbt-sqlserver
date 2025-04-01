@@ -53,7 +53,7 @@ def create_freshness_checks_for_assets(all_assets):
     # First identify all assets by their highest frequency
     hourly_assets = filter_assets_by_tags(
         materializable_assets,
-        tags_to_match=tags_repo.Hourly.tag,
+        tags_to_match=tags_repo.AutomationHourly.tag,
         filter_type="any_tag_matches",
     )
 
