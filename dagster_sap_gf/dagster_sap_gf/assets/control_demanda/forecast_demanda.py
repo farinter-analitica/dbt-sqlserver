@@ -70,7 +70,7 @@ def get_BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_data(
         pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
         .lazy()
         .cast({pl.Decimal: pl.Float64, pl.Date: pl.Datetime})
-        .collect(streaming=True)
+        .collect(engine="streaming")
     )
     return main_query
 

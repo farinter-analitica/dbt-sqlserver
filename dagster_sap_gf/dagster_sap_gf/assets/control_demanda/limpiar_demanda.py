@@ -65,7 +65,7 @@ def get_BI_SAP_Agr_SocAlmArt_Stock_Plan_data(
         --,[Sector]
         ,[Material_Nombre]
         ,[Articulo_Id]
-    FROM [BI_FARINTER].[dbo].[BI_SAP_Hecho_SocAlmArt_Stock_Plan]
+    FROM [BI_FARINTER].[dbo].[BI_SAP_Agr_SocAlmArt_Stock_Plan]
     WHERE Fecha_Id >= '{fecha_desde.strftime("%Y%m%d")}'
     --AND Gpo_Obs_Nombre_Corto IN ('Farma_Imp_Cod','Farma_Imp_Exc','Cons_Imp_Exc')        
     """
@@ -73,7 +73,7 @@ def get_BI_SAP_Agr_SocAlmArt_Stock_Plan_data(
         pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
         .lazy()
         .cast({pl.Decimal: pl.Float64, pl.Date: pl.Datetime})
-        .collect(streaming=True)
+        .collect(engine="streaming")
     )
     return main_query
 
@@ -124,7 +124,7 @@ def get_BI_SAP_Agr_SocAlmArtGpoCli_Demanda_Plan_data(
         pl.read_database(sql_query, dwh_farinter_bi.get_arrow_odbc_conn_string())
         .lazy()
         .cast({pl.Decimal: pl.Float64, pl.Date: pl.Datetime})
-        .collect(streaming=True)
+        .collect(engine="streaming")
     )
     return main_query
 
