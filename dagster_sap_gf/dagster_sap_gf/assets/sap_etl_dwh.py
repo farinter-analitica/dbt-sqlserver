@@ -538,7 +538,7 @@ def cargar_sap_replica_vbfa(
             context,
             dwh_farinter_dl,
             "DL_paCargarSAP_REPLICA_VBFA",
-            params={"@ListaActualizar": "VBFA", "@ForzarMeses": 3},
+            params={"ListaActualizar": "VBFA", "@ForzarMeses": 3},
         )
     # For regular runs and after daily special, use the standard procedure
     execute_sp_with_params(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_VBFA")
