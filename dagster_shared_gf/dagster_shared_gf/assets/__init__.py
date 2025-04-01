@@ -16,9 +16,12 @@ web_api_externo = load_assets_from_modules(
     [dias_festivos], group_name="web_api_externo"
 )
 
+example_assets = load_assets_from_modules([examples], group_name="examples")
+
 all_assets = (
-    *load_assets_from_modules([dbt_sources, dbt_dwh_global, examples]),
+    *load_assets_from_modules([dbt_sources, dbt_dwh_global]),
     *web_api_externo,
+    *example_assets,
 )
 all_asset_checks = load_asset_checks_from_modules(
     [dbt_sources, dias_festivos, dbt_dwh_global, examples]
