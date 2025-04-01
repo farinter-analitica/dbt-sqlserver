@@ -19,7 +19,7 @@ from dagster import (
     op,
 )
 
-from dagster_shared_gf.automation import automation_weekly_7_delta_1_cron
+from dagster_shared_gf.automation import automation_monthly_start_delta_1_cron
 from dagster_shared_gf.resources.smb_resources import (
     smb_resource_staging_dagster_dwh,
 )
@@ -231,9 +231,13 @@ BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia = AssetsDefinition.from_graph(
         )
     },
     tags_by_output_name={
-        "result": tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly
+        "result": tags_repo.MonthlyStart
+        | tags_repo.UniquePeriod
+        | tags_repo.AutomationOnly
     },
-    automation_conditions_by_output_name={"result": automation_weekly_7_delta_1_cron},
+    automation_conditions_by_output_name={
+        "result": automation_monthly_start_delta_1_cron
+    },
     group_name="demanda",
 )
 
