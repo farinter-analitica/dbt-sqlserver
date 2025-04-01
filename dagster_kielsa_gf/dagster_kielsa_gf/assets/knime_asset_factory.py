@@ -23,6 +23,7 @@ from logging import Logger
 from dagster_shared_gf.automation import (
     automation_hourly_delta_12_cron,
     automation_monthly_start_delta_1_cron,
+    automation_hourly_additional_delta_12_cron,
 )
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.resources.postgresql_resources import (
@@ -140,6 +141,7 @@ def fetch_knime_workflows(
     tags: dict[str, Tags | dict] = {
         "MDBCRM_ETL_LlamadasConsolidado": {
             **tags_repo.Hourly.tag,
+            **tags_repo.HourlyAdditional.tag,
             **tags_repo.Daily.tag,
             **tags_repo.Automation.tag,
         },
@@ -147,7 +149,8 @@ def fetch_knime_workflows(
         "Knime_Workflows_Placeholder": tags_repo.Monthly,  # Para prevenir error en el job
     }
     automation_conditions = {
-        "MDBCRM_ETL_LlamadasConsolidado": automation_hourly_delta_12_cron,
+        "MDBCRM_ETL_LlamadasConsolidado": automation_hourly_delta_12_cron
+        | automation_hourly_additional_delta_12_cron,
         "DWHFP_SalidaExportarAExcel": automation_monthly_start_delta_1_cron,
     }
     wf_ph = Workflow(

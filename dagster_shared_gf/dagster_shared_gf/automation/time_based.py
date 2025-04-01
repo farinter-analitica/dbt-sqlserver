@@ -138,8 +138,8 @@ automation_daily_delta_2_cron = my_cron_automation_condition(
 )
 hourly_cron_schedule = get_for_current_env(
     {
-        "dev": "01 23 * * *",
-        "prd": "01 6-19,23 * * *",
+        "dev": "01 21 * * *",
+        "prd": "01 6-23 * * *",
     }
 )
 automation_hourly_delta_12_cron = my_cron_automation_condition(
@@ -149,6 +149,23 @@ automation_hourly_delta_12_cron = my_cron_automation_condition(
     ),
     lookback_delta=timedelta(hours=12),
 )
+
+hourly_additional_cron_schedule = get_for_current_env(
+    {
+        "dev": "01 23 * * *",
+        "prd": "31 6-22 * * *",
+    }
+)
+automation_hourly_additional_delta_12_cron = my_cron_automation_condition(
+    cron_schedule=hourly_additional_cron_schedule,
+    allowed_deps_updated_selection=(
+        AssetSelection.tag(
+            key=tags_repo.HourlyAdditional.key, value=tags_repo.HourlyAdditional.value
+        )
+    ),
+    lookback_delta=timedelta(hours=2),
+)
+
 
 weekly_7_cron_schedule = get_for_current_env({"dev": "0 1 * * 7", "prd": "0 16 * * 7"})
 automation_weekly_7_delta_1_cron = my_cron_automation_condition(

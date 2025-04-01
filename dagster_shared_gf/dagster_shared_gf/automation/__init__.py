@@ -5,6 +5,7 @@ from dagster_shared_gf.automation.time_based import (
     automation_monthly_start_delta_1_cron,
     automation_monthly_end_delta_1_cron,
     automation_weekly_1_delta_1_cron,
+    automation_hourly_additional_delta_12_cron,
 )
 from dagster_shared_gf.automation.tags_mapping import (
     tag_automation_mapping,
@@ -33,4 +34,5 @@ __all__ = (
     "automation_weekly_1_delta_1_cron",
     "tag_automation_mapping",
     "get_mapped_automation_condition",
+    "automation_hourly_additional_delta_12_cron",
 )
