@@ -177,7 +177,7 @@ kielsa_hourly_additional_job_schedule = ScheduleDefinition(
     ),  # cron template: hour minute day month day_of_week
     execution_timezone=default_timezone,
     job=jobs.kielsa_hourly_additional_job,
-    default_status=stopped_default_schedule_status,
+    default_status=running_default_schedule_status,
     should_execute=should_exec_kielsa_hourly_additional_job_run,
 )
 

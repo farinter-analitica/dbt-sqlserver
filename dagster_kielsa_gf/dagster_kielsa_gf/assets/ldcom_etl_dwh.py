@@ -28,7 +28,7 @@ def DL_Kielsa_FacturaEncabezado(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaEncabezado"
-    from_date: date | None = None
+    from_date: date = datetime.now().date() - timedelta(days=1)
     if context.op_execution_context.op_config.get(
         "p_fecha_desde"
     ) != "" and context.op_execution_context.op_config.get("p_fecha_desde"):
@@ -71,7 +71,7 @@ def DL_Kielsa_FacturasPosiciones(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturasPosiciones"
-    from_date: date | None = None
+    from_date: date = datetime.now().date() - timedelta(days=1)
     if context.op_execution_context.op_config.get(
         "p_fecha_desde"
     ) != "" and context.op_execution_context.op_config.get("p_fecha_desde"):
@@ -113,7 +113,7 @@ def DL_Kielsa_FacturaPosicionDescuento(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaPosicionDescuento"
-    from_date: date | None = None
+    from_date: date = datetime.now().date() - timedelta(days=1)
     if context.op_execution_context.op_config.get(
         "p_fecha_desde"
     ) != "" and context.op_execution_context.op_config.get("p_fecha_desde"):
