@@ -92,6 +92,12 @@ class SQLServerResource(ConfigurableResource):
     )
     _context: InitResourceContext | None = None
 
+    def get_password(self) -> str:
+        password: str | None = self.password
+        if self.password and isinstance(password, EnvVar):
+            password = password.get_value()
+        return password if password else ""
+
     @contextlib.contextmanager
     def get_connection(
         self,
@@ -222,14 +228,14 @@ class SQLServerResource(ConfigurableResource):
                 f"SERVER={self.server};"
                 f"DATABASE={database};"
                 f"UID={self.username};"
-                f"PWD={self.password};"
+                f"PWD={self.get_password()};"
                 f"TrustServerCertificate={self.trust_server_certificate};"
             )
         elif engine == EngineType.SQLALCHEMY:
             connection_instance = sqlalchemy.URL.create(
                 "mssql+pyodbc",
                 username=self.username,
-                password=self.password,
+                password=self.get_password(),
                 host=self.server,
                 database=database,
                 query={
@@ -243,7 +249,7 @@ class SQLServerResource(ConfigurableResource):
                 f"SERVER={{{self.server}}};"
                 f"DATABASE={{{database}}};"
                 f"UID={{{self.username}}};"
-                f"PWD={{{self.password}}};"
+                f"PWD={{{self.get_password()}}};"
                 f"TrustServerCertificate={{{self.trust_server_certificate}}};"
             )
         return connection_instance
@@ -428,17 +434,10 @@ class SQLServerResource(ConfigurableResource):
 
     def get_sqlalchemy_url(self) -> sqlalchemy.URL:
         """Get the SQLAlchemy URL for the SQL Server resource."""
-        passw = self.password
-        if hasattr(passw, "get_value") and isinstance(passw, EnvVar):
-            pass_val = passw.get_value()
-            if pass_val:
-                v_password: str = pass_val
-        else:
-            v_password: str = str(self.password)
         return sqlalchemy.URL.create(
             "mssql",
             username=self.username,
-            password=v_password,
+            password=self.get_password(),
             host=self.server,
             # , port=1433
             database=self.default_database,
@@ -491,8 +490,7 @@ class SQLServerResource(ConfigurableResource):
 
 
 class SQLServerNonRuntimeResource(SQLServerResource):
-    @classmethod
-    def log_event(cls, type: Literal["info", "warning", "error"], message: str):
+    def log_event(self, type: Literal["info", "warning", "error"], message: str):
         print(f"{type}: {message}")
 
 

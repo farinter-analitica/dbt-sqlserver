@@ -51,7 +51,9 @@ class PostgreSQLResource(ConfigurableResource):
             raise ValueError(f"Database {database} is not in the allowed list.")
 
         conn_str = f"postgresql://{self.user}"
-        if self.password:
+        if self.password and isinstance(self.password, EnvVar):
+            conn_str += f":{self.password.get_value()}"
+        elif self.password:
             conn_str += f":{self.password}"
         conn_str += f"@{self.server}/{database}"
 
@@ -193,9 +195,7 @@ db_nocodb_data_gf = PostgreSQLResource(
     server=get_for_current_env({"dev": os.environ.get("NOCODB_PG_FARINTER_HOST")}),
     databases=["nocodb_data_gf"],
     user=get_for_current_env({"dev": os.environ.get("NOCODB_PG_FARINTER_USERNAME")}),
-    password=get_for_current_env(
-        {"dev": os.environ.get("NOCODB_PG_FARINTER_SECRET_PASSWORD")}
-    ),
+    password=get_for_current_env({"dev": EnvVar("NOCODB_PG_FARINTER_SECRET_PASSWORD")}),
     default_database="nocodb_data_gf",
 )
 
