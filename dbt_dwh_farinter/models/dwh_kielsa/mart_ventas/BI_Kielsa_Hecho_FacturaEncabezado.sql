@@ -66,7 +66,9 @@ WITH Facturas AS
 		, ISNULL(FE.[Factura_Id], 0) [Factura_Id] --, FE.[Factura_Id]
 		, ISNULL(FE.[SubDoc_Id], 0) [SubDoc_Id] --, FE.[SubDoc_Id]
 		, FE.[Consecutivo] Consecutivo_Factura
-		, CAST(FE.[Factura_Fecha] AS TIME(0)) Factura_FechaHora
+		, CAST(FE.[Factura_Fecha] AS DATETIME) Factura_FechaHora
+		, CAST(FE.[Factura_Fecha] AS TIME) Factura_Hora
+		, DATEPART(HOUR, FE.[Factura_Fecha]) Hora_Id
 		, FE.[MonederoTarj_Id]
 		, FE.[MonederoTarj_Id_Limpio] as [Monedero_Id]
 		, FE.[Cliente_Id]
@@ -83,6 +85,8 @@ WITH Facturas AS
 		, ISNULL(FE.Factura_Descuento, 0) Valor_Descuento
 		, ISNULL(FE.Factura_Impuesto, 0) Valor_Impuesto
 		, ISNULL(FE.Factura_Total, 0) Valor_Total
+		, ISNULL(FE.Factura_Articulos, 0) Cantidad_Articulos
+		, ISNULL(FE.Factura_AcumMonedero, 0) Valor_Acum_Monedero
 		, SUC.HashStr_SucEmp
 		, DOC.HashStr_SubDDocEmp
 		, CLI.HashStr_CliEmp
@@ -146,7 +150,9 @@ WITH Facturas AS
 		, ISNULL(FE.[Factura_Id], 0) [Factura_Id] --, FE.[Factura_Id]
 		, ISNULL(FE.[SubDoc_Id], 0) [SubDoc_Id] --, FE.[SubDoc_Id]
 		, FE.[Consecutivo] Consecutivo_Factura
-		, CAST(FE.[Factura_Fecha] AS TIME(0)) Factura_FechaHora
+		, CAST(FE.[Factura_Fecha] AS DATETIME) Factura_FechaHora
+		, CAST(FE.[Factura_Fecha] AS TIME) Factura_Hora
+		, DATEPART(HOUR, FE.[Factura_Fecha]) Hora_Id
 		, FE.[MonederoTarj_Id]
 		, FE.[MonederoTarj_Id_Limpio] as [Monedero_Id]
 		, FE.[Cliente_Id]
@@ -163,6 +169,8 @@ WITH Facturas AS
 		, ISNULL(FE.Factura_Descuento, 0) Valor_Descuento
 		, ISNULL(FE.Factura_Impuesto, 0) Valor_Impuesto
 		, ISNULL(FE.Factura_Total, 0) Valor_Total
+		, ISNULL(FE.Factura_Articulos, 0) Cantidad_Articulos
+		, ISNULL(FE.Factura_AcumMonedero, 0) Valor_Acum_Monedero
 		, SUC.HashStr_SucEmp
 		, DOC.HashStr_SubDDocEmp
 		, CLI.HashStr_CliEmp
