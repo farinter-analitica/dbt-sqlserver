@@ -18,12 +18,14 @@ Uso:
   Por ejemplo, ejecute el script directamente después de ajustar su cadena de conexión.
 """
 
+from datetime import datetime
 import os
 import sys
 import yaml
 import inspect
 from typing import Dict, List, Optional, Any, Union
 from sqlalchemy import MetaData, Engine, Connection, create_engine
+from pathlib import Path
 
 
 def get_caller_directory() -> str:
@@ -65,11 +67,55 @@ def get_caller_directory() -> str:
             del frame
 
 
-def generate_sling_yaml(
+def is_file_cache_valid(
+    filename: str, hours_threshold: float = 24.0, directory: Optional[str | Path] = None
+) -> bool:
+    """
+    Verifica si un archivo existe y si es más antiguo que un umbral de horas especificado.
+    Compatible con múltiples plataformas.
+
+    Args:
+        filename: Nombre del archivo a verificar
+        hours_threshold: Umbral de horas para considerar un archivo como antiguo
+        directory: Directorio donde buscar el archivo. Si es None, usa el directorio del llamador.
+
+    Returns:
+        bool: True si el archivo existe y no es más antiguo que hours_threshold, False en caso contrario
+    """
+    if directory is None:
+        directory = get_caller_directory()
+
+    # Construir la ruta completa del archivo usando Path para compatibilidad multiplataforma
+    file_path = Path(directory) / filename
+
+    # Verificar si el archivo existe
+    exists = file_path.exists()
+
+    # Si el archivo no existe, no puede ser antiguo
+    if not exists:
+        return False
+
+    # Obtener la hora actual
+    now = datetime.now()
+
+    # Obtener la hora de modificación del archivo
+    mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+
+    # Calcular la diferencia en horas
+    time_diff = now - mtime
+    hours_diff = time_diff.total_seconds() / 3600
+
+    # Determinar si el archivo es más antiguo que el umbral
+    is_old = hours_diff > hours_threshold
+
+    return exists and not is_old
+
+
+def generate_sling_yaml_from_source(
     engine: Union[Engine, Connection],
-    schema: str,
+    source_schema: str,
     output_filename: str = "sling.yaml",
-    output_dir: Optional[str] = None,
+    output_dir: Optional[str | Path] = None,
     source: str = "NOCODB_DATA_GF",
     target: str = "DAGSTER_DWH_FARINTER",
     defaults: Optional[Dict[str, Any]] = None,
@@ -93,7 +139,7 @@ def generate_sling_yaml(
     if defaults is None:
         defaults = {
             "mode": "incremental",
-            "object": "nocodb_data_gf.{stream_schema}_{stream_table}",
+            "object": "sling_data.{stream_schema}_{stream_table}",
             "target_options": {"column_casing": "snake", "adjust_column_type": True},
             "source_options": {"flatten": True},
         }
@@ -110,7 +156,7 @@ def generate_sling_yaml(
 
     metadata = MetaData()
     # Reflejar tablas del esquema especificado
-    metadata.reflect(bind=engine, schema=schema)
+    metadata.reflect(bind=engine, schema=source_schema)
 
     streams: Dict[str, Dict[str, Any]] = {}
 
@@ -120,7 +166,7 @@ def generate_sling_yaml(
         table_name_only = table.name
 
         # Construir una clave de stream usando el esquema y nombre de tabla (por ejemplo, "kielsa.mytable")
-        full_table_name = f"{schema}.{table_name_only}"
+        full_table_name = f"{source_schema}.{table_name_only}"
 
         # Obtener la lista de columnas de clave primaria
         pk_columns: List[str] = [str(col.name) for col in table.primary_key]
@@ -173,7 +219,7 @@ if __name__ == "__main__":
 
         # Crear el motor de conexión
         engine = create_engine(connection_string)
-        generate_sling_yaml(engine, schema_name, output_file)
+        generate_sling_yaml_from_source(engine, schema_name, output_file)
     else:
         # Comportamiento predeterminado cuando se ejecuta sin argumentos
         try:
@@ -189,7 +235,9 @@ if __name__ == "__main__":
             target_schema = "kielsa"
 
             # Generar el archivo YAML de Sling
-            generate_sling_yaml(engine, target_schema, output_filename="sling.yaml")
+            generate_sling_yaml_from_source(
+                engine, target_schema, output_filename="sling.yaml"
+            )
         except ImportError:
             print(
                 "Error: Al ejecutar sin argumentos, el script requiere que dagster_shared_gf esté instalado."

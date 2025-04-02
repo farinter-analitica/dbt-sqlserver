@@ -154,5 +154,6 @@ secrets.toml
 #sling
 .slingdata/*
 !.slingdata/env.yaml.sample
+.sling*
 
 templates_render/

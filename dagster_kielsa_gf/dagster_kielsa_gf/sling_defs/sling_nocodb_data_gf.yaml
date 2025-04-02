@@ -1,37 +1,44 @@
 source: NOCODB_DATA_GF
 target: DAGSTER_DWH_FARINTER
-
 defaults:
   mode: incremental
-  primary_key: id
-  update_key: fecha_actualizado
   object: nocodb_data_gf.{stream_schema}_{stream_table}
   target_options:
-    #table_ddl: create table "nocodb_data_gf"."{stream_schema}_{stream_table}" ({col_types})
     column_casing: snake
     adjust_column_type: true
   source_options:
     flatten: true
-
 streams:
-  #kielsa.*: #Esto da error si existe alguna tabla sin las columnas necesarias
-  kielsa.dia_semana:
-    target_options:
-      table_keys:
-        primary: [id]
-
-  kielsa.sucursal:
-    target_options:
-      table_keys:
-        primary: [suc_id, emp_id]
-
   kielsa.sucursal_horario_dia:
+    primary_key: &id001
+    - emp_id
+    - suc_id
+    - dia_id
     target_options:
       table_keys:
-        primary: [suc_id, emp_id, dia_id]
-
-
+        primary: *id001
+    update_key: fecha_actualizado
+  kielsa.dia_semana:
+    primary_key: &id002
+    - id
+    target_options:
+      table_keys:
+        primary: *id002
+    update_key: fecha_actualizado
+  kielsa.sucursal:
+    primary_key: &id003
+    - emp_id
+    - suc_id
+    target_options:
+      table_keys:
+        primary: *id003
+    update_key: fecha_actualizado
   kielsa.sucursal_horario_periodo:
+    primary_key: &id004
+    - emp_id
+    - suc_id
+    - fecha_desde
     target_options:
       table_keys:
-        primary: [suc_id, emp_id, fecha_desde]
+        primary: *id004
+    update_key: fecha_actualizado

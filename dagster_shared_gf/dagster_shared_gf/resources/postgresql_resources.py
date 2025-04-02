@@ -42,8 +42,11 @@ class PostgreSQLResource(ConfigurableResource):
                 f"default_database {self.default_database} is not in the allowed list of databases"
             )
 
-    def get_engine(self, database: str):
+    def get_engine(self, database: str | None = None) -> sqlalchemy.engine.Engine:
         """Create and return a SQLAlchemy engine for the specified database."""
+        if not database:
+            database = self.default_database
+
         if database not in self.databases:
             raise ValueError(f"Database {database} is not in the allowed list.")
 
@@ -62,9 +65,11 @@ class PostgreSQLResource(ConfigurableResource):
         )
 
     @contextlib.contextmanager
-    def get_connection(self, database: str = "") -> Generator[Connection, None, None]:
+    def get_connection(
+        self, database: str | None = None
+    ) -> Generator[Connection, None, None]:
         """Get a connection to the specified database."""
-        if database == "":
+        if not database:
             database = self.default_database
 
         engine = self.get_engine(database)

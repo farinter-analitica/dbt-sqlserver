@@ -10,6 +10,7 @@ from dagster import (
     SkipReason,
     define_asset_job,
     sensor,
+    get_dagster_logger,
 )
 from dagster_sling import (
     SlingResource,
@@ -21,16 +22,54 @@ from dagster_shared_gf.resources.postgresql_resources import db_nocodb_data_gf
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.sling_shared.sling_resources import MyDagsterSlingTranslator
+from dagster_shared_gf.sling_shared.generate_yaml import (
+    generate_sling_yaml_from_source,
+    is_file_cache_valid,
+)
 from dagster_shared_gf.shared_constants import (
     running_default_sensor_status,
 )
 from dagster_shared_gf.load_env_run import load_env_vars, os
 
-replication_config = Path(__file__).parent / "sling_nocodb_data_gf.yaml"
+logger = get_dagster_logger("sling_nocodb_data_gf")
+
 if not os.environ.get("SLING_HOME_DIR") or not os.environ.get(
     "DAGSTER_DWH_FARINTER_IP"
 ):
     load_env_vars()
+
+parent_path = Path(__file__).parent
+source: str = "NOCODB_DATA_GF"
+target: str = "DAGSTER_DWH_FARINTER"
+defaults = {
+    "mode": "incremental",
+    "object": "nocodb_data_gf.{stream_schema}_{stream_table}",
+    "target_options": {"column_casing": "snake", "adjust_column_type": True},
+    "source_options": {"flatten": True},
+}
+replication_config = parent_path / ".sling_nocodb_data_gf.yaml"
+
+replication_config_generated: str | None = None
+try:
+    if not is_file_cache_valid(
+        ".sling_nocodb_data_gf.yaml", directory=parent_path, hours_threshold=1
+    ):
+        replication_config_generated = generate_sling_yaml_from_source(
+            engine=db_nocodb_data_gf.get_engine(),
+            source_schema="kielsa",
+            output_filename=".sling_nocodb_data_gf.yaml",
+            output_dir=parent_path,
+            source=source,
+            target=target,
+            defaults=defaults,
+        )
+except Exception as e:
+    logger.error(f"Error generating replication config: {e}")
+
+if replication_config_generated:
+    replication_config = replication_config_generated
+else:
+    replication_config = parent_path / "sling_nocodb_data_gf.yaml"
 
 
 @sling_assets(
