@@ -88,7 +88,7 @@ for group_name in group_names:
     dbt_group_assets.append(
         create_group_asset_function(
             select=f"{MAIN_SELECT_STR},group:{group_name}",
-            exclude=f"tag:{tags_repo.PartitionedAuto.key}",
+            exclude=f"tag:{tags_repo.AutomationOnlyParticionado.key}",
             group_name=group_name,
         )
     )
@@ -97,7 +97,7 @@ for group_name in group_names:
 dbt_group_assets.append(
     create_group_asset_function(
         select=f"{MAIN_SELECT_STR}",
-        exclude=f"tag:{tags_repo.PartitionedAuto.key} group:{' group:'.join(group_names)}",
+        exclude=f"tag:{tags_repo.AutomationOnlyParticionado.key} group:{' group:'.join(group_names)}",
         group_name="dbt_default_group",
     )
 )
@@ -105,7 +105,7 @@ dbt_group_assets.append(
 
 @dbt_assets(
     manifest=dbt_manifest,
-    select=f"{MAIN_SELECT_STR},tag:{tags_repo.PartitionedAuto.key}",
+    select=f"{MAIN_SELECT_STR},tag:{tags_repo.AutomationOnlyParticionado.key}",
     dagster_dbt_translator=MyDbtSourceTranslator(),
     partitions_def=diario_desde_360_dias_atras_hasta_hoy,
     backfill_policy=BackfillPolicy.single_run(),

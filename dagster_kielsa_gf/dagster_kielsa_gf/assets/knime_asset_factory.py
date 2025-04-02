@@ -140,7 +140,7 @@ def fetch_knime_workflows(
 
     tags: dict[str, Tags | dict] = {
         "MDBCRM_ETL_LlamadasConsolidado": {
-            **tags_repo.Hourly,
+            **tags_repo.AutomationHourly,
             **tags_repo.HourlyAdditional,
             **tags_repo.Daily,
             **tags_repo.AutomationOnly,

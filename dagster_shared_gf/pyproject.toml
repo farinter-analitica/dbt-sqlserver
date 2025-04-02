@@ -34,7 +34,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "dagster>=1.9.7,<1.10.7",
+    "dagster>=1.9.7,<1.10.8",
     "dbt-core>=1.8,<2.0",
     "dagster-dbt>=0.24",
     "dbt-postgres>=1.8,<2.0",
@@ -57,17 +57,10 @@ dependencies = [
     "pymongoarrow",
     "arrow-odbc",
     "deep-translator",
-    "ydata-profiling",
     "psycopg[binary,pool]",
     "wheel",
     "ipython",
     "psutil",
-]
-
-[project.optional-dependencies]
-external = [
-    "statstools_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_statstools_gf",
-    "algoritmo_mddme_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_algoritmo_mddme_gf",
 ]
 
 [project.urls]
@@ -82,6 +75,13 @@ dev = [
     "ruff",
     "pre-commit",
 ]
+helpers = [
+    "jinja2",
+]
+external = [
+    "statstools_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_statstools_gf",
+    "algoritmo_mddme_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_algoritmo_mddme_gf",
+]
 
 [tool.setuptools]
 packages = ["dagster_shared_gf"]
@@ -91,3 +91,6 @@ dagster_shared_gf = ["dagster_shared_gf_tests"]
 
 [tool.dagster]
 module_name = "dagster_shared_gf"
+
+[tool.uv]
+default-groups = ["dev", "helpers"]

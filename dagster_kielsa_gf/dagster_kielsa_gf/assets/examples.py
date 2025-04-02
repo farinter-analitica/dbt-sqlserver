@@ -2,9 +2,9 @@ from dagster import (
     asset,
     MaterializeResult,
     MetadataValue,
-    load_assets_from_current_module,
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
+from dagster_shared_gf.shared_variables import tags_repo
 import pandas as pd
 
 
@@ -53,7 +53,7 @@ def fetch_data_from_sql_final(dwh_farinter_adm: SQLServerResource) -> Materializ
     return MaterializeResult(
         metadata={
             "num_records": len(result),  # Metadata can be any key-value pair
-            "preview": MetadataValue.md(df.head().to_markdown()),
+            "preview": MetadataValue.md(str(df.head().to_markdown())),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
@@ -67,4 +67,26 @@ def select_top_facturaposicion(dwh_farinter_dl: SQLServerResource):
     return result
 
 
-all_assets = tuple(load_assets_from_current_module(group_name="examples"))
+@asset(tags=tags_repo.AutomationHourly)
+def kielsa_example_hourly_automation():
+    pass
+
+
+@asset(tags=tags_repo.AutomationDaily)
+def kielsa_example_daily_automation():
+    pass
+
+
+@asset(tags=tags_repo.AutomationWeekly1)
+def kielsa_example_weekly_automation():
+    pass
+
+
+@asset(tags=tags_repo.AutomationMonthlyStart)
+def kielsa_example_monthly_automation():
+    pass
+
+
+@asset(tags=tags_repo.Daily)
+def kielsa_example_daily_without_automation():
+    pass

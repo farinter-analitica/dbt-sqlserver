@@ -2,7 +2,7 @@
 {{ 
     config(
 		as_columnstore=true,
-		tags=["periodo/diario","periodo_unico/si","particionado/auto"],
+		tags=["automation/periodo_diario","periodo_unico/si","automation_only/particionado"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,

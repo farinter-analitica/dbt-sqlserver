@@ -86,7 +86,7 @@ for group_name in group_names:
     dbt_group_assets.append(
         create_group_asset_function(
             select=f"{MAIN_SELECT_STR},group:{group_name}",
-            exclude=f"tag:{tags_repo.PartitionedAuto.key}",
+            exclude=f"tag:{tags_repo.AutomationOnlyParticionado.key}",
             group_name=group_name,
         )
     )
@@ -95,7 +95,7 @@ for group_name in group_names:
 dbt_group_assets.append(
     create_group_asset_function(
         select=f"{MAIN_SELECT_STR}",
-        exclude=f"tag:{tags_repo.PartitionedAuto.key} group:{' group:'.join(group_names)}",
+        exclude=f"tag:{tags_repo.AutomationOnlyParticionado.key} group:{' group:'.join(group_names)}",
         group_name="global_default_group",
     )
 )

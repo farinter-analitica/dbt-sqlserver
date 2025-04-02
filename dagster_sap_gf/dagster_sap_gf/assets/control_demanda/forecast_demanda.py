@@ -217,7 +217,7 @@ BI_SAP_Hecho_SocAlmArtGpoCli_Forecast = AssetsDefinition.from_graph(
         )
     },
     tags_by_output_name={
-        "result": tags_repo.MonthlyStart
+        "result": tags_repo.AutomationMonthlyStart
         | tags_repo.UniquePeriod
         | tags_repo.AutomationOnly
     },

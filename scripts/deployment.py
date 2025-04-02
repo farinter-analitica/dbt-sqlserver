@@ -189,42 +189,15 @@ def install_deps_uv(
 
     if not only_external:
         print("Installing core dependencies...")
+        sync_cmd = [uv_command, "sync"]
+        if not dev:
+            sync_cmd.append("--locked")
+            sync_cmd.append("--no-dev")
+            sync_cmd.append("--inexact")
+
         run_cmd(
-            [uv_command, "pip", "install", "jinja2", "python-dotenv"],
-            error_msg="Foundation package installation failed",
-            capture=False,
-        )
-        dev_flag = "[dev]" if dev else ""
-        run_cmd(
-            [
-                uv_command,
-                "pip",
-                "install",
-                f"-e dagster_shared_gf{dev_flag}",
-            ],
-            error_msg="dagster_shared_gf installation failed",
-            capture=False,
-            cwd=deploy_dir,
-        )
-        run_cmd(
-            [
-                uv_command,
-                "pip",
-                "install",
-                "-e dagster_sap_gf",
-            ],
-            error_msg="dagster_sap_gf installation failed",
-            capture=False,
-            cwd=deploy_dir,
-        )
-        run_cmd(
-            [
-                uv_command,
-                "pip",
-                "install",
-                "-e dagster_kielsa_gf",
-            ],
-            error_msg="dagster_kielsa_gf installation failed",
+            sync_cmd,
+            error_msg="Dagster deps installation failed",
             capture=False,
             cwd=deploy_dir,
         )
@@ -232,8 +205,11 @@ def install_deps_uv(
     if only_external:
         print("\nAttempting to install external dependencies...")
         try:
+            sync_cmd = [uv_command, "sync", "--only-group", "external", "--inexact"]
+            if not dev:
+                sync_cmd.append("--locked")
             run_cmd(
-                [uv_command, "sync", "--extra", "external"],
+                sync_cmd,
                 error_msg="External dependency installation",
                 capture=False,
                 cwd=deploy_dir,

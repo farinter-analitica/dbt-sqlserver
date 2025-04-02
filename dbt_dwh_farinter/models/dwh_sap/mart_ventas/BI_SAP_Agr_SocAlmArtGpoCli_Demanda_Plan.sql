@@ -2,7 +2,7 @@
 {{ 
     config(
 		as_columnstore=true,
-		tags=["periodo/mensual","periodo_unico/si", "automation/only"],
+		tags=["automation/periodo_mensual_inicio", "periodo_unico/si", "automation_only"],
 		materialized="table",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,

@@ -63,7 +63,7 @@ def get_customer_purchases(dwh_farinter_dl) -> pl.DataFrame:
     main_query = (
         pl.read_database(sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string())
         .lazy()
-        .collect(streaming=True)
+        .collect(engine="streaming")
     )
     return main_query
 
@@ -120,7 +120,7 @@ def compute_cooccurrence_matrix(
     Cada elemento (i, j) indica la suma de las coocurrencias (ponderadas por Frecuencia)
     entre el artículo i y el artículo j.
     """
-    n_items = user_item_matrix.shape[1]
+    n_items = user_item_matrix.shape[1] if user_item_matrix.shape is not None else 0
     # Inicializar la matriz de coocurrencia en formato LIL (fácil de modificar)
     cooccurrence = sp.lil_matrix((n_items, n_items), dtype=np.int32)
 
@@ -152,7 +152,7 @@ def compute_lift_matrix(
       - frecuencia(i) es el número (ponderado) de usuarios que compraron el artículo i.
       - total_usuarios es el número total de clientes.
     """
-    total_users = user_item_matrix.shape[0]
+    total_users = user_item_matrix.shape[0] if user_item_matrix.shape is not None else 0
     # Calcular la frecuencia de cada artículo (suma de los pesos por columna)
     item_counts = np.array(
         user_item_matrix.sum(axis=0)
@@ -230,7 +230,7 @@ def generate_recommendations(
     idx_to_item = {i: iid for iid, i in item_to_idx.items()}
 
     recommendations = deque()
-    n_users = user_item_matrix.shape[0]
+    n_users = user_item_matrix.shape[0] if user_item_matrix.shape is not None else 0
 
     # Procesar usuarios en bloques para mantener escalabilidad
     for batch_start in range(0, n_users, batch_size):

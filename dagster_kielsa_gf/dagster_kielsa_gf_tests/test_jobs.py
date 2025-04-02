@@ -19,7 +19,7 @@ asset_spec: AssetSpec
 warnings.filterwarnings("ignore", message="validators are deprecated")
 
 
-def test_all_assets_assigned_to_a_job():
+def test_all_assets_automated():
     # Inspect the Definitions object to find assets without jobs
     all_assets_specs = set()
     all_auto_stop_assets_specs = set()
@@ -108,4 +108,4 @@ def test_all_assets_assigned_to_a_job():
 
 
 if __name__ == "__main__":
-    test_all_assets_assigned_to_a_job()
+    test_all_assets_automated()

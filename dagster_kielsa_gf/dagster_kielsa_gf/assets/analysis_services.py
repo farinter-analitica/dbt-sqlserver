@@ -13,6 +13,7 @@ from dagster import (
 
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, tags_repo
+from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 
 
 @asset(
@@ -42,7 +43,7 @@ def olap_ventas_kielsa_ejecucion(
 
 @asset(
     key_prefix=["DWH_TABULAR", "SSAS"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaPosicion"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaEncabezado"]),
@@ -64,18 +65,19 @@ def olap_ventas_kielsa_ejecucion(
         "hourly": Field(bool, is_required=False, default_value=False),
         "daily": Field(bool, is_required=False, default_value=False),
     },
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def olap_tabular_kielsa_general_ejecucion(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> None:
     if env_str == "prd":
-        if context.job_def.tags.get(
-            tags_repo.Hourly.key
+        if context.run_tags.get(
+            tags_repo.AutomationHourly.key
         ) is not None or context.op_execution_context.op_config.get("hourly"):
             dwh_farinter_dl.execute_and_commit(
                 "EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General_CadaHora';"
             )
-        elif context.job_def.tags.get(
+        elif context.run_tags.get(
             tags_repo.Daily.key
         ) is not None or context.op_execution_context.op_config.get("daily"):
             dwh_farinter_dl.execute_and_commit(
@@ -91,12 +93,13 @@ def olap_tabular_kielsa_general_ejecucion(
 
 @asset(
     key_prefix=["DWH_204", "SSAS"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Sugeridos_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_SugeridosResumen_Kielsa"]),
     ],
     description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP SUGERIDOS KIELSA';",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def olap_sugeridos_kielsa_ejecucion(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
@@ -111,7 +114,9 @@ def olap_sugeridos_kielsa_ejecucion(
 
 @asset(
     key_prefix=["DWH_204", "SSAS"],
-    tags=tags_repo.Daily.tag | tags_repo.Hourly.tag | tags_repo.HourlyAdditional.tag,
+    tags=tags_repo.Daily.tag
+    | tags_repo.AutomationHourly.tag
+    | tags_repo.HourlyAdditional.tag,
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Articulo_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_ArticuloPadre_Kielsa"]),
@@ -122,6 +127,7 @@ def olap_sugeridos_kielsa_ejecucion(
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Existencias_Kielsa"]),
     ],
     description="EXEC msdb.dbo.sp_start_job @job_name = 'OLAP EXISTENCIAS KIELSA';",
+    automation_condition=automation_hourly_delta_12_cron,
 )
 def olap_existencias_kielsa_ejecucion(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource

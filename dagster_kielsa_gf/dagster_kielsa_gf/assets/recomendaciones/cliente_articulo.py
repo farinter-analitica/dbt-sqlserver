@@ -112,7 +112,7 @@ def get_customer_purchases_for_recom(
     main_query = (
         pl.read_database(sql_query, dwh_farinter_dl.get_arrow_odbc_conn_string())
         .lazy()
-        .collect(streaming=True)
+        .collect(engine="streaming")
     )
     return main_query
 
@@ -502,7 +502,9 @@ def save_customer_recommendations(
 
 
 @graph(
-    tags=tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly,
+    tags=tags_repo.AutomationWeekly1
+    | tags_repo.UniquePeriod
+    | tags_repo.AutomationOnly,
     input_defs=[
         InputDefinition(
             name="BI_Kielsa_Hecho_FacturaPosicion",
@@ -538,7 +540,9 @@ DL_Kielsa_Cliente_ArticuloRecomendado = AssetsDefinition.from_graph(
         )
     },
     tags_by_output_name={
-        "result": tags_repo.Weekly | tags_repo.UniquePeriod | tags_repo.AutomationOnly
+        "result": tags_repo.AutomationWeekly1
+        | tags_repo.UniquePeriod
+        | tags_repo.AutomationOnly
     },
     automation_conditions_by_output_name={"result": automation_weekly_7_delta_1_cron},
     group_name="recomendaciones",
