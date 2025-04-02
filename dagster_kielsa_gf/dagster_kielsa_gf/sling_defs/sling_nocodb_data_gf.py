@@ -43,6 +43,10 @@ if os.environ.get("SLING_HOME_DIR") is None:
 )
 def nocodb_data_gf(context, sling: SlingResource):
     context.log.info(f"{replication_config=}")
+    # Esperar un tiempo promedio (60) en el que las personas terminan de llenar un campo.
+    # Menos 30 de inicializacion.
+    time.sleep(30)
+
     yield from sling.replicate(context=context)
 
 
@@ -95,10 +99,6 @@ def nocodb_data_gf_change_sensor(context: SensorEvaluationContext):
         # If this is the first run or there are new changes
         if not last_run_timestamp or state_string != last_run_timestamp.split("|")[0]:
             context.log.info(f"Detected changes {state_string}")
-
-            if last_run_timestamp:
-                # Esperar un tiempo promedio en el que las personas terminan de llenar un campo.
-                time.sleep(60)
 
             # Create a run request for the asset
             run_request = RunRequest(
