@@ -26,6 +26,7 @@ import inspect
 from typing import Dict, List, Optional, Any, Union
 from sqlalchemy import MetaData, Engine, Connection, create_engine
 from pathlib import Path
+from textwrap import dedent
 
 
 def get_caller_directory() -> str:
@@ -191,6 +192,12 @@ def generate_sling_yaml_from_source(
         if has_update_key:
             # Si existe la columna fecha_actualizado, usarla como update_key
             stream_entry["update_key"] = "fecha_actualizado"
+            stream_entry["sql"] = dedent(
+                f"""
+                select * from {full_table_name} 
+                where {update_key} > coalesce({{incremental_value}}::timestamp, '2001-01-01'::timestamp) - INTERVAL '1 day'
+                """
+            )
 
         streams[full_table_name] = stream_entry
 
