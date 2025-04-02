@@ -9,12 +9,29 @@ defaults:
   target_options:
     #table_ddl: create table "nocodb_data_gf"."{stream_schema}_{stream_table}" ({col_types})
     column_casing: snake
+    adjust_column_type: true
   source_options:
     flatten: true
 
 streams:
   #kielsa.*: #Esto da error si existe alguna tabla sin las columnas necesarias
   kielsa.dia_semana:
+    target_options:
+      table_keys:
+        primary: [id]
+
   kielsa.sucursal:
+    target_options:
+      table_keys:
+        primary: [suc_id, emp_id]
+
   kielsa.sucursal_horario_dia:
+    target_options:
+      table_keys:
+        primary: [suc_id, emp_id, dia_id]
+
+
   kielsa.sucursal_horario_periodo:
+    target_options:
+      table_keys:
+        primary: [suc_id, emp_id, fecha_desde]

@@ -31,6 +31,8 @@ tag_automation_mapping: dict[str, AutomationCondition] = {
     # tags_repo.Monthly.key: automation_monthly_start_delta_1_cron,  # Start of month
     # tags_repo.MonthlyEnd.key: automation_monthly_end_delta_1_cron,  # End of month
     # tags_repo.MonthlyStart.key: automation_monthly_start_delta_1_cron,  # Start of month
+    # Eager automations
+    tags_repo.AutomationEager.key: AutomationCondition.eager(),
 }
 
 

@@ -214,6 +214,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     AutomationWeekly1: Tags = Tags(key="automation/periodo_semanal_1", value="")
     """{"automation/periodo_semanal_1": ""} Lunes"""
 
+    AutomationEager: Tags = Tags(key="automation/eager", value="")
+    """{"automation/eager": ""}"""
+
     MultipleTags: Tags = Tags({"multiple/tags": "", "automation_only": ""})
     """{"multiple/tags": "", "automation_only": ""}"""
 

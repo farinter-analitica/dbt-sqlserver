@@ -3,7 +3,7 @@
 {{ 
     config(
 		as_columnstore=true,
-		tags=["periodo/diario"],
+		tags=["automation/eager"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
@@ -18,30 +18,63 @@
 	) 
 }}
 
-{#
+
 {%- if is_incremental() %}
-	{%- set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -30, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+	{%- set last_date = run_single_value_query_on_relation_and_return(
+        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -2, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this,
+        relation_not_found_value='19000101'|string)|string %}
 {%- else %}
 	{%- set last_date = '19000101' %}
 {%- endif %}
-#}
+
 WITH
+nocodb_horarios AS (
+    SELECT h.[id],
+            h.[emp_id],
+            h.[suc_id],
+            h.[dia_id],
+            cast(
+                cast(
+                    '1900-01-01T' + SUBSTRING(h.h_apertura, 12, 8) + 
+                    STUFF(SUBSTRING(h.h_apertura, 21, 5), 4, 0, ':') AS datetimeoffset
+                ) AT TIME ZONE 'Central America Standard Time' AS time
+            ) AS [h_apertura],
+            cast(
+                cast(
+                    '1900-01-01T' + SUBSTRING(h.h_cierre, 12, 8) + 
+                    STUFF(SUBSTRING(h.h_cierre, 21, 5), 4, 0, ':') AS datetimeoffset
+                ) AT TIME ZONE 'Central America Standard Time' AS time
+            ) AS [h_cierre],
+            h.[fecha_carga],
+            h.[fecha_actualizado],
+            ns.es_activa,
+            ns.es_24_horas,
+            ns.jop_nombre,
+            ns.supervisor_nombre
+    FROM [DL_FARINTER].[nocodb_data_gf].[kielsa_sucursal_horario_dia] h -- {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_sucursal_horario_dia') }}
+    INNER JOIN [DL_FARINTER].[nocodb_data_gf].[kielsa_sucursal] ns -- {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_sucursal') }}
+    ON ns.emp_id=h.emp_id
+    AND ns.suc_id=h.suc_id
+    WHERE h.fecha_actualizado >= '{{last_date}}'
+        
+),
+
 Horario_Bruto AS 
 (
 
     SELECT 
-        CAST(1 AS INT) AS Emp_Id,
+        CAST(h.emp_id AS INT) AS Emp_Id,
         CAST(h.Suc_Id AS INT) AS Suc_Id,
         h.dia_id as Dia_Semana_Iso_Id, 
-		h.H_Apertura,
-		h.H_Cierre,
+        H.h_apertura AS H_Apertura,
+        H.h_cierre AS H_Cierre,
         CAST(h.H_Apertura AS datetime) AS FH_Apertura,
         CASE WHEN h.H_Apertura > h.H_Cierre 
 			THEN DATEADD(DAY,1,CAST(h.H_Cierre  AS datetime))
 			ELSE CAST(h.H_Cierre  AS datetime) END AS FH_Cierre
 		, 
 		CASE WHEN h.H_Cierre > h.H_Apertura THEN 0 ELSE 1 END AS Es_Cierre_Dia_Siguiente,
-        h.activa,
+        h.es_activa,
         s.Usuario_Supervisor_Id as Supervisor_Id,
         u.Usuario_Nombre as Supervisor_Nombre
         -- CASE 
@@ -50,10 +83,10 @@ Horario_Bruto AS
         --     THEN 1 ELSE 0 
         -- END AS Es_24_Horas
 		--select top 100 *
-    FROM [DL_FARINTER].[excel].[DL_Kielsa_Horario_Temp] h -- {{ source('DL_FARINTER_excel', 'DL_Kielsa_Horario_Temp') }}
+    FROM nocodb_horarios h 
     LEFT JOIN [BI_FARINTER].[dbo].[BI_Kielsa_Dim_Sucursal] s -- {{ ref('BI_Kielsa_Dim_Sucursal') }}
-        ON CAST(h.Suc_Id AS INT) = s.Sucursal_Id
-        AND s.Emp_Id = 1
+        ON h.Suc_Id = s.Sucursal_Id
+        AND s.Emp_Id = h.Emp_Id
     LEFT JOIN [BI_FARINTER].[dbo].[BI_Kielsa_Dim_Usuario] u -- {{ ref('BI_Kielsa_Dim_Usuario') }}
         ON s.Usuario_Supervisor_Id = u.Usuario_Id
         AND u.Emp_Id = s.Emp_Id
@@ -78,7 +111,7 @@ Horarios AS
             THEN 1 ELSE 0 
         END AS Es_24_Horas,
 		ROUND(DATEDIFF(SECOND, CAST('19000101' AS DATETIME) , FH_Cierre) / 3600.0,2) AS Horas_Cero_Hasta_Cierre,
-        activa AS Es_Activa,
+        es_activa AS Es_Activa,
         Supervisor_Id,
         Supervisor_Nombre
 		--select top 100 *
