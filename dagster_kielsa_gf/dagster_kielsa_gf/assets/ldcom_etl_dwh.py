@@ -35,16 +35,15 @@ def DL_Kielsa_FacturaEncabezado(
         from_date = datetime.fromisoformat(
             context.op_execution_context.op_config.get("p_fecha_desde")
         ).date()
-    elif context.run_tags.get(tags_repo.Daily.key) is not None:
+    elif tags_repo.Daily.key in context.run_tags:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.run_tags.get(tags_repo.HourlyAdditional.key) is not None or (
-        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
-        and datetime.now().hour not in [12, 4]
+    elif tags_repo.HourlyAdditional.key in context.run_tags or (
+        tags_repo.Hourly.key in context.run_tags and datetime.now().hour not in [12, 4]
     ):  # Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
-    elif context.run_tags.get(tags_repo.AutomationHourly.key) is not None:
+    elif tags_repo.Hourly.key in context.run_tags:
         from_date = datetime.now().date() - timedelta(days=1)
-    elif context.run_tags.get(tags_repo.Monthly.key) is not None:
+    elif tags_repo.Monthly.key in context.run_tags:
         from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(
             day=1
         )
@@ -78,16 +77,15 @@ def DL_Kielsa_FacturasPosiciones(
         from_date = datetime.fromisoformat(
             context.op_execution_context.op_config.get("p_fecha_desde")
         ).date()
-    elif context.run_tags.get(tags_repo.Daily.key) is not None:
+    elif tags_repo.Daily.key in context.run_tags:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.run_tags.get(tags_repo.HourlyAdditional.key) is not None or (
-        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
-        and datetime.now().hour not in [12, 4]
+    elif tags_repo.HourlyAdditional.key in context.run_tags or (
+        tags_repo.Hourly.key in context.run_tags and datetime.now().hour not in [12, 4]
     ):  # Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
-    elif context.run_tags.get(tags_repo.AutomationHourly.key) is not None:
+    elif tags_repo.Hourly.key in context.run_tags:
         from_date = datetime.now().date() - timedelta(days=1)
-    elif context.run_tags.get(tags_repo.Monthly.key) is not None:
+    elif tags_repo.Monthly.key in context.run_tags:
         from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(
             day=1
         )
@@ -120,16 +118,15 @@ def DL_Kielsa_FacturaPosicionDescuento(
         from_date = datetime.fromisoformat(
             context.op_execution_context.op_config.get("p_fecha_desde")
         ).date()
-    elif context.run_tags.get(tags_repo.Daily.key) is not None:
+    elif tags_repo.Daily.key in context.run_tags:
         from_date = datetime.now().date() - timedelta(days=7)
-    elif context.run_tags.get(tags_repo.HourlyAdditional.key) is not None or (
-        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
-        and datetime.now().hour not in [12, 4]
+    elif tags_repo.HourlyAdditional.key in context.run_tags or (
+        tags_repo.Hourly.key in context.run_tags and datetime.now().hour not in [12, 4]
     ):  # Actualizar desde dia de ayer a las 12 y las 4 de la noche
         from_date = datetime.now().date() - timedelta(days=0)
-    elif context.run_tags.get(tags_repo.AutomationHourly.key) is not None:
+    elif tags_repo.Hourly.key in context.run_tags:
         from_date = datetime.now().date() - timedelta(days=1)
-    elif context.run_tags.get(tags_repo.Monthly.key) is not None:
+    elif tags_repo.Monthly.key in context.run_tags:
         from_date = (datetime.now().date().replace(day=1) - timedelta(days=1)).replace(
             day=1
         )
@@ -161,8 +158,8 @@ def DL_Kielsa_Monedero_Tarjetas_Replica(
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.run_tags.get(tags_repo.Daily.key) is not None
-        or context.run_tags.get(tags_repo.Monthly.key) is not None
+        tags_repo.Daily.key in context.run_tags
+        or tags_repo.Monthly.key in context.run_tags
     ):
         actualizar_todo = 1
     else:
@@ -198,13 +195,13 @@ def DL_Kielsa_Articulo(
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.run_tags.get(tags_repo.Daily.key) is not None
-        or context.run_tags.get(tags_repo.Monthly.key) is not None
+        tags_repo.Daily.key in context.run_tags
+        or tags_repo.Monthly.key in context.run_tags
     ):
         actualizar_todo = 1
     elif (
-        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
-        or context.run_tags.get(tags_repo.HourlyAdditional.key) is not None
+        tags_repo.Hourly.key in context.run_tags
+        or tags_repo.HourlyAdditional.key in context.run_tags
     ):
         actualizar_todo = 0
 
@@ -238,13 +235,13 @@ def DL_Kielsa_Articulo_x_Bodega(
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.run_tags.get(tags_repo.Daily.key) is not None
-        or context.run_tags.get(tags_repo.Monthly.key) is not None
+        tags_repo.Daily.key in context.run_tags
+        or tags_repo.Monthly.key in context.run_tags
     ):
         actualizar_todo = 1
     elif (
-        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
-        or context.run_tags.get(tags_repo.HourlyAdditional.key) is not None
+        tags_repo.Hourly.key in context.run_tags
+        or tags_repo.HourlyAdditional.key in context.run_tags
     ):
         actualizar_todo = 0
 
@@ -277,13 +274,13 @@ def DL_Kielsa_Articulo_x_Sucursal(
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
-        context.run_tags.get(tags_repo.Daily.key) is not None
-        or context.run_tags.get(tags_repo.Monthly.key) is not None
+        tags_repo.Daily.key in context.run_tags
+        or tags_repo.Monthly.key in context.run_tags
     ):
         actualizar_todo = 1
     elif (
-        context.run_tags.get(tags_repo.AutomationHourly.key) is not None
-        or context.run_tags.get(tags_repo.HourlyAdditional.key) is not None
+        tags_repo.Hourly.key in context.run_tags
+        or tags_repo.HourlyAdditional.key in context.run_tags
     ):
         actualizar_todo = 0
 
