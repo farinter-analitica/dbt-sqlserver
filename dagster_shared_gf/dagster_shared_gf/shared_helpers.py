@@ -1,5 +1,6 @@
 from collections import deque
 from datetime import timedelta
+import datetime as dt
 import textwrap
 from typing import Literal, Optional
 from dagster import (
@@ -13,6 +14,8 @@ from dagster_shared_gf.shared_constants import (
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_now_datetime
 from dagster_shared_gf.shared_variables import tags_repo
 import polars as pl
+from pathlib import Path
+import os
 
 
 def get_unique_source_assets(all_assets, source_assets):
@@ -496,3 +499,103 @@ class SQLScriptGenerator:
             );""")
 
         return sql
+
+
+class ParquetCacheHandler:
+    """
+    Handles caching of dataframes to parquet files with recency validation.
+    """
+
+    def __init__(self, cache_dir: str = ".cache", filename: str = "transactions_data"):
+        """
+        Initialize the cache handler.
+
+        Args:
+            cache_dir: Directory to store cache files
+            filename: Base filename for the cache file
+        """
+        self.cache_dir = Path(cache_dir)
+        self.filename = filename
+        # Create cache directory if it doesn't exist
+        os.makedirs(self.cache_dir, exist_ok=True)
+
+    def _get_cache_path(self) -> Path:
+        """Generate cache file path"""
+        return self.cache_dir / f"{self.filename}.parquet"
+
+    def _get_metadata_path(self) -> Path:
+        """Generate metadata file path for the cache"""
+        return self.cache_dir / f"{self.filename}.meta"
+
+    def get_cached_data(self, max_age_seconds: int = 3600) -> Optional[pl.DataFrame]:
+        """
+        Try to get data from cache if it exists and is recent enough.
+
+        Args:
+            max_age_seconds: Maximum age of cache in seconds (default: 1 hour)
+
+        Returns:
+            DataFrame if valid cache exists, None otherwise
+        """
+        cache_path = self._get_cache_path()
+        metadata_path = self._get_metadata_path()
+
+        # Check if cache file exists
+        if not cache_path.exists():
+            return None
+
+        # Check if cache is recent enough
+        if metadata_path.exists():
+            # Use metadata file for timestamp (cross-platform compatible)
+            try:
+                with open(metadata_path, "r") as f:
+                    timestamp_str = f.read().strip()
+                    cache_time = dt.datetime.fromisoformat(timestamp_str)
+
+                cache_age = dt.datetime.now() - cache_time
+
+                if cache_age.total_seconds() > max_age_seconds:
+                    return None
+            except Exception:
+                # If metadata file is corrupted, fall back to file system timestamp
+                file_mtime = dt.datetime.fromtimestamp(cache_path.stat().st_mtime)
+                cache_age = dt.datetime.now() - file_mtime
+
+                if cache_age.total_seconds() > max_age_seconds:
+                    return None
+        else:
+            # Fall back to file system timestamp if no metadata file
+            file_mtime = dt.datetime.fromtimestamp(cache_path.stat().st_mtime)
+            cache_age = dt.datetime.now() - file_mtime
+
+            if cache_age.total_seconds() > max_age_seconds:
+                return None
+
+        try:
+            # Load cached data
+            return pl.read_parquet(cache_path)
+        except Exception as e:
+            print(f"Error reading cache: {e}")
+            return None
+
+    def save_to_cache(self, df: pl.DataFrame) -> None:
+        """
+        Save dataframe to cache.
+
+        Args:
+            df: DataFrame to cache
+        """
+        cache_path = self._get_cache_path()
+        metadata_path = self._get_metadata_path()
+
+        try:
+            # Save the dataframe
+            df.write_parquet(cache_path)
+
+            # Save metadata with timestamp in ISO format (cross-platform compatible)
+            with open(metadata_path, "w") as f:
+                f.write(dt.datetime.now().isoformat())
+
+            print(f"Data cached to {cache_path}")
+        except Exception as e:
+            print(f"Error saving to cache: {e}")
