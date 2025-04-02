@@ -20,7 +20,7 @@ testpaths = [
 python_version = "3.12" # Explicitly specify the required Python version
 
 [tool.uv]
-config-settings = { editable_mode = "compat" }
+config-settings = { editable_mode = "compat" } # better-toml-ignore
 
 
 [tool.uv.workspace]
