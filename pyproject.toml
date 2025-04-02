@@ -9,6 +9,7 @@ filterwarnings = [
     "ignore:.*'soft_unicode' has been renamed to 'soft_str'*:DeprecationWarning",
     "ignore:unclosed file .*:ResourceWarning",
     "ignore::DeprecationWarning:.*Pydantic V1 style `@validator` validators are deprecated..*",
+    "ignore::BetaWarning:.*Parameter `use_user_code_server` .*",
 ]
 testpaths = [
     "dagster_shared_gf/dagster_shared_gf_tests",
