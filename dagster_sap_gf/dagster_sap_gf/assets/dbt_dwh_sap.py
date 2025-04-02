@@ -98,8 +98,10 @@ dbt_group_assets.append(
     )
 )
 
-all_assets = tuple(dbt_group_assets)
 
-all_asset_checks: Sequence[AssetChecksDefinition] = (
-    load_asset_checks_from_current_module()
-)
+if __name__ == "__main__":
+    all_assets = tuple(dbt_group_assets)
+
+    all_asset_checks: Sequence[AssetChecksDefinition] = (
+        load_asset_checks_from_current_module()
+    )

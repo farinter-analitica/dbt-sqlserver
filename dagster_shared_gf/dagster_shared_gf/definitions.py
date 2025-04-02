@@ -83,12 +83,19 @@ class ACSSensorFactory:
     def _initialize_base_selections(self):
         """Initialize base selections without exclusions"""
         # Define base selections
-        self.base_selections["hourly"] = AssetSelection.tag(
-            key=tags_repo.AutomationHourly.key,
-            value=tags_repo.AutomationHourly.value,
-        ) | AssetSelection.tag(
-            key=tags_repo.AutomationHourlyAdditional.key,
-            value=tags_repo.AutomationHourlyAdditional.value,
+        self.base_selections["hourly"] = (
+            AssetSelection.tag(
+                key=tags_repo.AutomationHourly.key,
+                value=tags_repo.AutomationHourly.value,
+            )
+            | AssetSelection.tag(
+                key=tags_repo.AutomationHourlyAdditional.key,
+                value=tags_repo.AutomationHourlyAdditional.value,
+            )
+            | AssetSelection.tag(
+                key=tags_repo.AutomationEager.key,
+                value=tags_repo.AutomationEager.value,
+            )
         )
 
         self.base_selections["daily"] = AssetSelection.tag(

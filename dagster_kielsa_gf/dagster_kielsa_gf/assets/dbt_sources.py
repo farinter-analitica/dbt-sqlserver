@@ -1,10 +1,6 @@
 from typing import Mapping, Any, Sequence
 from dagster import AssetSpec
 from dagster_dbt import DagsterDbtTranslator
-from dagster_shared_gf.resources.dbt_resources import (
-    dbt_manifest,
-    MyDbtSourceTranslator,
-)
 
 
 def build_dbt_sources(
@@ -37,11 +33,10 @@ def build_dbt_sources(
     ]
 
 
-source_assets: Sequence[AssetSpec] = build_dbt_sources(
-    dbt_manifest, MyDbtSourceTranslator()
-)
-all_assets: Sequence[AssetSpec] = source_assets
-
+source_assets: Sequence[AssetSpec] = []
+# build_dbt_sources(
+#     dbt_manifest, MyDbtSourceTranslator()
+# )
 if __name__ == "__main__":
     # print(source_assets)
     # print([asset.tags.keys() for asset in source_assets])

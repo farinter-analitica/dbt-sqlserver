@@ -7,7 +7,6 @@ from dagster import (
 )
 
 from dagster_sap_gf.assets import (
-    dbt_dwh_sap,
     dbt_sources,
     sap_etl_dwh,
     sap_etl_dwh_sp,
@@ -41,7 +40,6 @@ from dagster_shared_gf.shared_helpers import (
 )
 
 all_assets: Sequence[AssetsDefinition | Any] = (
-    *dbt_dwh_sap.all_assets,
     *sap_etl_dwh.all_assets,
     *sap_etl_dwh_sp.all_assets,
     *dlt_all_assets,
@@ -52,7 +50,6 @@ all_assets: Sequence[AssetsDefinition | Any] = (
 
 all_asset_checks = (
     *sap_etl_dwh.all_asset_checks,
-    *dbt_dwh_sap.all_asset_checks,
     *sap_etl_dwh_sp.all_asset_checks,
     *control_demanda.all_asset_checks,
     *analysis_services.all_asset_checks,

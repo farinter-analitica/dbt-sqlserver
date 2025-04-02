@@ -11,7 +11,6 @@ from dagster_kielsa_gf import job_control_replicas, jobs
 from dagster_kielsa_gf.assets import (
     analysis_services,
     cliente_general,
-    dbt_dwh_kielsa,
     dbt_example,
     dbt_sources,
     knime_asset_factory,
@@ -41,7 +40,6 @@ from dagster_shared_gf.shared_variables import tags_repo
 
 all_assets = (
     *dbt_example.all_assets,
-    *dbt_dwh_kielsa.all_assets,
     *ldcom_etl_dwh_sp.all_assets,
     *knime_asset_factory.all_assets,
     *recetas_libros_etl_dwh.all_assets,
@@ -54,7 +52,6 @@ all_assets = (
 )
 all_asset_checks = (
     *dbt_example.all_asset_checks,
-    *dbt_dwh_kielsa.all_asset_checks,
     *ldcom_etl_dwh_sp.all_asset_checks,
     *knime_asset_factory.all_asset_checks,
     *recetas_libros_etl_dwh.all_asset_checks,

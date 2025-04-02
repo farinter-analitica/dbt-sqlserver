@@ -40,7 +40,6 @@ def build_dbt_sources(
 source_assets: Sequence[AssetSpec] = build_dbt_sources(
     dbt_manifest, MyDbtSourceTranslator()
 )  # empezo a funcionar en nueva version
-all_assets = source_assets
 
 if __name__ == "__main__":
     # print(source_assets)

@@ -81,7 +81,10 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
         """
         if dbt_resource_props["resource_type"] == "source":
             tags = dbt_resource_props.get("config", {}).get("tags", [])
-            return normalize_tags({tag: "" for tag in tags})
+            return {
+                **normalize_tags({tag: "" for tag in tags}),
+                f"dbt_source_name/{dbt_resource_props['source_name']}": "",
+            }
         tags = dbt_resource_props.get("tags", [])
         return (
             normalize_tags({tag: "" for tag in tags})
@@ -101,11 +104,7 @@ class MyDbtSourceTranslator(DagsterDbtTranslator):
 
         """
         if dbt_resource_props["resource_type"] in ["model", "source", "snapshot"]:
-            configured_database = (
-                dbt_resource_props.get("source_name")
-                if dbt_resource_props["resource_type"] == "source"
-                else dbt_resource_props.get("database")
-            )
+            configured_database = dbt_resource_props.get("database")
             configured_schema = dbt_resource_props.get("schema")
             configured_name = dbt_resource_props["name"]
             if configured_schema is not None and configured_database is not None:

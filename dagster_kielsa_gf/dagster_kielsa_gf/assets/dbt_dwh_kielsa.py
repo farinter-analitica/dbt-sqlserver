@@ -8,6 +8,7 @@ from dagster import (
     AssetExecutionContext,
     BackfillPolicy,
     Config,
+    load_assets_from_current_module,
     load_asset_checks_from_current_module,
 )
 from dagster_dbt import DbtCliResource, dbt_assets
@@ -135,8 +136,18 @@ def CRM_Kielsa_RecetasContactarHist(
     )
 
 
-all_assets = tuple(dbt_group_assets + [CRM_Kielsa_RecetasContactarHist])
+if __name__ == "__main__":
+    all_assets = tuple(load_assets_from_current_module())
 
-all_asset_checks: Sequence[AssetChecksDefinition] = (
-    load_asset_checks_from_current_module()
-)
+    all_asset_checks: Sequence[AssetChecksDefinition] = (
+        load_asset_checks_from_current_module()
+    )
+    import dagster as dg
+
+    print(
+        [
+            asset.asset_deps
+            for asset in all_assets
+            if isinstance(asset, dg.AssetsDefinition)
+        ]
+    )
