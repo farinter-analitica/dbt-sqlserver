@@ -75,8 +75,7 @@ knime_workflows_daily_job: UnresolvedAssetJobDefinition = define_asset_job(
 dlt_dwh_kielsa_daily_assets: AssetSelection = (
     AssetSelection.groups("dlt_mongo_db_crm_hn_etl_dwh")
     & AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
-    - seleccion_no_programar
-)
+) - seleccion_no_programar
 dlt_dwh_kielsa_daily_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="dlt_dwh_kielsa_daily_job",
     selection=dlt_dwh_kielsa_daily_assets,
@@ -119,8 +118,7 @@ kielsa_daily_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
 # Definir assets que tengan la etiqueta por_hora y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_hourly_assets: AssetSelection = (
     AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
-    - seleccion_no_programar
-)
+) - seleccion_no_programar
 kielsa_hourly_assets = (
     kielsa_hourly_assets
     | (
@@ -130,8 +128,7 @@ kielsa_hourly_assets = (
             value=tags_repo.UniquePeriod.value,
         ).required_multi_asset_neighbors()
     )
-    - seleccion_no_programar
-)
+) - seleccion_no_programar
 kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_hourly_job",
     selection=kielsa_hourly_assets,
@@ -171,8 +168,7 @@ kielsa_start_of_month_assets = (
             value=tags_repo.UniquePeriod.value,
         ).required_multi_asset_neighbors()
     )
-    - seleccion_no_programar
-)
+) - seleccion_no_programar
 kielsa_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_start_of_month_job",
     selection=kielsa_start_of_month_assets,
@@ -196,8 +192,7 @@ kielsa_hourly_additional_assets = (
             value=tags_repo.UniquePeriod.value,
         ).required_multi_asset_neighbors()
     )
-    - seleccion_no_programar
-)
+) - seleccion_no_programar
 kielsa_hourly_additional_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_hourly_additional_job",
     selection=kielsa_hourly_additional_assets,

@@ -123,11 +123,21 @@ class ACSSensorFactory:
         )
 
         for name, selection in self.base_selections.items():
-            self.base_selections[name] = selection | (
-                selection.upstream(include_self=False).required_multi_asset_neighbors()
-                - selection.upstream(include_self=False)
-                .tag(key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value)
-                .required_multi_asset_neighbors()
+            self.base_selections[name] = (
+                selection
+                | (
+                    selection.upstream(
+                        include_self=False
+                    ).required_multi_asset_neighbors()
+                    - selection.upstream(include_self=False)
+                    .tag(
+                        key=tags_repo.UniquePeriod.key,
+                        value=tags_repo.UniquePeriod.value,
+                    )
+                    .required_multi_asset_neighbors()
+                )
+            ) - AssetSelection.tag(
+                key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
             )
 
     def _get_final_selections(self):
@@ -168,7 +178,9 @@ class ACSSensorFactory:
         for name, selection in final_selections.items():
             all_other_selections = all_other_selections - selection
 
-        final_selections["all_other"] = all_other_selections
+        final_selections["all_other"] = all_other_selections - AssetSelection.tag(
+            key=tags_repo.DetenerCarga.key, value=tags_repo.DetenerCarga.value
+        )
 
         return final_selections
 
