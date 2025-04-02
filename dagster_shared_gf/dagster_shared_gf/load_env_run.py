@@ -16,7 +16,7 @@ def load_env_vars(
 
     if os.path.exists(env_path):
         print(f"Loading .env file from {env_path}.")
-        load_dotenv(env_path)
+        load_dotenv(env_path, override=True)
     else:
         print(f".env file not found in the script directory {env_path}.")
 

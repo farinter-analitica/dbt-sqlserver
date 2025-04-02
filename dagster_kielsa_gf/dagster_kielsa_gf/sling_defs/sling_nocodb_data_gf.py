@@ -27,7 +27,9 @@ from dagster_shared_gf.shared_constants import (
 from dagster_shared_gf.load_env_run import load_env_vars, os
 
 replication_config = Path(__file__).parent / "sling_nocodb_data_gf.yaml"
-if os.environ.get("SLING_HOME_DIR") is None:
+if not os.environ.get("SLING_HOME_DIR") or not os.environ.get(
+    "DAGSTER_DWH_FARINTER_IP"
+):
     load_env_vars()
 
 
