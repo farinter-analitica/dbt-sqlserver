@@ -119,6 +119,7 @@ def generate_sling_yaml_from_source(
     source: str = "NOCODB_DATA_GF",
     target: str = "DAGSTER_DWH_FARINTER",
     defaults: Optional[Dict[str, Any]] = None,
+    update_key: str = "fecha_actualizado",
 ) -> str:
     """
     Inspecciona el esquema PostgreSQL dado (usando reflexión de SQLAlchemy)
@@ -132,9 +133,12 @@ def generate_sling_yaml_from_source(
         source: Nombre del origen de datos.
         target: Nombre del destino de datos.
         defaults: Configuración predeterminada. Si es None, usa la configuración por defecto.
+        update_key: Nombre de la columna de actualización.
 
     Returns:
         str: Ruta al archivo YAML generado.
+
+    Se omiten tablas sin claves primarias o columna de actualización.
     """
     if defaults is None:
         defaults = {
@@ -171,12 +175,12 @@ def generate_sling_yaml_from_source(
         # Obtener la lista de columnas de clave primaria
         pk_columns: List[str] = [str(col.name) for col in table.primary_key]
 
-        if not pk_columns:
-            continue  # Omitir tablas sin claves primarias
-
         # Verificar si existe la columna update_key en la tabla
         column_names = [col.name for col in table.columns]
-        has_update_key = "fecha_actualizado" in column_names
+        has_update_key = update_key in column_names
+
+        if not pk_columns and not has_update_key:
+            continue  # Omitir tablas sin claves primarias y fecha de actualización
 
         # Construir la entrada de stream por tabla
         stream_entry: Dict[str, Any] = {
