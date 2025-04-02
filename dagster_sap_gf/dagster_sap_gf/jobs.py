@@ -1,6 +1,7 @@
 from dagster import AssetSelection, JobDefinition, RunConfig, define_asset_job
 
 from dagster_sap_gf.assets.dbt_dwh_sap import MyDbtConfig
+from dagster_shared_gf.definitions import ACSSensorFactory
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
     UnresolvedAssetJobDefinition,
@@ -99,6 +100,20 @@ sap_dwh_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     config=execution_run_config_default,
 )
 
+automation_sensors = ACSSensorFactory()
+
+sap_hourly_acs_job: UnresolvedAssetJobDefinition = define_asset_job(
+    name="sap_hourly_acs_job",
+    selection=automation_sensors.base_selections["hourly"],
+    config=execution_run_config_default,
+    tags=tags_repo.AutomationHourly
+    | {
+        "dagster/max_runtime": (100 * 60)
+    },  # max 100 minutes in seconds, then mark it as failed.)
+    run_tags=tags_repo.Hourly
+    | tags_repo.AutomationHourly
+    | {"dagster/max_runtime": (100 * 60)},
+)
 
 all_jobs: tuple[JobDefinition | UnresolvedAssetJobDefinition, ...] = (
     get_all_instances_of_class(

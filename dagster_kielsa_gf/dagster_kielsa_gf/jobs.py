@@ -12,6 +12,7 @@ from dagster_shared_gf.shared_variables import (
     tags_repo,
 )
 from dagster_shared_gf.utils import clean_storage
+from dagster_shared_gf.definitions import ACSSensorFactory
 
 clean_storage_job = clean_storage.clean_storage_job
 
@@ -127,7 +128,7 @@ kielsa_hourly_assets = (
         - AssetSelection.tag(
             key=tags_repo.UniquePeriod.key,
             value=tags_repo.UniquePeriod.value,
-        )
+        ).required_multi_asset_neighbors()
     )
     - seleccion_no_programar
 )
@@ -142,6 +143,21 @@ kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     run_tags=tags_repo.Hourly.tag | {"dagster/max_runtime": (100 * 60)},
 )
 
+automation_sensors = ACSSensorFactory()
+
+kielsa_hourly_acs_job: UnresolvedAssetJobDefinition = define_asset_job(
+    name="kielsa_hourly_acs_job",
+    selection=automation_sensors.base_selections["hourly"],
+    config=execution_run_config_default,
+    tags=tags_repo.AutomationHourly
+    | {
+        "dagster/max_runtime": (100 * 60)
+    },  # max 100 minutes in seconds, then mark it as failed.)
+    run_tags=tags_repo.Hourly
+    | tags_repo.AutomationHourly
+    | {"dagster/max_runtime": (100 * 60)},
+)
+
 # Definir assets que tengan la etiqueta mensual y todos los dependientes que no tengan la etiqueta de periodo unico
 kielsa_start_of_month_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Monthly.key, value=tags_repo.Monthly.value
@@ -153,7 +169,7 @@ kielsa_start_of_month_assets = (
         - AssetSelection.tag(
             key=tags_repo.UniquePeriod.key,
             value=tags_repo.UniquePeriod.value,
-        )
+        ).required_multi_asset_neighbors()
     )
     - seleccion_no_programar
 )
@@ -178,7 +194,7 @@ kielsa_hourly_additional_assets = (
         - AssetSelection.tag(
             key=tags_repo.UniquePeriod.key,
             value=tags_repo.UniquePeriod.value,
-        )
+        ).required_multi_asset_neighbors()
     )
     - seleccion_no_programar
 )

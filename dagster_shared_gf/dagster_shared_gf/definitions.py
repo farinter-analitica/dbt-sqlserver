@@ -117,10 +117,10 @@ class ACSSensorFactory:
 
         for name, selection in self.base_selections.items():
             self.base_selections[name] = selection | (
-                selection.downstream(include_self=False)
-                - selection.downstream(include_self=False).tag(
-                    key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
-                )
+                selection.upstream(include_self=False).required_multi_asset_neighbors()
+                - selection.upstream(include_self=False)
+                .tag(key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value)
+                .required_multi_asset_neighbors()
             )
 
     def _get_final_selections(self):
