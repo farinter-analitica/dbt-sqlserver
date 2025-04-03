@@ -24,7 +24,7 @@ import sys
 import yaml
 import inspect
 from typing import Dict, List, Optional, Any, Union
-from sqlalchemy import MetaData, Engine, Connection, create_engine
+import sqlalchemy as sql
 from pathlib import Path
 from textwrap import dedent
 
@@ -69,7 +69,9 @@ def get_caller_directory() -> str:
 
 
 def is_file_cache_valid(
-    filename: str, hours_threshold: float = 24.0, directory: Optional[str | Path] = None
+    filename: str,
+    seconds_threshold: float = 3600,
+    directory: Optional[str | Path] = None,
 ) -> bool:
     """
     Verifica si un archivo existe y si es más antiguo que un umbral de horas especificado.
@@ -77,11 +79,11 @@ def is_file_cache_valid(
 
     Args:
         filename: Nombre del archivo a verificar
-        hours_threshold: Umbral de horas para considerar un archivo como antiguo
+        seconds_threshold: Umbral de horas para considerar un archivo como antiguo
         directory: Directorio donde buscar el archivo. Si es None, usa el directorio del llamador.
 
     Returns:
-        bool: True si el archivo existe y no es más antiguo que hours_threshold, False en caso contrario
+        bool: True si el archivo existe y no es más antiguo que seconds_threshold, False en caso contrario
     """
     if directory is None:
         directory = get_caller_directory()
@@ -104,16 +106,16 @@ def is_file_cache_valid(
 
     # Calcular la diferencia en horas
     time_diff = now - mtime
-    hours_diff = time_diff.total_seconds() / 3600
+    seconds_diff = time_diff.total_seconds()
 
     # Determinar si el archivo es más antiguo que el umbral
-    is_old = hours_diff > hours_threshold
+    is_old = seconds_diff > seconds_threshold
 
     return exists and not is_old
 
 
 def generate_sling_yaml_from_source(
-    engine: Union[Engine, Connection],
+    engine: Union[sql.Engine, sql.Connection],
     source_schema: str,
     output_filename: str = "sling.yaml",
     output_dir: Optional[str | Path] = None,
@@ -159,7 +161,7 @@ def generate_sling_yaml_from_source(
     # Ruta completa al archivo de salida
     output_path = os.path.join(output_dir, output_filename)
 
-    metadata = MetaData()
+    metadata = sql.MetaData()
     # Reflejar tablas del esquema especificado
     metadata.reflect(bind=engine, schema=source_schema)
 
@@ -183,22 +185,43 @@ def generate_sling_yaml_from_source(
         if not pk_columns and not has_update_key:
             continue  # Omitir tablas sin claves primarias y fecha de actualización
 
-        # Construir la entrada de stream por tabla
-        stream_entry: Dict[str, Any] = {
-            "primary_key": pk_columns,
-            "target_options": {"table_keys": {"primary": pk_columns}},
+        # Convertir tipos problematicos, izquierda el nombre, derecha en la query
+        types_mapping: Dict[str, tuple] = {
+            "TIME": ("VARCHAR(20)", "::varchar(20)"),
+            "BOOLEAN": ("INTEGER", "::integer"),
         }
 
+        stream_entry: Dict[str, Any] = {}
         if has_update_key:
             # Si existe la columna fecha_actualizado, usarla como update_key
             stream_entry["update_key"] = "fecha_actualizado"
             stream_entry["sql"] = dedent(
                 f"""
-                select * from {full_table_name} 
-                where {update_key} > coalesce({{incremental_value}}::timestamp, '2001-01-01'::timestamp) - INTERVAL '1 day'
+                select 
+                    {
+                    ", ".join(
+                        [
+                            f"{col.name}{types_mapping.get(str(col.type), ('', ''))[1]}"
+                            for col in table.columns
+                        ]
+                    )
+                }
+                from {full_table_name} 
+                where {
+                    update_key
+                } > coalesce({{incremental_value}}::timestamp, '2001-01-01'::timestamp) - INTERVAL '1 day'
                 """
             )
+        else:
+            stream_entry["disabled"] = True
 
+        # Construir la entrada de stream por tabla
+        stream_entry["primary_key"] = pk_columns
+        stream_entry["target_options"] = {"table_keys": {"primary": pk_columns}}
+        stream_entry["columns"] = [
+            {str(col.name): str(types_mapping.get(str(col.type), (col.type, ""))[0])}
+            for col in table.columns
+        ]
         streams[full_table_name] = stream_entry
 
     # Construir la estructura de configuración YAML final
@@ -207,6 +230,7 @@ def generate_sling_yaml_from_source(
         "target": target,
         "defaults": defaults,
         "streams": streams,
+        "env": {"SLING_LOADED_AT_COLUMN": True},
     }
 
     # Escribir la configuración YAML al archivo
@@ -229,7 +253,7 @@ if __name__ == "__main__":
         output_file = sys.argv[3] if len(sys.argv) > 3 else "sling.yaml"
 
         # Crear el motor de conexión
-        engine = create_engine(connection_string)
+        engine = sql.create_engine(connection_string)
         generate_sling_yaml_from_source(engine, schema_name, output_file)
     else:
         # Comportamiento predeterminado cuando se ejecuta sin argumentos
