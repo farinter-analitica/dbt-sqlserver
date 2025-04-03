@@ -1,7 +1,6 @@
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
 
 from dagster import (
     AssetSelection,
@@ -13,10 +12,8 @@ from dagster import (
     define_asset_job,
     sensor,
     get_dagster_logger,
-    Config,
 )
 from dagster_sling import (
-    SlingResource,
     sling_assets,
 )
 
@@ -24,7 +21,10 @@ from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.resources.postgresql_resources import db_nocodb_data_gf
 from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import tags_repo
-from dagster_shared_gf.sling_shared.sling_resources import MyDagsterSlingTranslator
+from dagster_shared_gf.sling_shared.sling_resources import (
+    MyDagsterSlingTranslator,
+    MySlingResource,
+)
 from dagster_shared_gf.sling_shared.generate_yaml import (
     generate_sling_yaml_from_source,
     is_file_cache_valid,
@@ -41,10 +41,6 @@ if not os.environ.get("SLING_HOME_DIR") or not os.environ.get(
     "DAGSTER_DWH_FARINTER_IP"
 ):
     load_env_vars()
-
-
-class SlingLoadConfig(Config):
-    default_mode: Literal["incremental", "full-refresh"] = "incremental"
 
 
 def generate_sling_yaml():
@@ -96,15 +92,13 @@ with open(generate_sling_yaml(), "r") as file:
         group_name="nocodb_data_gf",
     ),
 )
-def nocodb_data_gf(
-    context: AssetExecutionContext, sling: SlingResource, config: SlingLoadConfig
-):
-    context.log.info(f"{replication_config=}")
+def nocodb_data_gf(context: AssetExecutionContext, sling: MySlingResource):
+    # context.log.info(f"{len(replication_config.keys())=}")
     # Esperar un tiempo promedio (60) en el que las personas terminan de llenar un campo.
     # Menos 30 de inicializacion.
     time.sleep(30)
 
-    if config.default_mode == "full-refresh":
+    if sling.default_mode == "full-refresh":
         replication_config["defaults"]["mode"] = "full-refresh"
 
     yield from sling.replicate(context=context, stream=True)
@@ -199,15 +193,15 @@ if __name__ == "__main__":
             print("Testing asset materialization...")
             result = materialize(
                 assets=[nocodb_data_gf],
-                run_config={
-                    "ops": {
-                        nocodb_data_gf.op.name: {
-                            "config": {"default_mode": "full-refresh"}
-                        }
-                    }
-                },
+                # run_config={
+                #     "ops": {
+                #         nocodb_data_gf.op.name: {
+                #             "config": {"default_mode": "full-refresh"}
+                #         }
+                #     }
+                # },
                 instance=instance,
-                resources={"sling": SlingResource()},
+                resources={"sling": MySlingResource(default_mode="full-refresh")},
             )
             print(result.all_events)
         else:
