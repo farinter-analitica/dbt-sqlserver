@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence, Iterable, Optional
+from typing import Any, Literal, Mapping, Sequence, Iterable, Optional
 from dagster import AssetKey, AssetSpec, AutomationCondition
 from dagster_shared_gf.shared_variables import Tags
-from dagster_sling import DagsterSlingTranslator
+from dagster_sling import DagsterSlingTranslator, SlingResource
 
 
 @dataclass
@@ -106,3 +106,7 @@ class MyDagsterSlingTranslator(DagsterSlingTranslator):
             Mapping[str, str]: The tags to apply to the assets
         """
         return self.tags or {}
+
+
+class MySlingResource(SlingResource):
+    default_mode: Literal["incremental", "full-refresh"] = "incremental"
