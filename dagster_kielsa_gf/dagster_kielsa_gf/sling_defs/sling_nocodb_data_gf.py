@@ -1,16 +1,19 @@
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from dagster import (
     AssetSelection,
     RunRequest,
     SensorEvaluationContext,
+    AssetExecutionContext,
     SensorResult,
     SkipReason,
     define_asset_job,
     sensor,
     get_dagster_logger,
+    Config,
 )
 from dagster_sling import (
     SlingResource,
@@ -30,6 +33,7 @@ from dagster_shared_gf.shared_constants import (
     running_default_sensor_status,
 )
 from dagster_shared_gf.load_env_run import load_env_vars, os
+import yaml
 
 logger = get_dagster_logger("sling_nocodb_data_gf")
 
@@ -38,38 +42,48 @@ if not os.environ.get("SLING_HOME_DIR") or not os.environ.get(
 ):
     load_env_vars()
 
-parent_path = Path(__file__).parent
-source: str = "NOCODB_DATA_GF"
-target: str = "DAGSTER_DWH_FARINTER"
-defaults = {
-    "mode": "incremental",
-    "object": "nocodb_data_gf.{stream_schema}_{stream_table}",
-    "target_options": {"column_casing": "snake", "adjust_column_type": True},
-    "source_options": {"flatten": True},
-}
-replication_config = parent_path / ".sling_nocodb_data_gf.yaml"
 
-replication_config_generated: str | None = None
-try:
-    if not is_file_cache_valid(
-        ".sling_nocodb_data_gf.yaml", directory=parent_path, hours_threshold=1
-    ):
-        replication_config_generated = generate_sling_yaml_from_source(
-            engine=db_nocodb_data_gf.get_engine(),
-            source_schema="kielsa",
-            output_filename=".sling_nocodb_data_gf.yaml",
-            output_dir=parent_path,
-            source=source,
-            target=target,
-            defaults=defaults,
-        )
-except Exception as e:
-    logger.error(f"Error generating replication config: {e}")
+class SlingLoadConfig(Config):
+    default_mode: Literal["incremental", "full-refresh"] = "incremental"
 
-if replication_config_generated:
-    replication_config = replication_config_generated
-else:
-    replication_config = parent_path / "sling_nocodb_data_gf.yaml"
+
+def generate_sling_yaml():
+    parent_path = Path(__file__).parent
+    source: str = "NOCODB_DATA_GF"
+    target: str = "DAGSTER_DWH_FARINTER"
+    defaults = {
+        "mode": "incremental",
+        "object": "nocodb_data_gf.{stream_schema}_{stream_table}",
+        "target_options": {"column_casing": "snake", "adjust_column_type": True},
+        "source_options": {"flatten": True},
+    }
+    replication_config = parent_path / ".sling_nocodb_data_gf.yaml"
+
+    replication_config_generated: str | None = None
+    try:
+        if not is_file_cache_valid(
+            ".sling_nocodb_data_gf.yaml", directory=parent_path, seconds_threshold=0
+        ):
+            replication_config_generated = generate_sling_yaml_from_source(
+                engine=db_nocodb_data_gf.get_engine(),
+                source_schema="kielsa",
+                output_filename=".sling_nocodb_data_gf.yaml",
+                output_dir=parent_path,
+                source=source,
+                target=target,
+                defaults=defaults,
+            )
+    except Exception as e:
+        logger.error(f"Error generating replication config: {e}")
+
+    if replication_config_generated:
+        replication_config = Path(replication_config_generated)
+
+    return replication_config
+
+
+with open(generate_sling_yaml(), "r") as file:
+    replication_config = yaml.safe_load(file)
 
 
 @sling_assets(
@@ -82,13 +96,18 @@ else:
         group_name="nocodb_data_gf",
     ),
 )
-def nocodb_data_gf(context, sling: SlingResource):
+def nocodb_data_gf(
+    context: AssetExecutionContext, sling: SlingResource, config: SlingLoadConfig
+):
     context.log.info(f"{replication_config=}")
     # Esperar un tiempo promedio (60) en el que las personas terminan de llenar un campo.
     # Menos 30 de inicializacion.
     time.sleep(30)
 
-    yield from sling.replicate(context=context)
+    if config.default_mode == "full-refresh":
+        replication_config["defaults"]["mode"] = "full-refresh"
+
+    yield from sling.replicate(context=context, stream=True)
 
 
 # Define a job that will materialize the nocodb_data_gf assets
@@ -180,6 +199,13 @@ if __name__ == "__main__":
             print("Testing asset materialization...")
             result = materialize(
                 assets=[nocodb_data_gf],
+                run_config={
+                    "ops": {
+                        nocodb_data_gf.op.name: {
+                            "config": {"default_mode": "full-refresh"}
+                        }
+                    }
+                },
                 instance=instance,
                 resources={"sling": SlingResource()},
             )

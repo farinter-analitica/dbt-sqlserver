@@ -33,18 +33,10 @@ nocodb_horarios AS (
             h.[emp_id],
             h.[suc_id],
             h.[dia_id],
-            cast(
-                cast(
-                    '1900-01-01T' + SUBSTRING(h.h_apertura, 12, 8) + 
-                    STUFF(SUBSTRING(h.h_apertura, 21, 5), 4, 0, ':') AS datetimeoffset
-                ) AT TIME ZONE 'Central America Standard Time' AS time
-            ) AS [h_apertura],
-            cast(
-                cast(
-                    '1900-01-01T' + SUBSTRING(h.h_cierre, 12, 8) + 
-                    STUFF(SUBSTRING(h.h_cierre, 21, 5), 4, 0, ':') AS datetimeoffset
-                ) AT TIME ZONE 'Central America Standard Time' AS time
-            ) AS [h_cierre],
+            cast(cast('1900-01-01T'+h.h_apertura+':00' as datetimeoffset) AT TIME ZONE 'Central America Standard Time' AS time
+                ) AS [h_apertura],
+            cast(cast('1900-01-01T'+h.h_cierre+':00' as datetimeoffset) AT TIME ZONE 'Central America Standard Time' AS time
+                ) AS [h_cierre],
             h.[fecha_carga],
             h.[fecha_actualizado],
             ns.es_activa,
