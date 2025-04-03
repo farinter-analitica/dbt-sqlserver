@@ -1,6 +1,8 @@
 import datetime as dt
+import math
 import pendulum as pdt
 import polars as pl
+import polars.selectors as cs
 import dagster as dg
 from polars import col
 from dagster_shared_gf.resources.sql_server_resources import (
@@ -24,6 +26,38 @@ class ConfigGetTrxData(dg.Config):
         description="Maximum age of cache in hours",
         default=3600 * 24,
     )
+
+
+def calculate_min_sample_size(
+    confidence_level: float = 0.95,
+    margin_of_error: float = 0.1,
+    proportion: float = 0.5,
+) -> int:
+    """
+    Calcula el tamaño mínimo de muestra necesario para una estimación de proporción.
+
+    Args:
+        confidence_level: Nivel de confianza (por defecto 0.95 para 95%)
+        margin_of_error: Margen de error tolerable (por defecto 0.1 para 10%)
+        proportion: Proporción estimada (0.5 es el valor más conservador)
+
+    Returns:
+        Tamaño mínimo de muestra requerido
+    """
+    # Calcular el valor crítico Z basado en el nivel de confianza
+    if confidence_level == 0.90:
+        z = 1.645
+    elif confidence_level == 0.95:
+        z = 1.96
+    elif confidence_level == 0.99:
+        z = 2.576
+    else:
+        raise ValueError("Nivel de confianza no soportado. Use 0.90, 0.95 o 0.99")
+
+    # Calcular tamaño mínimo de muestra
+    n_min = math.ceil((z**2 * proportion * (1 - proportion)) / (margin_of_error**2))
+
+    return n_min
 
 
 def get_transactions_data(
@@ -59,7 +93,9 @@ def get_transactions_data(
         FP.acumula_monedero,
         TC.TipoCliente_Nombre,
         CASE WHEN TC.TipoCliente_Nombre LIKE '%TER%EDAD%' 
+                OR TC.TipoCliente_Nombre LIKE '%CUART%EDAD%'
                 OR M.Tipo_Plan LIKE '%TER%EDAD%' 
+                OR M.Tipo_Plan LIKE '%CUART%EDAD%'
             THEN 1 ELSE 0 END AS es_tercera_edad,
         M.Tipo_Plan
     FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaEncabezado FE
@@ -132,17 +168,26 @@ def get_transactions_data(
 
 def tranform_transactions_data(df: pl.DataFrame) -> pl.DataFrame:
     # Calcular hora_id y clave caja
+    cs_columnas_categoricas = (
+        cs.by_name("TipoSucursal_Id")
+        | cs.by_name("TipoDoc_id")
+        | cs.by_name("Departamento_Id")
+        | cs.by_name("acumula_monedero")
+        | cs.by_name("contiene_tengo")
+        | cs.matches("es_.*")
+        | cs.matches("contiene_.*")
+        | cs.by_dtype(pl.String)
+        | cs.by_dtype(pl.Categorical)
+    )
+
     df = df.with_columns(
         col("Factura_FechaHora").dt.hour().alias("hora_id"),
         pl.concat_str(col("Emp_Id"), col("Suc_Id"), col("Caja_Id")).alias(
             "EmpSucCaj_Id"
         ),
         # Convertir IDs a variables categoricas
-        col("TipoSucursal_Id").cast(pl.Utf8).cast(pl.Categorical),
-        col("TipoDoc_id").cast(pl.Utf8).cast(pl.Categorical),
-        col("acumula_monedero").cast(pl.Utf8).cast(pl.Categorical),
-        col("es_.*").cast(pl.Utf8).cast(pl.Categorical),
-        col("contiene_.*").cast(pl.Utf8).cast(pl.Categorical),
+        (cs_columnas_categoricas & cs.numeric()).cast(pl.String).cast(pl.Categorical),
+        (cs_columnas_categoricas & cs.string()).cast(pl.Categorical),
     )
 
     # Identificar metricas de transacciones
@@ -155,7 +200,10 @@ def tranform_transactions_data(df: pl.DataFrame) -> pl.DataFrame:
             # Identificar horas pico para cada sucursal y fecha
             pl.max("total_transacciones_hora")
             .over(["EmpSucCaj_Id", "Factura_Fecha"])
-            .alias("max_transacciones_dia")
+            .alias("max_transacciones_dia"),
+            pl.count()
+            .over(["EmpSucCaj_Id", "Factura_Fecha"])
+            .alias("total_transacciones_dia"),
         )
         .with_columns(
             (col("total_transacciones_hora") == col("max_transacciones_dia")).alias(
@@ -164,10 +212,10 @@ def tranform_transactions_data(df: pl.DataFrame) -> pl.DataFrame:
         )
     )
 
-    # Filtrar solo horas pico y de esas top 25% horas, y algunos filtros logicos
+    # Filtrar top 20% horas, y algunos filtros logicos
     df_horas = df_horas.filter(
-        col("es_hora_pico") & (col("total_transacciones_hora") > 2)
-    ).top_k(int(0.25 * df_horas.height), by="total_transacciones_hora")
+        (col("total_transacciones_hora") > 2) & (col("total_transacciones_dia") > 12)
+    ).top_k(int(0.20 * df_horas.height), by="total_transacciones_hora")
 
     # Muestra final
     df = df.join(
@@ -192,16 +240,45 @@ def tranform_transactions_data(df: pl.DataFrame) -> pl.DataFrame:
         (col("tiempo_transaccion_segs") > 0) & (col("tiempo_transaccion_segs") < 3500)
     )
 
-    q1 = df["tiempo_transaccion_segs"].quantile(0.01)
-    q3 = df["tiempo_transaccion_segs"].quantile(0.99)
+    q1 = df["tiempo_transaccion_segs"].quantile(0.02)
+    q3 = df["tiempo_transaccion_segs"].quantile(0.98)
 
-    df = df.filter(
-        (col("tiempo_transaccion_segs") >= q1) & (col("tiempo_transaccion_segs") <= q3)
-    ).with_columns(
-        pl.max_horizontal("cantidad_productos", "cantidad_unidades").alias(
-            "cantidad_trabajo"
+    df = (
+        df.filter(
+            (col("tiempo_transaccion_segs") >= q1)
+            & (col("tiempo_transaccion_segs") <= q3)
+        )
+        .with_columns(col("cantidad_productos").abs(), col("cantidad_unidades").abs())
+        .with_columns(
+            pl.max_horizontal("cantidad_productos", "cantidad_unidades").alias(
+                "cantidad_trabajo"
+            )
         )
     )
+
+    # --- Agrupar categorías con muestras insuficientes en "otros" ---
+    n_min = calculate_min_sample_size(
+        confidence_level=0.95, margin_of_error=0.1, proportion=0.5
+    )
+    # Nota: para estos parámetros, n_min ≈ 97
+
+    for column in df.select(cs_columnas_categoricas).iter_columns():
+        # Obtener conteo de cada categoría en la columna
+        counts_df = column.value_counts()
+
+        # Contar categorías con muestras insuficientes
+        categorias_insuficientes = counts_df.filter(pl.col("count") < n_min)
+
+        if categorias_insuficientes.height > 1:
+            # Reemplazar las categorias con muestras insuficientes por "otros"
+            df = df.with_columns(
+                pl.when(
+                    pl.col(column.name).is_in(categorias_insuficientes[column.name])
+                )
+                .then(pl.lit("otros"))
+                .otherwise(pl.col(column.name))
+                .alias(column.name)
+            )
 
     return df
 
@@ -211,7 +288,7 @@ def calcular_correlacion_variables(
     columna_objectivo: str,
     columnas_a_excluir: list = [],
     variables_a_correlacionar: list = [],
-    num_rangos: int = 5,  # Número de rangos para variables numéricas
+    num_rangos: int = 30,  # Número de rangos para variables numéricas
 ) -> dict[str, pl.DataFrame]:
     """
     Calcula la correlación entre variables seleccionadas y la columna objetivo.
@@ -238,6 +315,12 @@ def calcular_correlacion_variables(
     columna_desviacion = f"{columna_objectivo}_desviacion"
     columna_minimo = f"{columna_objectivo}_minimo"
     columna_maximo = f"{columna_objectivo}_maximo"
+
+    n_min = calculate_min_sample_size(
+        confidence_level=0.95, margin_of_error=0.1, proportion=0.5
+    )
+    print(f"Tamaño mínimo de muestra: {n_min}")
+    # Nota: Para estos parámetros, el tamaño mínimo de muestra es 385
 
     # Identificar variables numéricas y categóricas
     variables_numericas = [
@@ -305,29 +388,67 @@ def calcular_correlacion_variables(
     for variable in variables_categoricas:
         try:
             # Calcular estadísticas básicas para la variable categórica
-            n_categorias = df[variable].n_unique()
-            n_observaciones = df.filter(pl.col(variable).is_not_null()).height
+            categorias_count = df[variable].value_counts()
+            n_categorias = categorias_count.height
+            n_muestras = categorias_count["count"].median()
+            n_observaciones_totales = (
+                categorias_count.filter(pl.col(variable).is_not_null())
+                .select("count")
+                .sum()
+            )
+            n_validos = categorias_count.filter(pl.col("count") > n_min).height
 
-            # Calcular correlación ratio (eta cuadrado) de manera segura
+            n_muestras = (
+                max(int(n_muestras), n_min)
+                if isinstance(n_muestras, (int, float))
+                else 0
+            )
+            n_observaciones_totales = (
+                int(n_observaciones_totales)
+                if isinstance(n_observaciones_totales, (int, float))
+                else 0
+            )
+
             correlacion_ratio = None
-
-            try:
-                # Agrupar por la variable categórica
-                stats_por_categoria = df.group_by(variable).agg(
+            if n_validos > 1:
+                # Hacer remuestreo de la variable categórica
+                df_resample = pl.concat(
                     [
-                        pl.mean(columna_objectivo).alias(columna_promedio),
-                        pl.count(columna_objectivo).alias("n_observaciones"),
+                        resample.sample(n=n_muestras, seed=42, with_replacement=True)
+                        for resample in df.partition_by(variable)
                     ]
                 )
 
-                # Solo calcular si hay más de una categoría y suficientes datos
-                if n_categorias > 1 and n_observaciones > 0:
+                n_observaciones = df_resample.filter(
+                    pl.col(variable).is_not_null()
+                ).height
+
+                # Calcular correlación ratio (eta cuadrado) de manera segura
+                try:
+                    # Agrupar por la variable categórica
+                    stats_por_categoria = df_resample.group_by(variable).agg(
+                        [
+                            pl.mean(columna_objectivo).alias(columna_promedio),
+                            pl.count(columna_objectivo).alias("n_observaciones"),
+                        ]
+                    )
+
                     # Varianza total
-                    varianza_total = df.select(pl.var(columna_objectivo)).item()
+                    varianza_total = df_resample.get_column(columna_objectivo).var()
+                    varianza_total = (
+                        varianza_total
+                        if isinstance(varianza_total, (int, float))
+                        else None
+                    )
 
                     if varianza_total is not None and varianza_total > 0:
                         # Varianza entre grupos
-                        media_global = df.select(pl.mean(columna_objectivo)).item()
+                        media_global = df_resample.get_column(columna_objectivo).mean()
+                        media_global = (
+                            media_global
+                            if isinstance(media_global, (int, float))
+                            else None
+                        )
 
                         # Calcular suma de cuadrados entre grupos
                         suma_cuadrados_entre = 0
@@ -345,10 +466,14 @@ def calcular_correlacion_variables(
                         correlacion_ratio = suma_cuadrados_entre / (
                             varianza_total * n_observaciones
                         )
-            except Exception as e:
-                # Si hay error en el cálculo de correlación, continuar con valor nulo
-                correlacion_ratio = None
-                del e
+                except Exception as e:
+                    # Si hay error en el cálculo de correlación, continuar con valor nulo
+                    correlacion_ratio = None
+                    del e
+            else:
+                print(
+                    f"No hay suficientes categorías válidas {n_validos}/{n_categorias} para {variable}"
+                )
 
             # Añadir al resultado de resumen
             resultados_resumen.append(
@@ -362,7 +487,7 @@ def calcular_correlacion_variables(
                     "desviacion_e_variable": None,
                     "minimo_variable": None,
                     "maximo_variable": None,
-                    "n_observaciones": n_observaciones,
+                    "n_observaciones": n_observaciones_totales,
                     "n_categorias": n_categorias,
                 }
             )
@@ -640,7 +765,7 @@ if __name__ == "__main__":
         df = get_transactions_data(
             dwh_farinter_bi,
             config=ConfigGetTrxData(
-                fecha_desde=pdt.today().subtract(days=15),
+                fecha_desde=pdt.today().subtract(days=30),
                 use_cache=True,
                 cache_max_age_seconds=3600 * 24,
             ),
@@ -677,6 +802,8 @@ if __name__ == "__main__":
                 "fue_hora_pico",
                 "max_transacciones_dia",
                 "valor_neto",
+                "hora_id",
+                "total_transacciones_hora",
             ],
         )
         print(resultados["detalle_variables"].head(100))
@@ -687,3 +814,195 @@ if __name__ == "__main__":
         resultados["resumen_correlaciones"].write_parquet(
             ".cache/resumen_correlaciones.parquet"
         )
+
+        # Bootstrap test - 20 iteraciones
+        print("\n--- Iniciando prueba de bootstrap (20 iteraciones) ---")
+
+        # Número de iteraciones de bootstrap
+        n_bootstrap = 20
+
+        # Listas para almacenar resultados de bootstrap
+        bootstrap_resumen = []
+        bootstrap_detalle = []
+
+        sample_size = max(int(df.height * 0.25), calculate_min_sample_size())
+
+        # Realizar bootstrap
+        for i in range(n_bootstrap):
+            print(f"Iteración bootstrap {i + 1}/{n_bootstrap}")
+
+            # Tomar una muestra bootstrap
+            df_bootstrap = df.sample(n=sample_size, with_replacement=True, seed=i + 1)
+
+            # Calcular correlaciones en la muestra bootstrap
+            resultados_bootstrap = calcular_correlacion_variables(
+                df_bootstrap,
+                columna_objectivo="tiempo_transaccion_segs",
+                columnas_a_excluir=[
+                    "EmpSucDocCajFac_Id",
+                    "Emp_Id",
+                    "Suc_Id",
+                    "Caja_Id",
+                    "Factura_Id",
+                    "Factura_Fecha",
+                    "Factura_FechaHora",
+                    "EmpSucCaj_Id",
+                    "fue_hora_pico",
+                    "max_transacciones_dia",
+                    "valor_neto",
+                    "hora_id",
+                    "total_transacciones_hora",
+                ],
+            )
+
+            # Añadir número de iteración a los resultados
+            df_resumen_iter = resultados_bootstrap[
+                "resumen_correlaciones"
+            ].with_columns(pl.lit(i + 1).alias("bootstrap_iteracion"))
+
+            df_detalle_iter = resultados_bootstrap["detalle_variables"].with_columns(
+                pl.lit(i + 1).alias("bootstrap_iteracion")
+            )
+
+            # Almacenar resultados
+            bootstrap_resumen.append(df_resumen_iter)
+            bootstrap_detalle.append(df_detalle_iter)
+
+        # Combinar todos los resultados de bootstrap
+        df_bootstrap_resumen_all = pl.concat(bootstrap_resumen)
+        df_bootstrap_detalle_all = pl.concat(bootstrap_detalle)
+
+        # Identificar columnas numéricas en ambos dataframes
+        columnas_numericas_resumen = [
+            col
+            for col in df_bootstrap_resumen_all.columns
+            if df_bootstrap_resumen_all[col].dtype.is_numeric()
+            and col not in ["bootstrap_iteracion"]
+        ]
+
+        columnas_numericas_detalle = [
+            col
+            for col in df_bootstrap_detalle_all.columns
+            if df_bootstrap_detalle_all[col].dtype.is_numeric()
+            and col not in ["bootstrap_iteracion", "rango_min", "rango_max"]
+        ]
+
+        # Calcular estadísticas de bootstrap para el resumen
+        # Usar expresiones de Polars para crear todas las métricas de una vez
+        aggs_resumen = []
+        for col_name in columnas_numericas_resumen:
+            aggs_resumen.extend(
+                [
+                    pl.mean(col_name).alias(f"{col_name}_media"),
+                    pl.median(col_name).alias(f"{col_name}_mediana"),
+                    pl.std(col_name).alias(f"{col_name}_desviacion"),
+                    pl.quantile(col_name, 0.05).alias(f"{col_name}_p05"),
+                    pl.quantile(col_name, 0.95).alias(f"{col_name}_p95"),
+                    pl.min(col_name).alias(f"{col_name}_min"),
+                    pl.max(col_name).alias(f"{col_name}_max"),
+                ]
+            )
+
+        df_bootstrap_resumen_stats = df_bootstrap_resumen_all.group_by(
+            "variable", "tipo"
+        ).agg([*aggs_resumen, pl.count().alias("n_bootstrap")])
+
+        # Calcular estadísticas de bootstrap para el detalle
+        # Agrupar por variable, tipo y categoría/rango
+        aggs_detalle = []
+        for col_name in columnas_numericas_detalle:
+            aggs_detalle.extend(
+                [
+                    pl.mean(col_name).alias(f"{col_name}_media"),
+                    pl.median(col_name).alias(f"{col_name}_mediana"),
+                    pl.std(col_name).alias(f"{col_name}_desviacion"),
+                    pl.quantile(col_name, 0.05).alias(f"{col_name}_p05"),
+                    pl.quantile(col_name, 0.95).alias(f"{col_name}_p95"),
+                    pl.min(col_name).alias(f"{col_name}_min"),
+                    pl.max(col_name).alias(f"{col_name}_max"),
+                ]
+            )
+
+        df_bootstrap_detalle_stats = df_bootstrap_detalle_all.group_by(
+            "variable", "tipo", "categoria_o_rango"
+        ).agg([*aggs_detalle, pl.count().alias("n_bootstrap")])
+
+        # Calcular coeficientes de variación para todas las métricas numéricas
+        # Resumen
+        cv_exprs_resumen = [
+            (
+                pl.col(f"{col_name}_desviacion") / pl.col(f"{col_name}_media").abs()
+            ).alias(f"cv_{col_name}")
+            for col_name in columnas_numericas_resumen
+            if col_name not in ["n_observaciones", "n_categorias"]  # Excluir conteos
+        ]
+
+        df_bootstrap_resumen_stats = df_bootstrap_resumen_stats.with_columns(
+            cv_exprs_resumen
+        )
+
+        # Detalle
+        cv_exprs_detalle = [
+            (
+                pl.col(f"{col_name}_desviacion") / pl.col(f"{col_name}_media").abs()
+            ).alias(f"cv_{col_name}")
+            for col_name in columnas_numericas_detalle
+            if col_name not in ["n_observaciones"]  # Excluir conteos
+        ]
+
+        df_bootstrap_detalle_stats = df_bootstrap_detalle_stats.with_columns(
+            cv_exprs_detalle
+        )
+
+        # Unir con los resultados originales para comparación
+        df_bootstrap_resumen_comparacion = df_bootstrap_resumen_stats.join(
+            resultados["resumen_correlaciones"],
+            on=["variable", "tipo"],
+            how="left",
+            suffix="_original",
+        )
+
+        df_bootstrap_detalle_comparacion = df_bootstrap_detalle_stats.join(
+            resultados["detalle_variables"],
+            on=["variable", "tipo", "categoria_o_rango"],
+            how="left",
+            suffix="_original",
+        )
+
+        # Crear métricas de estabilidad general
+        df_bootstrap_resumen_comparacion = (
+            df_bootstrap_resumen_comparacion.with_columns(
+                [
+                    pl.when(pl.col("tipo") == "numérica")
+                    .then(pl.col("cv_correlacion_pearson"))
+                    .otherwise(pl.col("cv_correlacion_ratio"))
+                    .alias("cv_principal")
+                ]
+            ).sort(["tipo", "cv_principal"])
+        )
+
+        # Guardar resultados
+        df_bootstrap_resumen_all.write_parquet(
+            ".cache/bootstrap_resumen_all_iterations.parquet"
+        )
+        df_bootstrap_detalle_all.write_parquet(
+            ".cache/bootstrap_detalle_all_iterations.parquet"
+        )
+        df_bootstrap_resumen_stats.write_parquet(
+            ".cache/bootstrap_resumen_stats.parquet"
+        )
+        df_bootstrap_detalle_stats.write_parquet(
+            ".cache/bootstrap_detalle_stats.parquet"
+        )
+        df_bootstrap_resumen_comparacion.write_parquet(
+            ".cache/bootstrap_resumen_comparacion.parquet"
+        )
+        df_bootstrap_detalle_comparacion.write_parquet(
+            ".cache/bootstrap_detalle_comparacion.parquet"
+        )
+
+        print(
+            "\n--- Resultados del bootstrap guardados en .cache/bootstrap_*.parquet ---"
+        )
+        print("Resumen de estadísticas bootstrap (top 10 variables por estabilidad):")
+        print(df_bootstrap_resumen_comparacion.head(10))

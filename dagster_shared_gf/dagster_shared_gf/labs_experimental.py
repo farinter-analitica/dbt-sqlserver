@@ -1,200 +1,89 @@
-#!/usr/bin/env python3
-"""
-Script para generar un archivo YAML con formato Sling a partir de un esquema PostgreSQL.
-Inspecciona el esquema utilizando SQLAlchemy y produce un YAML con la siguiente
-información por tabla:
-  - columnas (nombre y tipo SQL Server convertido)
-  - claves primarias
-  - una declaración de creación de tabla SQL Server (table_ddl)
-  - una declaración post_sql para crear la restricción de clave primaria
-
-El YAML también contiene configuraciones globales predeterminadas y configuración de origen/destino según se especifique.
-Ver:
-  - https://docs.slingdata.io/concepts/replication/structure
-  - https://docs.slingdata.io/concepts/replication/target-options
-
-Uso:
-  Proporcione un motor SQLAlchemy (o conexión) a la función `generate_sling_yaml`.
-  Por ejemplo, ejecute el script directamente después de ajustar su cadena de conexión.
-"""
-
-import os
-import sys
-import yaml
-import inspect
-from typing import Dict, List, Optional, Any, Union
-from sqlalchemy import MetaData, Engine, Connection, create_engine
+import polars as pl
+import numpy as np
 
 
-def get_caller_directory() -> str:
+def compute_eta_squared(
+    df: pl.DataFrame, variable: str, value_col: str, media_alias: str
+) -> float | None:
     """
-    Obtiene el directorio del script que llamó a esta función.
-    Retorna el directorio de trabajo actual si no puede determinar el llamador.
-
-    Returns:
-        str: Ruta al directorio del script que realizó la llamada
+    Calcula el eta cuadrado (correlación ratio) para una variable categórica en un DataFrame de Polars.
     """
-    frame = None
-    try:
-        # Obtener el frame del llamador
-        frame = inspect.currentframe()
-        if frame is None:
-            return os.getcwd()
+    n_observaciones = df.filter(pl.col(variable).is_not_null()).height
+    n_categorias = df[variable].n_unique()
+    if n_categorias <= 1 or n_observaciones == 0:
+        return None
 
-        caller_frame = frame.f_back
-        if caller_frame is None:
-            return os.getcwd()
+    # Agregamos por la variable categórica: media y conteo de la columna objetivo
+    stats_por_categoria = df.group_by(variable).agg(
+        [
+            pl.mean(value_col).alias(media_alias),
+            pl.count(value_col).alias("n_observaciones"),
+        ]
+    )
 
-        # Si se llama directamente desde la línea de comandos
-        if (
-            caller_frame.f_code.co_filename == "<stdin>"
-            or caller_frame.f_code.co_filename == "<string>"
-        ):
-            return os.getcwd()
+    varianza_total = df.select(pl.var(value_col)).item()
+    if varianza_total is None or varianza_total == 0:
+        return None
 
-        # Obtener el nombre de archivo del llamador y su directorio
-        caller_file = caller_frame.f_code.co_filename
-        caller_dir = os.path.dirname(os.path.abspath(caller_file))
-        return caller_dir
-    except (AttributeError, ValueError):
-        # Fallback al directorio de trabajo actual
-        return os.getcwd()
-    finally:
-        # Limpiar referencias para evitar problemas de referencia circular
-        if frame is not None:
-            del frame
+    media_global = df.select(pl.mean(value_col)).item()
+
+    suma_cuadrados_entre = 0
+    for row in stats_por_categoria.to_dicts():
+        if row[media_alias] is not None and row["n_observaciones"] > 0:
+            suma_cuadrados_entre += (
+                row["n_observaciones"] * (row[media_alias] - media_global) ** 2
+            )
+
+    eta_squared = suma_cuadrados_entre / (varianza_total * n_observaciones)
+    return eta_squared
 
 
-def generate_sling_yaml(
-    engine: Union[Engine, Connection],
-    schema: str,
-    output_filename: str = "sling.yaml",
-    output_dir: Optional[str] = None,
-    source: str = "NOCODB_DATA_GF",
-    target: str = "DAGSTER_DWH_FARINTER",
-    defaults: Optional[Dict[str, Any]] = None,
-) -> str:
+def bootstrap_eta_squared(
+    df: pl.DataFrame,
+    variable: str,
+    value_col: str,
+    media_alias: str,
+    n_bootstrap: int = 1000,
+):
     """
-    Inspecciona el esquema PostgreSQL dado (usando reflexión de SQLAlchemy)
-    y genera un archivo YAML con formato Sling.
-
-    Args:
-        engine: Instancia de SQLAlchemy Engine o Connection.
-        schema: El esquema PostgreSQL a reflejar (por ejemplo, "kielsa").
-        output_filename: Nombre del archivo YAML a escribir.
-        output_dir: Directorio donde guardar el archivo YAML. Si es None, usa el directorio del llamador.
-        source: Nombre del origen de datos.
-        target: Nombre del destino de datos.
-        defaults: Configuración predeterminada. Si es None, usa la configuración por defecto.
-
-    Returns:
-        str: Ruta al archivo YAML generado.
+    Realiza bootstrap para estimar la distribución del eta cuadrado (correlación ratio)
+    a partir de muestras con reemplazo.
     """
-    if defaults is None:
-        defaults = {
-            "mode": "incremental",
-            "object": "nocodb_data_gf.{stream_schema}_{stream_table}",
-            "target_options": {"column_casing": "snake", "adjust_column_type": True},
-            "source_options": {"flatten": True},
-        }
+    boot_estimates = []
 
-    if output_dir is None:
-        # Si no se especifica un directorio, usar el directorio del llamador
-        output_dir = get_caller_directory()
+    for _ in range(n_bootstrap):
+        # Tomar una muestra bootstrap del mismo tamaño que el original
+        df_boot = df.sample(n=df.height, with_replacement=True)
+        eta = compute_eta_squared(df_boot, variable, value_col, media_alias)
+        boot_estimates.append(eta)
 
-    # Asegurar que el directorio de salida exista
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Ruta completa al archivo de salida
-    output_path = os.path.join(output_dir, output_filename)
-
-    metadata = MetaData()
-    # Reflejar tablas del esquema especificado
-    metadata.reflect(bind=engine, schema=schema)
-
-    streams: Dict[str, Dict[str, Any]] = {}
-
-    # Iterar sobre cada tabla reflejada
-    for table_name, table in metadata.tables.items():
-        # Extraer solo el nombre de la tabla sin el esquema
-        table_name_only = table.name
-
-        # Construir una clave de stream usando el esquema y nombre de tabla (por ejemplo, "kielsa.mytable")
-        full_table_name = f"{schema}.{table_name_only}"
-
-        # Obtener la lista de columnas de clave primaria
-        pk_columns: List[str] = [str(col.name) for col in table.primary_key]
-
-        if not pk_columns:
-            continue  # Omitir tablas sin claves primarias
-
-        # Verificar si existe la columna update_key en la tabla
-        column_names = [col.name for col in table.columns]
-        has_update_key = "fecha_actualizado" in column_names
-
-        # Construir la entrada de stream por tabla
-        stream_entry: Dict[str, Any] = {
-            "primary_key": pk_columns,
-            "target_options": {"table_keys": {"primary": pk_columns}},
-        }
-
-        if has_update_key:
-            # Si existe la columna fecha_actualizado, usarla como update_key
-            stream_entry["update_key"] = "fecha_actualizado"
-
-        streams[full_table_name] = stream_entry
-
-    # Construir la estructura de configuración YAML final
-    config: Dict[str, Any] = {
-        "source": source,
-        "target": target,
-        "defaults": defaults,
-        "streams": streams,
-    }
-
-    # Escribir la configuración YAML al archivo
-    with open(output_path, "w", encoding="utf-8") as f:
-        yaml.dump(config, f, sort_keys=False)
-
-    # print(f"Archivo YAML creado en: {output_path}")
-    return output_path
+    return boot_estimates
 
 
 # Ejemplo de uso:
-if __name__ == "__main__":
-    # Verificar si el script se está ejecutando directamente con argumentos
-    if len(sys.argv) > 1:
-        # Si se proporcionan argumentos, usarlos
+# Supongamos que tenemos un DataFrame con una variable categórica 'grupo' y una variable numérica 'valor'.
+data = {
+    "grupo": ["A", "A", "B", "B", "C", "C", "C", "D", "D", "D"],
+    "valor": [1, 1, 5, 5, 3, 3, 3, 8, 8, 8],
+}
+df = pl.DataFrame(data)
 
-        # Formato esperado: python labs_experimental.py "postgresql://user:pass@host:port/db" schema [output_filename]
-        connection_string = sys.argv[1]
-        schema_name = sys.argv[2]
-        output_file = sys.argv[3] if len(sys.argv) > 3 else "sling.yaml"
+# Calculamos el eta cuadrado para la muestra original
+eta_original = compute_eta_squared(df, "grupo", "valor", "media_valor")
+print("Eta cuadrado original:", eta_original)
 
-        # Crear el motor de conexión
-        engine = create_engine(connection_string)
-        generate_sling_yaml(engine, schema_name, output_file)
-    else:
-        # Comportamiento predeterminado cuando se ejecuta sin argumentos
-        try:
-            # Intentar importar los recursos de dagster_shared_gf
-            from dagster_shared_gf.resources.postgresql_resources import (
-                db_nocodb_data_gf,
-            )
+# Realizamos bootstrap
+n_iter = 1000
+boot_estimates = bootstrap_eta_squared(
+    df, "grupo", "valor", "media_valor", n_bootstrap=n_iter
+)
 
-            # Obtener el motor de conexión
-            engine = db_nocodb_data_gf.get_engine()
+# Convertimos a array de NumPy para calcular estadísticas
+boot_array = np.array([est for est in boot_estimates if est is not None])
+mean_eta = np.nanmean(boot_array)
+ci_lower = np.nanpercentile(boot_array, 2.5)
+ci_upper = np.nanpercentile(boot_array, 97.5)
 
-            # Especificar el esquema a inspeccionar (por ejemplo, "kielsa")
-            target_schema = "kielsa"
-
-            # Generar el archivo YAML de Sling
-            generate_sling_yaml(engine, target_schema, output_filename="sling.yaml")
-        except ImportError:
-            print(
-                "Error: Al ejecutar sin argumentos, el script requiere que dagster_shared_gf esté instalado."
-            )
-            print(
-                'Uso: python labs_experimental.py "cadena_de_conexion" esquema [nombre_archivo_salida]'
-            )
-            sys.exit(1)
+print(f"Bootstrap (n={n_iter}):")
+print("Media eta cuadrado:", mean_eta)
+print("IC 95%:", ci_lower, "-", ci_upper)
