@@ -26,3 +26,17 @@ config-settings = { editable_mode = "compat" } # better-toml-ignore
 
 [tool.uv.workspace]
 members = ["dagster_shared_gf", "dagster_sap_gf", "dagster_kielsa_gf"] 
+
+[dependency-groups]
+dev = [
+    "joblib>=1.4.2",
+    "matplotlib>=3.10.1",
+    "neuralforecast>=3.0.0",
+    "plotly>=6.0.1",
+    "prophet>=1.1.6",
+    "scikit-learn>=1.6.1",
+    "shap>=0.47.1",
+    "statsforecast>=2.0.1",
+    "xgboost>=3.0.0",
+    "xlsxwriter>=3.2.2",
+]

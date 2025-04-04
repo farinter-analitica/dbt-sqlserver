@@ -1,5 +1,7 @@
 import datetime as dt
 import math
+import os
+import pandas as pd
 import pendulum as pdt
 import polars as pl
 import polars.selectors as cs
@@ -11,6 +13,18 @@ from dagster_shared_gf.resources.sql_server_resources import (
 from dagster_shared_gf.shared_helpers import ParquetCacheHandler
 from textwrap import dedent
 from pydantic import Field
+
+from sklearn.linear_model import LinearRegression
+import numpy as np
+from xgboost import XGBRegressor
+from sklearn.model_selection import cross_validate
+from sklearn.ensemble import RandomForestRegressor
+
+cfg = pl.Config()
+
+
+def debug_print(str):
+    print(str)
 
 
 class ConfigGetTrxData(dg.Config):
@@ -80,11 +94,16 @@ def get_transactions_data(
         FE.Factura_Id,
         FE.Factura_Fecha,
         FE.Factura_FechaHora,
+        FE.Factura_Origen,
         FP.cantidad_unidades,
         FP.cantidad_productos,
         FP.valor_neto,
         FP.contiene_servicios,
         FP.contiene_tengo,
+        FP.contiene_consumo,
+        FP.contiene_farma,
+        FP.precio_unitario_prom,                    
+        FP.canal_venta_id,
         TB.TipoBodega_Nombre,
         S.Departamento_Id,
         S.EmpDepMunCiu_Id,
@@ -97,6 +116,12 @@ def get_transactions_data(
                 OR M.Tipo_Plan LIKE '%TER%EDAD%' 
                 OR M.Tipo_Plan LIKE '%CUART%EDAD%'
             THEN 1 ELSE 0 END AS es_tercera_edad,
+        CASE WHEN TC.TipoCliente_Nombre LIKE '%CLINIC%' 
+                OR M.Tipo_Plan LIKE '%CLINIC%' 
+            THEN 1 ELSE 0 END AS es_clinica,
+        CASE WHEN TC.TipoCliente_Nombre LIKE '%ASEGURADO%' 
+                OR M.Tipo_Plan LIKE '%CLINIC%' 
+            THEN 1 ELSE 0 END AS es_asegurado,
         M.Tipo_Plan
     FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaEncabezado FE
     INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Bodega BD
@@ -128,12 +153,26 @@ def get_transactions_data(
             SUM(FP.Cantidad_Padre) AS cantidad_unidades,
             COUNT(DISTINCT FP.Articulo_Id) AS cantidad_productos,
             SUM(FP.Valor_Neto) AS valor_neto,
+            AVG(FP.Detalle_Precio_Unitario) AS precio_unitario_prom,
+            MAX(FP.CanalVenta_Id) AS canal_venta_id,
             CASE WHEN SUM(FP.Valor_Acum_Monedero)>0 THEN 1 ELSE 0 END AS acumula_monedero,
-            CASE WHEN MAX(CASE WHEN A.DeptoArt_Nombre LIKE '%SERVICIO%' THEN 1 ELSE 0 END) =1
+            CASE WHEN MAX(CASE WHEN A.DeptoArt_Nombre LIKE 'SERVICIOS'
+                       OR A.DeptoArt_Nombre LIKE 'SERVICIOS M%V%L%'
+                        THEN 1 ELSE 0 END) =1
                 THEN 1
                 ELSE 0
             END AS contiene_servicios,
-            CASE WHEN MAX(CASE WHEN A.Articulo_Nombre LIKE '%TENGO%' THEN 1 ELSE 0 END) =1
+            CASE WHEN MAX(CASE WHEN A.DeptoArt_Nombre LIKE '%CONSUMO%'
+                        THEN 1 ELSE 0 END) =1
+                THEN 1
+                ELSE 0
+            END AS contiene_consumo,
+            CASE WHEN MAX(CASE WHEN A.DeptoArt_Nombre LIKE '%FARMA%'
+                        THEN 1 ELSE 0 END) =1
+                THEN 1
+                ELSE 0
+            END AS contiene_farma,
+            CASE WHEN MAX(CASE WHEN A.Casa_Nombre LIKE '%TENGO%' THEN 1 ELSE 0 END) =1
                 THEN 1
                 ELSE 0
             END AS contiene_tengo
@@ -156,7 +195,7 @@ def get_transactions_data(
     df = (
         pl.read_database(query_trx, dwh_farinter_bi.get_arrow_odbc_conn_string())
         .lazy()
-        .collect()
+        .collect(engine="streaming")
     )
 
     if config.use_cache:
@@ -166,31 +205,36 @@ def get_transactions_data(
     return df
 
 
-def tranform_transactions_data(df: pl.DataFrame) -> pl.DataFrame:
+def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
     # Calcular hora_id y clave caja
     cs_columnas_categoricas = (
-        cs.by_name("TipoSucursal_Id")
-        | cs.by_name("TipoDoc_id")
-        | cs.by_name("Departamento_Id")
-        | cs.by_name("acumula_monedero")
+        cs.by_name("acumula_monedero")
         | cs.by_name("contiene_tengo")
-        | cs.matches("es_.*")
-        | cs.matches("contiene_.*")
+        | cs.starts_with("es_")
+        | cs.starts_with("contiene_")
+        | cs.ends_with("_id")
         | cs.by_dtype(pl.String)
         | cs.by_dtype(pl.Categorical)
     )
 
-    df = df.with_columns(
-        col("Factura_FechaHora").dt.hour().alias("hora_id"),
-        pl.concat_str(col("Emp_Id"), col("Suc_Id"), col("Caja_Id")).alias(
-            "EmpSucCaj_Id"
-        ),
-        # Convertir IDs a variables categoricas
-        (cs_columnas_categoricas & cs.numeric()).cast(pl.String).cast(pl.Categorical),
-        (cs_columnas_categoricas & cs.string()).cast(pl.Categorical),
+    df = (
+        df.with_columns(
+            col("Factura_FechaHora").dt.hour().alias("hora_id"),
+            pl.concat_str(col("Emp_Id"), col("Suc_Id"), col("Caja_Id")).alias(
+                "EmpSucCaj_Id"
+            ),
+            # Convertir IDs a variables categoricas
+            (cs_columnas_categoricas & cs.numeric()).cast(pl.String),
+            # .cast(pl.Categorical),
+            (cs_columnas_categoricas & cs.string()),  # .cast(pl.Categorical),
+        )
+        # Convertir numericas restantes as float64
+        .with_columns(cs.numeric().cast(pl.Float64))
+        .lazy()
     )
 
     # Identificar metricas de transacciones
+    debug_print("Calculando metricas de transacciones...")
     df_horas = (
         df.group_by("EmpSucCaj_Id", "Factura_Fecha", "hora_id")
         .agg(
@@ -210,51 +254,185 @@ def tranform_transactions_data(df: pl.DataFrame) -> pl.DataFrame:
                 "es_hora_pico"
             ),
         )
-    )
+    ).collect(engine="streaming")
 
     # Filtrar top 20% horas, y algunos filtros logicos
+    debug_print("Filtrando top 20% horas...")
     df_horas = df_horas.filter(
         (col("total_transacciones_hora") > 2) & (col("total_transacciones_dia") > 12)
-    ).top_k(int(0.20 * df_horas.height), by="total_transacciones_hora")
+    )
+
+    debug_print(f"Horas totales: {df_horas.height}")
+    df_horas = df_horas.top_k(
+        int(0.20 * df_horas.height), by="total_transacciones_hora"
+    )
 
     # Muestra final
-    df = df.join(
-        df_horas, on=["EmpSucCaj_Id", "hora_id"], how="inner", suffix="_right"
-    ).drop(pl.selectors.ends_with("_right"))
-
-    # Añadir tiempo entre transacciones y filtrar por muestras validas
+    debug_print("Join de filtro")
     df = (
-        df.sort("EmpSucCaj_Id", "Factura_Fecha", "hora_id", "Factura_FechaHora")
-        .with_columns(
-            col("Factura_FechaHora")
-            .diff()
-            .over("EmpSucCaj_Id", "Factura_Fecha", "hora_id")
-            .dt.total_seconds()
-            .alias("tiempo_transaccion_segs")
+        df.join(
+            df_horas.lazy(),
+            on=["EmpSucCaj_Id", "Factura_Fecha", "hora_id"],
+            how="inner",
+            suffix="_right",
         )
-        .filter(col("tiempo_transaccion_segs").is_not_null())
+        .drop(pl.selectors.ends_with("_right"))
+        .collect(engine="streaming")
     )
+
+    del df_horas
+    # Añadir tiempo entre transacciones y filtrar por muestras validas
+    debug_print("Calculando tiempo entre transacciones...")
+    df = df.with_columns(
+        col("Factura_FechaHora")
+        .diff()
+        .over(
+            "EmpSucCaj_Id",
+            "Factura_Fecha",
+            "hora_id",
+            order_by=("EmpSucCaj_Id", "Factura_Fecha", "hora_id", "Factura_FechaHora"),
+        )
+        .dt.total_seconds()
+        .alias("tiempo_transaccion_segs")
+    ).filter(col("tiempo_transaccion_segs").is_not_null())
 
     # Filtros basicos
     df = df.filter(
         (col("tiempo_transaccion_segs") > 0) & (col("tiempo_transaccion_segs") < 3500)
-    )
+    ).lazy()
 
-    q1 = df["tiempo_transaccion_segs"].quantile(0.02)
-    q3 = df["tiempo_transaccion_segs"].quantile(0.98)
+    q1 = df.select(col("tiempo_transaccion_segs")).quantile(0.02).collect().item()
+    q3 = df.select(col("tiempo_transaccion_segs")).quantile(0.98).collect().item()
+
+    debug_print(f"q1: {q1}, q3: {q3}")
+
+    # Coefiicientes de correlacion
+    # coef_productos = 0.161  # resultado del proceso
+    # coef_unidades = 0.124  # resultado del proceso
+    # suma_coef = coef_productos + coef_unidades
+    # # peso_productos = coef_productos / suma_coef
+    # # peso_unidades = coef_unidades / suma_coef
+    # peso_productos = 0.1  # Impactan por instancia
+    # peso_unidades = 0.07  # Impactan por instancia
+    # peso_tercera_edad = 0.02  # Impacta solo una vez
+    # peso_contiene_servicios = -0.3  # Impacta solo una vez
 
     df = (
         df.filter(
             (col("tiempo_transaccion_segs") >= q1)
             & (col("tiempo_transaccion_segs") <= q3)
         )
-        .with_columns(col("cantidad_productos").abs(), col("cantidad_unidades").abs())
         .with_columns(
-            pl.max_horizontal("cantidad_productos", "cantidad_unidades").alias(
-                "cantidad_trabajo"
-            )
+            col("cantidad_productos").abs(),
+            col("cantidad_unidades").abs(),
+            col("precio_unitario_prom").abs(),
+            col("valor_neto").qcut(4).alias("valor_neto_qcut"),
+            col("precio_unitario_prom").qcut(3).alias("precio_unitario_prom_qcut"),
+            (col("cantidad_unidades") - col("cantidad_productos"))
+            .clip(0)
+            .alias("cantidad_unidades_relativa"),
+            pl.lit(1).cast(pl.Float64).alias("ctd_transacciones"),
+            (
+                (col("cantidad_productos"))
+                .log(base=3)
+                .fill_nan(None)
+                .fill_null(strategy="mean")
+                .cast(pl.Float64)
+            ).alias("log_cantidad_productos"),
+            (
+                col("precio_unitario_prom")
+                .log1p()
+                .fill_nan(None)
+                .fill_null(strategy="mean")
+                .cast(pl.Float64)
+            ).alias("log_precio_unitario_prom"),
         )
-    )
+        .with_columns(
+            col("cantidad_unidades_relativa")
+            .log1p()
+            .fill_nan(None)
+            .fill_null(strategy="mean")
+            .cast(pl.Float64)
+            .alias("log_cantidad_unidades_relativa"),
+        )
+        # Este enfoque genera correlacion 0.162
+        # .with_columns(
+        #     (
+        #         peso_productos * col("cantidad_productos") *
+        #         (1 + peso_unidades * (col("cantidad_unidades") / col("cantidad_productos")).clip(1, 10).log1p() * 0.5)
+        #     ).alias("cantidad_trabajo")
+        # )
+        # .with_columns(
+        #     (
+        #         # Trabajo base por transacción
+        #         4.0
+        #         +
+        #         # Trabajo por cada producto diferente (buscar código, etc.)
+        #         (peso_productos) * (col("cantidad_productos") - 1)
+        #         +
+        #         # Trabajo por cada unidad adicional (manejo y escaneo)
+        #         (peso_unidades)
+        #         * (col("cantidad_unidades") - col("cantidad_productos"))
+        #         .clip(0)
+        #         .log1p()  # Penalizar valores grandes
+        #         # +
+        #         # Trabajo por tercera edad
+        #         # (peso_tercera_edad)
+        #         # * col("es_tercera_edad").cast(pl.Float64)
+        #         # +
+        #         # # Trabajo por servicios
+        #         # (peso_contiene_servicios)
+        #         # * col("contiene_servicios").cast(pl.Float64)
+        #     ).alias("cantidad_trabajo")
+        .with_columns(
+            (
+                # Base transaction time
+                216.4261
+                +
+                # Impact of insurance status
+                43.1136 * col("es_asegurado").cast(pl.Int64)
+                +
+                # Impact of sales channel
+                -36.6906 * (col("canal_venta_id") == "2").cast(pl.Int64)
+                + 21.8788 * (col("canal_venta_id") == "1").cast(pl.Int64)
+                + -5.2901 * (col("canal_venta_id") == "3").cast(pl.Int64)
+                + 26.9593 * (col("canal_venta_id") == "4").cast(pl.Int64)
+                + -6.8573 * (col("canal_venta_id") == "5").cast(pl.Int64)
+                +
+                # Impact of number of products (nonlinear transformation)
+                70.0767 * col("log_cantidad_productos")
+                +
+                # Impact of invoice origin
+                26.9593 * (col("Factura_Origen") == "PR").cast(pl.Int64)
+                + -22.4259 * (col("Factura_Origen") == "EX").cast(pl.Int64)
+                + -26.4123 * (col("Factura_Origen") == "PU").cast(pl.Int64)
+                + 21.8788 * (col("Factura_Origen") == "FA").cast(pl.Int64)
+                +
+                # Impact of pharmaceutical products
+                20.8107 * col("contiene_farma").cast(pl.Int64)
+                +
+                # Impact of senior citizen status
+                17.4914 * col("es_tercera_edad").cast(pl.Int64)
+                +
+                # Impact of relative units (nonlinear transformation)
+                10.2871 * col("log_cantidad_unidades_relativa")
+                +
+                # Impact of wallet accumulation
+                5.5998 * col("acumula_monedero").cast(pl.Int64)
+                +
+                # Impact of clinic status
+                4.8859 * col("es_clinica").cast(pl.Int64)
+                +
+                # Impact of consumer products
+                0.1741 * col("contiene_consumo").cast(pl.Int64)
+                +
+                # Impact of unit price (nonlinear transformation)
+                12.0249 * col("log_precio_unitario_prom")
+            )
+            .fill_null(216.4261)
+            .alias("tiempo_transaccion_estimado")
+        )
+    ).collect(engine="streaming")
 
     # --- Agrupar categorías con muestras insuficientes en "otros" ---
     n_min = calculate_min_sample_size(
@@ -262,23 +440,33 @@ def tranform_transactions_data(df: pl.DataFrame) -> pl.DataFrame:
     )
     # Nota: para estos parámetros, n_min ≈ 97
 
-    for column in df.select(cs_columnas_categoricas).iter_columns():
-        # Obtener conteo de cada categoría en la columna
-        counts_df = column.value_counts()
+    # Procesar
+    categorical_columns = cs.expand_selector(df, cs_columnas_categoricas)
+    df_lazy = df.lazy()
 
-        # Contar categorías con muestras insuficientes
+    # Process each column one by one, but maintain lazy state throughout
+    for column_name in categorical_columns:
+        debug_print(f"Procesando columna: {column_name}")
+        # Calculate value counts in eager mode (small operation)
+        counts_df = df.select(pl.col(column_name)).to_series().value_counts()
+
+        # Find categories with insufficient samples
         categorias_insuficientes = counts_df.filter(pl.col("count") < n_min)
 
         if categorias_insuficientes.height > 1:
-            # Reemplazar las categorias con muestras insuficientes por "otros"
-            df = df.with_columns(
-                pl.when(
-                    pl.col(column.name).is_in(categorias_insuficientes[column.name])
-                )
+            # Create a list of values to replace (more efficient than using is_in with a dataframe)
+            valores_a_reemplazar = categorias_insuficientes[column_name]
+
+            # Update the lazy dataframe with the replacement
+            df_lazy = df_lazy.with_columns(
+                pl.when(pl.col(column_name).is_in(valores_a_reemplazar))
                 .then(pl.lit("otros"))
-                .otherwise(pl.col(column.name))
-                .alias(column.name)
+                .otherwise(pl.col(column_name))
+                .alias(column_name)
             )
+
+    # Collect only once at the end with streaming engine
+    df = df_lazy.collect(engine="streaming")
 
     return df
 
@@ -319,7 +507,7 @@ def calcular_correlacion_variables(
     n_min = calculate_min_sample_size(
         confidence_level=0.95, margin_of_error=0.1, proportion=0.5
     )
-    print(f"Tamaño mínimo de muestra: {n_min}")
+    debug_print(f"Tamaño mínimo de muestra: {n_min}")
     # Nota: Para estos parámetros, el tamaño mínimo de muestra es 385
 
     # Identificar variables numéricas y categóricas
@@ -341,6 +529,12 @@ def calcular_correlacion_variables(
         and col != columna_objectivo
     ]
 
+    # Asegurarse objetivo es float
+    df = df.with_columns(
+        [
+            pl.col(columna_objectivo).cast(pl.Float64),
+        ]
+    )
     # 1. DATAFRAME DE RESUMEN DE CORRELACIONES
     resultados_resumen = []
 
@@ -394,6 +588,7 @@ def calcular_correlacion_variables(
             n_observaciones_totales = (
                 categorias_count.filter(pl.col(variable).is_not_null())
                 .select("count")
+                .to_series()
                 .sum()
             )
             n_validos = categorias_count.filter(pl.col("count") > n_min).height
@@ -546,44 +741,156 @@ def calcular_correlacion_variables(
             max_val = df[variable].max()
             min_val = float(min_val) if isinstance(min_val, (int, float)) else 0.0
             max_val = float(max_val) if isinstance(max_val, (int, float)) else 99.0
+            n_min_rangos = calculate_min_sample_size(
+                confidence_level=0.95, margin_of_error=0.05
+            )
 
             if min_val is not None and max_val is not None and min_val != max_val:
-                # Crear rangos
-                rango_size = (max_val - min_val) / float(num_rangos)
+                # Ordenar los valores para determinar puntos de corte
+                valores_ordenados = (
+                    df.select(pl.col(variable))
+                    .sort(variable)
+                    .filter(pl.col(variable).is_not_null())
+                )
+                total_muestras = valores_ordenados.height
 
-                # Añadir columna con el rango
-                df_con_rangos = df.with_columns(
-                    [
-                        pl.when(col(variable).is_not_null())
-                        .then(
-                            ((col(variable) - min_val) / rango_size)
-                            .floor()
-                            .cast(pl.Int32)
+                if (
+                    total_muestras >= n_min_rangos * 2
+                ):  # Verificar que hay suficientes muestras para al menos 2 rangos
+                    # Primera iteración: crear rangos iniciales
+                    max_rangos_posibles = min(
+                        num_rangos, total_muestras // n_min_rangos
+                    )
+
+                    if max_rangos_posibles <= 1:
+                        # Si solo podemos tener un rango, crear uno que abarque todo
+                        df_con_rangos = df.with_columns(
+                            [
+                                pl.lit(0).alias("rango_idx"),
+                                pl.lit(min_val).alias("rango_min"),
+                                pl.lit(max_val).alias("rango_max"),
+                            ]
                         )
-                        .otherwise(None)
-                        .alias("rango_idx")
-                    ]
-                )
+                    else:
+                        # Crear rangos iniciales con aproximadamente igual número de muestras
+                        puntos_corte = []
+                        muestras_por_rango = total_muestras // max_rangos_posibles
 
-                # Calcular límites de cada rango
-                df_con_rangos = df_con_rangos.with_columns(
-                    [
-                        pl.lit(min_val).alias("min_global"),
-                        pl.lit(rango_size).alias("rango_size"),
-                    ]
-                )
+                        for i in range(1, max_rangos_posibles):
+                            idx = i * muestras_por_rango - 1
+                            if idx < total_muestras:
+                                puntos_corte.append(valores_ordenados[idx, variable])
 
-                df_con_rangos = df_con_rangos.with_columns(
-                    [
-                        (
-                            col("min_global") + col("rango_idx") * col("rango_size")
-                        ).alias("rango_min"),
-                        (
-                            col("min_global")
-                            + (col("rango_idx") + 1) * col("rango_size")
-                        ).alias("rango_max"),
-                    ]
-                )
+                        # Añadir columna con el rango inicial
+                        def asignar_rango_inicial(x):
+                            if x is None:
+                                return None
+                            for i, corte in enumerate(puntos_corte):
+                                if x <= corte:
+                                    return i
+                            return len(puntos_corte)
+
+                        df_con_rangos_inicial = df.with_columns(
+                            pl.col(variable)
+                            .map_elements(asignar_rango_inicial)
+                            .alias("rango_idx_inicial")
+                        )
+
+                        # Contar muestras en cada rango inicial
+                        conteo_rangos = df_con_rangos_inicial.group_by(
+                            "rango_idx_inicial"
+                        ).agg(
+                            pl.count().alias("n_muestras"),
+                            pl.min(variable).alias("rango_min"),
+                            pl.max(variable).alias("rango_max"),
+                        )
+
+                        # Segunda iteración: fusionar rangos con muestras insuficientes
+                        rangos_finales = []
+                        rango_actual = None
+                        muestras_acumuladas = 0
+
+                        for row in conteo_rangos.sort("rango_idx_inicial").to_dicts():
+                            if rango_actual is None:
+                                rango_actual = {
+                                    "rango_idx_inicial": row["rango_idx_inicial"],
+                                    "rango_min": row["rango_min"],
+                                    "rango_max": row["rango_max"],
+                                    "n_muestras": row["n_muestras"],
+                                }
+                                muestras_acumuladas = row["n_muestras"]
+                            elif (
+                                muestras_acumuladas < n_min_rangos
+                                or row["n_muestras"] < n_min_rangos
+                            ):
+                                # Fusionar con el rango actual si alguno no tiene suficientes muestras
+                                rango_actual["rango_max"] = row["rango_max"]
+                                muestras_acumuladas += row["n_muestras"]
+                            else:
+                                # Guardar el rango actual y comenzar uno nuevo
+                                rangos_finales.append(rango_actual)
+                                rango_actual = {
+                                    "rango_idx_inicial": row["rango_idx_inicial"],
+                                    "rango_min": row["rango_min"],
+                                    "rango_max": row["rango_max"],
+                                    "n_muestras": row["n_muestras"],
+                                }
+                                muestras_acumuladas = row["n_muestras"]
+
+                        # Añadir el último rango
+                        if rango_actual is not None:
+                            rangos_finales.append(rango_actual)
+
+                        # Crear mapeo de rangos iniciales a rangos finales
+                        mapeo_rangos = {}
+                        for idx, rango in enumerate(rangos_finales):
+                            rango_inicial_min = rango["rango_idx_inicial"]
+                            if idx < len(rangos_finales) - 1:
+                                rango_inicial_max = (
+                                    rangos_finales[idx + 1]["rango_idx_inicial"] - 1
+                                )
+                            else:
+                                rango_inicial_max = max_val
+
+                            for i in range(
+                                rango_inicial_min, int(rango_inicial_max) + 1
+                            ):
+                                mapeo_rangos[i] = idx
+
+                        # Crear DataFrame con los límites finales
+                        df_limites = pl.DataFrame(
+                            [
+                                {
+                                    "rango_idx": idx,
+                                    "rango_min": rango["rango_min"],
+                                    "rango_max": rango["rango_max"],
+                                }
+                                for idx, rango in enumerate(rangos_finales)
+                            ]
+                        )
+
+                        # Asignar rangos finales
+                        df_con_rangos = df_con_rangos_inicial.with_columns(
+                            pl.col("rango_idx_inicial")
+                            .map_elements(
+                                lambda x: mapeo_rangos.get(x) if x is not None else None
+                            )
+                            .alias("rango_idx")
+                        )
+
+                        # Unir con el DataFrame de límites
+                        df_con_rangos = df_con_rangos.join(
+                            df_limites, on="rango_idx", how="left"
+                        ).drop("rango_idx_inicial")
+                else:
+                    # Si no hay suficientes muestras, crear un solo rango
+                    df_con_rangos = df.with_columns(
+                        [
+                            pl.lit(0).alias("rango_idx"),
+                            pl.lit(min_val).alias("rango_min"),
+                            pl.lit(max_val).alias("rango_max"),
+                        ]
+                    )
 
                 # Agrupar por rango y calcular estadísticas
                 stats_por_rango = (
@@ -628,6 +935,7 @@ def calcular_correlacion_variables(
                             "desviacion_e_variable": rango_row["desviacion_e_variable"],
                             "minimo_variable": rango_row["minimo_variable"],
                             "maximo_variable": rango_row["maximo_variable"],
+                            "error": None,
                         }
                     )
             else:
@@ -709,6 +1017,7 @@ def calcular_correlacion_variables(
                         "desviacion_e_variable": None,
                         "minimo_variable": None,
                         "maximo_variable": None,
+                        "error": None,
                     }
                 )
         except Exception as e:
@@ -741,6 +1050,7 @@ def calcular_correlacion_variables(
                 "desviacion_e_variable": pl.Float64,
                 "minimo_variable": pl.Float64,
                 "maximo_variable": pl.Float64,
+                "error": pl.Utf8,
             }
         ),
     )
@@ -758,38 +1068,327 @@ def calcular_correlacion_variables(
     }
 
 
+def evaluate_multimodels(
+    df_in, return_model: bool = False, target: str = "tiempo_transaccion_segs"
+):
+    """
+    Evaluates multiple regression models on the given Polars DataFrame using 5-fold cross-validation.
+
+    Assumes the target column is 'tiempo_transaccion_segs'. This function sanitizes column names
+    to ensure compatibility with XGBoost.
+
+    Args:
+        df (pl.DataFrame): Input Polars DataFrame with features and target.
+        return_model (bool): If True, stores the fitted model in the results.
+
+    Returns:
+        dict: A dictionary where each key is a model name and the value is a dictionary
+              with evaluation metrics and optionally the trained model.
+    """
+    # Check if target column exists
+    if target not in df_in.columns:
+        raise ValueError(
+            f"Target column '{target}' not found in DataFrame. Available columns: {df_in.columns}"
+        )
+    df: pd.DataFrame = df_in.to_pandas()
+
+    # Separate features and target.
+    y = df[target]
+    X = df.drop(target, axis=1)
+
+    # One-hot encode categorical features using Polars' to_dummies().
+    X_dummies = pd.get_dummies(X)
+
+    # Ensure valid column names.
+    X_dummies.columns = [
+        str(col)
+        .replace("[", "_")
+        .replace("]", "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace(" ", "_")
+        for col in X_dummies.columns
+    ]
+
+    # Convert to Pandas (scikit-learn requires a Pandas DataFrame or NumPy array).
+    X_pd = X_dummies
+    y_pd = y
+
+    # Define candidate models with parallel processing enabled (n_jobs=-1).
+    models = {
+        "LinearRegression": LinearRegression(),
+        "XGBRegressor": XGBRegressor(
+            n_estimators=15, learning_rate=0.1, max_depth=6, random_state=42, n_jobs=4
+        ),
+        "RandomForest": RandomForestRegressor(
+            n_estimators=15, random_state=42, n_jobs=4
+        ),
+    }
+
+    results = {}
+    scoring = {"r2": "r2", "neg_mse": "neg_mean_squared_error"}
+
+    for name, model in models.items():
+        cv_results = cross_validate(
+            model, X_pd, y_pd, cv=5, scoring=scoring, return_train_score=True
+        )
+        # Compute RMSE from negative MSE.
+        train_rmse = np.mean(np.sqrt(-cv_results["train_neg_mse"]))
+        test_rmse = np.mean(np.sqrt(-cv_results["test_neg_mse"]))
+        results[name] = {
+            "train_r2": np.mean(cv_results["train_r2"]),
+            "test_r2": np.mean(cv_results["test_r2"]),
+            "train_rmse": train_rmse,
+            "test_rmse": test_rmse,
+            "model": model.fit(X_pd, y_pd) if return_model else None,
+        }
+
+    return results
+
+
+def save_model(model, filename):
+    """
+    Saves the given model to the .cache/ directory using joblib.
+
+    Args:
+        model: The trained model to be saved.
+        filename (str): The filename for the saved model (e.g., "model.pkl").
+    """
+    os.makedirs(".cache", exist_ok=True)
+    import joblib
+
+    filepath = os.path.join(".cache", filename)
+    joblib.dump(model, filepath)
+    print(f"Model saved to {filepath}")
+    # To load the model later, use:
+    # loaded_model = joblib.load(filepath)
+
+
+def check_feature_importance(
+    model, X, y: pl.Series, sample_size=None, n_repeats=5, scoring="r2"
+):
+    """
+    Computes permutation importance for the given model on the provided Polars dataset,
+    then displays the features ranked by their effect on R².
+
+    Args:
+        model: The trained model (assumed to be already fitted).
+        X (pl.DataFrame): Feature Polars DataFrame.
+        y (pl.Series): Target variable (Polars Series).
+        sample_size (int, optional): If provided and X is larger, a random sample of this size is used.
+        n_repeats (int): Number of times to permute each feature.
+        scoring (str): Scoring metric, default is 'r2'.
+
+    Returns:
+        pd.DataFrame: A DataFrame with features and their average importance scores.
+    """
+    from sklearn.inspection import permutation_importance
+
+    # Sanitize and work with full Polars DataFrame.
+    X = X.to_pandas()
+    # Convert to Pandas.
+    X_pd = pd.get_dummies(X)
+    y_pd = y.to_pandas()
+
+    # Ensure valid column names.
+    X_pd.columns = [
+        str(col)
+        .replace("[", "_")
+        .replace("]", "_")
+        .replace("<", "_")
+        .replace(">", "_")
+        .replace(" ", "_")
+        for col in X_pd.columns
+    ]
+
+    # Use a subset if sample_size is provided.
+    if sample_size is not None and len(X_pd) > sample_size:
+        X_sample = X_pd.sample(n=sample_size, random_state=42)
+        y_sample = y_pd.loc[X_sample.index]
+    else:
+        X_sample = X_pd
+        y_sample = y_pd
+
+    imp_results = permutation_importance(
+        model, X_sample, y_sample, n_repeats=n_repeats, scoring=scoring, random_state=42
+    )
+    importance_df = pd.DataFrame(
+        {"feature": X_pd.columns, "importance": imp_results.importances_mean}  # type: ignore
+    ).sort_values(by="importance", ascending=False)
+
+    print("Permutation Importance (effect on R²):")
+    print(importance_df)
+    return importance_df
+
+
+# ----------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------
 if __name__ == "__main__":
+    # ----------------------------------------------------------------------------------
     from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_bi
 
-    with pl.Config(set_tbl_cols=20) as cfg:
-        df = get_transactions_data(
-            dwh_farinter_bi,
-            config=ConfigGetTrxData(
-                fecha_desde=pdt.today().subtract(days=30),
-                use_cache=True,
-                cache_max_age_seconds=3600 * 24,
-            ),
-        )
-        print(
-            df.select(
-                "EmpSucDocCajFac_Id",
-                pl.selectors.matches(".*Fecha.*"),
-                pl.selectors.matches(".*cantidad.*"),
-                pl.selectors.matches(".*valor.*"),
-                pl.selectors.matches(".*contiene.*"),
-                pl.selectors.matches(".*es_.*"),
-            ).describe()
-        )
-        df = tranform_transactions_data(df)
-        print(
-            df.select(
-                "EmpSucDocCajFac_Id", "Factura_FechaHora", "tiempo_transaccion_segs"
-            ).describe()
-        )
+    cfg.set_tbl_cols(20)
+    df = get_transactions_data(
+        dwh_farinter_bi,
+        config=ConfigGetTrxData(
+            fecha_desde=pdt.today().subtract(days=365),
+            use_cache=True,
+            cache_max_age_seconds=3600 * 3600,
+        ),
+    )
+    print(
+        df.select(
+            "EmpSucDocCajFac_Id",
+            pl.selectors.matches(".*Fecha.*"),
+            pl.selectors.matches(".*cantidad.*"),
+            pl.selectors.matches(".*valor.*"),
+            pl.selectors.matches(".*contiene.*"),
+            pl.selectors.matches(".*es_.*"),
+        ).describe()
+    )
+    df = tranform_transactions_data(df)
 
-        resultados = calcular_correlacion_variables(
-            df,
+    exclude_columns = [
+        "EmpSucDocCajFac_Id",
+        "Emp_Id",
+        "Suc_Id",
+        "Caja_Id",
+        "Factura_Id",
+        "Factura_Fecha",
+        "Factura_FechaHora",
+        "EmpSucCaj_Id",
+        "es_hora_pico",
+        "max_transacciones_dia",
+        "valor_neto",
+        "hora_id",
+        "total_transacciones_hora",
+    ]
+
+    print(
+        df.select(
+            "EmpSucDocCajFac_Id", "Factura_FechaHora", "tiempo_transaccion_segs"
+        ).describe()
+    )
+
+    df_sensibles = (
+        df.select(
+            (cs.numeric() | cs.categorical() | cs.string() | cs.boolean()).exclude(
+                exclude_columns
+            )
+        )
+        .sample(300000, seed=42)
+        .select(
+            "es_tercera_edad",
+            # "cantidad_productos",
+            "tiempo_transaccion_segs",
+            # "valor_neto_qcut",
+            # "cantidad_unidades_relativa",
+            # "es_clinica",
+            "es_asegurado",
+            # "cantidad_unidades",
+            # "contiene_servicios",
+            # "contiene_consumo",
+            "contiene_farma",
+            # "Factura_Origen",
+            # "canal_venta_id",
+            # "precio_unitario_prom",
+            # "precio_unitario_prom_qcut",
+            # "TipoDoc_id",
+            # "Tipo_Plan",
+            # "TipoCliente_Nombre",
+            # "Suc_Id",
+            "acumula_monedero",
+            "log_cantidad_productos",
+            "log_precio_unitario_prom",
+            "log_cantidad_unidades_relativa",
+            # "ctd_transacciones",
+        )
+    )
+
+    # --------------------------------
+    # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Multimodel evaluation:
+    print(df_sensibles.columns)
+    eval_results = evaluate_multimodels(
+        df_sensibles, return_model=True, target="tiempo_transaccion_segs"
+    )
+    print("Multimodel Evaluation Results:")
+    for model_name, metrics in eval_results.items():
+        print(f"\nModel: {model_name}")
+        print(
+            f"  Train RMSE: {metrics['train_rmse']:.4f}, Train R²: {metrics['train_r2']:.4f}"
+        )
+        print(
+            f"  Test  RMSE: {metrics['test_rmse']:.4f}, Test  R²: {metrics['test_r2']:.4f}"
+        )
+        if "model" in metrics:
+            save_model(metrics["model"], f"model_{model_name}.pkl")
+            X_full = df_sensibles.drop("tiempo_transaccion_segs")
+            y_full = df_sensibles["tiempo_transaccion_segs"]
+            rf_model = metrics["model"]
+            importance_df = check_feature_importance(
+                rf_model, X_full, y_full, sample_size=200, n_repeats=10
+            )
+
+    # -------------------------------------------------------------------------
+    # Save one of the trained models, if needed.
+    # For example, to save the XGBRegressor model:
+    # best_model = eval_results["XGBRegressor"]["model"]
+    # save_model(best_model, "best_model_xgb.pkl")
+
+    # -------------------------------------------------------------------------
+    # Check feature importance (using permutation importance) for a chosen model.
+    # Here we use RandomForest as an example.
+    # X_full = df_sensibles.drop("tiempo_transaccion_segs")
+    # y_full = df_sensibles["tiempo_transaccion_segs"]
+    # rf_model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+    # rf_model.fit(X_full.to_dummies()), y_full))
+    # importance_df = check_feature_importance(rf_model, X_full.to_dummies(), y_full, sample_size=200, n_repeats=10)
+
+    # --------------------------------
+
+    resultados = calcular_correlacion_variables(
+        df,
+        columna_objectivo="tiempo_transaccion_segs",
+        # columna_objectivo="cantidad_productos",
+        columnas_a_excluir=exclude_columns,
+    )
+    print(resultados["detalle_variables"].head(100))
+    print(resultados["resumen_correlaciones"].head(100))
+    resultados["detalle_variables"].write_excel(".cache/detalle_variables.xlsx")
+    resultados["resumen_correlaciones"].write_excel(".cache/resumen_correlaciones.xlsx")
+    if 1 == 1:
+        exit()
+
+    # -----------------------------------
+    # Bootstrap test - 20 iteraciones
+    print("\n--- Iniciando prueba de bootstrap (20 iteraciones) ---")
+
+    # Número de iteraciones de bootstrap
+    n_bootstrap = 20
+
+    # Listas para almacenar resultados de bootstrap
+    bootstrap_resumen = []
+    bootstrap_detalle = []
+
+    sample_size = max(int(df.height * 0.25), calculate_min_sample_size())
+
+    # Realizar bootstrap
+    for i in range(n_bootstrap):
+        print(f"Iteración bootstrap {i + 1}/{n_bootstrap}")
+
+        # Tomar una muestra bootstrap
+        df_bootstrap = df.sample(n=sample_size, with_replacement=True, seed=i + 1)
+
+        # Calcular correlaciones en la muestra bootstrap
+        resultados_bootstrap = calcular_correlacion_variables(
+            df_bootstrap,
             columna_objectivo="tiempo_transaccion_segs",
+            # columna_objectivo="cantidad_productos",
             columnas_a_excluir=[
                 "EmpSucDocCajFac_Id",
                 "Emp_Id",
@@ -799,210 +1398,150 @@ if __name__ == "__main__":
                 "Factura_Fecha",
                 "Factura_FechaHora",
                 "EmpSucCaj_Id",
-                "fue_hora_pico",
+                "es_hora_pico",
                 "max_transacciones_dia",
                 "valor_neto",
                 "hora_id",
                 "total_transacciones_hora",
             ],
         )
-        print(resultados["detalle_variables"].head(100))
-        print(resultados["resumen_correlaciones"].head(100))
-        resultados["detalle_variables"].write_parquet(
-            ".cache/detalle_variables.parquet"
-        )
-        resultados["resumen_correlaciones"].write_parquet(
-            ".cache/resumen_correlaciones.parquet"
+
+        # Añadir número de iteración a los resultados
+        df_resumen_iter = resultados_bootstrap["resumen_correlaciones"].with_columns(
+            pl.lit(i + 1).alias("bootstrap_iteracion")
         )
 
-        # Bootstrap test - 20 iteraciones
-        print("\n--- Iniciando prueba de bootstrap (20 iteraciones) ---")
+        df_detalle_iter = resultados_bootstrap["detalle_variables"].with_columns(
+            pl.lit(i + 1).alias("bootstrap_iteracion")
+        )
 
-        # Número de iteraciones de bootstrap
-        n_bootstrap = 20
+        # Almacenar resultados
+        bootstrap_resumen.append(df_resumen_iter)
+        bootstrap_detalle.append(df_detalle_iter)
 
-        # Listas para almacenar resultados de bootstrap
-        bootstrap_resumen = []
-        bootstrap_detalle = []
+    # Combinar todos los resultados de bootstrap
+    df_bootstrap_resumen_all = pl.concat(bootstrap_resumen)
+    df_bootstrap_detalle_all = pl.concat(bootstrap_detalle)
 
-        sample_size = max(int(df.height * 0.25), calculate_min_sample_size())
+    # Identificar columnas numéricas en ambos dataframes
+    columnas_numericas_resumen = [
+        col
+        for col in df_bootstrap_resumen_all.columns
+        if df_bootstrap_resumen_all[col].dtype.is_numeric()
+        and col not in ["bootstrap_iteracion"]
+    ]
 
-        # Realizar bootstrap
-        for i in range(n_bootstrap):
-            print(f"Iteración bootstrap {i + 1}/{n_bootstrap}")
+    columnas_numericas_detalle = [
+        col
+        for col in df_bootstrap_detalle_all.columns
+        if df_bootstrap_detalle_all[col].dtype.is_numeric()
+        and col not in ["bootstrap_iteracion", "rango_min", "rango_max"]
+    ]
 
-            # Tomar una muestra bootstrap
-            df_bootstrap = df.sample(n=sample_size, with_replacement=True, seed=i + 1)
+    # Calcular estadísticas de bootstrap para el resumen
+    # Usar expresiones de Polars para crear todas las métricas de una vez
+    aggs_resumen = []
+    for col_name in columnas_numericas_resumen:
+        aggs_resumen.extend(
+            [
+                pl.mean(col_name).alias(f"{col_name}_media"),
+                pl.median(col_name).alias(f"{col_name}_mediana"),
+                pl.std(col_name).alias(f"{col_name}_desviacion"),
+                pl.quantile(col_name, 0.05).alias(f"{col_name}_p05"),
+                pl.quantile(col_name, 0.95).alias(f"{col_name}_p95"),
+                pl.min(col_name).alias(f"{col_name}_min"),
+                pl.max(col_name).alias(f"{col_name}_max"),
+            ]
+        )
 
-            # Calcular correlaciones en la muestra bootstrap
-            resultados_bootstrap = calcular_correlacion_variables(
-                df_bootstrap,
-                columna_objectivo="tiempo_transaccion_segs",
-                columnas_a_excluir=[
-                    "EmpSucDocCajFac_Id",
-                    "Emp_Id",
-                    "Suc_Id",
-                    "Caja_Id",
-                    "Factura_Id",
-                    "Factura_Fecha",
-                    "Factura_FechaHora",
-                    "EmpSucCaj_Id",
-                    "fue_hora_pico",
-                    "max_transacciones_dia",
-                    "valor_neto",
-                    "hora_id",
-                    "total_transacciones_hora",
-                ],
-            )
+    df_bootstrap_resumen_stats = df_bootstrap_resumen_all.group_by(
+        "variable", "tipo"
+    ).agg([*aggs_resumen, pl.count().alias("n_bootstrap")])
 
-            # Añadir número de iteración a los resultados
-            df_resumen_iter = resultados_bootstrap[
-                "resumen_correlaciones"
-            ].with_columns(pl.lit(i + 1).alias("bootstrap_iteracion"))
+    # Calcular estadísticas de bootstrap para el detalle
+    # Agrupar por variable, tipo y categoría/rango
+    aggs_detalle = []
+    for col_name in columnas_numericas_detalle:
+        aggs_detalle.extend(
+            [
+                pl.mean(col_name).alias(f"{col_name}_media"),
+                pl.median(col_name).alias(f"{col_name}_mediana"),
+                pl.std(col_name).alias(f"{col_name}_desviacion"),
+                pl.quantile(col_name, 0.05).alias(f"{col_name}_p05"),
+                pl.quantile(col_name, 0.95).alias(f"{col_name}_p95"),
+                pl.min(col_name).alias(f"{col_name}_min"),
+                pl.max(col_name).alias(f"{col_name}_max"),
+            ]
+        )
 
-            df_detalle_iter = resultados_bootstrap["detalle_variables"].with_columns(
-                pl.lit(i + 1).alias("bootstrap_iteracion")
-            )
+    df_bootstrap_detalle_stats = df_bootstrap_detalle_all.group_by(
+        "variable", "tipo", "categoria_o_rango"
+    ).agg([*aggs_detalle, pl.count().alias("n_bootstrap")])
 
-            # Almacenar resultados
-            bootstrap_resumen.append(df_resumen_iter)
-            bootstrap_detalle.append(df_detalle_iter)
+    # Calcular coeficientes de variación para todas las métricas numéricas
+    # Resumen
+    cv_exprs_resumen = [
+        (pl.col(f"{col_name}_desviacion") / pl.col(f"{col_name}_media").abs()).alias(
+            f"cv_{col_name}"
+        )
+        for col_name in columnas_numericas_resumen
+        if col_name not in ["n_observaciones", "n_categorias"]  # Excluir conteos
+    ]
 
-        # Combinar todos los resultados de bootstrap
-        df_bootstrap_resumen_all = pl.concat(bootstrap_resumen)
-        df_bootstrap_detalle_all = pl.concat(bootstrap_detalle)
+    df_bootstrap_resumen_stats = df_bootstrap_resumen_stats.with_columns(
+        cv_exprs_resumen
+    )
 
-        # Identificar columnas numéricas en ambos dataframes
-        columnas_numericas_resumen = [
-            col
-            for col in df_bootstrap_resumen_all.columns
-            if df_bootstrap_resumen_all[col].dtype.is_numeric()
-            and col not in ["bootstrap_iteracion"]
+    # Detalle
+    cv_exprs_detalle = [
+        (pl.col(f"{col_name}_desviacion") / pl.col(f"{col_name}_media").abs()).alias(
+            f"cv_{col_name}"
+        )
+        for col_name in columnas_numericas_detalle
+        if col_name not in ["n_observaciones"]  # Excluir conteos
+    ]
+
+    df_bootstrap_detalle_stats = df_bootstrap_detalle_stats.with_columns(
+        cv_exprs_detalle
+    )
+
+    # Unir con los resultados originales para comparación
+    df_bootstrap_resumen_comparacion = df_bootstrap_resumen_stats.join(
+        resultados["resumen_correlaciones"],
+        on=["variable", "tipo"],
+        how="left",
+        suffix="_original",
+    )
+
+    df_bootstrap_detalle_comparacion = df_bootstrap_detalle_stats.join(
+        resultados["detalle_variables"],
+        on=["variable", "tipo", "categoria_o_rango"],
+        how="left",
+        suffix="_original",
+    )
+
+    # Crear métricas de estabilidad general
+    df_bootstrap_resumen_comparacion = df_bootstrap_resumen_comparacion.with_columns(
+        [
+            pl.when(pl.col("tipo") == "numérica")
+            .then(pl.col("cv_correlacion_pearson"))
+            .otherwise(pl.col("cv_correlacion_ratio"))
+            .alias("cv_principal")
         ]
+    ).sort(["tipo", "cv_principal"])
 
-        columnas_numericas_detalle = [
-            col
-            for col in df_bootstrap_detalle_all.columns
-            if df_bootstrap_detalle_all[col].dtype.is_numeric()
-            and col not in ["bootstrap_iteracion", "rango_min", "rango_max"]
-        ]
+    # Guardar resultados
+    df_bootstrap_resumen_all.write_excel(".cache/bootstrap_resumen_all_iterations.xlsx")
+    df_bootstrap_detalle_all.write_excel(".cache/bootstrap_detalle_all_iterations.xlsx")
+    df_bootstrap_resumen_stats.write_excel(".cache/bootstrap_resumen_stats.xlsx")
+    df_bootstrap_detalle_stats.write_excel(".cache/bootstrap_detalle_stats.xlsx")
+    df_bootstrap_resumen_comparacion.write_excel(
+        ".cache/bootstrap_resumen_comparacion.xlsx"
+    )
+    df_bootstrap_detalle_comparacion.write_excel(
+        ".cache/bootstrap_detalle_comparacion.xlsx"
+    )
 
-        # Calcular estadísticas de bootstrap para el resumen
-        # Usar expresiones de Polars para crear todas las métricas de una vez
-        aggs_resumen = []
-        for col_name in columnas_numericas_resumen:
-            aggs_resumen.extend(
-                [
-                    pl.mean(col_name).alias(f"{col_name}_media"),
-                    pl.median(col_name).alias(f"{col_name}_mediana"),
-                    pl.std(col_name).alias(f"{col_name}_desviacion"),
-                    pl.quantile(col_name, 0.05).alias(f"{col_name}_p05"),
-                    pl.quantile(col_name, 0.95).alias(f"{col_name}_p95"),
-                    pl.min(col_name).alias(f"{col_name}_min"),
-                    pl.max(col_name).alias(f"{col_name}_max"),
-                ]
-            )
-
-        df_bootstrap_resumen_stats = df_bootstrap_resumen_all.group_by(
-            "variable", "tipo"
-        ).agg([*aggs_resumen, pl.count().alias("n_bootstrap")])
-
-        # Calcular estadísticas de bootstrap para el detalle
-        # Agrupar por variable, tipo y categoría/rango
-        aggs_detalle = []
-        for col_name in columnas_numericas_detalle:
-            aggs_detalle.extend(
-                [
-                    pl.mean(col_name).alias(f"{col_name}_media"),
-                    pl.median(col_name).alias(f"{col_name}_mediana"),
-                    pl.std(col_name).alias(f"{col_name}_desviacion"),
-                    pl.quantile(col_name, 0.05).alias(f"{col_name}_p05"),
-                    pl.quantile(col_name, 0.95).alias(f"{col_name}_p95"),
-                    pl.min(col_name).alias(f"{col_name}_min"),
-                    pl.max(col_name).alias(f"{col_name}_max"),
-                ]
-            )
-
-        df_bootstrap_detalle_stats = df_bootstrap_detalle_all.group_by(
-            "variable", "tipo", "categoria_o_rango"
-        ).agg([*aggs_detalle, pl.count().alias("n_bootstrap")])
-
-        # Calcular coeficientes de variación para todas las métricas numéricas
-        # Resumen
-        cv_exprs_resumen = [
-            (
-                pl.col(f"{col_name}_desviacion") / pl.col(f"{col_name}_media").abs()
-            ).alias(f"cv_{col_name}")
-            for col_name in columnas_numericas_resumen
-            if col_name not in ["n_observaciones", "n_categorias"]  # Excluir conteos
-        ]
-
-        df_bootstrap_resumen_stats = df_bootstrap_resumen_stats.with_columns(
-            cv_exprs_resumen
-        )
-
-        # Detalle
-        cv_exprs_detalle = [
-            (
-                pl.col(f"{col_name}_desviacion") / pl.col(f"{col_name}_media").abs()
-            ).alias(f"cv_{col_name}")
-            for col_name in columnas_numericas_detalle
-            if col_name not in ["n_observaciones"]  # Excluir conteos
-        ]
-
-        df_bootstrap_detalle_stats = df_bootstrap_detalle_stats.with_columns(
-            cv_exprs_detalle
-        )
-
-        # Unir con los resultados originales para comparación
-        df_bootstrap_resumen_comparacion = df_bootstrap_resumen_stats.join(
-            resultados["resumen_correlaciones"],
-            on=["variable", "tipo"],
-            how="left",
-            suffix="_original",
-        )
-
-        df_bootstrap_detalle_comparacion = df_bootstrap_detalle_stats.join(
-            resultados["detalle_variables"],
-            on=["variable", "tipo", "categoria_o_rango"],
-            how="left",
-            suffix="_original",
-        )
-
-        # Crear métricas de estabilidad general
-        df_bootstrap_resumen_comparacion = (
-            df_bootstrap_resumen_comparacion.with_columns(
-                [
-                    pl.when(pl.col("tipo") == "numérica")
-                    .then(pl.col("cv_correlacion_pearson"))
-                    .otherwise(pl.col("cv_correlacion_ratio"))
-                    .alias("cv_principal")
-                ]
-            ).sort(["tipo", "cv_principal"])
-        )
-
-        # Guardar resultados
-        df_bootstrap_resumen_all.write_parquet(
-            ".cache/bootstrap_resumen_all_iterations.parquet"
-        )
-        df_bootstrap_detalle_all.write_parquet(
-            ".cache/bootstrap_detalle_all_iterations.parquet"
-        )
-        df_bootstrap_resumen_stats.write_parquet(
-            ".cache/bootstrap_resumen_stats.parquet"
-        )
-        df_bootstrap_detalle_stats.write_parquet(
-            ".cache/bootstrap_detalle_stats.parquet"
-        )
-        df_bootstrap_resumen_comparacion.write_parquet(
-            ".cache/bootstrap_resumen_comparacion.parquet"
-        )
-        df_bootstrap_detalle_comparacion.write_parquet(
-            ".cache/bootstrap_detalle_comparacion.parquet"
-        )
-
-        print(
-            "\n--- Resultados del bootstrap guardados en .cache/bootstrap_*.parquet ---"
-        )
-        print("Resumen de estadísticas bootstrap (top 10 variables por estabilidad):")
-        print(df_bootstrap_resumen_comparacion.head(10))
+    print("\n--- Resultados del bootstrap guardados en .cache/bootstrap_*.xlsx ---")
+    print("Resumen de estadísticas bootstrap (top 10 variables por estabilidad):")
+    print(df_bootstrap_resumen_comparacion.head(10))
