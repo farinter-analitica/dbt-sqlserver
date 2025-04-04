@@ -260,9 +260,9 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "name": "DL_Kielsa_Articulo_Segmentado",
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
         "deps": [
-            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturasPosiciones"]),
-            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
-            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaPosicion"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaEncabezado"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Dim_Articulo"]),
         ],
     },
     "DL_paCargarKielsa_ArticuloSucursal_Segmentado": {
