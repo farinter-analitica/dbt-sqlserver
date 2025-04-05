@@ -111,6 +111,8 @@ def get_transactions_data(
         S.TipoSucursal_Id,
         FP.acumula_monedero,
         TC.TipoCliente_Nombre,
+        CASE WHEN ABS(FE.Valor_Costo_Bonificacion) >0 
+                       THEN 1 ELSE 0 END AS es_bonificado,
         CASE WHEN TC.TipoCliente_Nombre LIKE '%TER%EDAD%' 
                 OR TC.TipoCliente_Nombre LIKE '%CUART%EDAD%'
                 OR M.Tipo_Plan LIKE '%TER%EDAD%' 
@@ -387,49 +389,27 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
         .with_columns(
             (
                 # Base transaction time
-                216.4261
-                +
-                # Impact of insurance status
-                43.1136 * col("es_asegurado").cast(pl.Int64)
-                +
-                # Impact of sales channel
-                -36.6906 * (col("canal_venta_id") == "2").cast(pl.Int64)
-                + 21.8788 * (col("canal_venta_id") == "1").cast(pl.Int64)
-                + -5.2901 * (col("canal_venta_id") == "3").cast(pl.Int64)
-                + 26.9593 * (col("canal_venta_id") == "4").cast(pl.Int64)
-                + -6.8573 * (col("canal_venta_id") == "5").cast(pl.Int64)
+                143.407
                 +
                 # Impact of number of products (nonlinear transformation)
-                70.0767 * col("log_cantidad_productos")
-                +
-                # Impact of invoice origin
-                26.9593 * (col("Factura_Origen") == "PR").cast(pl.Int64)
-                + -22.4259 * (col("Factura_Origen") == "EX").cast(pl.Int64)
-                + -26.4123 * (col("Factura_Origen") == "PU").cast(pl.Int64)
-                + 21.8788 * (col("Factura_Origen") == "FA").cast(pl.Int64)
+                98.564 * col("log_cantidad_productos")
                 +
                 # Impact of pharmaceutical products
-                20.8107 * col("contiene_farma").cast(pl.Int64)
+                20.968 * col("contiene_farma").cast(pl.Int64)
                 +
                 # Impact of senior citizen status
-                17.4914 * col("es_tercera_edad").cast(pl.Int64)
+                13.807 * col("es_tercera_edad").cast(pl.Int64)
                 +
                 # Impact of relative units (nonlinear transformation)
-                10.2871 * col("log_cantidad_unidades_relativa")
-                +
-                # Impact of wallet accumulation
-                5.5998 * col("acumula_monedero").cast(pl.Int64)
-                +
-                # Impact of clinic status
-                4.8859 * col("es_clinica").cast(pl.Int64)
-                +
-                # Impact of consumer products
-                0.1741 * col("contiene_consumo").cast(pl.Int64)
+                11.722 * col("log_cantidad_unidades_relativa")
                 +
                 # Impact of unit price (nonlinear transformation)
-                12.0249 * col("log_precio_unitario_prom")
+                11.335 * col("log_precio_unitario_prom")
+                +
+                # Impact of wallet accumulation
+                6.027 * col("acumula_monedero").cast(pl.Int64)
             )
-            .fill_null(216.4261)
+            .fill_null(143.407)
             .alias("tiempo_transaccion_estimado")
         )
     ).collect(engine="streaming")
@@ -609,7 +589,11 @@ def calcular_correlacion_variables(
                 # Hacer remuestreo de la variable categórica
                 df_resample = pl.concat(
                     [
-                        resample.sample(n=n_muestras, seed=42, with_replacement=True)
+                        resample.sample(
+                            n=min(n_muestras, len(resample)),
+                            seed=42,
+                            with_replacement=True,
+                        )
                         for resample in df.partition_by(variable)
                     ]
                 )
@@ -1236,7 +1220,7 @@ if __name__ == "__main__":
         config=ConfigGetTrxData(
             fecha_desde=pdt.today().subtract(days=365),
             use_cache=True,
-            cache_max_age_seconds=3600 * 3600,
+            cache_max_age_seconds=3600 * 365,
         ),
     )
     print(
@@ -1279,7 +1263,7 @@ if __name__ == "__main__":
                 exclude_columns
             )
         )
-        .sample(300000, seed=42)
+        .sample(min(300000, len(df)), seed=42)
         .select(
             "es_tercera_edad",
             # "cantidad_productos",

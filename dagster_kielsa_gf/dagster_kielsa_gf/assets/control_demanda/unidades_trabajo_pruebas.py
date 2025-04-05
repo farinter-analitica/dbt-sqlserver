@@ -112,6 +112,8 @@ def get_transactions_data(
         S.TipoSucursal_Id,
         FP.acumula_monedero,
         TC.TipoCliente_Nombre,
+        --CASE WHEN ABS(FE.Valor_Costo_Bonificacion) >0 
+        --                THEN 1 ELSE 0 END AS es_bonificado,
         CASE WHEN TC.TipoCliente_Nombre LIKE '%TER%EDAD%' 
                 OR TC.TipoCliente_Nombre LIKE '%CUART%EDAD%'
                 OR M.Tipo_Plan LIKE '%TER%EDAD%' 
@@ -335,16 +337,16 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
             pl.lit(1).cast(pl.Float64).alias("ctd_transacciones"),
             (
                 (col("cantidad_productos"))
-                .log(base=3)
+                .log1p()
                 .fill_nan(None)
-                .fill_null(strategy="mean")
+                .fill_null(1)
                 .cast(pl.Float64)
             ).alias("log_cantidad_productos"),
             (
                 col("precio_unitario_prom")
                 .log1p()
                 .fill_nan(None)
-                .fill_null(strategy="mean")
+                .fill_null(1)
                 .cast(pl.Float64)
             ).alias("log_precio_unitario_prom"),
         )
@@ -352,7 +354,7 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
             col("cantidad_unidades_relativa")
             .log1p()
             .fill_nan(None)
-            .fill_null(strategy="mean")
+            .fill_null(0)
             .cast(pl.Float64)
             .alias("log_cantidad_unidades_relativa"),
         )
@@ -388,47 +390,25 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
         .with_columns(
             (
                 # Base transaction time
-                216.4261
-                +
-                # Impact of insurance status
-                43.1136 * col("es_asegurado").cast(pl.Int64)
-                +
-                # Impact of sales channel
-                -36.6906 * (col("canal_venta_id") == "2").cast(pl.Int64)
-                + 21.8788 * (col("canal_venta_id") == "1").cast(pl.Int64)
-                + -5.2901 * (col("canal_venta_id") == "3").cast(pl.Int64)
-                + 26.9593 * (col("canal_venta_id") == "4").cast(pl.Int64)
-                + -6.8573 * (col("canal_venta_id") == "5").cast(pl.Int64)
+                143.407
                 +
                 # Impact of number of products (nonlinear transformation)
-                70.0767 * col("log_cantidad_productos")
-                +
-                # Impact of invoice origin
-                26.9593 * (col("Factura_Origen") == "PR").cast(pl.Int64)
-                + -22.4259 * (col("Factura_Origen") == "EX").cast(pl.Int64)
-                + -26.4123 * (col("Factura_Origen") == "PU").cast(pl.Int64)
-                + 21.8788 * (col("Factura_Origen") == "FA").cast(pl.Int64)
+                98.564 * col("log_cantidad_productos")
                 +
                 # Impact of pharmaceutical products
-                20.8107 * col("contiene_farma").cast(pl.Int64)
+                20.968 * col("contiene_farma").cast(pl.Int64)
                 +
                 # Impact of senior citizen status
-                17.4914 * col("es_tercera_edad").cast(pl.Int64)
+                13.807 * col("es_tercera_edad").cast(pl.Int64)
                 +
                 # Impact of relative units (nonlinear transformation)
-                10.2871 * col("log_cantidad_unidades_relativa")
-                +
-                # Impact of wallet accumulation
-                5.5998 * col("acumula_monedero").cast(pl.Int64)
-                +
-                # Impact of clinic status
-                4.8859 * col("es_clinica").cast(pl.Int64)
-                +
-                # Impact of consumer products
-                0.1741 * col("contiene_consumo").cast(pl.Int64)
+                11.722 * col("log_cantidad_unidades_relativa")
                 +
                 # Impact of unit price (nonlinear transformation)
-                12.0249 * col("log_precio_unitario_prom")
+                11.335 * col("log_precio_unitario_prom")
+                +
+                # Impact of wallet accumulation
+                6.027 * col("acumula_monedero").cast(pl.Int64)
             )
             .fill_null(216.4261)
             .alias("tiempo_transaccion_estimado")
@@ -443,6 +423,8 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
 
     # Procesar
     categorical_columns = cs.expand_selector(df, cs_columnas_categoricas)
+
+    # print(df.sort( by=( "Factura_Fecha", "total_transacciones_hora"), descending = True).head(20))
     df_lazy = df.lazy()
 
     # Process each column one by one, but maintain lazy state throughout
@@ -1676,14 +1658,14 @@ def build_statistically_significant_linear_model(
 
         # Check if column has zero variance (all values are the same)
         try:
-            if X_with_const[col].var() == 0:  # type: ignore
-                cols_to_drop.append(col)
-                print(f"Dropping column with zero variance: {col}")
+            if X_with_const[col_name].var() == 0:  # type: ignore
+                cols_to_drop.append(col_name)
+                print(f"Dropping column with zero variance: {col_name}")
         except (TypeError, ValueError) as e:
             # If we can't calculate variance (e.g., due to non-numeric values), drop the column
-            cols_to_drop.append(col)
+            cols_to_drop.append(col_name)
             print(
-                f"Dropping column that can't be used in variance calculation: {col}, Error: {e}"
+                f"Dropping column that can't be used in variance calculation: {col_name}, Error: {e}"
             )
 
     # Drop problematic columns
@@ -2289,7 +2271,7 @@ if __name__ == "__main__":
             config=ConfigGetTrxData(
                 fecha_desde=pdt.today().subtract(days=365),
                 use_cache=True,
-                cache_max_age_seconds=3600 * 3600,
+                cache_max_age_seconds=3600 * 365,
             ),
         )
         print(
@@ -2306,7 +2288,9 @@ if __name__ == "__main__":
         print(
             df.select(
                 "EmpSucDocCajFac_Id", "Factura_FechaHora", "tiempo_transaccion_segs"
-            ).describe()
+            )
+            .top_k(20, by="Factura_FechaHora")
+            .head(20)
         )
 
         df_sensibles = df.select(
