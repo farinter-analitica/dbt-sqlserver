@@ -122,7 +122,7 @@ def generate_sling_yaml_from_source(
     source: str = "NOCODB_DATA_GF",
     target: str = "DAGSTER_DWH_FARINTER",
     defaults: Optional[Dict[str, Any]] = None,
-    update_key: str = "fecha_actualizado",
+    update_keys: list = ["fecha_actualizado", "updated_at"],
 ) -> str:
     """
     Inspecciona el esquema PostgreSQL dado (usando reflexión de SQLAlchemy)
@@ -136,7 +136,7 @@ def generate_sling_yaml_from_source(
         source: Nombre del origen de datos.
         target: Nombre del destino de datos.
         defaults: Configuración predeterminada. Si es None, usa la configuración por defecto.
-        update_key: Nombre de la columna de actualización.
+        update_key: Nombre de la columna de actualización encontrada por prioridad.
 
     Returns:
         str: Ruta al archivo YAML generado.
@@ -171,53 +171,73 @@ def generate_sling_yaml_from_source(
     for table_name, table in metadata.tables.items():
         # Extraer solo el nombre de la tabla sin el esquema
         table_name_only = table.name
+        default_table = True if "-" in table_name_only else False
 
         # Construir una clave de stream usando el esquema y nombre de tabla (por ejemplo, "kielsa.mytable")
-        full_table_name = f"{source_schema}.{table_name_only}"
+        full_table_name = f"""\"{source_schema}\".\"{table_name_only}\""""
 
         # Obtener la lista de columnas de clave primaria
         pk_columns: List[str] = [str(col.name) for col in table.primary_key]
 
         # Verificar si existe la columna update_key en la tabla
         column_names = [col.name for col in table.columns]
-        has_update_key = update_key in column_names
+        final_update_key = update_keys[0]
+        has_update_key = False
+        for update_key in update_keys:
+            final_update_key = update_key
+            has_update_key = update_key in column_names
+            if has_update_key:
+                break
 
         if not pk_columns and not has_update_key:
             continue  # Omitir tablas sin claves primarias y fecha de actualización
+
+        # Obtener las columnas con índices únicos
+        unique_indexes = []
+        for idx in table.indexes:
+            if idx.unique:
+                unique_indexes.append([str(col.name) for col in idx.columns])
 
         # Convertir tipos problematicos, izquierda el nombre, derecha en la query
         types_mapping: Dict[str, tuple] = {
             "TIME": ("VARCHAR(20)", "::varchar(20)"),
             "BOOLEAN": ("INTEGER", "::integer"),
+            "VARCHAR": ("VARCHAR(100)", "::varchar(100)"),
         }
 
         stream_entry: Dict[str, Any] = {}
         if has_update_key:
             # Si existe la columna fecha_actualizado, usarla como update_key
-            stream_entry["update_key"] = "fecha_actualizado"
+            stream_entry["update_key"] = final_update_key
             stream_entry["sql"] = dedent(
                 f"""
                 select 
                     {
                     ", ".join(
                         [
-                            f"{col.name}{types_mapping.get(str(col.type), ('', ''))[1]}"
+                            f'"{col.name}"{types_mapping.get(str(col.type), ("", ""))[1]}'
                             for col in table.columns
                         ]
                     )
                 }
                 from {full_table_name} 
-                where {
-                    update_key
-                } > coalesce({{incremental_value}}::timestamp, '2001-01-01'::timestamp) - INTERVAL '1 day'
+                where \"{
+                    final_update_key
+                }\" > coalesce({{incremental_value}}::timestamp, '2001-01-01'::timestamp) - INTERVAL '1 day'
                 """
             )
-        else:
+        if default_table or not has_update_key:
             stream_entry["disabled"] = True
 
         # Construir la entrada de stream por tabla
         stream_entry["primary_key"] = pk_columns
-        stream_entry["target_options"] = {"table_keys": {"primary": pk_columns}}
+        stream_entry["target_options"] = {
+            "table_keys": {
+                "primary": pk_columns,
+                "unique": unique_indexes,
+            },
+            "use_bulk": False,
+        }
         stream_entry["columns"] = [
             {str(col.name): str(types_mapping.get(str(col.type), (col.type, ""))[0])}
             for col in table.columns

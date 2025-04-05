@@ -58,7 +58,7 @@ def generate_sling_yaml():
     replication_config_generated: str | None = None
     try:
         if not is_file_cache_valid(
-            ".sling_nocodb_data_gf.yaml", directory=parent_path, seconds_threshold=0
+            ".sling_nocodb_data_gf.yaml", directory=parent_path, seconds_threshold=60
         ):
             replication_config_generated = generate_sling_yaml_from_source(
                 engine=db_nocodb_data_gf.get_engine(),
