@@ -193,10 +193,20 @@ def generate_sling_yaml_from_source(
             continue  # Omitir tablas sin claves primarias y fecha de actualización
 
         # Obtener las columnas con índices únicos
-        unique_indexes = []
+        unique_idx_columns = []
         for idx in table.indexes:
             if idx.unique:
-                unique_indexes.append([str(col.name) for col in idx.columns])
+                unique_idx_columns.extend([str(col.name) for col in idx.columns])
+                break
+
+        if not unique_idx_columns:
+            for cst in table.constraints:
+                if isinstance(cst, sql.UniqueConstraint):
+                    if cst.columns == pk_columns:
+                        continue
+
+                    unique_idx_columns.extend([str(col.name) for col in cst.columns])
+                    break
 
         # Convertir tipos problematicos, izquierda el nombre, derecha en la query
         types_mapping: Dict[str, tuple] = {
@@ -234,7 +244,7 @@ def generate_sling_yaml_from_source(
         stream_entry["target_options"] = {
             "table_keys": {
                 "primary": pk_columns,
-                "unique": unique_indexes,
+                "unique": unique_idx_columns,
             },
             "use_bulk": False,
         }
