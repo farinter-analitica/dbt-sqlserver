@@ -28,7 +28,7 @@ def debug_print(str):
     print(str)
 
 
-class ConfigGetTrxData(dg.Config):
+class ConfigGetData(dg.Config):
     fecha_desde: dt.date = Field(
         description="Fecha desde la cual se quieren obtener las transacciones",
         default=pdt.today().subtract(months=3).replace(day=1),
@@ -76,7 +76,7 @@ def calculate_min_sample_size(
 
 
 def get_transactions_data(
-    dwh_farinter_bi: SQLServerResource, config: ConfigGetTrxData
+    dwh_farinter_bi: SQLServerResource, config: ConfigGetData
 ) -> pl.DataFrame:
     if config.use_cache:
         cache_handler = ParquetCacheHandler(filename="ut_trx_data")
@@ -123,7 +123,7 @@ def get_transactions_data(
                 OR M.Tipo_Plan LIKE '%CLINIC%' 
             THEN 1 ELSE 0 END AS es_clinica,
         CASE WHEN TC.TipoCliente_Nombre LIKE '%ASEGURADO%' 
-                OR M.Tipo_Plan LIKE '%CLINIC%' 
+                OR M.Tipo_Plan LIKE '%ASEGURAD%' 
             THEN 1 ELSE 0 END AS es_asegurado,
         M.Tipo_Plan
     FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaEncabezado FE
@@ -208,7 +208,51 @@ def get_transactions_data(
     return df
 
 
-def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
+def get_marcador_data(
+    dwh_farinter_bi: SQLServerResource, config: ConfigGetData
+) -> pl.DataFrame:
+    if config.use_cache:
+        cache_handler = ParquetCacheHandler(filename="ut_marcador_data")
+        df = cache_handler.get_cached_data(max_age_seconds=config.cache_max_age_seconds)
+        if df is not None:
+            return df
+
+    fecha_desde_str = config.fecha_desde.strftime("%Y%m%d")
+    query_trx = dedent(f""" 
+        SELECT Pais_Id as Emp_Id, 
+            Sucursal_Id as Suc_Id, 
+            Fecha_Calendario as Factura_Fecha, 
+            Hora_Id as hora_id, 
+            EH.Cantidad_Empleados
+        FROM BI_FARINTER.dbo.BI_Kielsa_Agr_Sucursal_Marcador_EmpleadosHora EH
+        WHERE EH.Fecha_Calendario >= '{fecha_desde_str}' AND Pais_Id=1
+    """)
+
+    df = (
+        pl.read_database(query_trx, dwh_farinter_bi.get_arrow_odbc_conn_string())
+        .lazy()
+        .collect(engine="streaming")
+    )
+
+    if config.use_cache:
+        cache_handler = ParquetCacheHandler(filename="ut_marcador_data")
+        cache_handler.save_to_cache(df)
+
+    return df
+
+
+def tranform_transactions_data(
+    df: pl.DataFrame | pl.LazyFrame, df_marcador: pl.DataFrame
+) -> pl.DataFrame:
+    llaves_primarias_id = (
+        "Emp_Id",
+        "Suc_Id",
+        "EmpSucDocCajFac_Id",
+        "EmpSucCaj_Id",
+        "hora_id",
+        "Caja_Id",
+    )
+
     # Calcular hora_id y clave caja
     cs_columnas_categoricas = (
         cs.by_name("acumula_monedero")
@@ -218,7 +262,7 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
         | cs.ends_with("_id")
         | cs.by_dtype(pl.String)
         | cs.by_dtype(pl.Categorical)
-    )
+    ) - cs.by_name(llaves_primarias_id)
 
     df = (
         df.with_columns(
@@ -310,15 +354,6 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
     debug_print(f"q1: {q1}, q3: {q3}")
 
     # Coefiicientes de correlacion
-    # coef_productos = 0.161  # resultado del proceso
-    # coef_unidades = 0.124  # resultado del proceso
-    # suma_coef = coef_productos + coef_unidades
-    # # peso_productos = coef_productos / suma_coef
-    # # peso_unidades = coef_unidades / suma_coef
-    # peso_productos = 0.1  # Impactan por instancia
-    # peso_unidades = 0.07  # Impactan por instancia
-    # peso_tercera_edad = 0.02  # Impacta solo una vez
-    # peso_contiene_servicios = -0.3  # Impacta solo una vez
 
     df = (
         df.filter(
@@ -349,6 +384,10 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
                 .fill_null(1)
                 .cast(pl.Float64)
             ).alias("log_precio_unitario_prom"),
+            col("EmpSucCaj_Id")
+            .n_unique()
+            .over(partition_by=("Emp_Id", "Suc_Id"))
+            .alias("Cajas_Activas"),
         )
         .with_columns(
             col("cantidad_unidades_relativa")
@@ -358,35 +397,6 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
             .cast(pl.Float64)
             .alias("log_cantidad_unidades_relativa"),
         )
-        # Este enfoque genera correlacion 0.162
-        # .with_columns(
-        #     (
-        #         peso_productos * col("cantidad_productos") *
-        #         (1 + peso_unidades * (col("cantidad_unidades") / col("cantidad_productos")).clip(1, 10).log1p() * 0.5)
-        #     ).alias("cantidad_trabajo")
-        # )
-        # .with_columns(
-        #     (
-        #         # Trabajo base por transacción
-        #         4.0
-        #         +
-        #         # Trabajo por cada producto diferente (buscar código, etc.)
-        #         (peso_productos) * (col("cantidad_productos") - 1)
-        #         +
-        #         # Trabajo por cada unidad adicional (manejo y escaneo)
-        #         (peso_unidades)
-        #         * (col("cantidad_unidades") - col("cantidad_productos"))
-        #         .clip(0)
-        #         .log1p()  # Penalizar valores grandes
-        #         # +
-        #         # Trabajo por tercera edad
-        #         # (peso_tercera_edad)
-        #         # * col("es_tercera_edad").cast(pl.Float64)
-        #         # +
-        #         # # Trabajo por servicios
-        #         # (peso_contiene_servicios)
-        #         # * col("contiene_servicios").cast(pl.Float64)
-        #     ).alias("cantidad_trabajo")
         .with_columns(
             (
                 # Base transaction time
@@ -414,6 +424,17 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
             .alias("tiempo_transaccion_estimado")
         )
     ).collect(engine="streaming")
+
+    # Filtrar solo horas con cajas suficientes para los empleados
+    print("Filtrando horas con cajas suficientes para los empleados...")
+    df = (
+        df.join(
+            df_marcador.with_columns(cs.numeric().cast(pl.Float64)),
+            on=("Emp_Id", "Suc_Id", "hora_id", "Factura_Fecha"),
+        )
+        .filter(col("Cajas_Activas") + 1 >= col("Cantidad_Empleados"))
+        .drop(cs.ends_with("_right") | cs.by_name("Cantidad_Empleados"))
+    )
 
     # --- Agrupar categorías con muestras insuficientes en "otros" ---
     n_min = calculate_min_sample_size(
@@ -452,6 +473,222 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
     df = df_lazy.collect(engine="streaming")
 
     return df
+
+
+def visualize_data_distribution(
+    df: pl.DataFrame,
+    target_column: str = "tiempo_transaccion_segs",
+    feature_columns: list | None = None,
+    max_features: int = 6,
+    sample_size: int = 10000,
+    output_file: str | None = None,
+):
+    """
+    Creates interactive visualizations for analyzing dispersion and distribution of data
+    and saves them as an HTML file that can be opened in any browser.
+
+    Args:
+        df (pl.DataFrame): The DataFrame containing the data to visualize
+        target_column (str): The target variable to analyze (default: "tiempo_transaccion_segs")
+        feature_columns (list, optional): List of feature columns to visualize. If None,
+                                         selects top correlated features automatically
+        max_features (int): Maximum number of features to display (default: 6)
+        sample_size (int): Number of samples to use for visualization (default: 10000)
+        output_file (str, optional): Path to save the HTML file. If None, saves to '.cache/data_visualization.html'
+
+    Returns:
+        str: Path to the generated HTML file
+    """
+    try:
+        import plotly.express as px
+        import numpy as np
+        import os
+        import webbrowser
+    except ImportError:
+        print("This function requires plotly to be installed.")
+        print("Install with: pip install plotly")
+        return None
+
+    # Set default output file
+    if output_file is None:
+        os.makedirs(".cache", exist_ok=True)
+        output_file = ".cache/data_visualization.html"
+
+    # Sample data if needed
+    if len(df) > sample_size:
+        df_sample = df.sample(n=sample_size, seed=42)
+    else:
+        df_sample = df
+
+    # Convert to pandas for plotly compatibility
+    df_pd = df_sample.to_pandas()
+
+    # If feature columns not provided, select top correlated features
+    if feature_columns is None:
+        # Calculate correlations with target
+        correlations = {}
+        numeric_cols = [
+            col
+            for col in df.columns
+            if df[col].dtype.is_numeric() and col != target_column
+        ]
+
+        for col in numeric_cols:
+            try:
+                corr = abs(df.select(pl.corr(target_column, col)).item())
+                if not np.isnan(corr):
+                    correlations[col] = corr
+            except Exception as e:
+                del e
+                pass
+
+        # Select top correlated features
+        feature_columns = sorted(correlations.items(), key=lambda x: x[1], reverse=True)
+        feature_columns = [col for col, _ in feature_columns[:max_features]]
+        print(f"Selected top correlated features: {feature_columns}")
+
+    # Limit to max_features
+    if len(feature_columns) > max_features:
+        feature_columns = feature_columns[:max_features]
+
+    # Create HTML content
+    html_parts = []
+    html_parts.append(f"""
+    <html>
+    <head>
+        <title>Data Analysis for {target_column}</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                background-color: #f5f5f5;
+            }}
+            .container {{
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                margin-bottom: 20px;
+            }}
+            h1 {{
+                color: #2c3e50;
+                text-align: center;
+            }}
+            h2 {{
+                color: #3498db;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Data Analysis for {target_column}</h1>
+    """)
+
+    # 1. Target Distribution
+    print("Creating target distribution plot...")
+    fig_target = px.histogram(
+        df_pd, x=target_column, title=f"Distribution of {target_column}", marginal="box"
+    )
+    html_parts.append('<div class="container">')
+    html_parts.append("<h2>Target Distribution</h2>")
+    html_parts.append(fig_target.to_html(full_html=False, include_plotlyjs="cdn"))
+    html_parts.append("</div>")
+
+    # 2. Feature Distributions
+    print("Creating feature distribution plots...")
+    html_parts.append('<div class="container">')
+    html_parts.append("<h2>Feature Distributions</h2>")
+
+    for col in feature_columns:
+        if df[col].dtype.is_numeric():
+            fig = px.histogram(df_pd, x=col, title=f"Distribution of {col}")
+            html_parts.append(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+        else:
+            # For categorical features
+            value_counts = df[col].value_counts().to_pandas()
+            fig = px.bar(value_counts, x=col, y="count", title=f"Distribution of {col}")
+            html_parts.append(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+
+    html_parts.append("</div>")
+
+    # 3. Scatter plots for dispersion analysis
+    print("Creating dispersion plots...")
+    html_parts.append('<div class="container">')
+    html_parts.append("<h2>Dispersion Analysis</h2>")
+
+    for col in feature_columns:
+        if df[col].dtype.is_numeric():
+            fig = px.scatter(
+                df_pd,
+                x=col,
+                y=target_column,
+                title=f"{col} vs {target_column}",
+                trendline="ols",
+            )
+            html_parts.append(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+        else:
+            # For categorical features, use box plots
+            fig = px.box(
+                df_pd, x=col, y=target_column, title=f"{col} vs {target_column}"
+            )
+            html_parts.append(fig.to_html(full_html=False, include_plotlyjs="cdn"))
+
+    html_parts.append("</div>")
+
+    # 4. Correlation Heatmap
+    print("Creating correlation heatmap...")
+    numeric_df = df_sample.select(
+        [col for col in df_sample.columns if df_sample[col].dtype.is_numeric()]
+    )
+    corr_matrix = numeric_df.to_pandas().corr()
+
+    fig_heatmap = px.imshow(
+        corr_matrix,
+        text_auto=".2f",  # type: ignore
+        aspect="auto",
+        title="Correlation Heatmap",  # type: ignore
+    )
+
+    html_parts.append('<div class="container">')
+    html_parts.append("<h2>Correlation Heatmap</h2>")
+    html_parts.append(fig_heatmap.to_html(full_html=False, include_plotlyjs="cdn"))
+    html_parts.append("</div>")
+
+    # 5. Pair plot for selected features (limited to 4 for readability)
+    print("Creating pair plot...")
+    pair_features = feature_columns[: min(4, len(feature_columns))] + [target_column]
+    fig_pair = px.scatter_matrix(
+        df_pd[pair_features],
+        dimensions=pair_features,
+        title="Pair Plot of Selected Features",
+        opacity=0.5,
+    )
+
+    html_parts.append('<div class="container">')
+    html_parts.append("<h2>Pair Plot</h2>")
+    html_parts.append(fig_pair.to_html(full_html=False, include_plotlyjs="cdn"))
+    html_parts.append("</div>")
+
+    # Close HTML
+    html_parts.append("</body></html>")
+
+    # Write HTML file
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write("\n".join(html_parts))
+
+    print(f"Visualization saved to {output_file}")
+    print("Opening visualization in browser...")
+
+    # Open in browser
+    webbrowser.open("file://" + os.path.abspath(output_file))
+
+    return output_file
+
+
+# Example usage in the script:
+# if __name__ == "__main__":
+#     visualize_data_distribution(df_sensibles, target_column="tiempo_transaccion_segs")
 
 
 def calcular_correlacion_variables(
@@ -2268,12 +2505,21 @@ if __name__ == "__main__":
     with pl.Config(set_tbl_cols=20) as cfg:
         df = get_transactions_data(
             dwh_farinter_bi,
-            config=ConfigGetTrxData(
+            config=ConfigGetData(
                 fecha_desde=pdt.today().subtract(days=365),
                 use_cache=True,
-                cache_max_age_seconds=3600 * 365,
+                cache_max_age_seconds=3600 * 3600,
             ),
         )
+        df_marcador = get_marcador_data(
+            dwh_farinter_bi,
+            config=ConfigGetData(
+                fecha_desde=pdt.today().subtract(days=365),
+                use_cache=True,
+                cache_max_age_seconds=3600 * 3600,
+            ),
+        )
+
         print(
             df.select(
                 "EmpSucDocCajFac_Id",
@@ -2284,7 +2530,37 @@ if __name__ == "__main__":
                 pl.selectors.matches(".*es_.*"),
             ).describe()
         )
-        df = tranform_transactions_data(df)
+        df = tranform_transactions_data(df, df_marcador)
+
+        visualize_data_distribution(
+            df.select(
+                "es_tercera_edad",
+                "cantidad_productos",
+                "tiempo_transaccion_segs",
+                "valor_neto_qcut",
+                "cantidad_unidades_relativa",
+                "es_clinica",
+                "es_asegurado",
+                "cantidad_unidades",
+                "contiene_servicios",
+                "contiene_consumo",
+                "contiene_farma",
+                "Factura_Origen",
+                "canal_venta_id",
+                "precio_unitario_prom",
+                "TipoDoc_id",
+                "Tipo_Plan",
+                "TipoCliente_Nombre",
+                "Suc_Id",
+                "acumula_monedero",
+                "log_cantidad_productos",
+                "log_precio_unitario_prom",
+                "log_cantidad_unidades_relativa",
+                # "ctd_transacciones",
+            ),
+            target_column="tiempo_transaccion_segs",
+        )
+
         print(
             df.select(
                 "EmpSucDocCajFac_Id", "Factura_FechaHora", "tiempo_transaccion_segs"
@@ -2300,7 +2576,7 @@ if __name__ == "__main__":
             # "valor_neto_qcut",
             # "cantidad_unidades_relativa",
             # "es_clinica",
-            # "es_asegurado",
+            "es_asegurado",
             # "cantidad_unidades",
             # "contiene_servicios",
             # "contiene_consumo",

@@ -122,7 +122,7 @@ def get_transactions_data(
                 OR M.Tipo_Plan LIKE '%CLINIC%' 
             THEN 1 ELSE 0 END AS es_clinica,
         CASE WHEN TC.TipoCliente_Nombre LIKE '%ASEGURADO%' 
-                OR M.Tipo_Plan LIKE '%CLINIC%' 
+                OR M.Tipo_Plan LIKE '%ASEGURAD%' 
             THEN 1 ELSE 0 END AS es_asegurado,
         M.Tipo_Plan
     FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaEncabezado FE
@@ -309,16 +309,6 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
     debug_print(f"q1: {q1}, q3: {q3}")
 
     # Coefiicientes de correlacion
-    # coef_productos = 0.161  # resultado del proceso
-    # coef_unidades = 0.124  # resultado del proceso
-    # suma_coef = coef_productos + coef_unidades
-    # # peso_productos = coef_productos / suma_coef
-    # # peso_unidades = coef_unidades / suma_coef
-    # peso_productos = 0.1  # Impactan por instancia
-    # peso_unidades = 0.07  # Impactan por instancia
-    # peso_tercera_edad = 0.02  # Impacta solo una vez
-    # peso_contiene_servicios = -0.3  # Impacta solo una vez
-
     df = (
         df.filter(
             (col("tiempo_transaccion_segs") >= q1)
@@ -357,35 +347,6 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
             .cast(pl.Float64)
             .alias("log_cantidad_unidades_relativa"),
         )
-        # Este enfoque genera correlacion 0.162
-        # .with_columns(
-        #     (
-        #         peso_productos * col("cantidad_productos") *
-        #         (1 + peso_unidades * (col("cantidad_unidades") / col("cantidad_productos")).clip(1, 10).log1p() * 0.5)
-        #     ).alias("cantidad_trabajo")
-        # )
-        # .with_columns(
-        #     (
-        #         # Trabajo base por transacción
-        #         4.0
-        #         +
-        #         # Trabajo por cada producto diferente (buscar código, etc.)
-        #         (peso_productos) * (col("cantidad_productos") - 1)
-        #         +
-        #         # Trabajo por cada unidad adicional (manejo y escaneo)
-        #         (peso_unidades)
-        #         * (col("cantidad_unidades") - col("cantidad_productos"))
-        #         .clip(0)
-        #         .log1p()  # Penalizar valores grandes
-        #         # +
-        #         # Trabajo por tercera edad
-        #         # (peso_tercera_edad)
-        #         # * col("es_tercera_edad").cast(pl.Float64)
-        #         # +
-        #         # # Trabajo por servicios
-        #         # (peso_contiene_servicios)
-        #         # * col("contiene_servicios").cast(pl.Float64)
-        #     ).alias("cantidad_trabajo")
         .with_columns(
             (
                 # Base transaction time
