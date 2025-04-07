@@ -25,6 +25,15 @@ DECLARE @SemanasPonderacion AS INT = 12
 DECLARE @DiasPonderacion AS INT = @SemanasPonderacion*7 --Historia para ponderar
 DROP TABLE IF EXISTS #Temp
 ;
+
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Es_Tercera_Edad),0)*1.0 AS Sum_Conteo_Trx_Es_Tercera_Edad,
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Es_Asegurado),0)*1.0 AS Sum_Conteo_Trx_Es_Asegurado,
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Acumula_Monedero),0)*1.0 AS Sum_Conteo_Trx_Acumula_Monedero,
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Contiene_Farma),0)*1.0 AS Sum_Conteo_Trx_Contiene_Farma,
+        ISNULL(SUM(FP.Sum_Cantidad_Unidades_Relativa),0)*1.0 AS Sum_Cantidad_Unidades_Relativa,
+        ISNULL(SUM(FP.Sum_Segundos_Transaccion_Estimado),0)*1.0 AS Sum_Segundos_Transaccion_Estimado
+
+
 */
 WITH Calculo AS
 (
@@ -36,38 +45,58 @@ WITH Calculo AS
         ISNULL(PDS.Dia_Semana_Iso_Id,0) AS Dia_Semana_Iso_Id,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Cantidad_Padre ELSE PR.Prom_Cantidad_Padre END)
             *ISNULL(PDS.Peso_Cantidad_Padre,1)*ISNULL(PDSH.Part_Cantidad_Padre,1)
-            *ISNULL(PM.Peso_Cantidad_Padre,1)*ISNULL(TVH.Crec_Cantidad_Padre,1)  AS DECIMAL(16,6)) AS Cantidad_Padre,
+            *ISNULL(PM.Peso_Cantidad_Padre,1)*ISNULL(TVH.Crec_Cantidad_Padre,1) AS DECIMAL(16,6)) AS Cantidad_Padre,
+        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Cantidad_Articulos ELSE PR.Prom_Cantidad_Articulos END)
+            *ISNULL(PDS.Peso_Cantidad_Articulos,1)*ISNULL(PDSH.Part_Cantidad_Articulos,1)
+            *ISNULL(PM.Peso_Cantidad_Articulos,1)*ISNULL(TVH.Crec_Cantidad_Articulos,1) AS DECIMAL(16,6)) AS Cantidad_Articulos,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Bruto ELSE PR.Prom_Valor_Bruto END)
             *ISNULL(PDS.Peso_Valor_Bruto,1)*ISNULL(PDSH.Part_Valor_Bruto,1)
-            *ISNULL(PM.Peso_Valor_Bruto,1)*ISNULL(TVH.Crec_Valor_Bruto,1)  AS DECIMAL(16,6)) AS Valor_Bruto,
+            *ISNULL(PM.Peso_Valor_Bruto,1)*ISNULL(TVH.Crec_Valor_Bruto,1) AS DECIMAL(16,6)) AS Valor_Bruto,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Neto ELSE PR.Prom_Valor_Neto END)
             *ISNULL(PDS.Peso_Valor_Neto,1)*ISNULL(PDSH.Part_Valor_Neto,1)
-            *ISNULL(PM.Peso_Valor_Neto,1)*ISNULL(TVH.Crec_Valor_Neto,1)  AS DECIMAL(16,6)) AS Valor_Neto,
+            *ISNULL(PM.Peso_Valor_Neto,1)*ISNULL(TVH.Crec_Valor_Neto,1) AS DECIMAL(16,6)) AS Valor_Neto,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Costo ELSE PR.Prom_Valor_Costo END)
             *ISNULL(PDS.Peso_Valor_Costo,1)*ISNULL(PDSH.Part_Valor_Costo,1)
-            *ISNULL(PM.Peso_Valor_Costo,1)*ISNULL(TVH.Crec_Valor_Costo,1)  AS DECIMAL(16,6)) AS Valor_Costo,
+            *ISNULL(PM.Peso_Valor_Costo,1)*ISNULL(TVH.Crec_Valor_Costo,1) AS DECIMAL(16,6)) AS Valor_Costo,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento ELSE PR.Prom_Valor_Descuento END)
             *ISNULL(PDS.Peso_Valor_Descuento,1)*ISNULL(PDSH.Part_Valor_Descuento,1)
-            *ISNULL(PM.Peso_Valor_Descuento,1)*ISNULL(TVH.Crec_Valor_Descuento,1)  AS DECIMAL(16,6)) AS Valor_Descuento,
+            *ISNULL(PM.Peso_Valor_Descuento,1)*ISNULL(TVH.Crec_Valor_Descuento,1) AS DECIMAL(16,6)) AS Valor_Descuento,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Financiero ELSE PR.Prom_Valor_Descuento_Financiero END)
             *ISNULL(PDS.Peso_Valor_Descuento_Financiero,1)*ISNULL(PDSH.Part_Valor_Descuento_Financiero,1)
-            *ISNULL(PM.Peso_Valor_Descuento_Financiero,1)*ISNULL(TVH.Crec_Valor_Descuento_Financiero,1)  AS DECIMAL(16,6)) AS Valor_Descuento_Financiero,
+            *ISNULL(PM.Peso_Valor_Descuento_Financiero,1)*ISNULL(TVH.Crec_Valor_Descuento_Financiero,1) AS DECIMAL(16,6)) AS Valor_Descuento_Financiero,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Acum_Monedero ELSE PR.Prom_Valor_Acum_Monedero END)
             *ISNULL(PDS.Peso_Valor_Acum_Monedero,1)*ISNULL(PDSH.Part_Valor_Acum_Monedero,1)
-            *ISNULL(PM.Peso_Valor_Acum_Monedero,1)*ISNULL(TVH.Crec_Valor_Acum_Monedero,1)  AS DECIMAL(16,6)) AS Valor_Acum_Monedero,
+            *ISNULL(PM.Peso_Valor_Acum_Monedero,1)*ISNULL(TVH.Crec_Valor_Acum_Monedero,1) AS DECIMAL(16,6)) AS Valor_Acum_Monedero,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Cupon ELSE PR.Prom_Valor_Descuento_Cupon END)
             *ISNULL(PDS.Peso_Valor_Descuento_Cupon,1)*ISNULL(PDSH.Part_Valor_Descuento_Cupon,1)
-            *ISNULL(PM.Peso_Valor_Descuento_Cupon,1)*ISNULL(TVH.Crec_Valor_Descuento_Cupon,1)  AS DECIMAL(16,6)) AS Valor_Descuento_Cupon,
+            *ISNULL(PM.Peso_Valor_Descuento_Cupon,1)*ISNULL(TVH.Crec_Valor_Descuento_Cupon,1) AS DECIMAL(16,6)) AS Valor_Descuento_Cupon,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Proveedor ELSE PR.Prom_Valor_Descuento_Proveedor END)
             *ISNULL(PDS.Peso_Valor_Descuento_Proveedor,1)*ISNULL(PDSH.Part_Valor_Descuento_Proveedor,1)
-            *ISNULL(PM.Peso_Valor_Descuento_Proveedor,1)*ISNULL(TVH.Crec_Valor_Descuento_Proveedor,1)   AS DECIMAL(16,6)) AS Valor_Descuento_Proveedor,
+            *ISNULL(PM.Peso_Valor_Descuento_Proveedor,1)*ISNULL(TVH.Crec_Valor_Descuento_Proveedor,1) AS DECIMAL(16,6)) AS Valor_Descuento_Proveedor,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Valor_Descuento_Tercera_Edad ELSE PR.Prom_Valor_Descuento_Tercera_Edad END)
             *ISNULL(PDS.Peso_Valor_Descuento_Tercera_Edad,1)*ISNULL(PDSH.Part_Valor_Descuento_Tercera_Edad,1)
-            *ISNULL(PM.Peso_Valor_Descuento_Tercera_Edad,1)*ISNULL(TVH.Crec_Valor_Descuento_Tercera_Edad,1)     AS DECIMAL(16,6)) AS Valor_Descuento_Tercera_Edad,
+            *ISNULL(PM.Peso_Valor_Descuento_Tercera_Edad,1)*ISNULL(TVH.Crec_Valor_Descuento_Tercera_Edad,1) AS DECIMAL(16,6)) AS Valor_Descuento_Tercera_Edad,
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Conteo_Transacciones ELSE PR.Prom_Conteo_Transacciones END)
             *ISNULL(PDS.Peso_Conteo_Transacciones,1)*ISNULL(PDSH.Part_Conteo_Transacciones,1)
-            *ISNULL(PM.Peso_Conteo_Transacciones,1)*ISNULL(TVH.Crec_Conteo_Transacciones,1)    AS DECIMAL(16,6)) AS Conteo_Transacciones
-
+            *ISNULL(PM.Peso_Conteo_Transacciones,1)*ISNULL(TVH.Crec_Conteo_Transacciones,1) AS DECIMAL(16,6)) AS Conteo_Transacciones,
+        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Conteo_Trx_Es_Tercera_Edad ELSE PR.Prom_Conteo_Trx_Es_Tercera_Edad END)
+            *ISNULL(PDS.Peso_Conteo_Trx_Es_Tercera_Edad,1)*ISNULL(PDSH.Part_Conteo_Trx_Es_Tercera_Edad,1)
+            *ISNULL(PM.Peso_Conteo_Trx_Es_Tercera_Edad,1)*ISNULL(TVH.Crec_Conteo_Trx_Es_Tercera_Edad,1) AS DECIMAL(16,6)) AS Conteo_Trx_Es_Tercera_Edad,
+        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Conteo_Trx_Es_Asegurado ELSE PR.Prom_Conteo_Trx_Es_Asegurado END)
+            *ISNULL(PDS.Peso_Conteo_Trx_Es_Asegurado,1)*ISNULL(PDSH.Part_Conteo_Trx_Es_Asegurado,1)
+            *ISNULL(PM.Peso_Conteo_Trx_Es_Asegurado,1)*ISNULL(TVH.Crec_Conteo_Trx_Es_Asegurado,1) AS DECIMAL(16,6)) AS Conteo_Trx_Es_Asegurado,
+        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Conteo_Trx_Acumula_Monedero ELSE PR.Prom_Conteo_Trx_Acumula_Monedero END)
+            *ISNULL(PDS.Peso_Conteo_Trx_Acumula_Monedero,1)*ISNULL(PDSH.Part_Conteo_Trx_Acumula_Monedero,1)
+            *ISNULL(PM.Peso_Conteo_Trx_Acumula_Monedero,1)*ISNULL(TVH.Crec_Conteo_Trx_Acumula_Monedero,1) AS DECIMAL(16,6)) AS Conteo_Trx_Acumula_Monedero,
+        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Conteo_Trx_Contiene_Farma ELSE PR.Prom_Conteo_Trx_Contiene_Farma END)
+            *ISNULL(PDS.Peso_Conteo_Trx_Contiene_Farma,1)*ISNULL(PDSH.Part_Conteo_Trx_Contiene_Farma,1)
+            *ISNULL(PM.Peso_Conteo_Trx_Contiene_Farma,1)*ISNULL(TVH.Crec_Conteo_Trx_Contiene_Farma,1) AS DECIMAL(16,6)) AS Conteo_Trx_Contiene_Farma,
+        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Cantidad_Unidades_Relativa ELSE PR.Prom_Cantidad_Unidades_Relativa END)
+            *ISNULL(PDS.Peso_Cantidad_Unidades_Relativa,1)*ISNULL(PDSH.Part_Cantidad_Unidades_Relativa,1)
+            *ISNULL(PM.Peso_Cantidad_Unidades_Relativa,1)*ISNULL(TVH.Crec_Cantidad_Unidades_Relativa,1) AS DECIMAL(16,6)) AS Cantidad_Unidades_Relativa,
+        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_Segundos_Transaccion_Estimado ELSE PR.Prom_Segundos_Transaccion_Estimado END)
+            *ISNULL(PDS.Peso_Segundos_Transaccion_Estimado,1)*ISNULL(PDSH.Part_Segundos_Transaccion_Estimado,1)
+            *ISNULL(PM.Peso_Segundos_Transaccion_Estimado,1)*ISNULL(TVH.Crec_Segundos_Transaccion_Estimado,1) AS DECIMAL(16,6)) AS Segundos_Transaccion_Estimado
     FROM {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaBaseMesesProyec') }} PR
         INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
             ON EMP.Empresa_Id = PR.Emp_Id

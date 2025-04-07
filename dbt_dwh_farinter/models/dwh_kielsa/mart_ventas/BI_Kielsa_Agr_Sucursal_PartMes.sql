@@ -29,21 +29,27 @@ WITH ResumenBase AS (
         Suc_Id,
         MONTH(FP.Factura_Fecha) as Mes_Id_Original,
         COUNT(DISTINCT YEAR(FP.Factura_Fecha)) AS Anios_Muestra,
-        ISNULL(SUM(FP.Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
-        ISNULL(SUM(FP.Valor_Bruto),0)*1.0 AS Sum_Valor_Bruto,
-        ISNULL(SUM(FP.Valor_Neto),0)*1.0 AS Sum_Valor_Neto,
-        ISNULL(SUM(FP.Valor_Costo),0)*1.0 AS Sum_Valor_Costo,
-        ISNULL(SUM(FP.Valor_Descuento),0)*1.0 AS Sum_Valor_Descuento,
-        ISNULL(SUM(FP.Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
-        ISNULL(SUM(FP.Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
-        ISNULL(SUM(FP.Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
-        ISNULL(SUM(FP.Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
-        ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
-        ISNULL(COUNT(DISTINCT FP.EmpSucDocCajFac_Id),0)*1.0 AS Sum_Conteo_Transacciones
-    FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
+        ISNULL(SUM(FP.Sum_Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
+        ISNULL(SUM(FP.Sum_Cantidad_Articulos),0)*1.0 AS Sum_Cantidad_Articulos,
+        ISNULL(SUM(FP.Sum_Valor_Bruto),0)*1.0 AS Sum_Valor_Bruto,
+        ISNULL(SUM(FP.Sum_Valor_Neto),0)*1.0 AS Sum_Valor_Neto,
+        ISNULL(SUM(FP.Sum_Valor_Costo),0)*1.0 AS Sum_Valor_Costo,
+        ISNULL(SUM(FP.Sum_Valor_Descuento),0)*1.0 AS Sum_Valor_Descuento,
+        ISNULL(SUM(FP.Sum_Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
+        ISNULL(SUM(FP.Sum_Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
+        ISNULL(SUM(FP.Sum_Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
+        ISNULL(SUM(FP.Sum_Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Sum_Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
+        ISNULL(SUM(FP.Sum_Conteo_Transacciones),0)*1.0 AS Sum_Conteo_Transacciones,
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Es_Tercera_Edad),0)*1.0 AS Sum_Conteo_Trx_Es_Tercera_Edad,
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Es_Asegurado),0)*1.0 AS Sum_Conteo_Trx_Es_Asegurado,
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Acumula_Monedero),0)*1.0 AS Sum_Conteo_Trx_Acumula_Monedero,
+        ISNULL(SUM(FP.Sum_Conteo_Trx_Contiene_Farma),0)*1.0 AS Sum_Conteo_Trx_Contiene_Farma,
+        ISNULL(SUM(FP.Sum_Cantidad_Unidades_Relativa),0)*1.0 AS Sum_Cantidad_Unidades_Relativa,
+        ISNULL(SUM(FP.Sum_Segundos_Transaccion_Estimado),0)*1.0 AS Sum_Segundos_Transaccion_Estimado
+    FROM {{ ref ('BI_Kielsa_Agr_Sucursal_FechaHora') }} FP 
     WHERE Factura_Fecha >= '{{ v_fecha_inicio }}' 
     AND Factura_Fecha < '{{ v_fecha_fin }}' 
-    AND AnioMes_Id >= {{ v_anio_mes_inicio }}
     GROUP BY Emp_Id, Suc_Id, MONTH(Factura_Fecha)
 ),
 VerificarCompletitud AS
@@ -75,6 +81,7 @@ SELECT
     ISNULL(Anios_Muestra,0) AS Anios_Muestra,
     Es_Sucursal_Meses_Completos,
     CAST(Sum_Cantidad_Padre / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Cantidad_Padre,
+    CAST(Sum_Cantidad_Articulos / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Cantidad_Articulos,
     CAST(Sum_Valor_Bruto / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Bruto,
     CAST(Sum_Valor_Neto / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Neto,
     CAST(Sum_Valor_Costo / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Costo,
@@ -85,8 +92,16 @@ SELECT
     CAST(Sum_Descuento_Proveedor / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
     CAST(Sum_Valor_Descuento_Tercera_Edad / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
     CAST(Sum_Conteo_Transacciones / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones,
+    CAST(Sum_Conteo_Trx_Es_Tercera_Edad / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Trx_Es_Tercera_Edad,
+    CAST(Sum_Conteo_Trx_Es_Asegurado / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Trx_Es_Asegurado,
+    CAST(Sum_Conteo_Trx_Acumula_Monedero / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Trx_Acumula_Monedero,
+    CAST(Sum_Conteo_Trx_Contiene_Farma / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Trx_Contiene_Farma,
+    CAST(Sum_Cantidad_Unidades_Relativa / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Cantidad_Unidades_Relativa,
+    CAST(Sum_Segundos_Transaccion_Estimado / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Segundos_Transaccion_Estimado,
     ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1 
         THEN Sum_Cantidad_Padre / NULLIF(SUM(Sum_Cantidad_Padre) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Cantidad_Padre,
+    ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1 
+        THEN Sum_Cantidad_Articulos / NULLIF(SUM(Sum_Cantidad_Articulos) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Cantidad_Articulos,
     ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1 
         THEN Sum_Valor_Bruto / NULLIF(SUM(Sum_Valor_Bruto) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Valor_Bruto,
     ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1 
@@ -106,11 +121,24 @@ SELECT
     ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1 
         THEN Sum_Valor_Descuento_Tercera_Edad / NULLIF(SUM(Sum_Valor_Descuento_Tercera_Edad) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Valor_Descuento_Tercera_Edad,
     ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1 
-        THEN Sum_Conteo_Transacciones / NULLIF(SUM(Sum_Conteo_Transacciones) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Conteo_Transacciones
+        THEN Sum_Conteo_Transacciones / NULLIF(SUM(Sum_Conteo_Transacciones) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Conteo_Transacciones,
+    ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1
+        THEN Sum_Conteo_Trx_Es_Tercera_Edad / NULLIF(SUM(Sum_Conteo_Trx_Es_Tercera_Edad) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Conteo_Trx_Es_Tercera_Edad,
+    ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1
+        THEN Sum_Conteo_Trx_Es_Asegurado / NULLIF(SUM(Sum_Conteo_Trx_Es_Asegurado) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Conteo_Trx_Es_Asegurado,
+    ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1
+        THEN Sum_Conteo_Trx_Acumula_Monedero / NULLIF(SUM(Sum_Conteo_Trx_Acumula_Monedero) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Conteo_Trx_Acumula_Monedero,
+    ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1
+        THEN Sum_Conteo_Trx_Contiene_Farma / NULLIF(SUM(Sum_Conteo_Trx_Contiene_Farma) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Conteo_Trx_Contiene_Farma,
+    ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1
+        THEN Sum_Cantidad_Unidades_Relativa / NULLIF(SUM(Sum_Cantidad_Unidades_Relativa) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Cantidad_Unidades_Relativa,
+    ISNULL(CAST(CASE WHEN Es_Sucursal_Meses_Completos = 1
+        THEN Sum_Segundos_Transaccion_Estimado / NULLIF(SUM(Sum_Segundos_Transaccion_Estimado) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/12 END AS DECIMAL(16,12)),0) AS Part_Segundos_Transaccion_Estimado
 FROM CompletarMeses
 )
 SELECT *,
     Part_Cantidad_Padre*12 AS Peso_Cantidad_Padre,
+    Part_Cantidad_Articulos*12 AS Peso_Cantidad_Articulos,
     Part_Valor_Bruto*12 AS Peso_Valor_Bruto,
     Part_Valor_Neto*12 AS Peso_Valor_Neto,
     Part_Valor_Costo*12 AS Peso_Valor_Costo,
@@ -120,5 +148,11 @@ SELECT *,
     Part_Valor_Descuento_Cupon*12 AS Peso_Valor_Descuento_Cupon,
     Part_Valor_Descuento_Proveedor*12 AS Peso_Valor_Descuento_Proveedor,
     Part_Valor_Descuento_Tercera_Edad*12 AS Peso_Valor_Descuento_Tercera_Edad,
-    Part_Conteo_Transacciones*12 AS Peso_Conteo_Transacciones
+    Part_Conteo_Transacciones*12 AS Peso_Conteo_Transacciones,
+    Part_Conteo_Trx_Es_Tercera_Edad*12 AS Peso_Conteo_Trx_Es_Tercera_Edad,
+    Part_Conteo_Trx_Es_Asegurado*12 AS Peso_Conteo_Trx_Es_Asegurado,
+    Part_Conteo_Trx_Acumula_Monedero*12 AS Peso_Conteo_Trx_Acumula_Monedero,
+    Part_Conteo_Trx_Contiene_Farma*12 AS Peso_Conteo_Trx_Contiene_Farma,
+    Part_Cantidad_Unidades_Relativa*12 AS Peso_Cantidad_Unidades_Relativa,
+    Part_Segundos_Transaccion_Estimado*12 AS Peso_Segundos_Transaccion_Estimado
 FROM Metricas
