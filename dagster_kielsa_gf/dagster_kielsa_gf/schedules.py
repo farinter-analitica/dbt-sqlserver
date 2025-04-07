@@ -171,7 +171,7 @@ def should_exec_kielsa_hourly_additional_job_run(
 kielsa_hourly_additional_job_schedule = ScheduleDefinition(
     cron_schedule=get_for_current_env(
         dict={
-            "dev": ["0 1 * * *", "30 22 * * *"],
+            "dev": ["0 12 * * *", "30 22 * * *"],
             "prd": ["31 6-22 * * *", "31 23 * * *"],
         }
     ),  # cron template: hour minute day month day_of_week
