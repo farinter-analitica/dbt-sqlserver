@@ -36,6 +36,8 @@
 {%- endif -%}
 
 /*
+
+--TODO: Agregar Factura_ORIGEN EX y PU es_express
 --1. Pesos de cada dia de la semana por sucursal, valor y peso
 DECLARE @Inicio AS DATE = GETDATE()
 DECLARE @SemanasPonderacion AS INT = 12

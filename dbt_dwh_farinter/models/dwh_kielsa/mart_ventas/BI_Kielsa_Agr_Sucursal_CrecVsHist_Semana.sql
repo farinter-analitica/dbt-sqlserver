@@ -14,7 +14,7 @@
         ]
     ) 
 }}
-{% set v_semanas_completas = 4 %}
+{% set v_semanas_completas = 26 %}
 {% set v_anios_historicos = 2 %}
 {% set v_fecha_base = modules.datetime.datetime.now() %}
 {% set v_fecha_inicio_actual_dt = (v_fecha_base - modules.datetime.timedelta(days=v_fecha_base.isoweekday() + v_semanas_completas*7) ) %}
@@ -201,6 +201,7 @@ Diferencias AS
         ISNULL(Actual.Prom_Cantidad_Unidades_Relativa,0) as Prom_Cantidad_Unidades_Relativa_Actual,
         ISNULL(Actual.Prom_Segundos_Transaccion_Estimado,0) as Prom_Segundos_Transaccion_Estimado_Actual,
         ISNULL(Historico.Prom_Cantidad_Padre,0) as Prom_Cantidad_Padre_Historico,
+        ISNULL(Historico.Prom_Cantidad_Articulos,0) as Prom_Cantidad_Articulos_Historico,
         ISNULL(Historico.Prom_Valor_Bruto,0) as Prom_Valor_Bruto_Historico,
         ISNULL(Historico.Prom_Valor_Neto,0) as Prom_Valor_Neto_Historico,
         ISNULL(Historico.Prom_Valor_Costo,0) as Prom_Valor_Costo_Historico,
@@ -229,60 +230,60 @@ Tendencia AS
         ISNULL(Suc_Id,0) AS Suc_Id,
         ISNULL(Anios_Muestra,0) AS Anios_Muestra,
         Es_Sucursal_Anios_Completos,
-        CASE WHEN Prom_Cantidad_Padre_Actual > 0 
-            THEN  (1 + Dif_Cantidad_Padre / Prom_Cantidad_Padre_Actual)
-            ELSE 1 END AS Crec_Cantidad_Padre,
-        CASE WHEN Prom_Cantidad_Articulos_Actual > 0
-            THEN  (1 + Dif_Cantidad_Articulos / Prom_Cantidad_Articulos_Actual)
-            ELSE 1 END AS Crec_Cantidad_Articulos,
-        CASE WHEN Prom_Valor_Bruto_Actual > 0 
-            THEN  (1 + Dif_Valor_Bruto / Prom_Valor_Bruto_Actual)
-            ELSE 1 END AS Crec_Valor_Bruto,
-        CASE WHEN Prom_Valor_Neto_Actual > 0 
-            THEN  (1 + Dif_Valor_Neto / Prom_Valor_Neto_Actual)
-            ELSE 1 END AS Crec_Valor_Neto,
-        CASE WHEN Prom_Valor_Costo_Actual > 0 
-            THEN  (1 + Dif_Valor_Costo / Prom_Valor_Costo_Actual)
-            ELSE 1 END AS Crec_Valor_Costo,
-        CASE WHEN Prom_Valor_Descuento_Actual > 0 
-            THEN  (1 + Dif_Valor_Descuento / Prom_Valor_Descuento_Actual)
-            ELSE 1 END AS Crec_Valor_Descuento,
-        CASE WHEN Prom_Valor_Descuento_Financiero_Actual > 0 
-            THEN  (1 + Dif_Valor_Descuento_Financiero / Prom_Valor_Descuento_Financiero_Actual)
-            ELSE 1 END AS Crec_Valor_Descuento_Financiero,
-        CASE WHEN Prom_Valor_Acum_Monedero_Actual > 0 
-            THEN  (1 + Dif_Valor_Acum_Monedero / Prom_Valor_Acum_Monedero_Actual)
-            ELSE 1 END AS Crec_Valor_Acum_Monedero,
-        CASE WHEN Prom_Valor_Descuento_Cupon_Actual > 0 
-            THEN  (1 + Dif_Valor_Descuento_Cupon / Prom_Valor_Descuento_Cupon_Actual)
-            ELSE 1 END AS Crec_Valor_Descuento_Cupon,
-        CASE WHEN Prom_Valor_Descuento_Proveedor_Actual > 0 
-            THEN  (1 + Dif_Valor_Descuento_Proveedor / Prom_Valor_Descuento_Proveedor_Actual)
-            ELSE 1 END AS Crec_Valor_Descuento_Proveedor,
-        CASE WHEN Prom_Valor_Descuento_Tercera_Edad_Actual > 0 
-            THEN  (1 + Dif_Valor_Descuento_Tercera_Edad / Prom_Valor_Descuento_Tercera_Edad_Actual)
-            ELSE 1 END AS Crec_Valor_Descuento_Tercera_Edad,
-        CASE WHEN Prom_Conteo_Transacciones_Actual > 0 
-            THEN  (1 + Dif_Conteo_Transacciones / Prom_Conteo_Transacciones_Actual)
-            ELSE 1 END AS Crec_Conteo_Transacciones,
-        CASE WHEN Prom_Conteo_Trx_Es_Tercera_Edad_Actual > 0
-            THEN  (1 + Dif_Conteo_Trx_Es_Tercera_Edad / Prom_Conteo_Trx_Es_Tercera_Edad_Actual)
-            ELSE 1 END AS Crec_Conteo_Trx_Es_Tercera_Edad,
-        CASE WHEN Prom_Conteo_Trx_Es_Asegurado_Actual > 0
-            THEN  (1 + Dif_Conteo_Trx_Es_Asegurado / Prom_Conteo_Trx_Es_Asegurado_Actual)
-            ELSE 1 END AS Crec_Conteo_Trx_Es_Asegurado,
-        CASE WHEN Prom_Conteo_Trx_Acumula_Monedero_Actual > 0
-            THEN  (1 + Dif_Conteo_Trx_Acumula_Monedero / Prom_Conteo_Trx_Acumula_Monedero_Actual)
-            ELSE 1 END AS Crec_Conteo_Trx_Acumula_Monedero,
-        CASE WHEN Prom_Conteo_Trx_Contiene_Farma_Actual > 0
-            THEN  (1 + Dif_Conteo_Trx_Contiene_Farma / Prom_Conteo_Trx_Contiene_Farma_Actual)
-            ELSE 1 END AS Crec_Conteo_Trx_Contiene_Farma,
-        CASE WHEN Prom_Cantidad_Unidades_Relativa_Actual > 0
-            THEN  (1 + Dif_Cantidad_Unidades_Relativa / Prom_Cantidad_Unidades_Relativa_Actual)
-            ELSE 1 END AS Crec_Cantidad_Unidades_Relativa,
-        CASE WHEN Prom_Segundos_Transaccion_Estimado_Actual > 0
-            THEN  (1 + Dif_Segundos_Transaccion_Estimado / Prom_Segundos_Transaccion_Estimado_Actual)
-            ELSE 1 END AS Crec_Segundos_Transaccion_Estimado
+        CASE WHEN Prom_Cantidad_Padre_Historico > 0
+            THEN  (1.02 + Dif_Cantidad_Padre / Prom_Cantidad_Padre_Historico)
+            ELSE 1.05 END AS Crec_Cantidad_Padre,
+        CASE WHEN Prom_Cantidad_Articulos_Historico > 0
+            THEN  (1.02 + Dif_Cantidad_Articulos / Prom_Cantidad_Articulos_Historico)
+            ELSE 1.05 END AS Crec_Cantidad_Articulos,
+        CASE WHEN Prom_Valor_Bruto_Historico > 0
+            THEN  (1.02 + Dif_Valor_Bruto / Prom_Valor_Bruto_Historico)
+            ELSE 1.05 END AS Crec_Valor_Bruto,
+        CASE WHEN Prom_Valor_Neto_Historico > 0
+            THEN  (1.02 + Dif_Valor_Neto / Prom_Valor_Neto_Historico)
+            ELSE 1.05 END AS Crec_Valor_Neto,
+        CASE WHEN Prom_Valor_Costo_Historico > 0
+            THEN  (1.02 + Dif_Valor_Costo / Prom_Valor_Costo_Historico)
+            ELSE 1.05 END AS Crec_Valor_Costo,
+        CASE WHEN Prom_Valor_Descuento_Historico > 0
+            THEN  (1.02 + Dif_Valor_Descuento / Prom_Valor_Descuento_Historico)
+            ELSE 1.05 END AS Crec_Valor_Descuento,
+        CASE WHEN Prom_Valor_Descuento_Financiero_Historico > 0
+            THEN  (1.02 + Dif_Valor_Descuento_Financiero / Prom_Valor_Descuento_Financiero_Historico)
+            ELSE 1.05 END AS Crec_Valor_Descuento_Financiero,
+        CASE WHEN Prom_Valor_Acum_Monedero_Historico > 0
+            THEN  (1.02 + Dif_Valor_Acum_Monedero / Prom_Valor_Acum_Monedero_Historico)
+            ELSE 1.05 END AS Crec_Valor_Acum_Monedero,
+        CASE WHEN Prom_Valor_Descuento_Cupon_Historico > 0
+            THEN  (1.02 + Dif_Valor_Descuento_Cupon / Prom_Valor_Descuento_Cupon_Historico)
+            ELSE 1.05 END AS Crec_Valor_Descuento_Cupon,
+        CASE WHEN Prom_Valor_Descuento_Proveedor_Historico > 0
+            THEN  (1.02 + Dif_Valor_Descuento_Proveedor / Prom_Valor_Descuento_Proveedor_Historico)
+            ELSE 1.05 END AS Crec_Valor_Descuento_Proveedor,
+        CASE WHEN Prom_Valor_Descuento_Tercera_Edad_Historico > 0
+            THEN  (1.02 + Dif_Valor_Descuento_Tercera_Edad / Prom_Valor_Descuento_Tercera_Edad_Historico)
+            ELSE 1.05 END AS Crec_Valor_Descuento_Tercera_Edad,
+        CASE WHEN Prom_Conteo_Transacciones_Historico > 0
+            THEN  (1.02 + Dif_Conteo_Transacciones / Prom_Conteo_Transacciones_Historico)
+            ELSE 1.05 END AS Crec_Conteo_Transacciones,
+        CASE WHEN Prom_Conteo_Trx_Es_Tercera_Edad_Historico > 0
+            THEN  (1.02 + Dif_Conteo_Trx_Es_Tercera_Edad / Prom_Conteo_Trx_Es_Tercera_Edad_Historico)
+            ELSE 1.05 END AS Crec_Conteo_Trx_Es_Tercera_Edad,
+        CASE WHEN Prom_Conteo_Trx_Es_Asegurado_Historico > 0
+            THEN  (1.02 + Dif_Conteo_Trx_Es_Asegurado / Prom_Conteo_Trx_Es_Asegurado_Historico)
+            ELSE 1.05 END AS Crec_Conteo_Trx_Es_Asegurado,
+        CASE WHEN Prom_Conteo_Trx_Acumula_Monedero_Historico > 0
+            THEN  (1.02 + Dif_Conteo_Trx_Acumula_Monedero / Prom_Conteo_Trx_Acumula_Monedero_Historico)
+            ELSE 1.05 END AS Crec_Conteo_Trx_Acumula_Monedero,
+        CASE WHEN Prom_Conteo_Trx_Contiene_Farma_Historico > 0
+            THEN  (1.02 + Dif_Conteo_Trx_Contiene_Farma / Prom_Conteo_Trx_Contiene_Farma_Historico)
+            ELSE 1.05 END AS Crec_Conteo_Trx_Contiene_Farma,
+        CASE WHEN Prom_Cantidad_Unidades_Relativa_Historico > 0
+            THEN  (1.02 + Dif_Cantidad_Unidades_Relativa / Prom_Cantidad_Unidades_Relativa_Historico)
+            ELSE 1.05 END AS Crec_Cantidad_Unidades_Relativa,
+        CASE WHEN Prom_Segundos_Transaccion_Estimado_Historico > 0
+            THEN  (1.02 + Dif_Segundos_Transaccion_Estimado / Prom_Segundos_Transaccion_Estimado_Historico)
+            ELSE 1.05 END AS Crec_Segundos_Transaccion_Estimado
     FROM Diferencias
 )
 SELECT Emp_Id,
