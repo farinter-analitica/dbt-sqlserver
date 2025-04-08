@@ -5,6 +5,7 @@ from textwrap import dedent
 import polars as pl
 import polars.selectors as cs
 from dagster import (
+    AssetExecutionContext,
     AssetKey,
     asset,
 )
@@ -32,15 +33,10 @@ def get_demanda_forecast_data(dwh_farinter_bi: SQLServerResource) -> pl.DataFram
             P.Conteo_Transacciones,
             P.Cantidad_Articulos,
             P.Cantidad_Padre,
-            P.Segundos_Transaccion_Estimado,
-            COEF.Desviacion_Estandar
+            P.Segundos_Transaccion_Estimado
         FROM "BI_FARINTER"."dbo".BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora P
         INNER JOIN "BI_FARINTER"."dbo"."BI_Dim_Calendario_Dinamico" C
             ON P.Fecha_Id = C.Fecha_Calendario
-        CROSS JOIN (SELECT coeficiente_ajustado as Desviacion_Estandar
-            FROM "DL_FARINTER"."nocodb_data_gf"."kielsa_tiempo_transaccion_coeficiente"
-            WHERE variable = 'desviacion_estandar'
-            ) AS COEF
         """
     )
 
@@ -54,19 +50,71 @@ def get_demanda_forecast_data(dwh_farinter_bi: SQLServerResource) -> pl.DataFram
     return df
 
 
-def calcular_personal_necesario(df: pl.DataFrame) -> pl.DataFrame:
+def get_demanda_forecast_params_data(
+    dwh_farinter_bi: SQLServerResource,
+) -> pl.DataFrame:
+    query_trx = dedent(
+        """
+        SELECT MAX(
+            CASE
+                WHEN variable = 'desviacion_estandar' THEN coeficiente_ajustado
+                ELSE NULL
+            END
+            ) AS Desviacion_Estandar,
+        MAX(
+            CASE
+                WHEN variable = 'cola_promedio_maxima' THEN coeficiente_ajustado
+                ELSE NULL
+            END
+        ) AS Cola_Promedio_Maxima,
+        MAX(
+            CASE
+                WHEN variable = 'tiempo_espera_prom_maximo' THEN coeficiente_ajustado
+                ELSE NULL
+            END
+        ) AS Tiempo_Espera_Promedio_Maximo
+        FROM "DL_FARINTER"."nocodb_data_gf"."kielsa_tiempo_transaccion_coeficiente"
+        WHERE variable IN ('desviacion_estandar', 'cola_promedio_maxima', 'tiempo_espera_prom_maximo')
+        """
+    )
+
+    df = (
+        pl.read_database(query_trx, dwh_farinter_bi.get_arrow_odbc_conn_string())
+        .lazy()
+        .collect(engine="streaming")
+    )
+    df = df.with_columns((cs.numeric()).cast(pl.Float64))
+
+    return df
+
+
+def calcular_personal_necesario(
+    df: pl.DataFrame, df_params: pl.DataFrame
+) -> pl.DataFrame:
     """
     Calcula el personal necesario utilizando teoría de colas con corrección
     para sistemas multi-servidor.
     """
     # Convertir columnas numéricas a float64
-    df = df.with_columns((cs.numeric() - cs.ends_with("_id")).cast(pl.Float64))
+    df = df.with_columns(
+        (cs.numeric() - cs.ends_with("_id")).cast(pl.Float64),
+        pl.lit(df_params.get_column("Desviacion_Estandar").item()).alias(
+            "Desviacion_Estandar"
+        ),
+    )
+    df_params = df_params.with_columns(
+        (cs.numeric() - cs.ends_with("_id")).cast(pl.Float64)
+    )
 
     # Parámetros de calidad de servicio
-    TIEMPO_ESPERA_MAX = 120  # segundos
+    TIEMPO_ESPERA_MAX = (
+        df_params.get_column("Tiempo_Espera_Promedio_Maximo").item() or 60 * 3
+    )  # segundos
     UTILIZACION_MAX = 0.70  # tasa máxima de utilización
     BETA_FACTOR = 1.0  # factor de seguridad para square-root staffing
-    COLA_MAX = 4  # máximo número de clientes en cola permitido
+    COLA_MAX = (
+        df_params.get_column("Cola_Promedio_Maxima").item() or 2
+    )  # máximo número de clientes en cola permitido
 
     # Calcular tasas y métricas base
     df = df.with_columns(
@@ -264,15 +312,7 @@ def calcular_personal_necesario(df: pl.DataFrame) -> pl.DataFrame:
     )
 
     # Extraer resultados
-    for campo in [
-        "personal_espera_n_seg",
-        "personal_cola_max",
-        "personal_recomendado",
-        "utilizacion",
-        "tiempo_espera_promedio",
-        "longitud_cola_promedio",
-    ]:
-        df = df.with_columns(pl.col("metricas_cola").struct.field(campo).alias(campo))
+    df = df.with_columns(pl.col("metricas_cola").struct.unnest())
 
     # Limpiar y asegurar valores mínimos
     df = df.drop("metricas_cola").with_columns(
@@ -306,24 +346,27 @@ def calcular_personal_necesario(df: pl.DataFrame) -> pl.DataFrame:
     tags=tags_repo.AutomationMonthlyStart,
 )
 def IA_Kielsa_Proyeccion_Personal_Necesario(
-    dwh_farinter_ia: SQLServerResource, dwh_farinter_bi: SQLServerResource
+    context: AssetExecutionContext,
+    dwh_farinter_ia: SQLServerResource,
+    dwh_farinter_bi: SQLServerResource,
 ) -> None:
     df_demanda_forecast = get_demanda_forecast_data(
         dwh_farinter_bi=dwh_farinter_bi,
     )
-
-    df_personal_necesario = calcular_personal_necesario(df_demanda_forecast)
+    df_demanda_forecast_params = get_demanda_forecast_params_data(dwh_farinter_bi)
+    if (
+        df_demanda_forecast_params.is_empty()
+        or (df_demanda_forecast_params.null_count().sum_horizontal().item() or 1) > 0
+    ):
+        raise ValueError(
+            "No se econtraron los parametros para calcular el personal necesario"
+        )
+    df_personal_necesario = calcular_personal_necesario(
+        df_demanda_forecast, df_demanda_forecast_params
+    )
 
     print(f"Por guardar {len(df_personal_necesario)} filas")
     with dwh_farinter_ia.get_sqlalchemy_conn() as conn:
-        if env_str == "local":
-            with pl.Config() as c:
-                c.set_tbl_rows(-1)
-                c.set_tbl_cols(-1)
-                print(df_personal_necesario.head(10))
-                print(df_personal_necesario.describe())
-            return
-
         sg = SQLScriptGenerator(
             primary_keys=("Fecha_Id", "Suc_Id", "Hora_Id", "Emp_Id"),
             db_schema="dbo",
@@ -331,6 +374,19 @@ def IA_Kielsa_Proyeccion_Personal_Necesario(
             df=df_personal_necesario,
             temp_table_name="IA_Kielsa_Proyeccion_Personal_Necesario_NEW",
         )
+
+        if env_str == "local":
+            with pl.Config() as c:
+                c.set_tbl_rows(-1)
+                c.set_tbl_cols(-1)
+                print(df_personal_necesario.head(10))
+                print(df_personal_necesario.describe())
+                df_personal_necesario = df_personal_necesario.filter(
+                    pl.col("Suc_Id").is_in((115, 97, 3, 107, 45, 47))
+                    & (pl.col("Emp_Id") == 1)
+                )
+                df_personal_necesario.write_csv(".cache/df_personal_necesario.csv")
+            return
 
         dwh_farinter_ia.execute_and_commit(
             sg.drop_table_sql_script(temp=True), connection=conn
@@ -374,8 +430,10 @@ if __name__ == "__main__" and 1 == 2:
         #     cache_max_age_seconds=3600 * 3600,
         # ),
     )
-
-    df_personal_necesario = calcular_personal_necesario(df_demanda_forecast)
+    df_demanda_forecast_params = get_demanda_forecast_params_data(dwh_farinter_bi)
+    df_personal_necesario = calcular_personal_necesario(
+        df_demanda_forecast, df_demanda_forecast_params
+    )
 
     # Filtrar según los criterios: Suc_Id = 115 y Fecha_Id entre '20250324' y '20250331'
     df_filtered = df_personal_necesario.filter(
