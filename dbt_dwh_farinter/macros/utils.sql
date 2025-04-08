@@ -207,7 +207,10 @@ UNION ALL
 
 
 {% macro run_single_value_query_on_relation_and_return(relation=this,query='',relation_not_found_value='NULL') %}
-    {% do log("Entering run_single_value_query_on_relation_and_return macro", info=True) %}
+    {% if not execute %}
+        {% do return(relation_not_found_value) %}
+    {% endif %}
+    {% do log("Entering run_single_value_query_on_relation_and_return macro from " + this|string, info=True) %}
     {%- if query == '' -%}
         {% do log("Query not specified.", info=True) %}
         {% do return("NULL") %}
