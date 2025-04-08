@@ -354,17 +354,21 @@ def IA_Kielsa_Proyeccion_Personal_Necesario(
         dwh_farinter_bi=dwh_farinter_bi,
     )
     df_demanda_forecast_params = get_demanda_forecast_params_data(dwh_farinter_bi)
-    if (
-        df_demanda_forecast_params.is_empty()
-        or (df_demanda_forecast_params.null_count().sum_horizontal().item() or 1) > 0
-    ):
-        raise ValueError(
-            "No se econtraron los parametros para calcular el personal necesario"
-        )
+    # if (
+    #     df_demanda_forecast_params.is_empty()
+    #     or (df_demanda_forecast_params.null_count().sum_horizontal().item() or 1) > 0
+    # ):
+    #     raise ValueError(
+    #         f"No se econtraron los parametros para calcular el personal necesario {df_demanda_forecast_params.head(10)}"
+    #     )
     df_personal_necesario = calcular_personal_necesario(
         df_demanda_forecast, df_demanda_forecast_params
     )
 
+    # df_personal_necesario = df_personal_necesario.filter(
+    #                 pl.col("Suc_Id").is_in((115,))
+    #                 & (pl.col("Emp_Id") == 1)
+    #             )
     print(f"Por guardar {len(df_personal_necesario)} filas")
     with dwh_farinter_ia.get_sqlalchemy_conn() as conn:
         sg = SQLScriptGenerator(
@@ -381,10 +385,6 @@ def IA_Kielsa_Proyeccion_Personal_Necesario(
                 c.set_tbl_cols(-1)
                 print(df_personal_necesario.head(10))
                 print(df_personal_necesario.describe())
-                df_personal_necesario = df_personal_necesario.filter(
-                    pl.col("Suc_Id").is_in((115, 97, 3, 107, 45, 47))
-                    & (pl.col("Emp_Id") == 1)
-                )
                 df_personal_necesario.write_csv(".cache/df_personal_necesario.csv")
             return
 
