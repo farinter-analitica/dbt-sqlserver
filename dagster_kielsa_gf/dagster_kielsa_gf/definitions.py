@@ -19,6 +19,7 @@ from dagster_kielsa_gf.assets import (
     recetas_libros_etl_dwh,
     recomendaciones,
     smb_etl_dwh,
+    control_demanda,
     all_assets as kielsa_all_assets,
     all_asset_checks as kielsa_all_asset_checks,
 )
@@ -48,6 +49,7 @@ all_assets = (
     *smb_etl_dwh.all_assets,
     *cliente_general.all_assets,
     *recomendaciones.all_assets,
+    *control_demanda.all_assets,
     *kielsa_all_assets,
 )
 all_asset_checks = (
@@ -59,6 +61,7 @@ all_asset_checks = (
     *ldcom_etl_dwh.all_asset_checks,
     *smb_etl_dwh.all_asset_checks,
     *recomendaciones.all_asset_checks,
+    *cliente_general.all_asset_checks,
     *kielsa_all_asset_checks,
 )
 

@@ -1,0 +1,5 @@
+from dagster_kielsa_gf.assets.control_demanda import personal_necesario_proyectado
+from dagster import load_assets_from_modules, load_asset_checks_from_modules
+
+all_assets = load_assets_from_modules([personal_necesario_proyectado])
+all_asset_checks = load_asset_checks_from_modules([personal_necesario_proyectado])

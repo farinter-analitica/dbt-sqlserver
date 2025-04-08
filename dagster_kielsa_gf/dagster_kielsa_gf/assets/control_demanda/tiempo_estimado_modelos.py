@@ -350,30 +350,45 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> pl.DataFrame:
         .with_columns(
             (
                 # Base transaction time
-                143.407
+                101.780
                 +
                 # Impact of number of products (nonlinear transformation)
-                98.564 * col("log_cantidad_productos")
+                98.847 * col("log_cantidad_productos")
                 +
                 # Impact of pharmaceutical products
-                20.968 * col("contiene_farma").cast(pl.Int64)
+                42.320 * col("contiene_farma").cast(pl.Int64)
                 +
                 # Impact of senior citizen status
-                13.807 * col("es_tercera_edad").cast(pl.Int64)
+                31.344 * col("es_tercera_edad").cast(pl.Int64)
                 +
                 # Impact of relative units (nonlinear transformation)
-                11.722 * col("log_cantidad_unidades_relativa")
+                12.876 * col("log_cantidad_unidades_relativa")
                 +
                 # Impact of unit price (nonlinear transformation)
-                11.335 * col("log_precio_unitario_prom")
+                11.338 * col("log_precio_unitario_prom")
                 +
                 # Impact of wallet accumulation
-                6.027 * col("acumula_monedero").cast(pl.Int64)
+                11.438 * col("acumula_monedero").cast(pl.Int64)
+                +
+                # Impact of insurance status
+                70.549 * col("es_asegurado").cast(pl.Int64)
             )
             .fill_null(143.407)
             .alias("tiempo_transaccion_estimado")
         )
     ).collect(engine="streaming")
+
+    print(
+        "error_std: ",
+        math.sqrt(
+            df.select(
+                (pl.col("tiempo_transaccion_estimado") - col("tiempo_transaccion_segs"))
+                ** 2
+            )
+            .mean()
+            .item()
+        ),
+    )
 
     # --- Agrupar categorías con muestras insuficientes en "otros" ---
     n_min = calculate_min_sample_size(

@@ -536,6 +536,14 @@ dwh_farinter_bi = SQLServerResource(
     default_database="BI_FARINTER",
 )
 
+dwh_farinter_ia = SQLServerResource(
+    server=dwh_farinter.server,
+    databases=dwh_farinter.databases,
+    username=dwh_farinter.username,
+    password=dwh_farinter.password,
+    trust_server_certificate=dwh_farinter.trust_server_certificate,
+    default_database="IA_FARINTER",
+)
 
 dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server=p_server,
