@@ -45,6 +45,7 @@ all_shared_resources = {
     "dwh_farinter_dl": sql_server_resources.dwh_farinter_dl,
     "dwh_farinter_dl_prd": sql_server_resources.dwh_farinter_dl_prd,
     "dwh_farinter_bi": sql_server_resources.dwh_farinter_bi,
+    "dwh_farinter_ia": sql_server_resources.dwh_farinter_ia,
     "dwh_farinter_prd_replicas_ldcom": sql_server_resources.dwh_farinter_prd_replicas_ldcom,
     "ldcom_hn_prd_sqlserver": sql_server_resources.ldcom_hn_prd_sqlserver,
     "ldcom_ni_prd_sqlserver": sql_server_resources.ldcom_ni_prd_sqlserver,
