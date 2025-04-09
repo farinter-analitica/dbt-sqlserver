@@ -107,6 +107,9 @@ models:
       crm_farinter:
         +group: 'crm_dwh_kielsa'
         +database: 'CRM_FARINTER'
+      ia_farinter:
+        +group: 'ia_farinter_kielsa'
+        +database: 'IA_FARINTER'
 
     dwh_global:
       +tags: ["dagster_global_gf/dbt"]
@@ -148,6 +151,9 @@ sources:
       crm_farinter:
         +group: 'crm_dwh_kielsa'
         +database: 'CRM_FARINTER'
+      ia_farinter:
+        +group: 'ia_farinter_kielsa'
+        +database: 'IA_FARINTER'
 
     dwh_sap:
       +tags: ["dagster_sap_gf/dbt"]
