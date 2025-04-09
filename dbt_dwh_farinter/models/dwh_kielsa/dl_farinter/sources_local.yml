@@ -153,7 +153,7 @@ sources:
       - name: DL_Acum_VentasHist_Kielsa
       - name: DL_Kielsa_Articulo_ArticuloRelacionado
       - name: DL_Kielsa_MetaHist
-
+      - name: DL_Planning_ListaNegra
 
 
   - name: DL_FARINTER_mdb_ecommerce_hn

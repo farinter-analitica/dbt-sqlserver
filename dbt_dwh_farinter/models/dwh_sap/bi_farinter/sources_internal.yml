@@ -21,3 +21,15 @@ sources:
       - name: BI_SAP_Dim_ClienteAreaCredito
       - name: BI_Dim_Cliente_SAP
       - name: BI_SAP_Dim_Lote
+      - name: BI_SAP_Hecho_Facturas_Posiciones_Reciente
+      - name: BI_SAP_Hecho_Facturas_Posiciones_Actual
+      - name: BI_SAP_Dim_Facturas_Reciente
+      - name: BI_SAP_Dim_Facturas_Actual
+      - name: BI_SAP_Dim_Cliente
+      - name: BI_SAP_Dim_GrupoMaterial
+      - name: BI_Dim_Zona_SAP
+      - name: BI_Dim_Casa_SAP
+      - name: BI_Dim_Vendedor_SAP
+      - name: BI_SAP_Dim_CanalDist
+      - name: BI_SAP_Dim_GrupoCliente
+      - name: BI_Dim_TipoFactura_SAP
