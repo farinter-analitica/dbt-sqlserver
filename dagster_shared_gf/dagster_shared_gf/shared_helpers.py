@@ -1,6 +1,7 @@
 from collections import deque
 from datetime import timedelta
 import datetime as dt
+import numpy as np
 import textwrap
 from typing import Literal, Optional
 from dagster import (
@@ -499,6 +500,29 @@ class SQLScriptGenerator:
             );""")
 
         return sql
+
+    def clean_dataframe_for_sql(self, rounding: int | None = None) -> pl.DataFrame:
+        """
+        Clean the DataFrame to ensure all values are SQL-compatible.
+        Cleanings:
+            Replaces infinity values with NULL values.
+            Rounds all numeric columns to the specified number of decimal places.
+
+        Args:
+            rounding: Number of decimal places to round to. If None, no rounding is performed.
+                Values between 0 and 16. Negative are equivalent to 0.
+
+        Returns:
+            A cleaned cheap copy of the DataFrame
+        """
+        df = self.df.clone().with_columns(pl.selectors.numeric().fill_nan(None))
+        if rounding is not None:
+            df = df.with_columns(
+                (pl.selectors.float() | pl.selectors.decimal()).round(
+                    np.clip(rounding, 0, 16)
+                )
+            )
+        return df
 
 
 class ParquetCacheHandler:
