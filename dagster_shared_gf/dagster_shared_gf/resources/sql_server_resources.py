@@ -244,12 +244,13 @@ class SQLServerResource(ConfigurableResource):
                 },
             )
         elif engine == EngineType.ARROW_ODBC:
+            # Ej. Driver={PostgreSQL};Server=localhost;Port=5432;Database=test;Uid=usr;Pwd="
             connection_instance = (
-                f"DRIVER={{{self.driver}}};"
-                f"SERVER={{{self.server}}};"
-                f"DATABASE={{{database}}};"
-                f"UID={{{self.username}}};"
-                f"PWD={{{self.get_password()}}};"
+                f"Driver={{{self.driver}}};"
+                f"Server={{{self.server}}};"
+                f"Database={{{database}}};"
+                f"Uid={{{self.username}}};"
+                f"Pwd={{{self.get_password()}}};"
                 f"TrustServerCertificate={{{self.trust_server_certificate}}};"
             )
         return connection_instance
