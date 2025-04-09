@@ -106,10 +106,12 @@ def start_job_by_name(job_name: str, location_name: str) -> None:
 
 def get_all_locations_name() -> list:
     dagster_home_env = os.getenv("DAGSTER_HOME")
+    home_dir = None
+    locations_data = None
     if dagster_home_env:
         home_dir = Path(dagster_home_env).resolve()
-    workspace_yaml_path = os.path.join(home_dir, "workspace.yaml")
-    locations_data = config_from_files([workspace_yaml_path]).get("load_from")
+        workspace_yaml_path = os.path.join(home_dir, "workspace.yaml")
+        locations_data = config_from_files([workspace_yaml_path]).get("load_from")
     # example_data = [{'python_module': {'module_name': 'dagster_kielsa_gf', 'working_directory': 'dagster_kielsa_gf', 'location_name': 'dagster_kielsa_gf'}}, {'python_module': {'module_name': 'dagster_sap_gf', 'working_directory': 'dagster_sap_gf', 'location_name': 'dagster_sap_gf'}}, {'another': {'location_name': 'xyz'}}]
 
     # get location_name of each location
@@ -598,3 +600,26 @@ def get_chi_square_threshold(confidence_level: float) -> float:
     critical_value = float(stats.chi2.ppf(probability, df=1))
 
     return critical_value
+
+
+def calculate_file_checksum(file_path: Union[str, Path]) -> str:
+    """
+    Calculate a fast and secure checksum of a file using BLAKE2b.
+
+    Args:
+        file_path: Path to the file (string or Path object)
+
+    Returns:
+        Hexadecimal digest of the file content
+    """
+    # BLAKE2b is both fast and secure
+    hash_method = hashlib.blake2b()
+    with open(file_path, "rb") as file:
+        # 64KB chunks for optimal performance
+        for chunk in iter(lambda: file.read(65536), b""):
+            hash_method.update(chunk)
+    return hash_method.hexdigest()
+
+
+# Function alias
+calculate_file_hash = calculate_file_checksum

@@ -1,4 +1,4 @@
-import time
+import dagster_kielsa_gf as current_location
 from datetime import datetime
 from pathlib import Path
 
@@ -16,10 +16,13 @@ from dagster import (
 from dagster_sling import (
     sling_assets,
 )
-
+from dagster_shared_gf.shared_dagster_api import reload_code_location
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.resources.postgresql_resources import db_nocodb_data_gf
-from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.shared_functions import (
+    get_for_current_env,
+    calculate_file_checksum,
+)
 from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.sling_shared.sling_resources import (
     MyDagsterSlingTranslator,
@@ -34,6 +37,10 @@ from dagster_shared_gf.shared_constants import (
 )
 from dagster_shared_gf.load_env_run import load_env_vars, os
 import yaml
+from dagster_kielsa_gf.sling_defs.sling_nocodb_schema_control import (
+    create_timestamp_triggers,
+)
+
 
 logger = get_dagster_logger("sling_nocodb_data_gf")
 
@@ -43,8 +50,16 @@ if not os.environ.get("SLING_HOME_DIR") or not os.environ.get(
     load_env_vars()
 
 
-def generate_sling_yaml():
-    parent_path = Path(__file__).parent
+PARENT_PATH = Path(__file__).parent
+REPLICATION_CONFIG_NAME = ".sling_nocodb_data_gf.yaml"
+
+REPLICATION_CONFIG_PATH = PARENT_PATH / REPLICATION_CONFIG_NAME
+REPLICATION_CONFIG_DICT = {}
+with open(REPLICATION_CONFIG_PATH, "r") as file:
+    REPLICATION_CONFIG_DICT = yaml.safe_load(file)
+
+
+def generate_nocodb_data_gf_sling_yaml():
     source: str = "NOCODB_DATA_GF"
     target: str = "DAGSTER_DWH_FARINTER"
     defaults = {
@@ -53,18 +68,18 @@ def generate_sling_yaml():
         "target_options": {"column_casing": "snake", "adjust_column_type": True},
         "source_options": {"flatten": True},
     }
-    replication_config = parent_path / ".sling_nocodb_data_gf.yaml"
+    yaml_path = REPLICATION_CONFIG_PATH
 
     replication_config_generated: str | None = None
     try:
         if not is_file_cache_valid(
-            ".sling_nocodb_data_gf.yaml", directory=parent_path, seconds_threshold=60
+            ".sling_nocodb_data_gf.yaml", directory=PARENT_PATH, seconds_threshold=60
         ):
             replication_config_generated = generate_sling_yaml_from_source(
                 engine=db_nocodb_data_gf.get_engine(),
                 source_schema="kielsa",
                 output_filename=".sling_nocodb_data_gf.yaml",
-                output_dir=parent_path,
+                output_dir=PARENT_PATH,
                 source=source,
                 target=target,
                 defaults=defaults,
@@ -73,17 +88,13 @@ def generate_sling_yaml():
         logger.error(f"Error generating replication config: {e}")
 
     if replication_config_generated:
-        replication_config = Path(replication_config_generated)
+        yaml_path = Path(replication_config_generated)
 
-    return replication_config
-
-
-with open(generate_sling_yaml(), "r") as file:
-    replication_config = yaml.safe_load(file)
+    return yaml_path
 
 
 @sling_assets(
-    replication_config=replication_config,
+    replication_config=REPLICATION_CONFIG_DICT,
     dagster_sling_translator=MyDagsterSlingTranslator(
         asset_database="DL_FARINTER",
         schema_name="nocodb_data_gf",
@@ -95,11 +106,31 @@ with open(generate_sling_yaml(), "r") as file:
 def nocodb_data_gf(context: AssetExecutionContext, sling: MySlingResource):
     # context.log.info(f"{len(replication_config.keys())=}")
     # Esperar un tiempo promedio (60) en el que las personas terminan de llenar un campo.
-    # Menos 30 de inicializacion.
-    time.sleep(30)
+    # Menos 30 de inicializacion. # Espera descontinuada por pasos de integración.
+    global REPLICATION_CONFIG_DICT
+
+    hash_actual = calculate_file_checksum(REPLICATION_CONFIG_PATH)
+    yaml_path = generate_nocodb_data_gf_sling_yaml()
+
+    if calculate_file_checksum(yaml_path) != hash_actual:
+        with open(yaml_path, "r") as file:
+            REPLICATION_CONFIG_DICT = yaml.safe_load(file)
+
+        context.log.info("Replication config changed, reloading code location")
+        reload_code_location(
+            host="localhost",
+            port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 9300)),
+            location_name=current_location.__name__,
+        )
+        context.log.info("Reloaded code location, checking nocodb schema triggers")
+        create_timestamp_triggers(
+            context=context.op_execution_context,
+            db_nocodb_data_gf=db_nocodb_data_gf,
+            schema_name="kielsa",
+        )
 
     if sling.default_mode == "full-refresh":
-        replication_config["defaults"]["mode"] = "full-refresh"
+        REPLICATION_CONFIG_DICT["defaults"]["mode"] = "full-refresh"
 
     yield from sling.replicate(context=context, stream=True)
 
