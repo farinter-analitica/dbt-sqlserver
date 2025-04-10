@@ -144,10 +144,26 @@ class SQLScriptGenerator:
         primary_keys: tuple[str, ...] = tuple(),
         temp_table_name: Optional[str] = None,
     ):
+        """
+        Initialize a SQLScriptGenerator with configuration for SQL script generation.
+        The dataframe will be cleaned for sql compatibility and will be saved on df property
+
+            Args:
+                df (pl.DataFrame): The input DataFrame to be processed.
+                db_schema (str): The database schema name.
+                table_name (str): The target table name.
+                sql_lang (Literal["sqlserver"], optional): The SQL dialect. Defaults to "sqlserver".
+                db_name (str | None, optional): The database name. Defaults to None.
+                primary_keys (tuple[str, ...], optional): Primary key columns. Defaults to an empty tuple.
+                temp_table_name (Optional[str], optional): Temporary table name. Defaults to None.
+
+            Raises:
+                ValueError: If an unsupported SQL language is provided.
+        """
         if sql_lang not in ["sqlserver"]:
             raise ValueError(f"SQL language {sql_lang} not implemented.")
 
-        self._df = df
+        self._df = self.clean_dataframe_for_sql(df)
         self._df_schema = df.collect_schema()
         self._db_name = db_name
         self._db_schema = db_schema
@@ -501,21 +517,31 @@ class SQLScriptGenerator:
 
         return sql
 
-    def clean_dataframe_for_sql(self, rounding: int | None = None) -> pl.DataFrame:
+    def clean_dataframe_for_sql(
+        self, df: pl.DataFrame, rounding: int | None = None
+    ) -> pl.DataFrame:
         """
         Clean the DataFrame to ensure all values are SQL-compatible.
         Cleanings:
-            Replaces infinity values with NULL values.
+            Replaces infinity and nan values with NULL values.
             Rounds all numeric columns to the specified number of decimal places.
 
         Args:
+            df: The DataFrame to clean.
             rounding: Number of decimal places to round to. If None, no rounding is performed.
-                Values between 0 and 16. Negative are equivalent to 0.
+                Values limited between 0 and 16.
 
         Returns:
             A cleaned cheap copy of the DataFrame
         """
-        df = self.df.clone().with_columns(pl.selectors.numeric().fill_nan(None))
+        selection = pl.selectors.expand_selector(df, pl.selectors.numeric())
+        df = df.clone().with_columns(
+            pl.when(pl.col(selection).is_infinite())
+            .then(None)
+            .otherwise(pl.col(selection))
+            .fill_nan(None)
+            .name.keep()
+        )
         if rounding is not None:
             df = df.with_columns(
                 (pl.selectors.float() | pl.selectors.decimal()).round(

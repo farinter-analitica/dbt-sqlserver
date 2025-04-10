@@ -379,7 +379,6 @@ def IA_Kielsa_Proyeccion_Personal_Necesario(
             df=df_personal_necesario,
             temp_table_name="IA_Kielsa_Proyeccion_Personal_Necesario_NEW",
         )
-        df_personal_necesario = sg.clean_dataframe_for_sql(rounding=6)
 
         if env_str == "local":
             with pl.Config() as c:
@@ -401,7 +400,7 @@ def IA_Kielsa_Proyeccion_Personal_Necesario(
         )
 
         # First write as regular table
-        df_personal_necesario.write_database(
+        sg.df.write_database(
             table_name=sg.temp_table_name,
             connection=conn,
             if_table_exists="append",
