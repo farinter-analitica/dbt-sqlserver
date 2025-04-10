@@ -69,6 +69,9 @@ models:
         +schema: 'db_planning'
         +group: 'db_planning'
         +database: 'BI_FARINTER'
+      an_farinter:
+        +group: 'dbt_dwh_sap_an'
+        +database: 'AN_FARINTER'
         
     dwh_kielsa:
       +tags: ["dagster_kielsa_gf/dbt"]
