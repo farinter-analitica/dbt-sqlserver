@@ -29,15 +29,16 @@
     GETDATE() AS Fecha_Actualizado
 from(
 		select A.Personal_Id, 
-			A.Nombre_Completo AS Nombre, 
-			A.Identidad as ID,
-			datediff(year, B.Fecha_Desde, getdate()) as Antiguedad,
-			A.Posicion_Nombre as Cargo
+                        MAX(A.Nombre_Completo) AS Nombre, 
+                        MAX(A.Identidad) as ID,
+                        datediff(year, MIN(B.Fecha_Desde), getdate()) as Antiguedad,
+                        MAX(A.Posicion_Nombre) as Cargo
 		from [AN_FARINTER].[dbo].[AN_SAP_Personal_DatosActuales] A --{{ref('AN_SAP_Personal_DatosActuales')}} AS A 
 		LEFT JOIN [DL_FARINTER].[dbo].[DL_SAP_Personal_Medidas] B ---{{ ref ( 'DL_SAP_Personal_Medidas') }}AS B
-        on A.Personal_Id = B.Personal_Id  and B.Clase_Medida_Id = 'H1'
+        on A.Personal_Id = B.Personal_Id  and B.Clase_Medida_Id in ('H1', 'H0', '01')
 			where A.Area_Nomina_Id in ('K1', 'F1', 'F2', 'FU', 'K2', 'TF', 'BL', 'MT', 'MS') 
-			AND A.Estado_Ocupacion_Id =3) as A
+			AND A.Estado_Ocupacion_Id =3
+			group by A.Personal_Id) as A
 LEFT JOIN (
 		select A.Personal_Id, A.Celular, isnull(B.eMail,'Sin registro') as eMail 
 			from(
