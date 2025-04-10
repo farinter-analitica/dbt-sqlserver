@@ -42,7 +42,7 @@ AS
         ISNULL(SUM(FP.Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
         ISNULL(SUM(FP.Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
         ISNULL(SUM(FP.Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
-        ISNULL(SUM(FP.Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Descuento_Proveedor),0)*1.0 AS Sum_Valor_Descuento_Proveedor,
         ISNULL(SUM(FP.Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
         ISNULL(COUNT(distinct FP.EmpSucDocCajFac_Id),0)*1.0 AS Sum_Conteo_Transacciones
     FROM {{ ref ('BI_Kielsa_Hecho_FacturaPosicion') }} FP 
@@ -71,7 +71,7 @@ SELECT
     CAST(Sum_Valor_Descuento_Financiero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Financiero,
     CAST(Sum_Valor_Acum_Monedero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Acum_Monedero,
     CAST(Sum_Valor_Descuento_Cupon / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Cupon,
-    CAST(Sum_Descuento_Proveedor / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
+    CAST(Sum_Valor_Descuento_Proveedor / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
     CAST(Sum_Valor_Descuento_Tercera_Edad / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
     CAST(Sum_Conteo_Transacciones / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones,
     ISNULL(CAST(Sum_Cantidad_Padre / NULLIF(SUM(Sum_Cantidad_Padre) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Cantidad_Padre,
@@ -82,7 +82,7 @@ SELECT
     ISNULL(CAST(Sum_Valor_Descuento_Financiero / NULLIF(SUM(Sum_Valor_Descuento_Financiero) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Financiero,
     ISNULL(CAST(Sum_Valor_Acum_Monedero / NULLIF(SUM(Sum_Valor_Acum_Monedero) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Acum_Monedero,
     ISNULL(CAST(Sum_Valor_Descuento_Cupon / NULLIF(SUM(Sum_Valor_Descuento_Cupon) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Cupon,
-    ISNULL(CAST(Sum_Descuento_Proveedor / NULLIF(SUM(Sum_Descuento_Proveedor) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Proveedor,
+    ISNULL(CAST(Sum_Valor_Descuento_Proveedor / NULLIF(SUM(Sum_Valor_Descuento_Proveedor) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Proveedor,
     ISNULL(CAST(Sum_Valor_Descuento_Tercera_Edad / NULLIF(SUM(Sum_Valor_Descuento_Tercera_Edad) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Tercera_Edad,
     ISNULL(CAST(Sum_Conteo_Transacciones / NULLIF(SUM(Sum_Conteo_Transacciones) OVER(PARTITION BY Emp_Id, Suc_Id),0) AS DECIMAL(16,12)),0)  AS Part_Conteo_Transacciones
 --INTO #Temp

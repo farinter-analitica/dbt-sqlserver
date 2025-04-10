@@ -29,7 +29,7 @@ WITH ResumenBase AS (
         FP.Emp_Id,
         FP.Suc_Id,
         C.Semana_del_Anio_ISO as Semana_del_Anio_ISO_Original,
-        COUNT(DISTINCT YEAR(FP.Factura_Fecha)) AS Anios_Muestra,
+        COUNT(DISTINCT FP.Factura_Fecha)/365.0 AS Anios_Muestra,
         ISNULL(SUM(FP.Sum_Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
         ISNULL(SUM(FP.Sum_Cantidad_Articulos),0)*1.0 AS Sum_Cantidad_Articulos,
         ISNULL(SUM(FP.Sum_Valor_Bruto),0)*1.0 AS Sum_Valor_Bruto,
@@ -39,7 +39,7 @@ WITH ResumenBase AS (
         ISNULL(SUM(FP.Sum_Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
         ISNULL(SUM(FP.Sum_Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
         ISNULL(SUM(FP.Sum_Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
-        ISNULL(SUM(FP.Sum_Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Sum_Valor_Descuento_Proveedor),0)*1.0 AS Sum_Valor_Descuento_Proveedor,
         ISNULL(SUM(FP.Sum_Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
         ISNULL(SUM(FP.Sum_Conteo_Transacciones),0)*1.0 AS Sum_Conteo_Transacciones,
         ISNULL(SUM(FP.Sum_Conteo_Trx_Es_Tercera_Edad),0)*1.0 AS Sum_Conteo_Trx_Es_Tercera_Edad,
@@ -92,7 +92,7 @@ SELECT
     CAST(Sum_Valor_Descuento_Financiero / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Financiero,
     CAST(Sum_Valor_Acum_Monedero / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Acum_Monedero,
     CAST(Sum_Valor_Descuento_Cupon / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Cupon,
-    CAST(Sum_Descuento_Proveedor / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
+    CAST(Sum_Valor_Descuento_Proveedor / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
     CAST(Sum_Valor_Descuento_Tercera_Edad / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
     CAST(Sum_Conteo_Transacciones / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones,
     CAST(Sum_Conteo_Trx_Es_Tercera_Edad / Anios_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Trx_Es_Tercera_Edad,
@@ -120,7 +120,7 @@ SELECT
     ISNULL(CAST(CASE WHEN Es_Sucursal_Semanas_Completas = 1 
         THEN Sum_Valor_Descuento_Cupon / NULLIF(SUM(Sum_Valor_Descuento_Cupon) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/52 END AS DECIMAL(16,12)),0) AS Part_Valor_Descuento_Cupon,
     ISNULL(CAST(CASE WHEN Es_Sucursal_Semanas_Completas = 1 
-        THEN Sum_Descuento_Proveedor / NULLIF(SUM(Sum_Descuento_Proveedor) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/52 END AS DECIMAL(16,12)),0) AS Part_Valor_Descuento_Proveedor,
+        THEN Sum_Valor_Descuento_Proveedor / NULLIF(SUM(Sum_Valor_Descuento_Proveedor) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/52 END AS DECIMAL(16,12)),0) AS Part_Valor_Descuento_Proveedor,
     ISNULL(CAST(CASE WHEN Es_Sucursal_Semanas_Completas = 1 
         THEN Sum_Valor_Descuento_Tercera_Edad / NULLIF(SUM(Sum_Valor_Descuento_Tercera_Edad) OVER(PARTITION BY Emp_Id, Suc_Id),0) ELSE 1/52 END AS DECIMAL(16,12)),0) AS Part_Valor_Descuento_Tercera_Edad,
     ISNULL(CAST(CASE WHEN Es_Sucursal_Semanas_Completas = 1 

@@ -14,8 +14,8 @@
 	) 
 }}
 {% set v_semanas_muestra = 12 %}
-{% set v_horas_muestra = v_semanas_muestra %}
-{% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_horas_muestra)).strftime('%Y%m%d') %}
+{% set v_dias_muestra = v_semanas_muestra * 7 %}
+{% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_muestra)).strftime('%Y%m%d') %}
 {% set v_fecha_fin = modules.datetime.datetime.now().strftime('%Y%m%d')  %}
 {% set v_anio_mes_inicio =  v_fecha_inicio[:6]  %}
 
@@ -36,7 +36,8 @@ AS
         FP.Hora_Id as Hora_Id,
         --@SemanasPonderacion AS Semanas_Muestra,
         --@HorasPonderacion AS Horas_Muestra,
-        {{ v_horas_muestra }}*1.0 AS Horas_Muestra,
+        COUNT(DISTINCT C.Dia_de_la_Semana)*1.0 AS Semanas_Muestra,
+        COUNT(DISTINCT FP.Hora_Id)*1.0 AS Horas_Muestra,
         ISNULL(SUM(FP.Sum_Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
         ISNULL(SUM(FP.Sum_Cantidad_Articulos),0)*1.0 AS Sum_Cantidad_Articulos,
         ISNULL(SUM(FP.Sum_Valor_Bruto),0)*1.0 AS Sum_Valor_Bruto,
@@ -46,7 +47,7 @@ AS
         ISNULL(SUM(FP.Sum_Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
         ISNULL(SUM(FP.Sum_Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
         ISNULL(SUM(FP.Sum_Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
-        ISNULL(SUM(FP.Sum_Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Sum_Valor_Descuento_Proveedor),0)*1.0 AS Sum_Valor_Descuento_Proveedor,
         ISNULL(SUM(FP.Sum_Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
         ISNULL(SUM(FP.Sum_Conteo_Transacciones),0)*1.0 AS Sum_Conteo_Transacciones,
         ISNULL(SUM(FP.Sum_Conteo_Trx_Es_Tercera_Edad),0)*1.0 AS Sum_Conteo_Trx_Es_Tercera_Edad,
@@ -79,7 +80,7 @@ SELECT
     CAST(Sum_Valor_Descuento_Financiero / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Financiero,
     CAST(Sum_Valor_Acum_Monedero / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Acum_Monedero,
     CAST(Sum_Valor_Descuento_Cupon / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Cupon,
-    CAST(Sum_Descuento_Proveedor / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
+    CAST(Sum_Valor_Descuento_Proveedor / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
     CAST(Sum_Valor_Descuento_Tercera_Edad / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
     CAST(Sum_Conteo_Transacciones / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones,
     CAST(Sum_Conteo_Trx_Es_Tercera_Edad / Horas_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Trx_Es_Tercera_Edad,
@@ -97,7 +98,7 @@ SELECT
     ISNULL(CAST(Sum_Valor_Descuento_Financiero / NULLIF(SUM(Sum_Valor_Descuento_Financiero) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Financiero,
     ISNULL(CAST(Sum_Valor_Acum_Monedero / NULLIF(SUM(Sum_Valor_Acum_Monedero) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Acum_Monedero,
     ISNULL(CAST(Sum_Valor_Descuento_Cupon / NULLIF(SUM(Sum_Valor_Descuento_Cupon) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Cupon,
-    ISNULL(CAST(Sum_Descuento_Proveedor / NULLIF(SUM(Sum_Descuento_Proveedor) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Proveedor,
+    ISNULL(CAST(Sum_Valor_Descuento_Proveedor / NULLIF(SUM(Sum_Valor_Descuento_Proveedor) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Proveedor,
     ISNULL(CAST(Sum_Valor_Descuento_Tercera_Edad / NULLIF(SUM(Sum_Valor_Descuento_Tercera_Edad) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Valor_Descuento_Tercera_Edad,
     ISNULL(CAST(Sum_Conteo_Transacciones / NULLIF(SUM(Sum_Conteo_Transacciones) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Conteo_Transacciones,
     ISNULL(CAST(Sum_Conteo_Trx_Es_Tercera_Edad / NULLIF(SUM(Sum_Conteo_Trx_Es_Tercera_Edad) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Conteo_Trx_Es_Tercera_Edad,
@@ -108,3 +109,4 @@ SELECT
     ISNULL(CAST(Sum_Segundos_Transaccion_Estimado / NULLIF(SUM(Sum_Segundos_Transaccion_Estimado) OVER(PARTITION BY Emp_Id, Suc_Id, Dia_Semana_Iso_Id),0) AS DECIMAL(16,12)),0)  AS Part_Segundos_Transaccion_Estimado
 --INTO #Temp
 FROM ResumenBase
+--WHERE Suc_Id = 1 and Emp_Id = 1

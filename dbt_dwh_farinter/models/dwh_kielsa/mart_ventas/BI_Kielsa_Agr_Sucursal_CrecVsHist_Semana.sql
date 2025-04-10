@@ -14,7 +14,7 @@
         ]
     ) 
 }}
-{% set v_semanas_completas = 26 %}
+{% set v_semanas_completas = 12 %}
 {% set v_anios_historicos = 2 %}
 {% set v_fecha_base = modules.datetime.datetime.now() %}
 {% set v_fecha_inicio_actual_dt = (v_fecha_base - modules.datetime.timedelta(days=v_fecha_base.isoweekday() + v_semanas_completas*7) ) %}
@@ -37,6 +37,8 @@ WITH ResumenBase AS (
         FP.Emp_Id,
         FP.Suc_Id,
         C.Anio_ISO AS Anio_Id,
+        COUNT(DISTINCT FP.Factura_Fecha)/365.0 AS Anios_Muestra,
+        COUNT(DISTINCT FP.Factura_Fecha)/7.0 AS Semanas_Muestra,
         C.Semana_del_Anio_ISO as Semana_del_Anio_ISO_Original,
         MIN(C.Fecha_Calendario) AS Fecha_Inicio_Semana,
         ISNULL(SUM(FP.Sum_Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
@@ -70,26 +72,28 @@ Historico AS
     SELECT 
         Emp_Id,
         Suc_Id,
-        COUNT(DISTINCT Anio_Id) AS Anios_Muestra,
-        CASE WHEN COUNT(DISTINCT Anio_Id)  <  {{ v_anios_historicos }} THEN 0 ELSE 1 END AS Es_Sucursal_Anios_Completos,
-        SUM(Sum_Cantidad_Padre) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Cantidad_Padre,
-        SUM(Sum_Cantidad_Articulos) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Cantidad_Articulos,
-        SUM(Sum_Valor_Bruto) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Bruto,
-        SUM(Sum_Valor_Neto) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Neto,
-        SUM(Sum_Valor_Costo) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Costo,
-        SUM(Sum_Valor_Descuento) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Descuento,
-        SUM(Sum_Valor_Descuento_Financiero) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Descuento_Financiero,
-        SUM(Sum_Valor_Acum_Monedero) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Acum_Monedero,
-        SUM(Sum_Valor_Descuento_Cupon) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Descuento_Cupon,
-        SUM(Sum_Descuento_Proveedor) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Descuento_Proveedor,
-        SUM(Sum_Valor_Descuento_Tercera_Edad) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Valor_Descuento_Tercera_Edad,
-        SUM(Sum_Conteo_Transacciones) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Conteo_Transacciones,
-        SUM(Sum_Conteo_Trx_Es_Tercera_Edad) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Conteo_Trx_Es_Tercera_Edad,
-        SUM(Sum_Conteo_Trx_Es_Asegurado) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Conteo_Trx_Es_Asegurado,
-        SUM(Sum_Conteo_Trx_Acumula_Monedero) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Conteo_Trx_Acumula_Monedero,
-        SUM(Sum_Conteo_Trx_Contiene_Farma) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Conteo_Trx_Contiene_Farma,
-        SUM(Sum_Cantidad_Unidades_Relativa) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Cantidad_Unidades_Relativa,
-        SUM(Sum_Segundos_Transaccion_Estimado) / {{ v_anios_historicos*v_semanas_completas }} AS Prom_Segundos_Transaccion_Estimado
+        SUM(Anios_Muestra) AS Anios_Muestra,
+        CASE WHEN SUM(Anios_Muestra) < {{ v_anios_historicos*0.7 }} 
+            OR SUM(Semanas_Muestra) < {{ v_semanas_completas*0.7 }} 
+            THEN 0 ELSE 1 END AS Es_Sucursal_Anios_Completos,
+        SUM(Sum_Cantidad_Padre) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Cantidad_Padre,
+        SUM(Sum_Cantidad_Articulos) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Cantidad_Articulos,
+        SUM(Sum_Valor_Bruto) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Bruto,
+        SUM(Sum_Valor_Neto) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Neto,
+        SUM(Sum_Valor_Costo) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Costo,
+        SUM(Sum_Valor_Descuento) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Descuento,
+        SUM(Sum_Valor_Descuento_Financiero) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Financiero,
+        SUM(Sum_Valor_Acum_Monedero) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Acum_Monedero,
+        SUM(Sum_Valor_Descuento_Cupon) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Cupon,
+        SUM(Sum_Descuento_Proveedor) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Proveedor,
+        SUM(Sum_Valor_Descuento_Tercera_Edad) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Tercera_Edad,
+        SUM(Sum_Conteo_Transacciones) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Conteo_Transacciones,
+        SUM(Sum_Conteo_Trx_Es_Tercera_Edad) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Es_Tercera_Edad,
+        SUM(Sum_Conteo_Trx_Es_Asegurado) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Es_Asegurado,
+        SUM(Sum_Conteo_Trx_Acumula_Monedero) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Acumula_Monedero,
+        SUM(Sum_Conteo_Trx_Contiene_Farma) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Contiene_Farma,
+        SUM(Sum_Cantidad_Unidades_Relativa) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Cantidad_Unidades_Relativa,
+        SUM(Sum_Segundos_Transaccion_Estimado) / SUM(Anios_Muestra)*SUM(Semanas_Muestra) AS Prom_Segundos_Transaccion_Estimado
     FROM ResumenBase
     WHERE Fecha_Inicio_Semana < '{{ v_fecha_inicio_actual }}'
     GROUP BY Emp_Id, Suc_Id
@@ -99,24 +103,24 @@ Actual AS
     SELECT 
         Emp_Id,
         Suc_Id,
-        SUM(Sum_Cantidad_Padre) / {{ v_semanas_completas }} AS Prom_Cantidad_Padre,
-        SUM(Sum_Cantidad_Articulos) / {{ v_semanas_completas }} AS Prom_Cantidad_Articulos,
-        SUM(Sum_Valor_Bruto) / {{ v_semanas_completas }} AS Prom_Valor_Bruto,
-        SUM(Sum_Valor_Neto) / {{ v_semanas_completas }} AS Prom_Valor_Neto,
-        SUM(Sum_Valor_Costo) / {{ v_semanas_completas }} AS Prom_Valor_Costo,
-        SUM(Sum_Valor_Descuento) / {{ v_semanas_completas }} AS Prom_Valor_Descuento,
-        SUM(Sum_Valor_Descuento_Financiero) / {{ v_semanas_completas }} AS Prom_Valor_Descuento_Financiero,
-        SUM(Sum_Valor_Acum_Monedero) / {{ v_semanas_completas }} AS Prom_Valor_Acum_Monedero,
-        SUM(Sum_Valor_Descuento_Cupon) / {{ v_semanas_completas }} AS Prom_Valor_Descuento_Cupon,
-        SUM(Sum_Descuento_Proveedor) / {{ v_semanas_completas }} AS Prom_Valor_Descuento_Proveedor,
-        SUM(Sum_Valor_Descuento_Tercera_Edad) / {{ v_semanas_completas }} AS Prom_Valor_Descuento_Tercera_Edad,
-        SUM(Sum_Conteo_Transacciones) / {{ v_semanas_completas }} AS Prom_Conteo_Transacciones,
-        SUM(Sum_Conteo_Trx_Es_Tercera_Edad) / {{ v_semanas_completas }} AS Prom_Conteo_Trx_Es_Tercera_Edad,
-        SUM(Sum_Conteo_Trx_Es_Asegurado) / {{ v_semanas_completas }} AS Prom_Conteo_Trx_Es_Asegurado,
-        SUM(Sum_Conteo_Trx_Acumula_Monedero) / {{ v_semanas_completas }} AS Prom_Conteo_Trx_Acumula_Monedero,
-        SUM(Sum_Conteo_Trx_Contiene_Farma) / {{ v_semanas_completas }} AS Prom_Conteo_Trx_Contiene_Farma,
-        SUM(Sum_Cantidad_Unidades_Relativa) / {{ v_semanas_completas }} AS Prom_Cantidad_Unidades_Relativa,
-        SUM(Sum_Segundos_Transaccion_Estimado) / {{ v_semanas_completas }} AS Prom_Segundos_Transaccion_Estimado
+        SUM(Sum_Cantidad_Padre) / SUM(Semanas_Muestra) AS Prom_Cantidad_Padre,
+        SUM(Sum_Cantidad_Articulos) / SUM(Semanas_Muestra) AS Prom_Cantidad_Articulos,
+        SUM(Sum_Valor_Bruto) / SUM(Semanas_Muestra) AS Prom_Valor_Bruto,
+        SUM(Sum_Valor_Neto) / SUM(Semanas_Muestra) AS Prom_Valor_Neto,
+        SUM(Sum_Valor_Costo) / SUM(Semanas_Muestra) AS Prom_Valor_Costo,
+        SUM(Sum_Valor_Descuento) / SUM(Semanas_Muestra) AS Prom_Valor_Descuento,
+        SUM(Sum_Valor_Descuento_Financiero) / SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Financiero,
+        SUM(Sum_Valor_Acum_Monedero) / SUM(Semanas_Muestra) AS Prom_Valor_Acum_Monedero,
+        SUM(Sum_Valor_Descuento_Cupon) / SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Cupon,
+        SUM(Sum_Descuento_Proveedor) / SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Proveedor,
+        SUM(Sum_Valor_Descuento_Tercera_Edad) / SUM(Semanas_Muestra) AS Prom_Valor_Descuento_Tercera_Edad,
+        SUM(Sum_Conteo_Transacciones) / SUM(Semanas_Muestra) AS Prom_Conteo_Transacciones,
+        SUM(Sum_Conteo_Trx_Es_Tercera_Edad) / SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Es_Tercera_Edad,
+        SUM(Sum_Conteo_Trx_Es_Asegurado) / SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Es_Asegurado,
+        SUM(Sum_Conteo_Trx_Acumula_Monedero) / SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Acumula_Monedero,
+        SUM(Sum_Conteo_Trx_Contiene_Farma) / SUM(Semanas_Muestra) AS Prom_Conteo_Trx_Contiene_Farma,
+        SUM(Sum_Cantidad_Unidades_Relativa) / SUM(Semanas_Muestra) AS Prom_Cantidad_Unidades_Relativa,
+        SUM(Sum_Segundos_Transaccion_Estimado) / SUM(Semanas_Muestra) AS Prom_Segundos_Transaccion_Estimado
     FROM ResumenBase
     WHERE Fecha_Inicio_Semana >= '{{ v_fecha_inicio_actual }}'
     GROUP BY Emp_Id, Suc_Id
@@ -231,59 +235,59 @@ Tendencia AS
         ISNULL(Anios_Muestra,0) AS Anios_Muestra,
         Es_Sucursal_Anios_Completos,
         CASE WHEN Prom_Cantidad_Padre_Historico > 0
-            THEN  (1.02 + Dif_Cantidad_Padre / Prom_Cantidad_Padre_Historico)
-            ELSE 1.05 END AS Crec_Cantidad_Padre,
+            THEN  (1.0 + Dif_Cantidad_Padre / Prom_Cantidad_Padre_Historico)
+            ELSE 1.02 END AS Crec_Cantidad_Padre,
         CASE WHEN Prom_Cantidad_Articulos_Historico > 0
-            THEN  (1.02 + Dif_Cantidad_Articulos / Prom_Cantidad_Articulos_Historico)
-            ELSE 1.05 END AS Crec_Cantidad_Articulos,
+            THEN  (1.0 + Dif_Cantidad_Articulos / Prom_Cantidad_Articulos_Historico)
+            ELSE 1.02 END AS Crec_Cantidad_Articulos,
         CASE WHEN Prom_Valor_Bruto_Historico > 0
-            THEN  (1.02 + Dif_Valor_Bruto / Prom_Valor_Bruto_Historico)
-            ELSE 1.05 END AS Crec_Valor_Bruto,
+            THEN  (1.0 + Dif_Valor_Bruto / Prom_Valor_Bruto_Historico)
+            ELSE 1.02 END AS Crec_Valor_Bruto,
         CASE WHEN Prom_Valor_Neto_Historico > 0
-            THEN  (1.02 + Dif_Valor_Neto / Prom_Valor_Neto_Historico)
-            ELSE 1.05 END AS Crec_Valor_Neto,
+            THEN  (1.0 + Dif_Valor_Neto / Prom_Valor_Neto_Historico)
+            ELSE 1.02 END AS Crec_Valor_Neto,
         CASE WHEN Prom_Valor_Costo_Historico > 0
-            THEN  (1.02 + Dif_Valor_Costo / Prom_Valor_Costo_Historico)
-            ELSE 1.05 END AS Crec_Valor_Costo,
+            THEN  (1.0 + Dif_Valor_Costo / Prom_Valor_Costo_Historico)
+            ELSE 1.02 END AS Crec_Valor_Costo,
         CASE WHEN Prom_Valor_Descuento_Historico > 0
-            THEN  (1.02 + Dif_Valor_Descuento / Prom_Valor_Descuento_Historico)
-            ELSE 1.05 END AS Crec_Valor_Descuento,
+            THEN  (1.0 + Dif_Valor_Descuento / Prom_Valor_Descuento_Historico)
+            ELSE 1.02 END AS Crec_Valor_Descuento,
         CASE WHEN Prom_Valor_Descuento_Financiero_Historico > 0
-            THEN  (1.02 + Dif_Valor_Descuento_Financiero / Prom_Valor_Descuento_Financiero_Historico)
-            ELSE 1.05 END AS Crec_Valor_Descuento_Financiero,
+            THEN  (1.0 + Dif_Valor_Descuento_Financiero / Prom_Valor_Descuento_Financiero_Historico)
+            ELSE 1.02 END AS Crec_Valor_Descuento_Financiero,
         CASE WHEN Prom_Valor_Acum_Monedero_Historico > 0
-            THEN  (1.02 + Dif_Valor_Acum_Monedero / Prom_Valor_Acum_Monedero_Historico)
-            ELSE 1.05 END AS Crec_Valor_Acum_Monedero,
+            THEN  (1.0 + Dif_Valor_Acum_Monedero / Prom_Valor_Acum_Monedero_Historico)
+            ELSE 1.02 END AS Crec_Valor_Acum_Monedero,
         CASE WHEN Prom_Valor_Descuento_Cupon_Historico > 0
-            THEN  (1.02 + Dif_Valor_Descuento_Cupon / Prom_Valor_Descuento_Cupon_Historico)
-            ELSE 1.05 END AS Crec_Valor_Descuento_Cupon,
+            THEN  (1.0 + Dif_Valor_Descuento_Cupon / Prom_Valor_Descuento_Cupon_Historico)
+            ELSE 1.02 END AS Crec_Valor_Descuento_Cupon,
         CASE WHEN Prom_Valor_Descuento_Proveedor_Historico > 0
-            THEN  (1.02 + Dif_Valor_Descuento_Proveedor / Prom_Valor_Descuento_Proveedor_Historico)
-            ELSE 1.05 END AS Crec_Valor_Descuento_Proveedor,
+            THEN  (1.0 + Dif_Valor_Descuento_Proveedor / Prom_Valor_Descuento_Proveedor_Historico)
+            ELSE 1.02 END AS Crec_Valor_Descuento_Proveedor,
         CASE WHEN Prom_Valor_Descuento_Tercera_Edad_Historico > 0
-            THEN  (1.02 + Dif_Valor_Descuento_Tercera_Edad / Prom_Valor_Descuento_Tercera_Edad_Historico)
-            ELSE 1.05 END AS Crec_Valor_Descuento_Tercera_Edad,
+            THEN  (1.0 + Dif_Valor_Descuento_Tercera_Edad / Prom_Valor_Descuento_Tercera_Edad_Historico)
+            ELSE 1.02 END AS Crec_Valor_Descuento_Tercera_Edad,
         CASE WHEN Prom_Conteo_Transacciones_Historico > 0
-            THEN  (1.02 + Dif_Conteo_Transacciones / Prom_Conteo_Transacciones_Historico)
-            ELSE 1.05 END AS Crec_Conteo_Transacciones,
+            THEN  (1.0 + Dif_Conteo_Transacciones / Prom_Conteo_Transacciones_Historico)
+            ELSE 1.02 END AS Crec_Conteo_Transacciones,
         CASE WHEN Prom_Conteo_Trx_Es_Tercera_Edad_Historico > 0
-            THEN  (1.02 + Dif_Conteo_Trx_Es_Tercera_Edad / Prom_Conteo_Trx_Es_Tercera_Edad_Historico)
-            ELSE 1.05 END AS Crec_Conteo_Trx_Es_Tercera_Edad,
+            THEN  (1.0 + Dif_Conteo_Trx_Es_Tercera_Edad / Prom_Conteo_Trx_Es_Tercera_Edad_Historico)
+            ELSE 1.02 END AS Crec_Conteo_Trx_Es_Tercera_Edad,
         CASE WHEN Prom_Conteo_Trx_Es_Asegurado_Historico > 0
-            THEN  (1.02 + Dif_Conteo_Trx_Es_Asegurado / Prom_Conteo_Trx_Es_Asegurado_Historico)
-            ELSE 1.05 END AS Crec_Conteo_Trx_Es_Asegurado,
+            THEN  (1.0 + Dif_Conteo_Trx_Es_Asegurado / Prom_Conteo_Trx_Es_Asegurado_Historico)
+            ELSE 1.02 END AS Crec_Conteo_Trx_Es_Asegurado,
         CASE WHEN Prom_Conteo_Trx_Acumula_Monedero_Historico > 0
-            THEN  (1.02 + Dif_Conteo_Trx_Acumula_Monedero / Prom_Conteo_Trx_Acumula_Monedero_Historico)
-            ELSE 1.05 END AS Crec_Conteo_Trx_Acumula_Monedero,
+            THEN  (1.0 + Dif_Conteo_Trx_Acumula_Monedero / Prom_Conteo_Trx_Acumula_Monedero_Historico)
+            ELSE 1.02 END AS Crec_Conteo_Trx_Acumula_Monedero,
         CASE WHEN Prom_Conteo_Trx_Contiene_Farma_Historico > 0
-            THEN  (1.02 + Dif_Conteo_Trx_Contiene_Farma / Prom_Conteo_Trx_Contiene_Farma_Historico)
-            ELSE 1.05 END AS Crec_Conteo_Trx_Contiene_Farma,
+            THEN  (1.0 + Dif_Conteo_Trx_Contiene_Farma / Prom_Conteo_Trx_Contiene_Farma_Historico)
+            ELSE 1.02 END AS Crec_Conteo_Trx_Contiene_Farma,
         CASE WHEN Prom_Cantidad_Unidades_Relativa_Historico > 0
-            THEN  (1.02 + Dif_Cantidad_Unidades_Relativa / Prom_Cantidad_Unidades_Relativa_Historico)
-            ELSE 1.05 END AS Crec_Cantidad_Unidades_Relativa,
+            THEN  (1.0 + Dif_Cantidad_Unidades_Relativa / Prom_Cantidad_Unidades_Relativa_Historico)
+            ELSE 1.02 END AS Crec_Cantidad_Unidades_Relativa,
         CASE WHEN Prom_Segundos_Transaccion_Estimado_Historico > 0
-            THEN  (1.02 + Dif_Segundos_Transaccion_Estimado / Prom_Segundos_Transaccion_Estimado_Historico)
-            ELSE 1.05 END AS Crec_Segundos_Transaccion_Estimado
+            THEN  (1.0 + Dif_Segundos_Transaccion_Estimado / Prom_Segundos_Transaccion_Estimado_Historico)
+            ELSE 1.02 END AS Crec_Segundos_Transaccion_Estimado
     FROM Diferencias
 )
 SELECT Emp_Id,

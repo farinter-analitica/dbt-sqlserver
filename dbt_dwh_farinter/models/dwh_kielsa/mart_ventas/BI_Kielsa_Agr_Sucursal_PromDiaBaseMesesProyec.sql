@@ -36,7 +36,7 @@ AS
     SELECT 
         FP.Emp_Id,
         FP.Suc_Id,
-        {{ v_dias_muestra }} - ISNULL(MAX(CAL.Dias_Feriados),0) AS Dias_Muestra,
+        COUNT(DISTINCT FP.Factura_Fecha)*1.0 AS Dias_Muestra,
         ISNULL(SUM(FP.Sum_Cantidad_Padre),0)*1.0 AS Sum_Cantidad_Padre,
         ISNULL(SUM(FP.Sum_Cantidad_Articulos),0)*1.0 AS Sum_Cantidad_Articulos,
         ISNULL(SUM(FP.Sum_Valor_Bruto),0)*1.0 AS Sum_Valor_Bruto,
@@ -46,7 +46,7 @@ AS
         ISNULL(SUM(FP.Sum_Valor_Descuento_Financiero),0)*1.0 AS Sum_Valor_Descuento_Financiero,
         ISNULL(SUM(FP.Sum_Valor_Acum_Monedero),0)*1.0 AS Sum_Valor_Acum_Monedero,
         ISNULL(SUM(FP.Sum_Valor_Descuento_Cupon),0)*1.0 AS Sum_Valor_Descuento_Cupon,
-        ISNULL(SUM(FP.Sum_Descuento_Proveedor),0)*1.0 AS Sum_Descuento_Proveedor,
+        ISNULL(SUM(FP.Sum_Valor_Descuento_Proveedor),0)*1.0 AS Sum_Valor_Descuento_Proveedor,
         ISNULL(SUM(FP.Sum_Valor_Descuento_Tercera_Edad),0)*1.0 AS Sum_Valor_Descuento_Tercera_Edad,
         ISNULL(SUM(FP.Sum_Conteo_Transacciones),0)*1.0 AS Sum_Conteo_Transacciones,
         ISNULL(SUM(FP.Sum_Conteo_Trx_Es_Tercera_Edad),0)*1.0 AS Sum_Conteo_Trx_Es_Tercera_Edad,
@@ -60,18 +60,12 @@ AS
         ON EMP.Empresa_Id = FP.Emp_Id
     INNER JOIN {{ source ('BI_FARINTER', 'BI_Dim_Pais' ) }} PAIS
         ON PAIS.Pais_Id = EMP.Pais_Id
-    LEFT JOIN --Para ignorar dias feriados
-        (SELECT Fecha_Calendario
-                , AnioMes_Id
-                , Pais_ISO2
-                , COUNT(Fecha_Calendario) OVER(PARTITION BY Pais_ISO2) AS [Dias_Feriados] 
-        FROM {{ ref('BI_Dim_Calendario_LaboralPais') }} CAL
-        WHERE CAL.[Es_Dia_Feriado] =1 AND CAL.[Fecha_Calendario] >= '{{ v_fecha_inicio }}' AND CAL.[Fecha_Calendario] < '{{ v_fecha_fin }}'
-    ) CAL
-        on CAL.Fecha_Calendario = FP.Factura_Fecha
+    INNER JOIN --Para ignorar dias feriados
+        {{ ref('BI_Dim_Calendario_LaboralPais') }} CAL
+        ON CAL.Fecha_Calendario = FP.Factura_Fecha
         AND PAIS.Pais_ISO2 = CAL.Pais_ISO2
     WHERE FP.Factura_Fecha >= '{{ v_fecha_inicio }}' AND FP.Factura_Fecha < '{{ v_fecha_fin }}' 
-    AND CAL.[Fecha_Calendario] IS NULL
+    AND CAL.[Es_Dia_Feriado] = 0
     --WHERE Factura_Fecha >= DATEADD(DAY,- @DiasPonderacion, @Inicio ) AND Factura_Fecha < @inicio
     GROUP BY FP.Emp_Id, FP.Suc_Id
 )
@@ -89,7 +83,7 @@ SELECT
     CAST(Sum_Valor_Descuento_Financiero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Financiero,
     CAST(Sum_Valor_Acum_Monedero / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Acum_Monedero,
     CAST(Sum_Valor_Descuento_Cupon / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Cupon,
-    CAST(Sum_Descuento_Proveedor / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
+    CAST(Sum_Valor_Descuento_Proveedor / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Proveedor,
     CAST(Sum_Valor_Descuento_Tercera_Edad / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Valor_Descuento_Tercera_Edad,
     CAST(Sum_Conteo_Transacciones / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Transacciones,
     CAST(Sum_Conteo_Trx_Es_Tercera_Edad / Dias_Muestra AS DECIMAL(16,6)) AS Prom_Conteo_Trx_Es_Tercera_Edad,
