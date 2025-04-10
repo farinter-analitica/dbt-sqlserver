@@ -42,3 +42,6 @@ sources:
       - name: DL_SAP_Hecho_ExistenciasHist_Archivo
       - name: DL_SAP_Hecho_ExistenciasLoteHist_Archivo
       - name: DL_SAP_Resumen_CartaCompras
+      - name: DL_SAP_Personal_PlanHorarios
+      - name: DL_SAP_Personal_DatosPersonales
+      - name: DL_SAP_Personal_Organizacional
