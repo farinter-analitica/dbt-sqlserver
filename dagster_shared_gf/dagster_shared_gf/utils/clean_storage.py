@@ -46,13 +46,19 @@ def delete_old_event_logs(context: OpExecutionContext) -> None:
 @op
 def delete_old_event_storage(context: OpExecutionContext) -> None:
     """
-    Deletes storage files older than retention period by checking file creation dates
-    Only deletes directories that are confirmed to be Dagster run storage
+    Deletes storage files older than retention period by checking file creation dates.
+    For Dagster run storage: deletes if older than retention_period.
+    For unrelated files/folders: deletes if older than twice the retention_period.
     """
     instance = context.instance
     retention_days = float(settings["local_storage"]["retention_period"])
     cutoff_date = datetime.now() - timedelta(days=retention_days)
+    extended_cutoff_date = datetime.now() - timedelta(
+        days=retention_days * 2
+    )  # Double retention period for unrelated files
+
     storage_dirs_deleted = 0
+    unrelated_items_deleted = 0
 
     storage_base_path = Path(instance._local_artifact_storage.storage_dir)
 
@@ -67,13 +73,31 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
                 or (path / "compute_logs").exists()
             )
 
+            creation_time = datetime.fromtimestamp(path.stat().st_mtime)
+
             if is_run_storage:
-                creation_time = datetime.fromtimestamp(path.stat().st_mtime)
+                # For run storage, use standard retention period
                 if creation_time < cutoff_date:
                     shutil.rmtree(path)
                     storage_dirs_deleted += 1
+            else:
+                # For unrelated storage, use extended retention period
+                if creation_time < extended_cutoff_date:
+                    shutil.rmtree(path)
+                    unrelated_items_deleted += 1
+        elif path.is_file():
+            # Handle files with extended retention period
+            creation_time = datetime.fromtimestamp(path.stat().st_mtime)
+            if creation_time < extended_cutoff_date:
+                path.unlink()
+                unrelated_items_deleted += 1
 
-    context.log.info(f"Deleted {storage_dirs_deleted} old storage directories")
+    context.log.info(
+        f"Deleted {storage_dirs_deleted} storage directories older than {retention_days} days"
+    )
+    context.log.info(
+        f"Deleted {unrelated_items_deleted} unrelated files/folders older than {retention_days * 2} days"
+    )
 
 
 @graph
