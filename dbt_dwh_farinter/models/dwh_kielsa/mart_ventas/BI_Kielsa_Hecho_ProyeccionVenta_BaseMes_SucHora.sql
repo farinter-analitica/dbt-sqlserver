@@ -15,8 +15,7 @@
 	) 
 }}
 
-{% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=31)).strftime('%Y%m%d') %}
-{% set v_fecha_fin = (modules.datetime.datetime.now() + modules.datetime.timedelta(days=120)).strftime('%Y%m%d') %}
+{% set v_fecha_hoy = (modules.datetime.datetime.now()).strftime('%Y%m%d') %}
 {% set v_dias_auto_correcion = 31 %}
 {% set v_fecha_inicio_correccion = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_auto_correcion)).strftime('%Y%m%d') %}
 
@@ -48,24 +47,24 @@ DatosProyectados AS (
         FH.Emp_Id,
         FH.Suc_Id,
         FH.Fecha_Id AS Fecha_Id,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Cantidad_Padre)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Cantidad_Padre,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Cantidad_Articulos)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Cantidad_Articulos,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Bruto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Bruto,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Neto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Neto,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Costo)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Costo,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Descuento)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Descuento_Financiero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Financiero,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Acum_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Acum_Monedero,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Descuento_Cupon)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Cupon,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Descuento_Proveedor)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Proveedor,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Valor_Descuento_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Tercera_Edad,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Conteo_Transacciones)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Transacciones,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Conteo_Trx_Es_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Es_Tercera_Edad,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Conteo_Trx_Es_Asegurado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Es_Asegurado,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Conteo_Trx_Acumula_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Acumula_Monedero,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Conteo_Trx_Contiene_Farma)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Contiene_Farma,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Cantidad_Unidades_Relativa)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Cantidad_Unidades_Relativa,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Segundos_Transaccion_Estimado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Segundos_Transaccion_Estimado
+        AVG(SUM(FH.Cantidad_Padre)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Cantidad_Padre,
+        AVG(SUM(FH.Cantidad_Articulos)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Cantidad_Articulos,
+        AVG(SUM(FH.Valor_Bruto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Bruto,
+        AVG(SUM(FH.Valor_Neto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Neto,
+        AVG(SUM(FH.Valor_Costo)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Costo,
+        AVG(SUM(FH.Valor_Descuento)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento,
+        AVG(SUM(FH.Valor_Descuento_Financiero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Financiero,
+        AVG(SUM(FH.Valor_Acum_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Acum_Monedero,
+        AVG(SUM(FH.Valor_Descuento_Cupon)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Cupon,
+        AVG(SUM(FH.Valor_Descuento_Proveedor)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Proveedor,
+        AVG(SUM(FH.Valor_Descuento_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Valor_Descuento_Tercera_Edad,
+        AVG(SUM(FH.Conteo_Transacciones)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Transacciones,
+        AVG(SUM(FH.Conteo_Trx_Es_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Es_Tercera_Edad,
+        AVG(SUM(FH.Conteo_Trx_Es_Asegurado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Es_Asegurado,
+        AVG(SUM(FH.Conteo_Trx_Acumula_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Acumula_Monedero,
+        AVG(SUM(FH.Conteo_Trx_Contiene_Farma)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Conteo_Trx_Contiene_Farma,
+        AVG(SUM(FH.Cantidad_Unidades_Relativa)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Cantidad_Unidades_Relativa,
+        AVG(SUM(FH.Segundos_Transaccion_Estimado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Proyec_Segundos_Transaccion_Estimado
     FROM Calculo FH
     WHERE FH.Fecha_Id >= '{{ v_fecha_inicio_correccion }}' 
       AND FH.Fecha_Id < '{{ v_fecha_hoy }}'
@@ -80,24 +79,24 @@ DatosReales AS (
         FH.Emp_Id,
         FH.Suc_Id,
         FH.Factura_Fecha AS Fecha_Id,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Cantidad_Padre)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Cantidad_Padre,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Cantidad_Articulos)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Cantidad_Articulos,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Bruto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Bruto,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Neto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Neto,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Costo)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Costo,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Descuento)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Descuento_Financiero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Financiero,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Acum_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Acum_Monedero,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Descuento_Cupon)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Cupon,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Descuento_Proveedor)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Proveedor,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Valor_Descuento_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Tercera_Edad,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Conteo_Transacciones)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Transacciones,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Conteo_Trx_Es_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Es_Tercera_Edad,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Conteo_Trx_Es_Asegurado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Es_Asegurado,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Conteo_Trx_Acumula_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Acumula_Monedero,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Conteo_Trx_Contiene_Farma)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Contiene_Farma,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Cantidad_Unidades_Relativa)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Cantidad_Unidades_Relativa,
-        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY SUM(FH.Sum_Segundos_Transaccion_Estimado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Segundos_Transaccion_Estimado
+        AVG(SUM(FH.Sum_Cantidad_Padre)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Cantidad_Padre,
+        AVG(SUM(FH.Sum_Cantidad_Articulos)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Cantidad_Articulos,
+        AVG(SUM(FH.Sum_Valor_Bruto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Bruto,
+        AVG(SUM(FH.Sum_Valor_Neto)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Neto,
+        AVG(SUM(FH.Sum_Valor_Costo)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Costo,
+        AVG(SUM(FH.Sum_Valor_Descuento)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento,
+        AVG(SUM(FH.Sum_Valor_Descuento_Financiero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Financiero,
+        AVG(SUM(FH.Sum_Valor_Acum_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Acum_Monedero,
+        AVG(SUM(FH.Sum_Valor_Descuento_Cupon)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Cupon,
+        AVG(SUM(FH.Sum_Valor_Descuento_Proveedor)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Proveedor,
+        AVG(SUM(FH.Sum_Valor_Descuento_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Valor_Descuento_Tercera_Edad,
+        AVG(SUM(FH.Sum_Conteo_Transacciones)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Transacciones,
+        AVG(SUM(FH.Sum_Conteo_Trx_Es_Tercera_Edad)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Es_Tercera_Edad,
+        AVG(SUM(FH.Sum_Conteo_Trx_Es_Asegurado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Es_Asegurado,
+        AVG(SUM(FH.Sum_Conteo_Trx_Acumula_Monedero)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Acumula_Monedero,
+        AVG(SUM(FH.Sum_Conteo_Trx_Contiene_Farma)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Conteo_Trx_Contiene_Farma,
+        AVG(SUM(FH.Sum_Cantidad_Unidades_Relativa)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Cantidad_Unidades_Relativa,
+        AVG(SUM(FH.Sum_Segundos_Transaccion_Estimado)) OVER (PARTITION BY Emp_Id, Suc_Id) AS Real_Segundos_Transaccion_Estimado
     FROM {{ ref('BI_Kielsa_Agr_Sucursal_FechaHora') }} FH
     WHERE FH.Factura_Fecha >= '{{ v_fecha_inicio_correccion }}' 
       AND FH.Factura_Fecha < '{{ v_fecha_hoy }}'
@@ -105,9 +104,8 @@ DatosReales AS (
     FH.Emp_Id,
     FH.Suc_Id,
     FH.Factura_Fecha
-),
--- Comparar con la mediana y obtener valor de ajuste
-ValorAjuste AS
+
+),-- Comparar con la mediana y obtener valor de ajusteValorAjuste AS
 (
     SELECT 
         a.Emp_Id,
@@ -226,6 +224,7 @@ ProyeccionesAjustadas AS (
         c.Hora_Id,
         c.EmpSuc_Id,
         c.Dia_Semana_Iso_Id,
+        al.Ajuste_Conteo_Transacciones,
         -- Aplicar factores de ajuste a todas las métricas
         CAST(c.Cantidad_Padre * ISNULL(al.Ajuste_Cantidad_Padre, 1) AS DECIMAL(16,6)) AS Cantidad_Padre,
         CAST(c.Cantidad_Articulos * ISNULL(al.Ajuste_Cantidad_Articulos, 1) AS DECIMAL(16,6)) AS Cantidad_Articulos,
@@ -259,6 +258,7 @@ ResultadoFinal AS (
         Fecha_Id,
         Hora_Id,
         EmpSuc_Id,
+        Ajuste_Conteo_Transacciones,
         Cantidad_Padre,
         Cantidad_Articulos,
         Valor_Bruto,
