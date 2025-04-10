@@ -127,4 +127,4 @@ SELECT *,
     Part_Cantidad_Unidades_Relativa*7 AS Peso_Cantidad_Unidades_Relativa,
     Part_Segundos_Transaccion_Estimado*7 AS Peso_Segundos_Transaccion_Estimado
 FROM Metricas
-WHERE Suc_Id = 1 and Emp_Id = 1
+--WHERE Suc_Id = 1 and Emp_Id = 1
