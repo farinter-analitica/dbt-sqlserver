@@ -157,3 +157,6 @@ secrets.toml
 .sling*
 
 templates_render/
+
+#power user
+.vscode/mcp.json
