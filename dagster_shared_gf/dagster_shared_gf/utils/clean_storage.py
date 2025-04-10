@@ -4,7 +4,7 @@ from pathlib import Path
 
 from dagster import OpExecutionContext, RunsFilter, graph, op
 
-settings = {"local_storage": {"retention_period": 90}}
+settings = {"local_storage": {"retention_period": 40}}
 
 
 @op
@@ -75,18 +75,15 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
             protected_items_skipped += 1
             continue
 
+        creation_time = datetime.fromtimestamp(path.stat().st_mtime)
         if path.is_dir():
             # Verify this is a run storage directory by checking:
             # 1. If directory name exists as a run ID
             # 2. Or if it contains compute_logs directory
-            is_run_storage = (
-                instance.get_run_by_id(path.name) is not None
-                or (path / "compute_logs").exists()
-            )
+            is_run_storage = instance.get_run_by_id(path.name) is not None
 
             if is_run_storage:
                 # For run storage, use standard retention period and delete entire directory
-                creation_time = datetime.fromtimestamp(path.stat().st_mtime)
                 if creation_time < cutoff_date:
                     shutil.rmtree(path)
                     storage_dirs_deleted += 1
@@ -110,7 +107,6 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
                 continue
 
             # Handle files with extended retention period
-            creation_time = datetime.fromtimestamp(path.stat().st_mtime)
             if creation_time < extended_cutoff_date:
                 path.unlink()
                 unrelated_files_deleted += 1
