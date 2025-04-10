@@ -333,7 +333,7 @@ def calcular_personal_necesario(
 
 
 @asset(
-    key_prefix=("IA_Kielsa", "dbo"),
+    key_prefix=("IA_FARINTER", "dbo"),
     description="Proyección de personal necesario para atender la demanda.",
     deps=(
         AssetKey(
