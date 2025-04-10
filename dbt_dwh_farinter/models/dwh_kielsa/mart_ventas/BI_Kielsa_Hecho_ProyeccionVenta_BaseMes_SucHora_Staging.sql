@@ -106,7 +106,7 @@ WITH Calculo AS
         INNER JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PartDiaSemanaHora') }} PDSH
             ON PDSH.Emp_Id = PR.Emp_Id AND PDSH.Suc_Id = PR.Suc_Id
             AND PDSH.Dia_Semana_Iso_Id = CAL.Dia_de_la_Semana
-        INNER JOIN {{ ref('BI_Kielsa_Agr_Sucursal_PartMes') }} PM
+        LEFT JOIN {{ ref('BI_Kielsa_Agr_Sucursal_PartMes') }} PM
             ON PM.Emp_Id = PR.Emp_Id 
             AND PM.Suc_Id = PR.Suc_Id
             AND CAL.Mes_Calendario = PM.Mes_Id
