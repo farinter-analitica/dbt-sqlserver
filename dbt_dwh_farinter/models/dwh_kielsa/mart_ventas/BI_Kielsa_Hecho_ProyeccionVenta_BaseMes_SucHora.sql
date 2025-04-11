@@ -65,22 +65,11 @@ WITH Calculo AS
     SELECT *
     FROM {{ref('BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora_Staging')}}
 ),
--- Calculate P25 and P75 percentiles for projected data by Emp_Id, Suc_Id, Fecha_Id
+-- Calculate percentiles for all dates (historical and future)
 PercentilesProyectados AS (
-    SELECT DISTINCT
-        Emp_Id,
-        Suc_Id,
-        Fecha_Id,
-        {% for field in metric_fields %}
-        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {{ field }}) OVER (PARTITION BY Emp_Id, Suc_Id, Fecha_Id) AS Proyec_P25_{{ field }},
-        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {{ field }}) OVER (PARTITION BY Emp_Id, Suc_Id, Fecha_Id) AS Proyec_P75_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM Calculo
-    WHERE Fecha_Id >= '{{ v_fecha_inicio_correccion }}' 
+    SELECT * FROM {{ref('BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora_Staging_Percentil')}}
 ),
-
--- Calculate P25 and P75 percentiles for real data by Emp_Id, Suc_Id, Fecha_Id
+-- Calculate percentiles for real data (historical only)
 PercentilesReales AS (
     SELECT DISTINCT
         Emp_Id,
@@ -95,7 +84,7 @@ PercentilesReales AS (
     WHERE Factura_Fecha >= '{{ v_fecha_inicio_correccion }}' 
       AND Factura_Fecha < '{{ v_fecha_hoy }}'
 ),
--- Calculate ratio of real to projected percentiles per day (both P25 and P75)
+-- Calculate ratio of real to projected percentiles per day (for historical dates)
 RatiosPercentiles AS (
     SELECT 
         pr.Emp_Id,
@@ -155,131 +144,137 @@ RatiosPercentilLimitados AS (
         1 as dummy_field
     FROM RatiosPromedios
 ),
--- Obtener datos reales diarios para el rango central (P25-P75)
-DatosReales AS (
-    SELECT 
-        Emp_Id,
-        Suc_Id,
-        Factura_Fecha AS Fecha_Id,
-        {% for field in metric_fields %}
-        SUM(Sum_{{ field }}) AS {{ field }}_Sum,
-        {% endfor %}
-        1 as dummy_field
-    FROM {{ ref('BI_Kielsa_Agr_Sucursal_FechaHora') }}
-    WHERE Factura_Fecha >= '{{ v_fecha_inicio_correccion }}' 
-      AND Factura_Fecha < '{{ v_fecha_hoy }}'
-    GROUP BY 
-        Emp_Id,
-        Suc_Id,
-        Factura_Fecha
-),
--- Aplicar correcciones por percentiles a los datos para obtener datos escalados para el rango central
-DatosEscaladosRangoCentral AS (
+-- Clasificar datos históricos por rango (bajo, medio, alto)
+DatosHistoricosClasificados AS (
     SELECT 
         c.Emp_Id,
         c.Suc_Id,
         c.Fecha_Id,
         c.Hora_Id,
         {% for field in metric_fields %}
+        c.{{ field }},
         CASE 
-            -- Valores por debajo de P25 se ajustan con ratio P25
-            WHEN c.{{ field }} < pp.Proyec_P25_{{ field }}
-            THEN c.{{ field }} * rpl.Ratio_P25_Limitado_{{ field }}
-            -- Valores por encima de P75 se ajustan con ratio P75
-            WHEN c.{{ field }} > pp.Proyec_P75_{{ field }}
-            THEN c.{{ field }} * rpl.Ratio_P75_Limitado_{{ field }}
-            -- Valores en el rango central (P25-P75) se mantienen sin ajuste por percentil
-            ELSE c.{{ field }}
-        END AS {{ field }}_Escalado,
+            WHEN c.{{ field }} < pp.Proyec_P25_{{ field }} THEN 1
+            WHEN c.{{ field }} > pp.Proyec_P75_{{ field }} THEN 3
+            ELSE 2
+        END AS Rango_{{ field }},
         {% endfor %}
         1 as dummy_field
     FROM Calculo c
-    LEFT JOIN PercentilesProyectados pp 
+    JOIN PercentilesProyectados pp 
         ON c.Emp_Id = pp.Emp_Id 
         AND c.Suc_Id = pp.Suc_Id 
         AND c.Fecha_Id = pp.Fecha_Id
-    LEFT JOIN RatiosPercentilLimitados rpl 
-        ON c.Emp_Id = rpl.Emp_Id 
-        AND c.Suc_Id = rpl.Suc_Id
     WHERE c.Fecha_Id >= '{{ v_fecha_inicio_correccion }}' 
       AND c.Fecha_Id < '{{ v_fecha_hoy }}'
 ),
--- Calculate daily sums on the scaled data
-DatosProyectados AS (
+-- Obtener datos reales históricos
+DatosRealesHistoricos AS (
     SELECT 
-        Emp_Id,
-        Suc_Id,
-        Fecha_Id,
+        d.Emp_Id,
+        d.Suc_Id,
+        d.Factura_Fecha AS Fecha_Id,
+        d.Hora_Id AS Hora_Id,
         {% for field in metric_fields %}
-        SUM({{ field }}_Escalado) AS {{ field }}_Sum,
+        d.Sum_{{ field }},
+        CASE 
+            WHEN d.Sum_{{ field }} < pr.Real_P25_{{ field }} THEN 1
+            WHEN d.Sum_{{ field }} > pr.Real_P75_{{ field }} THEN 3
+            ELSE 2
+        END AS Rango_{{ field }},
         {% endfor %}
         1 as dummy_field
-    FROM DatosEscaladosRangoCentral
-    GROUP BY 
-        Emp_Id,
-        Suc_Id,
-        Fecha_Id
+    FROM {{ ref('BI_Kielsa_Agr_Sucursal_FechaHora') }} d
+    JOIN PercentilesReales pr
+        ON d.Emp_Id = pr.Emp_Id 
+        AND d.Suc_Id = pr.Suc_Id 
+        AND d.Factura_Fecha = pr.Fecha_Id
+    WHERE d.Factura_Fecha >= '{{ v_fecha_inicio_correccion }}' 
+      AND d.Factura_Fecha < '{{ v_fecha_hoy }}'
 ),
--- Calculate average of sums across dates per Suc_Id
-PromediosProyectados AS (
+-- Calcular promedios por rango para datos proyectados
+PromediosProyectadosPorRango AS (
     SELECT 
         Emp_Id,
         Suc_Id,
         {% for field in metric_fields %}
-        AVG({{ field }}_Sum) AS Proyec_{{ field }},
+        AVG(CASE WHEN Rango_{{ field }} = 1 THEN {{ field }} ELSE NULL END) AS Proyec_Bajo_{{ field }},
+        AVG(CASE WHEN Rango_{{ field }} = 2 THEN {{ field }} ELSE NULL END) AS Proyec_Medio_{{ field }},
+        AVG(CASE WHEN Rango_{{ field }} = 3 THEN {{ field }} ELSE NULL END) AS Proyec_Alto_{{ field }},
         {% endfor %}
         1 as dummy_field
-    FROM DatosProyectados
-    GROUP BY 
-        Emp_Id,
-        Suc_Id
-),
--- Calculate average of real sums across dates per Suc_Id
-PromediosReales AS (
-    SELECT 
-        Emp_Id,
-        Suc_Id,
-        {% for field in metric_fields %}
-        AVG({{ field }}_Sum) AS Real_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM DatosReales
+    FROM DatosHistoricosClasificados
     GROUP BY 
         Emp_Id,
         Suc_Id
 ),
--- Comparar promedios y obtener valor de ajuste para el rango central
-ValorAjuste AS (
+-- Calcular promedios por rango para datos reales
+PromediosRealesPorRango AS (
     SELECT 
-        a.Emp_Id,
-        a.Suc_Id,
+        Emp_Id,
+        Suc_Id,
+        {% for field in metric_fields %}
+        AVG(CASE WHEN Rango_{{ field }} = 1 THEN Sum_{{ field }} ELSE NULL END) AS Real_Bajo_{{ field }},
+        AVG(CASE WHEN Rango_{{ field }} = 2 THEN Sum_{{ field }} ELSE NULL END) AS Real_Medio_{{ field }},
+        AVG(CASE WHEN Rango_{{ field }} = 3 THEN Sum_{{ field }} ELSE NULL END) AS Real_Alto_{{ field }},
+        {% endfor %}
+        1 as dummy_field
+    FROM DatosRealesHistoricos
+    GROUP BY 
+        Emp_Id,
+        Suc_Id
+),
+-- Calcular factores de ajuste por rango
+FactoresAjustePorRango AS (
+    SELECT 
+        pr.Emp_Id,
+        pr.Suc_Id,
         {% for field in metric_fields %}
         CASE 
-            WHEN NULLIF(b.Proyec_{{ field }}, 0) IS NULL THEN 1
-            ELSE 1 + ((a.Real_{{ field }} - b.Proyec_{{ field }})/NULLIF(b.Proyec_{{ field }}, 0))
-        END AS Ajuste_{{ field }},
+            WHEN pp.Proyec_Bajo_{{ field }} > 0 THEN pr.Real_Bajo_{{ field }} / pp.Proyec_Bajo_{{ field }}
+            ELSE 1
+        END AS Ajuste_Bajo_{{ field }},
+        CASE 
+            WHEN pp.Proyec_Medio_{{ field }} > 0 THEN pr.Real_Medio_{{ field }} / pp.Proyec_Medio_{{ field }}
+            ELSE 1
+        END AS Ajuste_Medio_{{ field }},
+        CASE 
+            WHEN pp.Proyec_Alto_{{ field }} > 0 THEN pr.Real_Alto_{{ field }} / pp.Proyec_Alto_{{ field }}
+            ELSE 1
+        END AS Ajuste_Alto_{{ field }},
         {% endfor %}
         1 as dummy_field
-    FROM PromediosReales a
-    JOIN PromediosProyectados b ON a.Emp_Id = b.Emp_Id AND a.Suc_Id = b.Suc_Id
+    FROM PromediosRealesPorRango pr
+    JOIN PromediosProyectadosPorRango pp 
+        ON pr.Emp_Id = pp.Emp_Id 
+        AND pr.Suc_Id = pp.Suc_Id
 ),
 -- Limitar los factores de ajuste para evitar correcciones extremas
-AjustesLimitados AS (
+FactoresAjusteLimitados AS (
     SELECT
         Emp_Id,
         Suc_Id,
-        -- Limitar los ajustes a un rango razonable (entre 0.5 y 1.5)
         {% for field in metric_fields %}
         CASE 
-            WHEN Ajuste_{{ field }} > 1.5 THEN 1.5
-            WHEN Ajuste_{{ field }} < 0.5 THEN 0.5
-            ELSE Ajuste_{{ field }} 
-        END AS Ajuste_{{ field }},
+            WHEN Ajuste_Bajo_{{ field }} > 1.5 THEN 1.5
+            WHEN Ajuste_Bajo_{{ field }} < 0.5 THEN 0.5
+            ELSE Ajuste_Bajo_{{ field }} 
+        END AS Ajuste_Bajo_Limitado_{{ field }},
+        CASE 
+            WHEN Ajuste_Medio_{{ field }} > 1.5 THEN 1.5
+            WHEN Ajuste_Medio_{{ field }} < 0.5 THEN 0.5
+            ELSE Ajuste_Medio_{{ field }} 
+        END AS Ajuste_Medio_Limitado_{{ field }},
+        CASE 
+            WHEN Ajuste_Alto_{{ field }} > 1.5 THEN 1.5
+            WHEN Ajuste_Alto_{{ field }} < 0.5 THEN 0.5
+            ELSE Ajuste_Alto_{{ field }} 
+        END AS Ajuste_Alto_Limitado_{{ field }},
         {% endfor %}
         1 as dummy_field
-    FROM ValorAjuste
+    FROM FactoresAjustePorRango
 ),
--- Aplicar los factores de ajuste a las proyecciones futuras según los tres rangos
+-- Aplicar los factores de ajuste a las proyecciones según el rango
 ProyeccionesAjustadas AS (
     SELECT 
         c.Emp_Id,
@@ -291,16 +286,16 @@ ProyeccionesAjustadas AS (
         {% for field in metric_fields %}
         CAST(
             CASE 
-                -- Valores por debajo de P25 se ajustan solo con ratio P25
-                WHEN c.{{ field }} < pp.Proyec_P25_{{ field }} AND pp.Proyec_P25_{{ field }} > 0
-                THEN c.{{ field }} * rpl.Ratio_P25_Limitado_{{ field }}
+                -- Valores por debajo de P25 se ajustan con factor para valores bajos
+                WHEN c.{{ field }} < pp.Proyec_P25_{{ field }}
+                THEN c.{{ field }} * fal.Ajuste_Bajo_Limitado_{{ field }}
                 
-                -- Valores por encima de P75 se ajustan solo con ratio P75
-                WHEN c.{{ field }} > pp.Proyec_P75_{{ field }} AND pp.Proyec_P75_{{ field }} > 0
-                THEN c.{{ field }} * rpl.Ratio_P75_Limitado_{{ field }}
+                -- Valores por encima de P75 se ajustan con factor para valores altos
+                WHEN c.{{ field }} > pp.Proyec_P75_{{ field }}
+                THEN c.{{ field }} * fal.Ajuste_Alto_Limitado_{{ field }}
                 
-                -- Valores en el rango central (P25-P75) se ajustan con el factor de ajuste promedio
-                ELSE c.{{ field }} * ISNULL(al.Ajuste_{{ field }}, 1)
+                -- Valores en el rango central (P25-P75) se ajustan con factor para valores medios
+                ELSE c.{{ field }} * fal.Ajuste_Medio_Limitado_{{ field }}
             END AS DECIMAL(16,6)
         ) AS {{ field }},
         {% endfor %}
@@ -310,16 +305,13 @@ ProyeccionesAjustadas AS (
         ON c.Emp_Id = pp.Emp_Id 
         AND c.Suc_Id = pp.Suc_Id 
         AND c.Fecha_Id = pp.Fecha_Id
-    LEFT JOIN RatiosPercentilLimitados rpl 
-        ON c.Emp_Id = rpl.Emp_Id 
-        AND c.Suc_Id = rpl.Suc_Id
-    LEFT JOIN AjustesLimitados al 
-        ON c.Emp_Id = al.Emp_Id 
-        AND c.Suc_Id = al.Suc_Id
+    LEFT JOIN FactoresAjusteLimitados fal 
+        ON c.Emp_Id = fal.Emp_Id 
+        AND c.Suc_Id = fal.Suc_Id
 ),
 -- Proyeccion Final
 ResultadoFinal AS (
-    -- Proyecciones ajustadas para fechas futuras
+    -- Proyecciones ajustadas para todas las fechas
     SELECT 
         Emp_Id,
         Suc_Id,
@@ -338,6 +330,7 @@ SELECT
     *,
     GETDATE() AS Fecha_Carga
 FROM ResultadoFinal
+
 
 
 
