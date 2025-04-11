@@ -70,6 +70,17 @@ Percentiles_2 AS (
         {% endfor %}
     FROM Calculo
 ),
+Percentiles_m AS (
+    SELECT DISTINCT
+        Emp_Id,
+        Suc_Id,
+        Fecha_Id,
+        {% for field in metric_fields -%}
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {{ field }}) 
+            OVER (PARTITION BY Emp_Id, Suc_Id, Fecha_Id) AS Proyec_P50_{{ field }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    FROM Calculo
+),
 PercentilesProyectados AS
 (
     SELECT 
@@ -78,6 +89,7 @@ PercentilesProyectados AS
         P1.Fecha_Id,
         {% for field in metric_fields -%}
         P1.Proyec_P25_{{ field }},
+        Pm.Proyec_P50_{{ field }},
         P2.Proyec_P75_{{ field }}{% if not loop.last %},{% endif %}
         {% endfor %}
     FROM Percentiles_1 P1
@@ -85,6 +97,10 @@ PercentilesProyectados AS
     ON P1.Emp_Id = P2.Emp_Id
     AND P1.Suc_Id = P2.Suc_Id
     AND P1.Fecha_Id = P2.Fecha_Id
+    INNER JOIN Percentiles_m Pm
+    ON P1.Emp_Id = Pm.Emp_Id
+    AND P1.Suc_Id = Pm.Suc_Id
+    AND P1.Fecha_Id = Pm.Fecha_Id
 )
 -- Consulta final
 SELECT 

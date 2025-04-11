@@ -19,6 +19,8 @@
 {% set v_fecha_hoy = (modules.datetime.datetime.now()).strftime('%Y%m%d') %}
 {% set v_dias_auto_correcion = 31 %}
 {% set v_fecha_inicio_correccion = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=v_dias_auto_correcion)).strftime('%Y%m%d') %}
+-- Define el factor 'n' para la ponderación (cuántas veces más pesa el día más reciente vs el más antiguo)
+{% set n_ponderacion = 3 %} -- Puedes cambiar este valor (ej. 3, 4, 5)
 
 --Correccion 20250409 de varios problemas en modelos upstream
 --Mejora de escalado por percentiles retroalimentando data real vs proyectada
@@ -76,10 +78,14 @@ PercentilesReales AS (
         Suc_Id,
         Factura_Fecha AS Fecha_Id,
         {% for field in metric_fields %}
-        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY Sum_{{ field }}) OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P25_{{ field }},
-        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY Sum_{{ field }}) OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P75_{{ field }},
+        PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY Sum_{{ field }}) 
+            OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P25_{{ field }},
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY Sum_{{ field }}) 
+            OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P50_{{ field }},
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY Sum_{{ field }}) 
+            OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P75_{{ field }}{% if not loop.last %},{% endif %}
         {% endfor %}
-        1 as dummy_field
+
     FROM {{ ref('BI_Kielsa_Agr_Sucursal_FechaHora') }}
     WHERE Factura_Fecha >= '{{ v_fecha_inicio_correccion }}' 
       AND Factura_Fecha < '{{ v_fecha_hoy }}'
@@ -90,6 +96,7 @@ RatiosPercentiles AS (
         pr.Emp_Id,
         pr.Suc_Id,
         pr.Fecha_Id,
+        ROW_NUMBER() OVER (PARTITION BY pr.Emp_Id, pr.Suc_Id ORDER BY pr.Fecha_Id DESC) as Dia_Reciente_Rank,
         {% for field in metric_fields %}
         CASE 
             WHEN pp.Proyec_P25_{{ field }} > 0 
@@ -97,29 +104,50 @@ RatiosPercentiles AS (
             ELSE 1
         END AS Ratio_P25_{{ field }},
         CASE 
+            WHEN pp.Proyec_P50_{{ field }} > 0 
+            THEN pr.Real_P50_{{ field }} / pp.Proyec_P50_{{ field }}
+            ELSE 1
+        END AS Ratio_P50_{{ field }},
+        CASE 
             WHEN pp.Proyec_P75_{{ field }} > 0 
             THEN pr.Real_P75_{{ field }} / pp.Proyec_P75_{{ field }}
             ELSE 1
-        END AS Ratio_P75_{{ field }},
+        END AS Ratio_P75_{{ field }}{% if not loop.last %},{% endif %}
         {% endfor %}
-        1 as dummy_field
     FROM PercentilesReales pr
     JOIN PercentilesProyectados pp 
         ON pr.Emp_Id = pp.Emp_Id 
         AND pr.Suc_Id = pp.Suc_Id 
         AND pr.Fecha_Id = pp.Fecha_Id
 ),
--- Average the ratios by Emp_Id, Suc_Id
-RatiosPromedios AS (
+RatiosConPeso AS (
+    SELECT
+        rp.*,
+        MAX(Dia_Reciente_Rank) OVER (PARTITION BY Emp_Id, Suc_Id) as Max_Rank_Grupo,
+        -- Calcular Peso con factor 'n'
+        CASE
+            -- Si n=1 o solo hay 1 día, peso es 1 (promedio simple)
+            WHEN {{ n_ponderacion }} <= 1 OR MAX(Dia_Reciente_Rank) OVER (PARTITION BY Emp_Id, Suc_Id) <= 1 THEN 1.0
+            -- Calcular peso base para que ratio max/min sea 'n'
+            ELSE 
+                ( (MAX(Dia_Reciente_Rank) OVER (PARTITION BY Emp_Id, Suc_Id) - 1.0) / ({{ n_ponderacion }} - 1.0) ) -- Peso Base
+                + (MAX(Dia_Reciente_Rank) OVER (PARTITION BY Emp_Id, Suc_Id) - Dia_Reciente_Rank) -- Incremento lineal
+        END AS Peso_Dia
+    FROM RatiosPercentiles rp
+),
+
+-- Calcular promedios ponderados de los ratios por Emp_Id, Suc_Id
+RatiosPromediosPonderados AS (
     SELECT 
         Emp_Id,
         Suc_Id,
         {% for field in metric_fields %}
-        AVG(Ratio_P25_{{ field }}) AS Avg_Ratio_P25_{{ field }},
-        AVG(Ratio_P75_{{ field }}) AS Avg_Ratio_P75_{{ field }},
+        -- Promedio Ponderado = SUM(Valor * Peso) / SUM(Peso)
+        SUM(Ratio_P25_{{ field }} * Peso_Dia) / NULLIF(SUM(Peso_Dia), 0) AS Avg_Ratio_P25_{{ field }},
+        SUM(Ratio_P50_{{ field }} * Peso_Dia) / NULLIF(SUM(Peso_Dia), 0) AS Avg_Ratio_P50_{{ field }},
+        SUM(Ratio_P75_{{ field }} * Peso_Dia) / NULLIF(SUM(Peso_Dia), 0) AS Avg_Ratio_P75_{{ field }}{% if not loop.last %},{% endif %}
         {% endfor %}
-        1 as dummy_field
-    FROM RatiosPercentiles
+    FROM RatiosConPeso -- Usar la CTE con pesos
     GROUP BY 
         Emp_Id,
         Suc_Id
@@ -136,143 +164,17 @@ RatiosPercentilLimitados AS (
             ELSE Avg_Ratio_P25_{{ field }} 
         END AS Ratio_P25_Limitado_{{ field }},
         CASE 
+            WHEN Avg_Ratio_P50_{{ field }} > 1.5 THEN 1.5
+            WHEN Avg_Ratio_P50_{{ field }} < 0.5 THEN 0.5
+            ELSE Avg_Ratio_P50_{{ field }} 
+        END AS Ratio_P50_Limitado_{{ field }},
+        CASE 
             WHEN Avg_Ratio_P75_{{ field }} > 1.5 THEN 1.5
             WHEN Avg_Ratio_P75_{{ field }} < 0.5 THEN 0.5
             ELSE Avg_Ratio_P75_{{ field }} 
-        END AS Ratio_P75_Limitado_{{ field }},
+        END AS Ratio_P75_Limitado_{{ field }}{% if not loop.last %},{% endif %}
         {% endfor %}
-        1 as dummy_field
-    FROM RatiosPromedios
-),
--- Clasificar datos históricos por rango (bajo, medio, alto)
-DatosHistoricosClasificados AS (
-    SELECT 
-        c.Emp_Id,
-        c.Suc_Id,
-        c.Fecha_Id,
-        c.Hora_Id,
-        {% for field in metric_fields %}
-        c.{{ field }},
-        CASE 
-            WHEN c.{{ field }} < pp.Proyec_P25_{{ field }} THEN 1
-            WHEN c.{{ field }} > pp.Proyec_P75_{{ field }} THEN 3
-            ELSE 2
-        END AS Rango_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM Calculo c
-    JOIN PercentilesProyectados pp 
-        ON c.Emp_Id = pp.Emp_Id 
-        AND c.Suc_Id = pp.Suc_Id 
-        AND c.Fecha_Id = pp.Fecha_Id
-    WHERE c.Fecha_Id >= '{{ v_fecha_inicio_correccion }}' 
-      AND c.Fecha_Id < '{{ v_fecha_hoy }}'
-),
--- Obtener datos reales históricos
-DatosRealesHistoricos AS (
-    SELECT 
-        d.Emp_Id,
-        d.Suc_Id,
-        d.Factura_Fecha AS Fecha_Id,
-        d.Hora_Id AS Hora_Id,
-        {% for field in metric_fields %}
-        d.Sum_{{ field }},
-        CASE 
-            WHEN d.Sum_{{ field }} < pr.Real_P25_{{ field }} THEN 1
-            WHEN d.Sum_{{ field }} > pr.Real_P75_{{ field }} THEN 3
-            ELSE 2
-        END AS Rango_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM {{ ref('BI_Kielsa_Agr_Sucursal_FechaHora') }} d
-    JOIN PercentilesReales pr
-        ON d.Emp_Id = pr.Emp_Id 
-        AND d.Suc_Id = pr.Suc_Id 
-        AND d.Factura_Fecha = pr.Fecha_Id
-    WHERE d.Factura_Fecha >= '{{ v_fecha_inicio_correccion }}' 
-      AND d.Factura_Fecha < '{{ v_fecha_hoy }}'
-),
--- Calcular promedios por rango para datos proyectados
-PromediosProyectadosPorRango AS (
-    SELECT 
-        Emp_Id,
-        Suc_Id,
-        {% for field in metric_fields %}
-        AVG(CASE WHEN Rango_{{ field }} = 1 THEN {{ field }} ELSE NULL END) AS Proyec_Bajo_{{ field }},
-        AVG(CASE WHEN Rango_{{ field }} = 2 THEN {{ field }} ELSE NULL END) AS Proyec_Medio_{{ field }},
-        AVG(CASE WHEN Rango_{{ field }} = 3 THEN {{ field }} ELSE NULL END) AS Proyec_Alto_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM DatosHistoricosClasificados
-    GROUP BY 
-        Emp_Id,
-        Suc_Id
-),
--- Calcular promedios por rango para datos reales
-PromediosRealesPorRango AS (
-    SELECT 
-        Emp_Id,
-        Suc_Id,
-        {% for field in metric_fields %}
-        AVG(CASE WHEN Rango_{{ field }} = 1 THEN Sum_{{ field }} ELSE NULL END) AS Real_Bajo_{{ field }},
-        AVG(CASE WHEN Rango_{{ field }} = 2 THEN Sum_{{ field }} ELSE NULL END) AS Real_Medio_{{ field }},
-        AVG(CASE WHEN Rango_{{ field }} = 3 THEN Sum_{{ field }} ELSE NULL END) AS Real_Alto_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM DatosRealesHistoricos
-    GROUP BY 
-        Emp_Id,
-        Suc_Id
-),
--- Calcular factores de ajuste por rango
-FactoresAjustePorRango AS (
-    SELECT 
-        pr.Emp_Id,
-        pr.Suc_Id,
-        {% for field in metric_fields %}
-        CASE 
-            WHEN pp.Proyec_Bajo_{{ field }} > 0 THEN pr.Real_Bajo_{{ field }} / pp.Proyec_Bajo_{{ field }}
-            ELSE 1
-        END AS Ajuste_Bajo_{{ field }},
-        CASE 
-            WHEN pp.Proyec_Medio_{{ field }} > 0 THEN pr.Real_Medio_{{ field }} / pp.Proyec_Medio_{{ field }}
-            ELSE 1
-        END AS Ajuste_Medio_{{ field }},
-        CASE 
-            WHEN pp.Proyec_Alto_{{ field }} > 0 THEN pr.Real_Alto_{{ field }} / pp.Proyec_Alto_{{ field }}
-            ELSE 1
-        END AS Ajuste_Alto_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM PromediosRealesPorRango pr
-    JOIN PromediosProyectadosPorRango pp 
-        ON pr.Emp_Id = pp.Emp_Id 
-        AND pr.Suc_Id = pp.Suc_Id
-),
--- Limitar los factores de ajuste para evitar correcciones extremas
-FactoresAjusteLimitados AS (
-    SELECT
-        Emp_Id,
-        Suc_Id,
-        {% for field in metric_fields %}
-        CASE 
-            WHEN Ajuste_Bajo_{{ field }} > 1.5 THEN 1.5
-            WHEN Ajuste_Bajo_{{ field }} < 0.5 THEN 0.5
-            ELSE Ajuste_Bajo_{{ field }} 
-        END AS Ajuste_Bajo_Limitado_{{ field }},
-        CASE 
-            WHEN Ajuste_Medio_{{ field }} > 1.5 THEN 1.5
-            WHEN Ajuste_Medio_{{ field }} < 0.5 THEN 0.5
-            ELSE Ajuste_Medio_{{ field }} 
-        END AS Ajuste_Medio_Limitado_{{ field }},
-        CASE 
-            WHEN Ajuste_Alto_{{ field }} > 1.5 THEN 1.5
-            WHEN Ajuste_Alto_{{ field }} < 0.5 THEN 0.5
-            ELSE Ajuste_Alto_{{ field }} 
-        END AS Ajuste_Alto_Limitado_{{ field }},
-        {% endfor %}
-        1 as dummy_field
-    FROM FactoresAjustePorRango
+    FROM RatiosPromediosPonderados 
 ),
 -- Aplicar los factores de ajuste a las proyecciones según el rango
 ProyeccionesAjustadas AS (
@@ -286,28 +188,27 @@ ProyeccionesAjustadas AS (
         {% for field in metric_fields %}
         CAST(
             CASE 
-                -- Valores por debajo de P25 se ajustan con factor para valores bajos
+                -- Valores por debajo de P25 se ajustan directamente con el ratio del percentil 25
                 WHEN c.{{ field }} < pp.Proyec_P25_{{ field }}
-                THEN c.{{ field }} * fal.Ajuste_Bajo_Limitado_{{ field }}
+                THEN c.{{ field }} * rpl.Ratio_P25_Limitado_{{ field }}
                 
-                -- Valores por encima de P75 se ajustan con factor para valores altos
+                -- Valores por encima de P75 se ajustan directamente con el ratio del percentil 75
                 WHEN c.{{ field }} > pp.Proyec_P75_{{ field }}
-                THEN c.{{ field }} * fal.Ajuste_Alto_Limitado_{{ field }}
+                THEN c.{{ field }} * rpl.Ratio_P75_Limitado_{{ field }}
                 
-                -- Valores en el rango central (P25-P75) se ajustan con factor para valores medios
-                ELSE c.{{ field }} * fal.Ajuste_Medio_Limitado_{{ field }}
+                -- Valores en el rango central (P25-P75) se ajustan con el ratio del percentil 50 (mediana)
+                ELSE c.{{ field }} * rpl.Ratio_P50_Limitado_{{ field }}
             END AS DECIMAL(16,6)
-        ) AS {{ field }},
+        ) AS {{ field }}{% if not loop.last %},{% endif %}
         {% endfor %}
-        1 as dummy_field
     FROM {{ref('BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora_Staging')}} c
     LEFT JOIN PercentilesProyectados pp 
         ON c.Emp_Id = pp.Emp_Id 
         AND c.Suc_Id = pp.Suc_Id 
         AND c.Fecha_Id = pp.Fecha_Id
-    LEFT JOIN FactoresAjusteLimitados fal 
-        ON c.Emp_Id = fal.Emp_Id 
-        AND c.Suc_Id = fal.Suc_Id
+    LEFT JOIN RatiosPercentilLimitados rpl 
+        ON c.Emp_Id = rpl.Emp_Id 
+        AND c.Suc_Id = rpl.Suc_Id
 ),
 -- Proyeccion Final
 ResultadoFinal AS (
@@ -330,6 +231,7 @@ SELECT
     *,
     GETDATE() AS Fecha_Carga
 FROM ResultadoFinal
+
 
 
 
