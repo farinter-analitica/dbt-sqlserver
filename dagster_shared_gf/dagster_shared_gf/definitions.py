@@ -101,7 +101,7 @@ class ACSSensorFactory:
 
         self.base_selections["daily"] = AssetSelection.tag(
             key=tags_repo.AutomationDaily.key, value=tags_repo.AutomationDaily.value
-        ) | AssetSelection.tag(key=tags_repo.Daily.key, value=tags_repo.Daily.value)
+        )
 
         self.base_selections["weekly"] = AssetSelection.tag(
             key=tags_repo.AutomationWeekly1.key,
@@ -111,16 +111,12 @@ class ACSSensorFactory:
             value=tags_repo.AutomationWeekly7.value,
         )
 
-        self.base_selections["monthly"] = (
-            AssetSelection.tag(key=tags_repo.Monthly.key, value=tags_repo.Monthly.value)
-            | AssetSelection.tag(
-                key=tags_repo.AutomationMonthlyStart.key,
-                value=tags_repo.AutomationMonthlyStart.value,
-            )
-            | AssetSelection.tag(
-                key=tags_repo.AutomationMonthlyEnd.key,
-                value=tags_repo.AutomationMonthlyEnd.value,
-            )
+        self.base_selections["monthly"] = AssetSelection.tag(
+            key=tags_repo.AutomationMonthlyStart.key,
+            value=tags_repo.AutomationMonthlyStart.value,
+        ) | AssetSelection.tag(
+            key=tags_repo.AutomationMonthlyEnd.key,
+            value=tags_repo.AutomationMonthlyEnd.value,
         )
 
         for name, selection in self.base_selections.items():
