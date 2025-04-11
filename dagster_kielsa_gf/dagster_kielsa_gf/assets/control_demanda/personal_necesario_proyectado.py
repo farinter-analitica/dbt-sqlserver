@@ -179,7 +179,7 @@ def calcular_personal_necesario(
         .alias("personal_square_root")
     )
 
-    def calcular_metricas_cola(row):
+    def calcular_metricas_cola(row: dict) -> dict:
         """
         Calcula personal necesario y métricas usando fórmulas correctas de teoría de colas
         para sistemas M/G/c, implementando también restricción de COLA_MAX.
@@ -194,7 +194,7 @@ def calcular_personal_necesario(
             "longitud_cola_promedio": 0.0,
         }
 
-        if row["carga_ofrecida_total"] is None:
+        if any(value is None for value in row.values()):
             return default
 
         carga = float(row["carga_ofrecida_total"])
