@@ -1,22 +1,25 @@
+import datetime as dt
+import os
+import textwrap
 from collections import deque
 from datetime import timedelta
-import datetime as dt
-import numpy as np
-import textwrap
+from pathlib import Path
 from typing import Literal, Optional
+
+import numpy as np
+import polars as pl
 from dagster import (
     AssetsDefinition,
     build_last_update_freshness_checks,
 )
+from polars.schema import SchemaInitDataType
+
 from dagster_shared_gf.shared_constants import (
-    hourly_freshness_lbound_per_environ,
     RowTerminator,
+    hourly_freshness_lbound_per_environ,
 )
 from dagster_shared_gf.shared_functions import filter_assets_by_tags, get_now_datetime
 from dagster_shared_gf.shared_variables import tags_repo
-import polars as pl
-from pathlib import Path
-import os
 
 
 def get_unique_source_assets(all_assets, source_assets):
@@ -131,7 +134,6 @@ class SQLScriptGenerator:
     _schema_table_relation: str
     _schema_temp_table_relation: str
     _full_relation: str | None = None
-    _df_schema: pl.Schema
     _formatted_primary_keys: tuple[str, ...]
 
     def __init__(
@@ -248,8 +250,8 @@ class SQLScriptGenerator:
         schema = self.df_schema
 
         # Check correct primary keys
-        verified_columns = deque()
-        formatted_columns = deque()
+        verified_columns: deque[str] = deque()
+        formatted_columns: deque[str] = deque()
 
         for pk in columns:
             if pk not in schema:
@@ -268,11 +270,28 @@ class SQLScriptGenerator:
             formatted_columns.append(f"[{pk}]")
 
         # Check for data duplicates
-        column_data = self.df.select(verified_columns).to_struct("primary_key")
-        duplicates = column_data.filter(column_data.is_duplicated())
-        if duplicates.len() > 0:
+        if len(verified_columns) == 0:
+            return tuple()
+
+        # Select the verified columns from the DataFrame
+        pk_column_data = self.df.select(verified_columns)
+        # Check for duplicate primary key values
+        duplicates = pk_column_data.filter(pk_column_data.is_duplicated())
+        if duplicates.height > 0:
             raise ValueError(
-                f"Primary key {str(verified_columns)} cannot have duplicates, found {str(duplicates.limit(10))}"
+                f"Primary key {str(verified_columns)} cannot have duplicates, found {str(duplicates.head(10))}"
+            )
+
+        # Check for string columns with values longer than 255 characters
+        too_long_keys = []
+        for pk in verified_columns:
+            col = self.df.get_column(pk)
+            if col.dtype == pl.Utf8:
+                if (col.str.len_chars() > 255).any():
+                    too_long_keys.append(pk)
+        if too_long_keys:
+            raise ValueError(
+                f"Primary key(s) {too_long_keys} have string values longer than 255 characters."
             )
 
         return tuple(formatted_columns)
@@ -294,7 +313,7 @@ class SQLScriptGenerator:
         # Initialize the SQL script
         sql_script = f"CREATE TABLE {schema_table_relation} (\n"
 
-        TYPE_MAPPING = {
+        TYPE_MAPPING: dict[SchemaInitDataType, str] = {
             pl.Int8: "TINYINT",
             pl.Int16: "SMALLINT",
             pl.Int32: "INT",
@@ -319,8 +338,8 @@ class SQLScriptGenerator:
             # Handle special cases
             if sql_type is None:
                 if col_type == pl.Utf8:
-                    string_lenght = df.get_column(col_name).str.len_chars().max()  # type: ignore
-                    string_lenght: int = string_lenght if string_lenght else 0
+                    string_lenght: int = df.get_column(col_name).str.len_chars().max()  # type: ignore
+                    string_lenght = string_lenght if string_lenght else 0
                     if col_name in primary_keys and not string_lenght > 50:
                         sql_type = "NVARCHAR(50)"
                     elif string_lenght <= 100:
@@ -606,21 +625,21 @@ class ParquetCacheHandler:
                     timestamp_str = f.read().strip()
                     cache_time = dt.datetime.fromisoformat(timestamp_str)
 
-                cache_age = dt.datetime.now() - cache_time
+                cache_age = get_now_datetime() - cache_time
 
                 if cache_age.total_seconds() > max_age_seconds:
                     return None
             except Exception:
                 # If metadata file is corrupted, fall back to file system timestamp
                 file_mtime = dt.datetime.fromtimestamp(cache_path.stat().st_mtime)
-                cache_age = dt.datetime.now() - file_mtime
+                cache_age = get_now_datetime() - file_mtime
 
                 if cache_age.total_seconds() > max_age_seconds:
                     return None
         else:
             # Fall back to file system timestamp if no metadata file
             file_mtime = dt.datetime.fromtimestamp(cache_path.stat().st_mtime)
-            cache_age = dt.datetime.now() - file_mtime
+            cache_age = get_now_datetime() - file_mtime
 
             if cache_age.total_seconds() > max_age_seconds:
                 return None
@@ -648,7 +667,7 @@ class ParquetCacheHandler:
 
             # Save metadata with timestamp in ISO format (cross-platform compatible)
             with open(metadata_path, "w") as f:
-                f.write(dt.datetime.now().isoformat())
+                f.write(get_now_datetime().isoformat())
 
             print(f"Data cached to {cache_path}")
         except Exception as e:
