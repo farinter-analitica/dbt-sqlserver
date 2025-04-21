@@ -58,8 +58,8 @@ SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
         ,[TipoSucursal_Id]
         ,[TipoSucursal_Nombre]
         , CASE 
-          WHEN S.Emp_Id = 1 THEN CONCAT('kielsa',Sucursal_Numero,'@kielsa.hn') 
-          WHEN S.Emp_Id = 5 THEN CONCAT('b',Sucursal_Numero,'@grupobrasilsv.com') 
+          WHEN S.Emp_Id = 1 THEN CONCAT('kielsa',RIGHT(REPLICATE('0',3)+CAST(Sucursal_Numero AS VARCHAR(50)),3),'@kielsa.hn') 
+          WHEN S.Emp_Id = 5 THEN CONCAT('b',RIGHT(REPLICATE('0',3)+CAST(Sucursal_Numero AS VARCHAR(50)),3),'@grupobrasilsv.com') 
           ELSE 'No Definido' 
           END AS [Correo_e]
         ,[Direccion]
