@@ -534,7 +534,7 @@ class SQLScriptGenerator:
         Returns:
             A cleaned cheap copy of the DataFrame
         """
-        selection = pl.selectors.expand_selector(df, pl.selectors.numeric())
+        selection = pl.selectors.expand_selector(df, pl.selectors.float())
         df = df.clone().with_columns(
             pl.when(pl.col(selection).is_infinite())
             .then(None)
@@ -542,6 +542,10 @@ class SQLScriptGenerator:
             .fill_nan(None)
             .name.keep()
         )
+        selection = pl.selectors.expand_selector(
+            df, pl.selectors.numeric() - pl.selectors.float()
+        )
+        df = df.clone().with_columns(pl.col(selection).fill_nan(None).name.keep())
         if rounding is not None:
             df = df.with_columns(
                 (pl.selectors.float() | pl.selectors.decimal()).round(
