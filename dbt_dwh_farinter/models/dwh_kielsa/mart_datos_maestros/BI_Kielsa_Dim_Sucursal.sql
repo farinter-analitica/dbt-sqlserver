@@ -58,8 +58,13 @@ SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
         ,[TipoSucursal_Id]
         ,[TipoSucursal_Nombre]
         , CASE 
-          WHEN S.Emp_Id = 1 THEN CONCAT('kielsa',RIGHT(REPLICATE('0',3)+CAST(Sucursal_Numero AS VARCHAR(50)),3),'@kielsa.hn') 
-          WHEN S.Emp_Id = 5 THEN CONCAT('b',RIGHT(REPLICATE('0',3)+CAST(Sucursal_Numero AS VARCHAR(50)),3),'@grupobrasilsv.com') 
+          WHEN SN.[Sucursal_Numero_Char] IS NULL OR SN.[Sucursal_Numero_Len] = 0 
+            THEN 'No Definido'
+          WHEN S.Emp_Id = 1 THEN CONCAT('kielsa',REPLICATE('0',3-SN.[Sucursal_Numero_Len])+SN.[Sucursal_Numero_Char],'@kielsa.hn') 
+          WHEN S.Emp_Id = 2 THEN CONCAT('h',SN.[Sucursal_Numero_Char],'@farmaciasherdez.com') 
+          WHEN S.Emp_Id = 3 THEN CONCAT('kielsa',REPLICATE('0',3-SN.[Sucursal_Numero_Len])+SN.[Sucursal_Numero_Char],'@kielsa.ni') 
+          WHEN S.Emp_Id = 4 THEN CONCAT('kielsa',REPLICATE('0',3-SN.[Sucursal_Numero_Len])+SN.[Sucursal_Numero_Char],'@kielsa.cr') 
+          WHEN S.Emp_Id = 5 THEN CONCAT('b',REPLICATE('0',3-SN.[Sucursal_Numero_Len])+SN.[Sucursal_Numero_Char],'@grupobrasilsv.com') 
           ELSE 'No Definido' 
           END AS [Correo_e]
         ,[Direccion]
@@ -93,6 +98,8 @@ SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
 FROM DL_FARINTER.dbo.DL_Kielsa_Sucursal S -- {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }} S
 LEFT JOIN (SELECT
     *, CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS INT) AS [Sucursal_Numero]
+    , CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS VARCHAR(50))  AS [Sucursal_Numero_Char]
+    , LEN(CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS VARCHAR(50))) AS [Sucursal_Numero_Len]
   FROM
     (SELECT
       *
