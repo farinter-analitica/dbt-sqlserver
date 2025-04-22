@@ -7,7 +7,7 @@
 		tags=["periodo/diario", ],
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		full_refresh=true if current_month_day > 10 and current_month_day < 20 else false,
+		full_refresh=true if not is_incremental() or (current_month_day > 10 and current_month_day < 20) else false,
 		on_schema_change="fail",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
@@ -18,24 +18,28 @@
 	) 
 }}
 {%- if is_incremental() %}
-	{%- set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+	{%- set last_date = run_single_value_query_on_relation_and_return(
+        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101') from  """ ~ this, 
+        relation_not_found_value='19000101'|string)|string %}
 {%- else %}
 	{%- set last_date = '19000101' %}
 {%- endif %}
+{%- set v_anio_mes = modules.datetime.datetime.now().strftime('%Y%m') %}
 
 
 WITH current_data AS (
 	SELECT	--TOP (1000)
 			ISNULL(EHN.[Emp_Id],0) [Pais_Id]
 			, ISNULL(EHN.Emp_Id,0) [Emp_Id]
-			, ISNULL(EHN.EmpSuc_Id,0) [Sucursal_Id]
-			, ISNULL(EHN.Sucursal_Id,0) [Sucursal_Id_Solo]
-			, ISNULL(EHN.EmpArticulo_Id,'X') [Articulo_Id]
-			, EHN.ArticuloPadreHijo_Id [Articulo_Id_Solo]
-			, ISNULL(EHN.EmpArticuloPadre_Id,'X') [ArticuloPadre_Id]
-			, EHN.ArticuloPadre_Id [ArticuloPadre_Id_Solo]
-            , Art.Casa_Id [Casa_Id_Solo]
-			, EHN.EmpCasa_Id [Casa_Id]
+			, ISNULL(EHN.EmpSuc_Id,0) [EmpSuc_Id]
+			, ISNULL(EHN.Sucursal_Id,0) [Sucursal_Id]
+			, ISNULL(EHN.EmpArticulo_Id,'X') [EmpArticulo_Id]
+			, EHN.ArticuloPadreHijo_Id [Articulo_Id]
+			, ISNULL(EHN.EmpArticuloPadre_Id,'X') [EmpArticuloPadre_Id]
+			, EHN.ArticuloPadre_Id [ArticuloPadre_Id]
+            , Art.Casa_Id [Casa_Id]
+			, EHN.EmpCasa_Id [EmpCasa_Id]
+			, EHN.Cantidad_Existencia [Cantidad_Existencia]
 			, EHN.CantidadPadre_Existencia [CantidadPadre_Existencia]
 			, EHN.[Valor_Existencia] [Valor_Existencia]
 			, GETDATE() AS [Fecha_Actualizado]
@@ -47,8 +51,10 @@ WITH current_data AS (
 	--     AND SUC.Emp_Id = EHN.Emp_Id
 	--     AND SUC.EmpSuc_Id = EHN.EmpSuc_Id
 	INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo ART --{{ ref ('BI_Kielsa_Dim_Articulo') }}
-		ON ART.Articulo_Id = EHN.ArticuloPadreHijo_Id AND ART.Emp_Id = EHN.Emp_Id 
-	WHERE EHN.Bodega_Id = 1 AND EHN.AnioMes_Id = {{v_anio_mes}}
+		ON ART.Articulo_Id = EHN.ArticuloPadreHijo_Id 
+        AND ART.Emp_Id = EHN.Emp_Id 
+	WHERE EHN.Bodega_Id = 1 
+    AND EHN.AnioMes_Id = {{v_anio_mes}}
 )
 {% if is_incremental() %}
 -- For incremental loads, combine current data with existing records
@@ -56,15 +62,15 @@ SELECT
     cd.Pais_Id,
     cd.Emp_Id,
     cd.Sucursal_Id,
-    cd.Sucursal_Id_Solo,
+    cd.EmpSuc_Id,
     cd.Articulo_Id,
-    cd.Articulo_Id_Solo,
+    cd.EmpArticulo_Id,
     cd.ArticuloPadre_Id,
-    cd.ArticuloPadre_Id_Solo,
+    cd.EmpArticuloPadre_Id,
     cd.Casa_Id,
     cd.Cantidad_Existencia,
     cd.CantidadPadre_Existencia,
-    cd.Valor_Existencia,
+    cd.Fecha_Actualizado
 FROM current_data cd
 
 UNION ALL
@@ -73,16 +79,14 @@ SELECT
     existing.Pais_Id,
     existing.Emp_Id,
     existing.Sucursal_Id,
-    existing.Sucursal_Id_Solo,
+    existing.EmpSuc_Id,
     existing.Articulo_Id,
-    existing.Articulo_Id_Solo,
+    existing.EmpArticulo_Id,
     existing.ArticuloPadre_Id,
-    existing.ArticuloPadre_Id_Solo,
+    existing.EmpArticuloPadre_Id,
     existing.Casa_Id,
     0 AS Cantidad_Existencia, -- Set to zero for old records not in current data
     0 AS CantidadPadre_Existencia, -- Set to zero for old records not in current data
-    0 AS Valor_Existencia, -- Set to zero for old records not in current data
-    0 AS Incentivo_Existencia, -- Set to zero for old records not in current data
     GETDATE() AS Fecha_Actualizado
 FROM {{ this }} existing
 LEFT JOIN current_data cd 
@@ -97,11 +101,11 @@ SELECT
     Pais_Id,
     Emp_Id,
     Sucursal_Id,
-    Sucursal_Id_Solo,
+    EmpSuc_Id,
     Articulo_Id,
-    Articulo_Id_Solo,
+    EmpArticulo_Id,
     ArticuloPadre_Id,
-    ArticuloPadre_Id_Solo,
+    EmpArticuloPadre_Id,
     Casa_Id,
     Cantidad_Existencia,
     CantidadPadre_Existencia,
