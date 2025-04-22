@@ -46,6 +46,7 @@ SELECT
         V.Factura_Fecha AS Fecha_Id,
         YEAR(V.Factura_Fecha) Anio_Id,
         MONTH(V.Factura_Fecha) Mes_Id,
+        SUM(V.Detalle_Cantidad)   AS Cantidad,
         SUM(V.Cantidad_Padre) AS Cantidad_Padre
         --V.Factura_Id
         FROM {{ ref('BI_Kielsa_Hecho_FacturaPosicion') }} V
@@ -79,6 +80,7 @@ SELECT
         Fecha_Id,
         Anio_Id,
         Mes_Id,
+        Cantidad,
         Cantidad_Padre
         --Factura_Id
 FROM source_data
