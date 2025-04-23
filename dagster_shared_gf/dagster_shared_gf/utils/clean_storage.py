@@ -1,10 +1,73 @@
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
+import yaml
+import os
 
 from dagster import OpExecutionContext, RunsFilter, graph, op
 
 settings = {"local_storage": {"retention_period": 40}}
+DAGSTER_HOME = os.environ.get("DAGSTER_HOME") or "."
+
+
+@op
+def clean_dbt_targets_old_files(context: OpExecutionContext) -> None:
+    """
+    Cleans old files inside dbt clean-targets directories as defined in dbt_project.yml,
+    using the same retention logic as delete_old_event_storage.
+    """
+    dbt_project_path = Path(DAGSTER_HOME) / "dbt_dwh_farinter" / "dbt_project.yml"
+    if not dbt_project_path.exists():
+        raise FileNotFoundError(f"dbt_project.yml not found at {dbt_project_path}")
+
+    with dbt_project_path.open("r", encoding="utf-8") as f:
+        dbt_config = yaml.safe_load(f)
+
+    clean_targets = dbt_config.get("clean-targets", [])
+    project_dir = dbt_project_path.parent
+
+    retention_days = float(settings["local_storage"]["retention_period"])
+    cutoff_date = datetime.now() - timedelta(days=retention_days)
+    # extended_cutoff_date = datetime.now() - timedelta(days=retention_days * 2)
+
+    total_files_deleted = 0
+    total_protected_skipped = 0
+    total_empty_dirs_deleted = 0
+
+    for rel_path in clean_targets:
+        abs_path = project_dir / rel_path
+        if abs_path.exists() and abs_path.is_dir():
+            context.log.info(
+                f"Cleaning old files in dbt clean-target directory: {abs_path}"
+            )
+            files_deleted, protected_skipped = delete_old_files_in_directory(
+                abs_path, cutoff_date, context
+            )
+            total_files_deleted += files_deleted
+            total_protected_skipped += protected_skipped
+
+            # Optionally, remove empty directories after cleaning
+            if is_directory_empty(abs_path):
+                try:
+                    abs_path.rmdir()
+                    total_empty_dirs_deleted += 1
+                    context.log.info(
+                        f"Deleted empty clean-target directory: {abs_path}"
+                    )
+                except Exception as e:
+                    context.log.error(
+                        f"Failed to delete empty directory {abs_path}: {e}"
+                    )
+        else:
+            context.log.debug(
+                f"dbt clean-target does not exist or is not a directory: {abs_path}"
+            )
+
+    context.log.info(
+        f"Deleted {total_files_deleted} old files in dbt clean-targets, "
+        f"skipped {total_protected_skipped} protected items, "
+        f"deleted {total_empty_dirs_deleted} empty clean-target directories."
+    )
 
 
 @op
@@ -195,6 +258,7 @@ def is_directory_empty(directory_path: Path) -> bool:
 @graph
 def clean_storage_graph():
     delete_old_event_storage()
+    clean_dbt_targets_old_files()
 
 
 clean_storage_job = clean_storage_graph.to_job(name="clean_storage_job")
