@@ -6,7 +6,7 @@ import os
 
 from dagster import OpExecutionContext, RunsFilter, graph, op
 
-settings = {"local_storage": {"retention_period": 40}}
+SETTINGS = {"local_storage": {"retention_period": 40}}
 DAGSTER_HOME = os.environ.get("DAGSTER_HOME") or "."
 
 
@@ -26,7 +26,7 @@ def clean_dbt_targets_old_files(context: OpExecutionContext) -> None:
     clean_targets = dbt_config.get("clean-targets", [])
     project_dir = dbt_project_path.parent
 
-    retention_days = float(settings["local_storage"]["retention_period"])
+    retention_days = float(SETTINGS["local_storage"]["retention_period"])
     cutoff_date = datetime.now() - timedelta(days=retention_days)
     # extended_cutoff_date = datetime.now() - timedelta(days=retention_days * 2)
 
@@ -76,7 +76,7 @@ def delete_old_event_logs(context: OpExecutionContext) -> None:
     Deletes event logs from logs and storage that are older than retention_period
     """
     instance = context.instance
-    retention_days = float(settings["local_storage"]["retention_period"])
+    retention_days = float(SETTINGS["local_storage"]["retention_period"])
     date_from = datetime.now() - timedelta(days=retention_days)
     batch_size = 100
 
@@ -116,7 +116,7 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
     Files or directories starting with '__' are preserved.
     """
     instance = context.instance
-    retention_days = float(settings["local_storage"]["retention_period"])
+    retention_days = float(SETTINGS["local_storage"]["retention_period"])
     cutoff_date = datetime.now() - timedelta(days=retention_days)
     extended_cutoff_date = datetime.now() - timedelta(
         days=retention_days * 2
@@ -131,18 +131,24 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
 
     context.log.info(f"Starting to clean storage at path: {storage_base_path}")
 
+    # Collect all paths first to avoid modification during iteration
+    paths_to_process = list(storage_base_path.iterdir())
+
     # Scan all directories in storage
-    for path in storage_base_path.iterdir():
+    for path in paths_to_process:
         # Skip files/directories starting with '__'
         if path.name.startswith("__"):
             protected_items_skipped += 1
+            continue
+
+        # Skip if path no longer exists (might have been deleted as part of another directory)
+        if not path.exists():
             continue
 
         creation_time = datetime.fromtimestamp(path.stat().st_mtime)
         if path.is_dir():
             # Verify this is a run storage directory by checking:
             # 1. If directory name exists as a run ID
-            # 2. Or if it contains compute_logs directory
             is_run_storage = instance.get_run_by_id(path.name) is not None
 
             if is_run_storage:
@@ -159,10 +165,14 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
                 protected_items_skipped += skipped
 
                 # Check if directory is now empty and can be deleted
-                if is_directory_empty(path):
-                    path.rmdir()
-                    unrelated_empty_dirs_deleted += 1
-                    context.log.debug(f"Deleted empty directory: {path}")
+                # Only check if the directory still exists
+                if path.exists() and is_directory_empty(path):
+                    try:
+                        path.rmdir()
+                        unrelated_empty_dirs_deleted += 1
+                        context.log.debug(f"Deleted empty directory: {path}")
+                    except (FileNotFoundError, OSError) as e:
+                        context.log.debug(f"Could not delete directory {path}: {e}")
         elif path.is_file():
             # Skip files starting with '__'
             if path.name.startswith("__"):
@@ -171,8 +181,12 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
 
             # Handle files with extended retention period
             if creation_time < extended_cutoff_date:
-                path.unlink()
-                unrelated_files_deleted += 1
+                try:
+                    path.unlink()
+                    unrelated_files_deleted += 1
+                except FileNotFoundError:
+                    # File might have been deleted already
+                    pass
 
     context.log.info(
         f"Deleted {storage_dirs_deleted} storage directories older than {retention_days} days"
@@ -192,53 +206,81 @@ def delete_old_files_in_directory(
     directory_path: Path, cutoff_date: datetime, context: OpExecutionContext
 ) -> tuple[int, int]:
     """
-    Recursively deletes files older than the cutoff date in the given directory.
+    Efficiently deletes files older than the cutoff date in the given directory.
+    If all files and subdirectories are eligible for deletion, deletes the whole directory tree at once.
     Skips files and directories starting with '__'.
-
-    Args:
-        directory_path: Path to the directory to clean
-        cutoff_date: Files older than this date will be deleted
-        context: Dagster execution context for logging
 
     Returns:
         Tuple of (number of files deleted, number of protected items skipped)
     """
-    files_deleted = 0
+    files_to_delete: list[Path] = []
+    fully_deletable_dirs: list[Path] = []
     protected_items_skipped = 0
 
-    # Process all files in this directory
-    for item in directory_path.glob("*"):
-        # Skip files/directories starting with '__'
-        if item.name.startswith("__"):
+    def mark_for_deletion(path: Path) -> bool:
+        nonlocal protected_items_skipped
+
+        if path.name.startswith("__"):
             protected_items_skipped += 1
-            continue
+            return False
 
-        if item.is_file():
-            creation_time = datetime.fromtimestamp(item.stat().st_mtime)
+        if path.is_file():
+            creation_time = datetime.fromtimestamp(path.stat().st_mtime)
             if creation_time < cutoff_date:
-                try:
-                    item.unlink()
-                    files_deleted += 1
-                    context.log.debug(f"Deleted old file: {item}")
-                except Exception as e:
-                    context.log.error(f"Failed to delete file {item}: {str(e)}")
-        elif item.is_dir():
-            # Recursively process subdirectories
-            sub_deleted, sub_skipped = delete_old_files_in_directory(
-                item, cutoff_date, context
-            )
-            files_deleted += sub_deleted
-            protected_items_skipped += sub_skipped
+                files_to_delete.append(path)
+                return True
+            else:
+                return False
 
-            # Check if directory is now empty and can be deleted
-            if is_directory_empty(item):
-                try:
-                    item.rmdir()
-                    context.log.debug(f"Deleted empty subdirectory: {item}")
-                except Exception as e:
-                    context.log.error(f"Failed to delete directory {item}: {str(e)}")
+        # Directory
+        all_deletable = True
+        for item in path.iterdir():
+            if not mark_for_deletion(item):
+                all_deletable = False
+
+        if all_deletable:
+            fully_deletable_dirs.append(path)
+            return True
+        return False
+
+    # First pass: mark files and dirs
+    mark_for_deletion(directory_path)
+
+    # Second pass: delete fully deletable dirs (deepest first)
+    files_deleted = 0
+    for dir_path in sorted(
+        fully_deletable_dirs, key=lambda p: len(p.parts), reverse=True
+    ):
+        try:
+            num_files = _count_files(dir_path)
+            shutil.rmtree(dir_path)
+            files_deleted += num_files
+            context.log.debug(
+                f"Deleted entire directory tree: {dir_path} ({num_files} files)"
+            )
+        except Exception as e:
+            context.log.error(f"Failed to delete directory tree {dir_path}: {str(e)}")
+
+    # Delete individual files not part of a fully deletable dir
+    # (skip files inside dirs already deleted)
+    deleted_dirs_set = set(fully_deletable_dirs)
+    for file_path in files_to_delete:
+        # If file is inside a dir already deleted, skip
+        if any(parent in deleted_dirs_set for parent in file_path.parents):
+            continue
+        try:
+            file_path.unlink()
+            files_deleted += 1
+            context.log.debug(f"Deleted old file: {file_path}")
+        except Exception as e:
+            context.log.error(f"Failed to delete file {file_path}: {str(e)}")
 
     return files_deleted, protected_items_skipped
+
+
+def _count_files(directory_path: Path) -> int:
+    """Helper to count all files in a directory tree."""
+    return sum(1 for _ in directory_path.rglob("*") if _.is_file())
 
 
 def is_directory_empty(directory_path: Path) -> bool:
