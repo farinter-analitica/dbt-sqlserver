@@ -564,7 +564,7 @@ class SQLScriptGenerator:
         selection = pl.selectors.expand_selector(
             df, pl.selectors.numeric() - pl.selectors.float()
         )
-        df = df.clone().with_columns(pl.col(selection).fill_nan(None).name.keep())
+        df = df.clone().with_columns(pl.col(selection).name.keep())
         if rounding is not None:
             df = df.with_columns(
                 (pl.selectors.float() | pl.selectors.decimal()).round(
