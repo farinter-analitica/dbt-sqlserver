@@ -33,3 +33,5 @@ sources:
       - name: BI_SAP_Dim_CanalDist
       - name: BI_SAP_Dim_GrupoCliente
       - name: BI_Dim_TipoFactura_SAP
+      - name: BI_Dim_ArticuloPadre_Kielsa
+      - name: BI_Hecho_RegaliasHist_Kielsa

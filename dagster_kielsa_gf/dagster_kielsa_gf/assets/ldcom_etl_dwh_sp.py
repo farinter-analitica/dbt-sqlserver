@@ -299,6 +299,23 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "tags": tags_repo.Daily.tag,
         "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Empleado"])],
     },
+    "BI_paCargarDim_Articulo_Kielsa": {
+        "key_prefix": ["BI_FARINTER", "dbo"],
+        "name": ["BI_Dim_Articulo_Kielsa", "BI_Dim_ArticuloPadre_Kielsa"],
+        "tags": tags_repo.Daily.tag,
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Articulo"]),
+            AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Empresa_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Marca"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Casa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Departamento_Articulo"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Categoria_Articulo"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_SubCategoria1_Articulo"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_SubCategoria2_Articulo"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_SubCategoria3_Articulo"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_SubCategoria4_Articulo"]),
+        ],
+    },
     "AN_pacargarClinicaLab_Param_Pesos": {
         "key_prefix": ["AN_FARINTER", "dbo"],
         "name": "AN_ClinicaLab_Param_Pesos",
