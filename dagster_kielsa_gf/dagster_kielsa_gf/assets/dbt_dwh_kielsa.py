@@ -8,8 +8,8 @@ from dagster import (
     AssetExecutionContext,
     BackfillPolicy,
     Config,
-    load_assets_from_current_module,
     load_asset_checks_from_current_module,
+    load_assets_from_current_module,
 )
 from dagster_dbt import DbtCliResource, dbt_assets
 from pydantic import Field
@@ -32,8 +32,10 @@ MAIN_SELECT_STR = "tag:dagster_kielsa_gf/dbt"
 
 
 # Common function to handle dbt run arguments
-def get_dbt_run_args(context, config, dbt_resource, date_from=None, date_to=None):
-    dbt_run_args: deque[str] = deque(("build",))
+def get_dbt_run_args(
+    context, config, dbt_resource, date_from=None, date_to=None
+) -> deque[str]:
+    dbt_run_args: deque[str] = deque(("--log-level-file error", "build"))
 
     # Handle full refresh
     if config.full_refresh:

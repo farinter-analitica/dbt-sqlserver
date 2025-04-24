@@ -26,8 +26,10 @@ MAIN_SELECT_STR = "tag:dagster_global_gf/dbt"
 
 
 # Common function to handle dbt run arguments
-def get_dbt_run_args(context, config, dbt_resource, date_from=None, date_to=None):
-    dbt_run_args: deque[str] = deque(("build",))
+def get_dbt_run_args(
+    context, config, dbt_resource, date_from=None, date_to=None
+) -> deque[str]:
+    dbt_run_args: deque[str] = deque(("--log-level-file error", "build"))
 
     # Handle full refresh
     if config.full_refresh:
