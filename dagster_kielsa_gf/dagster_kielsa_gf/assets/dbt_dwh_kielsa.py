@@ -35,7 +35,7 @@ MAIN_SELECT_STR = "tag:dagster_kielsa_gf/dbt"
 def get_dbt_run_args(
     context, config, dbt_resource, date_from=None, date_to=None
 ) -> deque[str]:
-    dbt_run_args: deque[str] = deque(("--log-level-file error", "build"))
+    dbt_run_args: deque[str] = deque(("build",))
 
     # Handle full refresh
     if config.full_refresh:
