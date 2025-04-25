@@ -95,11 +95,9 @@ defs = Definitions.merge(
         assets=(
             *all_assets,
             *dbt_sources_assets,
-            *dlt_defs.all_assets,
         ),
         asset_checks=(
             *all_asset_checks,
-            *dlt_defs.all_asset_checks,
             *all_asset_freshness_checks,
         ),
         resources=all_resources | dlt_defs.all_resources,
@@ -112,6 +110,7 @@ defs = Definitions.merge(
         ),
     ),
     sling_defs.defs,
+    dlt_defs.defs,
     gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos
 )
 

@@ -1,17 +1,14 @@
 from datetime import datetime
 from itertools import chain
-from typing import Sequence
 
 import dlt
 import dlt.extract
 from dagster import (
     AssetCheckResult,
-    AssetChecksDefinition,
     AssetKey,
     AssetSpec,
     asset_check,
     instance_for_test,
-    load_asset_checks_from_current_module,
 )
 from dlt.common import pendulum
 
@@ -412,14 +409,6 @@ def campaigns_recetas_check(dwh_farinter_dl: SQLServerResource) -> AssetCheckRes
         )
 
 
-all_assets = all_mongodb_hn_assets
-
-
-all_assets = (*all_assets, *all_mongodb_hn_source_assets)
-all_asset_checks: Sequence[AssetChecksDefinition] = (
-    load_asset_checks_from_current_module()
-)
-
 if __name__ == "__main__":
 
     def test_all_assets_loaded():
@@ -451,7 +440,7 @@ if __name__ == "__main__":
         ) as resources_init:
             asset_to_test = tuple(
                 asset
-                for asset in all_assets
+                for asset in all_mongodb_hn_assets
                 if asset.key
                 in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "doctor")),)
             )

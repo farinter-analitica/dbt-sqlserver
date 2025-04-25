@@ -1,0 +1,43 @@
+# Sling esta bugueado tambien al igual que dlt por todos lados.
+source: MONGODB_KTMCLINICALAB_HN
+target: DAGSTER_DWH_FARINTER
+defaults:
+  mode: incremental
+  object: ktmpro_clinicalab.{stream_table}
+  target_options:
+    column_casing: snake
+    adjust_column_type: true
+  source_options:
+    flatten: true
+streams:
+  KTM-PRO.logtokens:
+    select: ['_id', 'active', 'createdAt', 'token', 'userId']
+    where: '{ "$expr": { "$gte": [ "$createdAt", { "$dateSubtract": { "startDate": { "$ifNull": [ "$createdAt", ISODate("1970-01-08T00:00:00Z") ] }, "unit": "day", "amount": 7 } } ] } }'
+    update_key: created_at
+    primary_key: &id001
+    - '_id'
+    target_options:
+      # table_ddl: |
+      #   create table "ktmpro_clinicalab"."{stream_table}" (
+      #     _id VARCHAR(100) NOT NULL,
+      #     active VARCHAR(5),
+      #     createdAt DATETIMEOFFSET,
+      #     token VARCHAR(100),
+      #     userId VARCHAR(100)
+      #   )
+      # table_keys:
+      #   primary: *id001
+        #unique: []
+      use_bulk: false
+      ## no funciona en mongo al parecer
+      # column_typing:
+      #   string:
+      #     max_length: 255
+          
+    ## bug the columnas vacias al inicio
+    # columns:
+    # - 'active': VARCHAR(5)
+    # - '_id': VARCHAR(100)
+    # - 'createdAt': DATETIMEOFFSET
+    # - 'token': VARCHAR(100)
+    # - 'userId': VARCHAR(100)

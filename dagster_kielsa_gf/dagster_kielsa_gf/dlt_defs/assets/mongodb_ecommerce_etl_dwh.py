@@ -1,5 +1,4 @@
 import os
-from collections.abc import Sequence
 from decimal import Decimal
 from itertools import chain
 
@@ -7,9 +6,7 @@ import dlt
 import dlt.normalize
 import dlt.normalize.items_normalizers
 from dagster import (
-    AssetChecksDefinition,
     AssetSpec,
-    load_asset_checks_from_current_module,
 )
 from dagster_dlt import (
     DagsterDltResource,
@@ -179,14 +176,9 @@ all_mongodb_hn_source_assets = list(
     )
     if key not in set(asset.key for asset in all_mongodb_hn_assets)
 )
-all_assets = all_mongodb_hn_assets
 
-all_assets = (*all_assets, *all_mongodb_hn_source_assets)
-all_asset_checks: Sequence[AssetChecksDefinition] = (
-    load_asset_checks_from_current_module()
-)
 if __name__ == "__main__":
-    print(all_assets)
+    print(all_mongodb_hn_assets)
 
     from dagster import (
         AssetKey,
@@ -210,7 +202,7 @@ if __name__ == "__main__":
         ) as resources_init:
             asset_to_test = tuple(
                 asset
-                for asset in all_assets
+                for asset in all_mongodb_hn_assets
                 if asset.key
                 in (
                     AssetKey(("dlt_mongodb_orders",)),
