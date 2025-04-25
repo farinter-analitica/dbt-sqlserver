@@ -1,14 +1,16 @@
 import requests
 
 # minimal_graphql_mutation = """
-# mutation ReloadRepositoryLocation($location: String!) {
+# mutation ReloadRepositoryLocationMutation($location: String!) {
 #     reloadRepositoryLocation(repositoryLocationName: $location) {
-#     __typename
-#     ... on WorkspaceLocationEntry {
+#         ... on WorkspaceLocationEntry {
+#         id
 #         loadStatus
+#         __typename
+#         }
+#         __typename
 #     }
 #     }
-# }
 # """
 
 

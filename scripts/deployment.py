@@ -651,14 +651,16 @@ def reload_code_locations():
 
             # This is the GraphQL mutation string used to reload a repository location.
             graphql_mutation = """
-                mutation ReloadRepositoryLocation($location: String!) {
+                mutation ReloadRepositoryLocationMutation($location: String!) {
                     reloadRepositoryLocation(repositoryLocationName: $location) {
-                    __typename
-                    ... on WorkspaceLocationEntry {
+                        ... on WorkspaceLocationEntry {
+                        id
                         loadStatus
+                        __typename
+                        }
+                        __typename
                     }
                     }
-                }
                 """
 
             variables = {"location": location_name}
