@@ -635,10 +635,53 @@ def dev():
 
 
 def reload_code_locations():
-    import yaml
-
     try:
-        from dagster_shared_gf.shared_dagster_api import reload_code_location
+        import requests
+        import yaml
+
+        def reload_code_location(host: str, port: int, location_name: str) -> dict:
+            """
+            Sends a GraphQL mutation to the Dagster webserver to reload the specified repository location.
+
+            :param host: The hostname or IP of the Dagster webserver (e.g. 'localhost', '100.#.#.#').
+            :param port: The port the webserver is running on (e.g. 9786).
+            :param location_name: The code location name to reload.
+            :return: The JSON response from the Dagster webserver.
+            """
+
+            # This is the GraphQL mutation string used to reload a repository location.
+            graphql_mutation = """
+                mutation ReloadRepositoryLocation($location: String!) {
+                    reloadRepositoryLocation(repositoryLocationName: $location) {
+                    __typename
+                    ... on WorkspaceLocationEntry {
+                        loadStatus
+                    }
+                    }
+                }
+                """
+
+            variables = {"location": location_name}
+
+            # GraphQL endpoint; note ?op=... is optional but matches what the UI does
+            url = f"http://{host}:{port}/graphql?op=ReloadRepositoryLocationMutation"
+
+            # For local/unsecured development, these headers are often enough. Adjust as needed for auth.
+            headers = {
+                "content-type": "application/json",
+                "accept": "*/*",
+            }
+
+            payload = {
+                "operationName": "ReloadRepositoryLocationMutation",
+                "variables": variables,
+                "query": graphql_mutation,
+            }
+
+            response = requests.post(url, headers=headers, json=payload, verify=False)
+            response.raise_for_status()  # Raise exception if the request failed at the HTTP level
+
+            return response.json()
 
         # Read workspace.yaml to get code location names
         with open("workspace.yaml", "r") as f:
@@ -670,8 +713,11 @@ def reload_code_locations():
         print("Code locations reloaded successfully.")
         return True
 
-    except ImportError:
-        print("Error: Failed to import reload_code_location from dagster_shared_gf.")
+    except ImportError as e:
+        print(
+            "Error: Failed to import reload_code_location from dagster_shared_gf."
+            f"Error: {e}"
+        )
         return False
     except Exception as e:
         print(f"Error reloading code locations: {e}")
