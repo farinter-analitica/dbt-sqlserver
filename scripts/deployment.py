@@ -634,6 +634,50 @@ def dev():
     setup_git(python_path)
 
 
+def reload_code_locations():
+    import yaml
+
+    try:
+        from dagster_shared_gf.shared_dagster_api import reload_code_location
+
+        # Read workspace.yaml to get code location names
+        with open("workspace.yaml", "r") as f:
+            workspace_config = yaml.safe_load(f)
+
+        location_names = []
+        load_from = workspace_config.get("load_from", [])
+        for entry in load_from:
+            # entry is a dict like {'python_module': {...}} or {'python_file': {...}}
+            for value in entry.values():
+                # value is the nested dict like {'module_name': ..., 'location_name': ...}
+                if isinstance(value, dict) and "location_name" in value:
+                    location_names.append(value["location_name"])
+                    # Assume only one location_name per entry in load_from
+                    break
+
+        if not location_names:
+            print("No code locations found in workspace.yaml.")
+            return False
+
+        for location_name in location_names:
+            reload_code_location(
+                host="localhost",
+                port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)),
+                location_name=location_name,
+            )
+            print(f"Reloaded code location: {location_name}")
+
+        print("Code locations reloaded successfully.")
+        return True
+
+    except ImportError:
+        print("Error: Failed to import reload_code_location from dagster_shared_gf.")
+        return False
+    except Exception as e:
+        print(f"Error reloading code locations: {e}")
+        return False
+
+
 ###############################################################################
 # Deployment Functions Using uv
 ###############################################################################
@@ -645,9 +689,7 @@ def deploy_continuous():
     check_os()
     env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
     print("Performing continuous deployment (code changes only)...")
-    # Placeholder: for code-only changes, an API or hot-reload mechanism would be used.
-    # For now, you could integrate a service reload if needed.
-    # manage_services(env)  # Uncomment if service restart is desired.
+    reload_code_locations()
 
 
 def deploy_fast():
@@ -662,9 +704,7 @@ def deploy_fast():
     install_deps_uv(venv_dir, deploy_dir)
     setup_deploy_keys()
     install_deps_uv(venv_dir, deploy_dir, only_external=True)
-    # Placeholder: for code-only changes, an API or hot-reload mechanism would be used.
-    # For now, you could integrate a service reload if needed.
-    # manage_services(env)  # Uncomment if service restart is desired.
+    reload_code_locations()
 
 
 def deploy_partial():
@@ -722,6 +762,7 @@ def main():
             "check-deploy-key",
             "setup-deploy-key",
             "test-deploy-key",
+            "reload-code-locations",
         ],
         help="Deployment command to run",
     )
@@ -773,6 +814,7 @@ def main():
             "deploy-partial": deploy_partial,
             "deploy-fast": deploy_fast,
             "deploy-continuous": deploy_continuous,
+            "reload-code-locations": reload_code_locations,
             "dev": dev,
         }
         try:
