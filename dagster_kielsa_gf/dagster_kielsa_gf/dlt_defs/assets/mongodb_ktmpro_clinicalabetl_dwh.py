@@ -45,7 +45,7 @@ collections_config = (
             ),
         ),
         automation_condition=automation_daily_delta_2_cron,
-        columns_to_include=("_id", "active", "createdAt", "token", "userId"),
+        columns_to_include=("_id", "active", "createdAt", "userId"),
         tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
     ),
 )
