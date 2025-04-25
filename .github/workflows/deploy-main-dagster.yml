@@ -9,6 +9,7 @@ env:
   DEPLOY_DIR: ${{ github.ref == 'refs/heads/main' && '/opt/main_dagster_prd' || '/opt/main_dagster_dev' }}
   ENV: ${{ github.ref == 'refs/heads/main' && 'prd' || 'dev' }}
   ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+  DAGSTER_GRAPHQL_PORT: ${{ github.ref == 'refs/heads/main' && '9310' || '9300' }}
 
 jobs:
   detect-changes:
@@ -61,6 +62,7 @@ jobs:
         env:
           ENV: ${{ env.ENV }}
           DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
+          DAGSTER_GRAPHQL_PORT: ${{ env.DAGSTER_GRAPHQL_PORT }}
         run: |
           cd ${{ env.DEPLOY_DIR }}
           python3.12 "${{ env.DEPLOY_DIR }}/scripts/deployment.py" ${{ needs.detect-changes.outputs.deployment_type }}
