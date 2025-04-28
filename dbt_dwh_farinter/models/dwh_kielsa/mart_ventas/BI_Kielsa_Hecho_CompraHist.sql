@@ -299,7 +299,7 @@ SELECT
 	, Municipio_Id
 	, Ciudad_Id
 	, TipoSucursal_Id
-	, ISNULL(Articulo_Id, 0) AS Articulo_Id
+	, ISNULL(Articulo_Id, '') AS Articulo_Id
 	, Casa_Id
 	, Marca1_Id
 	, CategoriaArt_Id
@@ -317,12 +317,12 @@ SELECT
 	, DiasInv_Id
 	, AlertaInv_Id
 	, Usuario_Id
-	, Orden_Id
+	, ISNULL(Orden_Id, 0) AS Orden_Id
 	, Boleta_Id
 	, Entrega_Id
 	, Transito_Id
 	, Fecha_Entrega
-	, Fecha_Id
+	, ISNULL(Fecha_Id, '19000101') AS Fecha_Id
 	, Anio_Id
 	, Trimestre_Id
 	, Mes_Id
