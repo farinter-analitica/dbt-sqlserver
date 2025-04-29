@@ -58,16 +58,10 @@ sap_dwh_daily_downstream_assets: AssetSelection = AssetSelection.tag(
 )
 sap_dwh_daily_downstream_assets = (
     sap_dwh_daily_downstream_assets
-    | (
-        sap_dwh_daily_downstream_assets.downstream()
-        - sap_dwh_daily_downstream_assets.downstream().tag(
-            key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
-        )
-    )
 ) - seleccion_no_programar
 sap_dwh_daily_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="sap_dwh_daily_all_downstream_job",
-    selection=sap_dwh_daily_downstream_assets.required_multi_asset_neighbors(),
+    selection=sap_dwh_daily_downstream_assets,
     tags={
         "dagster/max_runtime": (5 * 60 * 60)
     }  # max 4 hours in seconds, then mark it as failed.

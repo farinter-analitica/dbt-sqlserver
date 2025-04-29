@@ -1,7 +1,7 @@
 {% set unique_key_list = ["almacen_id","casa_id","material","periodo","gpo_cliente"] %}
 {{ 
     config(
-		tags=["periodo/mensual"],
+		tags=["automation/periodo_mensual_inicio"],
 		materialized="view",
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",

@@ -87,26 +87,18 @@ El job solo ejecuta 2 procesos maximo al mismo tiempo.\n\
     ",
 )
 
-kielsa_daily_downstream_assets: AssetSelection = AssetSelection.tag(
+kielsa_daily_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Daily.key, value=tags_repo.Daily.value
 )
-kielsa_daily_downstream_assets = (
-    (
-        kielsa_daily_downstream_assets
-        | (
-            kielsa_daily_downstream_assets.downstream()
-            - kielsa_daily_downstream_assets.downstream().tag(
-                key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
-            )
-        )
-    )
+kielsa_daily_assets = (
+    kielsa_daily_assets
     - seleccion_no_programar
     - knime_workflows_daily_assets
     - dlt_dwh_kielsa_daily_assets
 )
 kielsa_daily_downstream_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_daily_downstream_job",
-    selection=kielsa_daily_downstream_assets,
+    selection=kielsa_daily_assets,
     tags=tags_repo.Daily.tag | {"dagster/max_runtime": (18 * 60 * 60)},
     run_tags=tags_repo.Daily.tag
     | {
@@ -205,9 +197,7 @@ kielsa_hourly_additional_job: UnresolvedAssetJobDefinition = define_asset_job(
 )
 
 dbt_dwh_kielsa_marts_assets_not_in_downstream: AssetSelection = (
-    dbt_dwh_kielsa_marts_assets
-    - kielsa_daily_downstream_assets
-    - dlt_dwh_kielsa_daily_assets
+    dbt_dwh_kielsa_marts_assets - kielsa_daily_assets - dlt_dwh_kielsa_daily_assets
 ) - seleccion_no_programar
 
 smb_etl_dwh_kielsa_assets: AssetSelection = AssetSelection.groups("smb_etl_dwh")
