@@ -12,7 +12,7 @@
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
-        "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+        "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ",create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
         ]
 	) 
 }}
@@ -138,10 +138,11 @@ ComprasLocales AS
 		, SUM(OrdenDetalle.Detalle_Recibido_Bonifica) AS Compra_Recibido_Bonifica
 		, SUM(OrdenDetalle.Detalle_Descuento) AS Compra_Descuento
 		, SUM(OrdenDetalle.Detalle_Impuesto) AS Compra_Impuesto
-		, SUM(OrdenDetalle.Detalle_Costo_Bruto) / COUNT(OrdenDetalle.Articulo_Id) AS Compra_Costo_Bruto
-		, SUM(OrdenDetalle.Detalle_Costo_Neto) / COUNT(OrdenDetalle.Articulo_Id) AS Compra_Costo_Neto
-		, MAX(Suc.EmpSuc_Id) AS Emp_Suc_Id
-		, MAX(Art.EmpArt_Id) AS EmpArt_Id
+		,SUM(OrdenDetalle.Detalle_SubTotal_Bruto) AS Compra_Costo_Bruto
+		,SUM(OrdenDetalle.Detalle_Subtotal_Neto)  AS Compra_Costo_Neto
+		,MAX(Suc.EmpSuc_Id) as Emp_Suc_Id
+		,MAX(Art.EmpArt_Id) as EmpArt_Id
+		
 	FROM	DL_FARINTER.dbo.DL_Kielsa_Orden_local_Detalle OrdenDetalle --{{ source('DL_FARINTER', 'DL_Kielsa_Orden_Local_Detalle')}}
 	INNER JOIN DL_FARINTER.dbo.DL_Kielsa_Orden_Local_Encabezado OrdenEnc --{{ source('DL_FARINTER', 'DL_Kielsa_Orden_Local_Encabezado')}}
 		ON OrdenDetalle.Emp_Id = OrdenEnc.Emp_Id
@@ -159,7 +160,7 @@ ComprasLocales AS
 		ON OrdenDetalle.Emp_Id = ArtxMec.Emp_Id
 		AND OrdenDetalle.Articulo_Id = ArtxMec.Articulo_Id
 		AND OrdenEnc.Orden_Fecha_Crea BETWEEN ArtxMec.Inicio AND ArtxMec.Final
-	LEFT OUTER JOIN AN_FARINTER.[dbo].[AN_Cal_ArticulosEstado_Kielsa] Estado --{{ source('AN_FARINTER', 'AN_Cal_ArticulosEstado_Kielsa')}}
+	LEFT JOIN AN_FARINTER.[dbo].[AN_Cal_ArticulosEstado_Kielsa] Estado --{{ source('AN_FARINTER', 'AN_Cal_ArticulosEstado_Kielsa')}}
 		ON OrdenDetalle.Emp_Id = Estado.Pais_Id
 		AND OrdenDetalle.Articulo_Id = Estado.Articulo_Id_Solo
 		AND YEAR(OrdenEnc.Orden_Fecha_Crea) = YEAR(Estado.Fecha_Id)
@@ -267,7 +268,7 @@ ComprasExteriores AS
 		ON ExtDet.Emp_Id = ArtInfo.Emp_Id AND ExtDet.Articulo_Id = ArtInfo.Articulo_Id
 	INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo Art -- {{ref ('BI_Kielsa_Dim_Articulo')}}')}}
 		ON ExtDet.Emp_Id = Art.Emp_Id AND ExtDet.Articulo_Id = Art.Articulo_Id
-	INNER JOIN AN_FARINTER.[dbo].[AN_Cal_ArticulosEstado_Kielsa] Estado --{{ source('AN_FARINTER', 'AN_Cal_ArticulosEstado_Kielsa')}}
+	LEFT JOIN AN_FARINTER.[dbo].[AN_Cal_ArticulosEstado_Kielsa] Estado --{{ source('AN_FARINTER', 'AN_Cal_ArticulosEstado_Kielsa')}}
 		ON ExtDet.Emp_Id = Estado.Pais_Id
 		AND ExtDet.Articulo_Id = Estado.Articulo_Id_Solo
 		AND YEAR(ExtEnc.Orden_Fecha_Crea) = YEAR(Estado.Fecha_Id)
@@ -291,7 +292,7 @@ ComprasExteriores AS
 	GROUP BY ExtDet.Emp_Id, ExtDet.Suc_Id, ExtDet.Articulo_Id, ExtDet.Orden_Id, ExtEnc.Orden_Fecha_Crea)
 ,
 comprasGenerales AS (SELECT * FROM ComprasLocales UNION ALL SELECT * FROM ComprasExteriores)
-SELECT
+SELECT -- top 1000 
 	ISNULL(Emp_Id, 0) AS Emp_Id
 	, ISNULL(Sucursal_Id, 0) AS Sucursal_Id
 	, Zona_Id
@@ -328,14 +329,14 @@ SELECT
 	, Mes_Id
 	, Dias_Id
 	, Dia_Id
-	, CAST(Compra_Existencia AS INT) Compra_Existencia
-	, CAST(Compra_Transito AS INT) Compra_Transito
-	, CAST(Compra_Cantidad AS INT) Compra_Cantidad
-	, CAST(Compra_Cancelado AS INT) Compra_Cancelado
-	, CAST(Compra_Recibido AS INT) Compra_Recibido
+	, CAST(Compra_Existencia AS DECIMAL(12,3)) Compra_Existencia
+	, CAST(Compra_Transito AS DECIMAL(12,3)) Compra_Transito
+	, CAST(Compra_Cantidad AS DECIMAL(12,3)) Compra_Cantidad
+	, CAST(Compra_Cancelado AS DECIMAL(12,3)) Compra_Cancelado
+	, CAST(Compra_Recibido AS DECIMAL(12,3)) Compra_Recibido
 	, Compra_Sugerido
-	, CAST(Compra_Bonifica AS INT) Compra_Bonifica
-	, CAST(Compra_Recibido_Bonifica AS INT) Compra_Recibido_Bonifica
+	, CAST(Compra_Bonifica AS DECIMAL(12,3)) Compra_Bonifica
+	, CAST(Compra_Recibido_Bonifica AS DECIMAL(12,3)) Compra_Recibido_Bonifica
 	, Compra_Descuento
 	, Compra_Impuesto
 	, Compra_Costo_Bruto
