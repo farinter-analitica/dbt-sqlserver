@@ -184,21 +184,22 @@ UNION ALL
 
 {% macro run_query_and_return(query='',show_info=False) %}
     {% do log("Entering run_query_and_return macro", info=show_info) %}
-    {%- if query == '' -%}
-        {% do log("Query not specified.", info=show_info) %}
-    {%- endif %}
-
-    {%- set query_to_run %}
-        {{query}};
-    {%- endset %}
-
-    {% set results = [{}] %}
     {%- if execute  %}
-        {% do log("Running query: " ~ query_to_run, info=show_info)         %}
-        {%- set query_results = run_query(query_to_run) %}
-        {%- if query_results|length > 0 %} 
-            {%- set results = query_results %}
+        {%- if query == '' -%}
+            {% do log("Query not specified.", info=show_info) %}
+            {% do return([{}]) %}
         {%- endif %}
+
+        {%- set query_to_run %}
+            {{query}};
+        {%- endset %}
+
+        {% set results = [{}] %}
+            {% do log("Running query: " ~ query_to_run, info=show_info)         %}
+            {%- set query_results = run_query(query_to_run) %}
+            {%- if query_results|length > 0 %} 
+                {%- set results = query_results %}
+            {%- endif %}
     {%- endif %}
 
     {% do return(results) %}
@@ -206,38 +207,38 @@ UNION ALL
 {% endmacro %}
 
 
-{% macro run_single_value_query_on_relation_and_return(relation=this,query='',relation_not_found_value='NULL') %}
+{% macro run_single_value_query_on_relation_and_return(relation=this,query='',relation_not_found_value='NULL',show_info=False) %}
     {% if not execute %}
         {% do return(relation_not_found_value) %}
     {% endif %}
-    {% do log("Entering run_single_value_query_on_relation_and_return macro from " + this|string, info=True) %}
+    {% do log("Entering run_single_value_query_on_relation_and_return macro from " + this|string, info=show_info) %}
     {%- if query == '' -%}
-        {% do log("Query not specified.", info=True) %}
-        {% do return("NULL") %}
+        {% do log("Query not specified.", info=show_info) %}
+        {% do return(relation_not_found_value) %}
     {%- endif %}
     {%- set query_check %}
             USE [{{ relation.database }}];
             SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
     {%- endset %}	
     {%- if execute  %}
-        {% do log("Running query: "  ~ query_check, info=True)         %}
+        {% do log("Running query: "  ~ query_check, info=show_info)         %}
         {%- set results = run_query(query_check) %}
         {% if results|length > 0 %}
         {# Execute only on runtime Return the first column #}
             {% print(results) %}
             {%- set results_list = results.columns[0] | default([0]) %}
-            {% do log("Something found", info=True) %}
+            {% do log("Something found", info=show_info) %}
         {%- else %}
-            {% do log("Empty result", info=True) %}
+            {% do log("Empty result", info=show_info) %}
             {%- set results_list = [0] %}
         {%- endif %}
     {%- else %}
         {%- set results_list = [0] %}
-        {% do log("Not executed", info=True) %}
+        {% do log("Not executed", info=show_info) %}
     {%- endif %}
     {%- set value = results_list[0]  %}
     {% if value|int != 1 %}
-        {% do log("Relation not found", info=True) %}
+        {% do log("Relation not found", info=show_info) %}
         {% do return(relation_not_found_value) %}
     {% endif %}
 
@@ -246,12 +247,12 @@ UNION ALL
         {{query}};
     {%- endset %}
     {%- if execute  %}
-        {% do log("Running query: " ~ query_to_run, info=True)         %}
+        {% do log("Running query: " ~ query_to_run, info=show_info)         %}
         {%- set results = run_query(query_to_run) %}
         {%- if results|length > 0 %}
         {# Execute only on runtime Return the first column #}
             {%- set results_list = results.columns[0] %}
-            {% do log("Something found" ~ results_list, info=True) %}
+            {% do log("Something found" ~ results_list, info=show_info) %}
         {%- else %}
             {%- set results_list = [relation_not_found_value] %}
         {%- endif %}
@@ -264,33 +265,33 @@ UNION ALL
 
 {% endmacro %}
 
-{% macro run_execute_query_on_relation_without_return(relation=this,query='') %}
-    {% do log("Entering run_execute_query_on_relation_without_return macro", info=True) %}
+{% macro run_execute_query_on_relation_without_return(relation=this,query='', show_info=False) %}
+    {% do log("Entering run_execute_query_on_relation_without_return macro", info=show_info) %}
     {%- if query == '' -%}
-        {% do log("Query not specified.", info=True) %}
+        {% do log("Query not specified.", info=show_info) %}
     {%- endif %}
     {%- set query_check %}
         USE [{{ relation.database }}];
         SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
     {%- endset %}	
-    {% do log("Running query: "  ~ query_check, info=True)         %}
+    {% do log("Running query: "  ~ query_check, info=show_info)         %}
     {%- if execute  %}
     {%- set results = run_query(query_check) %}
         {% if results|length > 0 %}
         {# Execute only on runtime Return the first column #}
             {%- set results_list = results.columns[0] | default([0]) %}
-            {% do log("Something found", info=True) %}
+            {% do log("Something found", info=show_info) %}
         {%- else %}
-            {% do log("Empty result", info=True) %}
+            {% do log("Empty result", info=show_info) %}
             {%- set results_list = [0] %}
         {%- endif %}
     {%- else %}
         {%- set results_list = [0] %}
-        {% do log("Not executed", info=True) %}
+        {% do log("Not executed", info=show_info) %}
     {%- endif %}
     {%- set value = results_list[0]  %}
     {% if value|int != 1 %}
-        {% do log("Relation not found", info=True) %}
+        {% do log("Relation not found", info=show_info) %}
         {% do return %}
     {% else %}
 
@@ -299,13 +300,38 @@ UNION ALL
             {{query}}
         {%- endset %}
         {% if execute  %}
-            {% do log("Running query: " ~ query_to_run, info=True) %}
+            {% do log("Running query: " ~ query_to_run, info=show_info) %}
             {%- do run_query(query_to_run) %}
-            {% do log("Query executed", info=True) %}
+            {% do log("Query executed", info=show_info) %}
         {% else %}
-            {% do log("Not executed", info=True) %}
+            {% do log("Not executed", info=show_info) %}
         {% endif %}
 
     {% endif %}
 
+{% endmacro %}
+
+{% macro check_linked_server(server_name) %}
+    {% set check_connection_query %}
+    BEGIN TRY
+        -- Attempt to query the linked server with a simple test query
+        DECLARE @result INT
+        SET @result = (
+            SELECT 1 
+            FROM OPENQUERY([{{ server_name }}], 'SELECT 1 AS test')
+        )
+        SELECT 1 AS is_available
+    END TRY
+    BEGIN CATCH
+        -- If an error occurs, the server is not accessible
+        SELECT 0 AS is_available
+    END CATCH
+    {% endset %}
+    
+    {% set connection_check = run_query_and_return(check_connection_query) %}
+    {% if connection_check and connection_check[0]['is_available'] == 1 %}
+        {{ return(true) }}
+    {% else %}
+        {{ return(false) }}
+    {% endif %}
 {% endmacro %}

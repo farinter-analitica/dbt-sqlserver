@@ -36,10 +36,18 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
 {%- endif %}
 
 
+{# Verificar cuales estan accesibles #}
+{%- set valid_empresas = [] -%}
+{%- for item in empresas -%}
+    {%- if check_linked_server(item['Servidor_Vinculado']) -%}
+        {%- do valid_empresas.append(item) -%}
+    {%- endif -%}
+{%- endfor -%}
+
 WITH DatosBase
 AS
 (
-{%- for item in empresas -%}
+{%- for item in valid_empresas -%}
 {%- if not loop.first %}
 	UNION ALL{%- endif %}
 	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
