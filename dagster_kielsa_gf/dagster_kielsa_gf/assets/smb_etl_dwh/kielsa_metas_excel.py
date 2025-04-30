@@ -236,6 +236,7 @@ class KielsaMetasProcessor(ExcelFileProcessor):
 @asset(
     key_prefix=["DL_FARINTER", "excel"],
     tags=tags_repo.SmbDataRepository.tag
+    | tags_repo.UniquePeriod.tag
     | {"dagster/storage_kind": "sqlserver", "data_source_kind": "smb_xslx_files"},
     compute_kind="polars",
     metadata={"parent_directory": "data_repo/kielsa/metas_venta/"},

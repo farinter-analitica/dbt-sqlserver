@@ -112,15 +112,21 @@ kielsa_hourly_assets: AssetSelection = (
     AssetSelection.tag(key=tags_repo.Hourly.key, value=tags_repo.Hourly.value)
 ) - seleccion_no_programar
 kielsa_hourly_assets = (
-    kielsa_hourly_assets
-    | (
-        kielsa_hourly_assets.upstream().required_multi_asset_neighbors()
-        - AssetSelection.tag(
-            key=tags_repo.UniquePeriod.key,
-            value=tags_repo.UniquePeriod.value,
-        ).required_multi_asset_neighbors()
+    (
+        kielsa_hourly_assets
+        | (
+            kielsa_hourly_assets.upstream().required_multi_asset_neighbors()
+            - AssetSelection.tag(
+                key=tags_repo.UniquePeriod.key,
+                value=tags_repo.UniquePeriod.value,
+            ).required_multi_asset_neighbors()
+        )
     )
-) - seleccion_no_programar
+    - seleccion_no_programar
+    - AssetSelection.tag(
+        key=tags_repo.AutomationHourly.key, value=tags_repo.AutomationHourly.value
+    )
+)
 kielsa_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_hourly_job",
     selection=kielsa_hourly_assets,
@@ -176,15 +182,22 @@ kielsa_hourly_additional_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.HourlyAdditional.key, value=tags_repo.HourlyAdditional.value
 )
 kielsa_hourly_additional_assets = (
-    kielsa_hourly_additional_assets
-    | (
-        kielsa_hourly_additional_assets.upstream().required_multi_asset_neighbors()
-        - AssetSelection.tag(
-            key=tags_repo.UniquePeriod.key,
-            value=tags_repo.UniquePeriod.value,
-        ).required_multi_asset_neighbors()
+    (
+        kielsa_hourly_additional_assets
+        | (
+            kielsa_hourly_additional_assets.upstream().required_multi_asset_neighbors()
+            - AssetSelection.tag(
+                key=tags_repo.UniquePeriod.key,
+                value=tags_repo.UniquePeriod.value,
+            ).required_multi_asset_neighbors()
+        )
     )
-) - seleccion_no_programar
+    - seleccion_no_programar
+    - AssetSelection.tag(
+        key=tags_repo.AutomationHourlyAdditional.key,
+        value=tags_repo.AutomationHourlyAdditional.value,
+    )
+)
 kielsa_hourly_additional_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="kielsa_hourly_additional_job",
     selection=kielsa_hourly_additional_assets,
