@@ -34,6 +34,7 @@ members = ["dagster_shared_gf", "dagster_sap_gf", "dagster_kielsa_gf"]
 [dependency-groups]
 dev = [
     "dash>=3.0.2",
+    "ipykernel>=6.29.5",
     "joblib>=1.4.2",
     "matplotlib>=3.10.1",
     "neuralforecast>=3.0.0",
