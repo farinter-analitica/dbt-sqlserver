@@ -74,16 +74,22 @@ sap_dwh_hourly_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
 )
 sap_dwh_hourly_assets = (
-    sap_dwh_hourly_assets
-    | (
-        sap_dwh_hourly_assets.upstream()
-        - (
-            sap_dwh_hourly_assets.upstream().tag(
-                key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+    (
+        sap_dwh_hourly_assets
+        | (
+            sap_dwh_hourly_assets.upstream()
+            - (
+                sap_dwh_hourly_assets.upstream().tag(
+                    key=tags_repo.UniquePeriod.key, value=tags_repo.UniquePeriod.value
+                )
             )
         )
     )
-) - seleccion_no_programar
+    - seleccion_no_programar
+    - AssetSelection.tag(
+        key=tags_repo.AutomationHourly.key, value=tags_repo.AutomationHourly.value
+    )
+)
 sap_dwh_hourly_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="sap_dwh_hourly_job",
     selection=sap_dwh_hourly_assets.required_multi_asset_neighbors(),

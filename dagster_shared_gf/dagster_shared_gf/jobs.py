@@ -28,15 +28,21 @@ shared_hourly_assets: AssetSelection = AssetSelection.tag(
     key=tags_repo.Hourly.key, value=tags_repo.Hourly.value
 )
 shared_hourly_assets = (
-    shared_hourly_assets
-    | (
-        shared_daily_assets.upstream().required_multi_asset_neighbors()
-        - AssetSelection.tag(
-            key=tags_repo.UniquePeriod.key,
-            value=tags_repo.UniquePeriod.value,
+    (
+        shared_hourly_assets
+        | (
+            shared_daily_assets.upstream().required_multi_asset_neighbors()
+            - AssetSelection.tag(
+                key=tags_repo.UniquePeriod.key,
+                value=tags_repo.UniquePeriod.value,
+            )
         )
     )
-) - seleccion_no_programar
+    - seleccion_no_programar
+    - AssetSelection.tag(
+        key=tags_repo.AutomationHourly.key, value=tags_repo.AutomationHourly.value
+    )
+)
 shared_hourly_assets_job: UnresolvedAssetJobDefinition = define_asset_job(
     name="shared_hourly_assets_job",
     selection=shared_hourly_assets,
