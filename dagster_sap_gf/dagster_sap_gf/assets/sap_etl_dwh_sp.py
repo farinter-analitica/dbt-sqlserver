@@ -130,15 +130,6 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             ),
         ],
     },
-    "DL_paCargarEdit_AlmacenFP_SAP": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Edit_AlmacenFP_SAP",
-        "group_name": "sap_planning_etl",
-        "tags": tags_repo.Daily.tag,
-        "deps": [
-            AssetKey(["PLANNING_DB", "dbo", "Almacenes"]),
-        ],
-    },
     "DL_paCargarDL_Planning_ParamSocMat": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Planning_ParamSocMat",

@@ -17,18 +17,18 @@
 
 SELECT --top 100
 		ISNULL(S.Sociedad_Id, 'OTROS') as Sociedad_Id
-		, ISNULL(E1.Almacen_Id, 'X') AS Centro_Almacen_Id
+		, ISNULL(E1.Almacen_Id_Mapeado, 'X') AS Centro_Almacen_Id
 		, ISNULL(C.Material_Id, 'X') AS Material_Id
 		, CAL.Anio_Calendario AS Anio_Id
 		, CAL.Mes_Calendario Mes_Id
-        , ISNULL(CAL.Mes_Inicio, '19000101') AS Fecha_Id
-        , (CONVERT(DECIMAL, V.Libre_Cantidad + V.Calidad_Cantidad + V.TransitoAlm_Cantidad+ V.TransitoCentro_Cantidad)) AS Stock_Cierre
-		, V.DiasSin_Stock
-		, (B.Gpo_Obs_Nombre_Corto) AS Gpo_Obs_Nombre_Corto
+        , ISNULL(MAX(CAL.Mes_Inicio), '19000101') AS Fecha_Id
+        , SUM(CONVERT(DECIMAL, V.Libre_Cantidad + V.Calidad_Cantidad + V.TransitoAlm_Cantidad+ V.TransitoCentro_Cantidad)) AS Stock_Cierre
+		, MAX(V.DiasSin_Stock) AS DiasSin_Stock
+		, MAX(B.Gpo_Obs_Nombre_Corto) AS Gpo_Obs_Nombre_Corto
 		, B.Gpo_Obs_Id
         , B.Gpo_Plan_Id COLLATE DATABASE_DEFAULT AS Gpo_Plan
-		, (C.Sector_Id) AS Sector
-		, (C.Articulo_Nombre) AS Material_Nombre
+		, MAX(C.Sector_Id) AS Sector
+		, MAX(C.Articulo_Nombre) AS Material_Nombre
 		, C.Articulo_Id
 	FROM 	dbo.BI_SAP_Hecho_ExistenciasHist V -- {{ source('BI_FARINTER', 'BI_SAP_Hecho_ExistenciasHist') }}
 		INNER JOIN dbo.BI_Dim_Articulo_SAP C -- {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }}
@@ -39,7 +39,7 @@ SELECT --top 100
 			ON S.Sociedad_Id = B.Sociedad_Id AND C.Articulo_Id = B.Articulo_Id
 		INNER JOIN dbo.BI_Dim_Centro_SAP D -- {{ source('BI_FARINTER', 'BI_Dim_Centro_SAP') }}
 			ON V.Centro_Id = D.Centro_Id
-		INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1 -- {{ source('DL_FARINTER', 'DL_Edit_AlmacenFP_SAP') }}
+		INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1 -- {{ ref('DL_Edit_AlmacenFP_SAP') }}
 			ON V.Almacen_Id = E1.Almacen_Id 
 		INNER JOIN dbo.BI_Dim_Calendario CAL -- {{ source('BI_FARINTER', 'BI_Dim_Calendario') }}
 			ON V.AnioMes_Id = CAL.AnioMes_Id
@@ -51,3 +51,12 @@ SELECT --top 100
 			AND V.Stock_id = 1 AND 
 			E1.Planificado = 'S'	--and B.Gpo_Obs_Id = 'COINS' --and A.Sociedad_Id = '1200' 
 			AND S.Sociedad_Id IN ( '1200', '1300', '1301', '1700', '2500' )
+GROUP BY S.Sociedad_Id
+				, C.Articulo_Id
+				, E1.Almacen_Id_Mapeado
+				, CAL.Anio_Calendario
+				, CAL.Mes_Calendario
+                , C.Material_Id
+                , C.Sector_Id
+                , B.Gpo_Plan_Id
+                , B.Gpo_Obs_Id

@@ -52,3 +52,5 @@ sources:
         group: planning_etl_dwh
     tables:
       - name: GposCliente  
+      - name: Almacenes
+      - name: ParamSocGpo

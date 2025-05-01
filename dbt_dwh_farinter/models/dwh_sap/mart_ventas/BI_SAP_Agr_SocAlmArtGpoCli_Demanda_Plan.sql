@@ -22,7 +22,7 @@
 
 SELECT --top 100
 		ISNULL(S.Sociedad_Id, 'OTROS') as Sociedad_Id
-		, ISNULL(E1.Almacen_Id, 'X') AS Centro_Almacen_Id
+		, ISNULL(E1.Almacen_Id_Mapeado, 'X') AS Centro_Almacen_Id
 		, ISNULL(C.Material_Id, 'X') AS Material_Id
 		, ISNULL(A.GrupoClientes_Nombre, 'OTROS') AS Gpo_Cliente
 		, CONVERT(INT, A.Anio_Id) AS Anio_Id
@@ -78,7 +78,7 @@ SELECT --top 100
 		ON S.Sociedad_Id = B.Sociedad_Id AND C.Articulo_Id = B.Articulo_Id
 	INNER JOIN dbo.BI_Dim_Centro_SAP D -- {{ source('BI_FARINTER', 'BI_Dim_Centro_SAP') }}
 		ON A.Centro_Id = D.Centro_Id
-	INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1 -- {{ source('DL_FARINTER', 'DL_Edit_AlmacenFP_SAP') }}
+	INNER JOIN DL_FARINTER.[dbo].[DL_Edit_AlmacenFP_SAP] E1 -- {{ ref('DL_Edit_AlmacenFP_SAP') }}
 		ON A.Almacen_Id = E1.Almacen_Id
 	WHERE E1.Planificado = 'S'	--Solo lo planificado
 	--and B.Gpo_Obs_Id = 'COINS' --and A.Sociedad_Id = '1200' 
@@ -86,8 +86,7 @@ SELECT --top 100
     --AND  A.Sociedad_Id = '1200' and B.Gpo_Obs_Id = 'FIC' --and B.Gpo_Obs_Id = 'COINS'  --AND A.Sociedad_Id = '1200'   --
     GROUP BY S.Sociedad_Id
 				, C.Articulo_Id
-				, E1.Almacen_Id
-				, A.Centro_Id
+				, E1.Almacen_Id_Mapeado
 				, A.Anio_Id
 				, A.Mes_Id
                 , C.Material_Id

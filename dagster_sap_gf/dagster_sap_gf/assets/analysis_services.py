@@ -16,7 +16,7 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 @asset(
     key_prefix=["DWH_204", "SSAS"],
-    tags=tags_repo.Daily.tag,
+    tags=tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Ventas_SAP"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_InventariosHist_SAP"]),

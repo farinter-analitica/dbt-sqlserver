@@ -9,11 +9,10 @@
 	) 
 }}
 
-{#
+/*
+-- Solo editable en dbt
 -- Solo se debe usar esta vista para el EXCEL de la herramienta de analisis de pedidos.
-    #"Removed Other Columns" = Table.SelectColumns(UnPivot,{"sociedad_id", "Material", "Centro_Almacen", "Gpo_Cliente", "casa_id", "sub_gpo_id", "Sociedad", "yyyymm_texto", "Pronostico"})
-
-#}
+*/
 {% set current_date = modules.datetime.datetime.now() %}
 {% set first_day_current_month = current_date.replace(day=1) %}
 {% set one_year_ago = first_day_current_month.replace(year=first_day_current_month.year-1) %}

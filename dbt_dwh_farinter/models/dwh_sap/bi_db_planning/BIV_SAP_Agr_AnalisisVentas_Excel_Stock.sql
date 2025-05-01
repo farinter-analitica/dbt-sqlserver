@@ -9,21 +9,11 @@
 	) 
 }}
 
-{#
+/*
+-- Solo editable en dbt
 -- Solo se debe usar esta vista para el EXCEL de la herramienta de analisis de pedidos.
 
-let
-    Source = Excel.Workbook(File.Contents("\\10.0.5.157\ftpfarinter\Planning\BaseDatos\Stock_Cubo.xlsx"), null, true),
-    TbStockMensual_Table = Source{[Item="TbStockMensual",Kind="Table"]}[Data],
-    #"Changed Type" = Table.TransformColumnTypes(TbStockMensual_Table,{{"sociedad_id", type text}, {"almacen_id", type text}, {"casa_id", type text}, {"material", type text}, {"material_nombre", type text}, {"periodo", type text}, {"stock", type number}}),
-    #"Removed Other Columns" = Table.SelectColumns(#"Changed Type",{"sociedad_id", "almacen_id", "casa_id", "material", "material_nombre", "periodo", "stock"})
-in
-    #"Removed Other Columns"
-
-
-
-#}
-
+*/
 SELECT 
     ALM.Sociedad_Id AS sociedad_id,
     ST.Centro_Almacen_Id AS almacen_id,

@@ -8,16 +8,15 @@
         ]
 	) 
 }}
-
-{#
+/*
+-- Solo editable en dbt
 -- Solo se debe usar esta vista para el EXCEL de la herramienta de analisis de pedidos.
-
---Table.TransformColumnTypes(TbVentasTotales_Table,{{"sociedad_id", type text}, {"almacen_id", type text}, {"casa_id", type text}, {"material", type text}, {"material_nombre", type text}, {"grupo_cliente", type text}, {"gpo_cliente", type text}, {"periodo", type text}, {"valor_neto_vta", type number}, {"cantidad_vta", type number}, {"valor_costo_vta", type number}, {"valor_util_vta", type number}, {"valor_vta", type number}})
 
 sociedad_id	almacen_id	casa_id	material	material_nombre	grupo_cliente	gpo_cliente	periodo	valor_neto_vta	cantidad_vta	valor_costo_vta	valor_util_vta	valor_vta
 1200	1210-1005	C00004	12000281	CLOROX ORIGINAL GALON (3.79 L )	DRORISA	1301	202412	156.3	2	120.37	35.93	156.3
 
-#}
+*/
+
 {% set current_date = modules.datetime.datetime.now() %}
 {% set first_day_current_month = current_date.replace(day=1) %}
 {% set one_year_ago = first_day_current_month.replace(year=first_day_current_month.year-1) %}
