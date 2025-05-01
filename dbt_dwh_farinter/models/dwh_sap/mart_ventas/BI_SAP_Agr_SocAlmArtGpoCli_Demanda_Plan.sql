@@ -74,7 +74,7 @@ SELECT --top 100
 		ON A.Articulo_Id = C.Articulo_Id
 	INNER JOIN dbo.BI_Dim_Sociedad_SAP S -- {{ source('BI_FARINTER', 'BI_Dim_Sociedad_SAP') }}
 		ON A.Sociedad_Id = S.Sociedad_Id
-	INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B -- {{ source('DL_FARINTER', 'DL_Planning_ParamSocMat') }}
+	INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B -- {{ ref('DL_Planning_ParamSocMat') }}
 		ON S.Sociedad_Id = B.Sociedad_Id AND C.Articulo_Id = B.Articulo_Id
 	INNER JOIN dbo.BI_Dim_Centro_SAP D -- {{ source('BI_FARINTER', 'BI_Dim_Centro_SAP') }}
 		ON A.Centro_Id = D.Centro_Id

@@ -37,9 +37,7 @@ CurrentMonthData AS (
         A.Material_Id AS material,
         A.Articulo_Nombre AS descripcion,
         E.Centro_Id AS centro_id,
-        -- Extrae la parte del Almacen_Id después del primer guión, o el ID completo si no existe guión.
-        -- Similar a Text.AfterDelimiter("-") en Power Query.
-        ALM.Almacen_Id AS almacen_id, -- Usar el ID de almacén transformado (sin el prefijo del centro)
+        ALM.Almacen_Id AS almacen_id, -- Usar el ID de almacén (sin el prefijo del centro)
         -- E.Almacen_Id AS almacen_id_original, -- ID Original mantenido por si se necesita (usado para exclusión)
         E.Libre_Cantidad AS ctd_libre,
         E.Calidad_Cantidad AS ctd_calidad,

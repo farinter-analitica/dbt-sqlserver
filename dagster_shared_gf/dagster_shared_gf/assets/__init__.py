@@ -9,6 +9,7 @@ from dagster_shared_gf.assets import (
     dbt_sources,
     dias_festivos,
     dbt_dwh_global,
+    etl_dwh_sp,
     examples,
 )
 
@@ -19,12 +20,12 @@ web_api_externo = load_assets_from_modules(
 example_assets = load_assets_from_modules([examples], group_name="examples")
 
 all_assets = (
-    *load_assets_from_modules([dbt_sources, dbt_dwh_global]),
+    *load_assets_from_modules([dbt_sources, dbt_dwh_global, etl_dwh_sp]),
     *web_api_externo,
     *example_assets,
 )
 all_asset_checks = load_asset_checks_from_modules(
-    [dbt_sources, dias_festivos, dbt_dwh_global, examples]
+    [dbt_sources, dias_festivos, dbt_dwh_global, etl_dwh_sp, examples]
 )
 
 if __name__ == "__main__":

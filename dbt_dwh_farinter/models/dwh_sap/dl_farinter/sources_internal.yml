@@ -31,7 +31,6 @@ sources:
             dagster:
                 group: "dbt_dwh_sap_mart_datos_maestros"
 
-      - name: DL_Planning_ParamSocMat
       - name: DL_SAP_Acum_JerarquiaClientes
       - name: DL_SAP_Acum_PagosCreditoVentasHist
       - name: DL_SAP_Hecho_ExistenciasHist_Actual

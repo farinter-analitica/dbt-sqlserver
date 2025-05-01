@@ -1,4 +1,4 @@
-{% set unique_key_list = ["Almacen_Id"] %}
+{% set unique_key_list = ["Articulo_Id", "Lote_Id", "Almacen_Id", "Sociedad_Id"] %}
 {{ 
     config(
 		tags=["periodo/diario"],

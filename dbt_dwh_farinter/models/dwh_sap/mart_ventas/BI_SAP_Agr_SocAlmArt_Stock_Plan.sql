@@ -30,12 +30,12 @@ SELECT --top 100
 		, MAX(C.Sector_Id) AS Sector
 		, MAX(C.Articulo_Nombre) AS Material_Nombre
 		, C.Articulo_Id
-	FROM 	dbo.BI_SAP_Hecho_ExistenciasHist V -- {{ source('BI_FARINTER', 'BI_SAP_Hecho_ExistenciasHist') }}
+	FROM 	dbo.BI_SAP_Hecho_ExistenciasHist V -- {{ ref('BI_SAP_Hecho_ExistenciasHist') }}
 		INNER JOIN dbo.BI_Dim_Articulo_SAP C -- {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }}
 			ON V.Articulo_Id = C.Articulo_Id
 		INNER JOIN dbo.BI_Dim_Sociedad_SAP S -- {{ source('BI_FARINTER', 'BI_Dim_Sociedad_SAP') }}
 			ON V.Sociedad_Id = S.Sociedad_Id
-		INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B -- {{ source('DL_FARINTER', 'DL_Planning_ParamSocMat') }}
+		INNER JOIN DL_FARINTER.dbo.DL_Planning_ParamSocMat B -- {{ ref('DL_Planning_ParamSocMat') }}
 			ON S.Sociedad_Id = B.Sociedad_Id AND C.Articulo_Id = B.Articulo_Id
 		INNER JOIN dbo.BI_Dim_Centro_SAP D -- {{ source('BI_FARINTER', 'BI_Dim_Centro_SAP') }}
 			ON V.Centro_Id = D.Centro_Id

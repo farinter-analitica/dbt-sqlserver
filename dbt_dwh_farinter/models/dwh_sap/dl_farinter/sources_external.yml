@@ -54,3 +54,6 @@ sources:
       - name: GposCliente  
       - name: Almacenes
       - name: ParamSocGpo
+      - name: Materiales
+      - name: GposPlan
+      - name: GposObs

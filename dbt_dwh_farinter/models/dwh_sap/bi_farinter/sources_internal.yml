@@ -11,7 +11,6 @@ sources:
         dagster:
             group: "dbt_dwh_sap_bi"
     tables:
-      - name: BI_SAP_Hecho_ExistenciasHist  
       - name: BI_Dim_Articulo_SAP  
       - name: BI_Dim_Sociedad_SAP
       - name: BI_Dim_Centro_SAP
