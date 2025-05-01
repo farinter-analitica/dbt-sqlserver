@@ -47,6 +47,7 @@ dependencies = [
     "pyodbc",
     "smbprotocol",
     "dagster-polars",
+    "patito",
     "dagster-gcp",
     "fastexcel",
     "openpyxl",
