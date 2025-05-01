@@ -1,7 +1,7 @@
 {% set unique_key_list = ["material", "centro", "almacen", "fecha_cad"] %}
 {{
     config(
-        tags=["automation/periodo_mensual_inicio"],
+        tags=["automation/periodo_mensual_inicio","automation/periodo_por_hora"],
         materialized="view",
         post_hook=[
             "{{ dwh_farinter_remove_incremental_temp_table() }}",
@@ -26,7 +26,9 @@ InventarioPorVencer AS (
         EL.Lote_Id,
         E.Almacen_Id AS Almacen_Id_Original,
         COALESCE(E1.Almacen_Id_Mapeado, E.Almacen_Id) AS CenAlm_Id_Mapeado,
-        (ISNULL(EL.Libre_Cantidad, 0) + ISNULL(EL.Calidad_Cantidad, 0) + ISNULL(EL.TransitoAlm_Cantidad, 0) + ISNULL(EL.TransitoCentro_Cantidad, 0)) AS stock_calculado
+        (ISNULL(EL.Libre_Cantidad, 0) + ISNULL(EL.Calidad_Cantidad, 0) 
+            + ISNULL(EL.TransitoAlm_Cantidad, 0) 
+            + ISNULL(EL.TransitoCentro_Cantidad, 0)) AS stock_calculado
     FROM {{ source('DL_FARINTER', 'DL_SAP_Hecho_ExistenciasHist_Actual') }} E
     INNER JOIN {{ source('DL_FARINTER', 'DL_SAP_Hecho_ExistenciasLoteHist_Actual') }} EL
         ON E.Sociedad_Id = EL.Sociedad_Id
@@ -59,7 +61,8 @@ SELECT
     CAST(COALESCE(L.Fecha_Caducidad, '9999-12-31') AS DATE) AS fecha_cad,
     ALM.Centro_Id AS centro,
     ALM.Almacen_Id AS almacen,
-    SUM(I.stock_calculado) AS stock
+    SUM(I.stock_calculado) AS stock,
+    CAST('{{ modules.datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
 FROM InventarioPorVencer I
 INNER JOIN {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }} A
     ON I.Articulo_Id = A.Articulo_Id

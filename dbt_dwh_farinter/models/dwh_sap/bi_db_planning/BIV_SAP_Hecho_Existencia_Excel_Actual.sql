@@ -1,7 +1,7 @@
 {% set unique_key_list = ["material","centro_id","almacen_id","sociedad_id"] %}
 {{ 
     config(
-		tags=["automation/periodo_mensual_inicio"],
+		tags=["automation/periodo_mensual_inicio","automation/periodo_por_hora"],
 		materialized="view",
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
@@ -87,5 +87,6 @@ SELECT
     ent_cliente,
     ent_ventas,
     ent_traslados,
-    ctd_bloqueo
+    ctd_bloqueo,
+    CAST('{{ modules.datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
 FROM CurrentMonthData
