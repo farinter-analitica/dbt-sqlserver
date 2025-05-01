@@ -38,6 +38,7 @@ CurrentMonthData AS (
         MAX(A.Articulo_Nombre) AS descripcion,
         ALM.Centro_Id AS centro_id,
         ALM.Almacen_Id AS almacen_id, -- Usar el ID de almacén (sin el prefijo del centro)
+        MAX(ALM.CenAlm_Id) as cen_alm_id,
         -- E.Almacen_Id AS almacen_id_original, -- ID Original mantenido por si se necesita (usado para exclusión)
         SUM(E.Libre_Cantidad) AS ctd_libre,
         SUM(E.Calidad_Cantidad) AS ctd_calidad,
@@ -80,6 +81,7 @@ SELECT
     descripcion,
     centro_id,
     almacen_id, 
+    cen_alm_id,
     ctd_libre,
     ctd_calidad,
     ctd_transito,
