@@ -63,8 +63,8 @@ sap_dwh_daily_all_downstream_job: UnresolvedAssetJobDefinition = define_asset_jo
     name="sap_dwh_daily_all_downstream_job",
     selection=sap_dwh_daily_downstream_assets,
     tags={
-        "dagster/max_runtime": (5 * 60 * 60)
-    }  # max 4 hours in seconds, then mark it as failed.
+        "dagster/max_runtime": (12 * 60 * 60)
+    }  # max 12 hours in seconds, then mark it as failed.
     | tags_repo.Daily.tag,
     config=execution_run_config_default,
 )

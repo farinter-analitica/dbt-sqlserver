@@ -173,8 +173,8 @@ kielsa_start_of_month_job: UnresolvedAssetJobDefinition = define_asset_job(
     config=execution_run_config_default,
     tags=tags_repo.Monthly.tag
     | {
-        "dagster/max_runtime": (60 * 60 * 5)
-    },  # max 5 hours in seconds, then mark it as failed.)
+        "dagster/max_runtime": (60 * 60 * 12)
+    },  # max 12 hours in seconds, then mark it as failed.)
 )
 
 # Definir assets que tengan la etiqueta por_hora adicional (para ejecutar en medio del otro job) y todos los dependientes que no tengan la etiqueta de periodo unico
