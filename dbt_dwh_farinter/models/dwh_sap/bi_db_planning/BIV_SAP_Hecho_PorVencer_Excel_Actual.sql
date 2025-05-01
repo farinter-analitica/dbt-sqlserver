@@ -25,6 +25,7 @@ InventarioPorVencer AS (
         E.Articulo_Id,
         EL.Lote_Id,
         E.Almacen_Id AS Almacen_Id_Original,
+        COALESCE(E1.Almacen_Id_Mapeado, E.Almacen_Id) AS CenAlm_Id_Mapeado,
         (ISNULL(EL.Libre_Cantidad, 0) + ISNULL(EL.Calidad_Cantidad, 0) + ISNULL(EL.TransitoAlm_Cantidad, 0) + ISNULL(EL.TransitoCentro_Cantidad, 0)) AS stock_calculado
     FROM {{ source('DL_FARINTER', 'DL_SAP_Hecho_ExistenciasHist_Actual') }} E
     INNER JOIN {{ source('DL_FARINTER', 'DL_SAP_Hecho_ExistenciasLoteHist_Actual') }} EL
@@ -36,6 +37,8 @@ InventarioPorVencer AS (
     LEFT JOIN {{ source('BI_FARINTER', 'BI_SAP_Dim_Lote') }} L
         ON EL.Articulo_Id = L.Articulo_Id
         AND EL.Lote_Id = L.Lote_Id
+    LEFT JOIN {{ ref('DL_Edit_AlmacenFP_SAP') }} E1
+        ON E.Almacen_Id = E1.Almacen_Id --Cen-Alm
     WHERE
         -- Mes actual
         E.AnioMes_Id = YEAR(GETDATE())*100 + MONTH(GETDATE())
@@ -61,7 +64,7 @@ FROM InventarioPorVencer I
 INNER JOIN {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }} A
     ON I.Articulo_Id = A.Articulo_Id
 INNER JOIN {{ ref('BI_SAP_Dim_Almacen') }} ALM
-    ON I.Almacen_Id_Original = ALM.CenAlm_Id
+    ON I.CenAlm_Id_Mapeado = ALM.CenAlm_Id
 LEFT JOIN {{ source('BI_FARINTER', 'BI_SAP_Dim_Lote') }} L
     ON I.Articulo_Id = L.Articulo_Id
     AND I.Lote_Id = L.Lote_Id
