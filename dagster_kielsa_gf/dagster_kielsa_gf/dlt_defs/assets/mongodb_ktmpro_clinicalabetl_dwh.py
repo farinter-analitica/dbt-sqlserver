@@ -48,6 +48,35 @@ collections_config = (
         columns_to_include=("_id", "active", "createdAt", "userId"),
         tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
     ),
+    DLTRColl(
+        collection_name="cashpackagektms",
+        primary_key="_id",
+        incrementals=(
+            IncConfig(
+                cursor_path="createdAt",
+                initial_value=get_for_current_env(
+                    {
+                        "local": pendulum.now().subtract(days=60),
+                        "dev": pendulum.now().subtract(years=4),
+                    }
+                ),
+                lag=7,  # days
+            ),
+        ),
+        automation_condition=automation_daily_delta_2_cron,
+        columns_to_include=(
+            "_id",
+            "active",
+            "createdAt",
+            "cashType",
+            "emailPatient",
+            "namePatient",
+            "OrderNumber",
+            "PhonePatient",
+            "package",
+        ),
+        tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
+    ),
 )
 
 mongodb_ktmpro_clinicalab = mongodb(
@@ -112,7 +141,9 @@ if __name__ == "__main__":
                 if asset.key
                 in (
                     AssetKey(("dlt_mongodb",)),
-                    AssetKey(("DL_FARINTER", "mdb_ktmpro_clinicalab", "logtokens")),
+                    AssetKey(
+                        ("DL_FARINTER", "mdb_ktmpro_clinicalab", "cashpackagektms")
+                    ),
                 )
             )
             assert asset_to_test
