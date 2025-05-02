@@ -99,7 +99,7 @@ collections_config = (
             "packageKtm",
             "user",
             "dueDate",
-            "CreatedAt",
+            "createdAt",
             "logType",
             "idLogPayment",
         ),
