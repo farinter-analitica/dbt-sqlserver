@@ -108,18 +108,18 @@ collections_config = (
     DLTRColl(
         collection_name="consultdoctoroffices",
         primary_key="_id",
-        incrementals=(
-            IncConfig(
-                cursor_path="createdAt",
-                initial_value=get_for_current_env(
-                    {
-                        "local": pendulum.now().subtract(days=60),
-                        "dev": pendulum.now().subtract(years=4),
-                    }
-                ),
-                lag=7,  # days
-            ),
-        ),
+        # incrementals=(
+        # IncConfig(
+        # cursor_path="createdAt",
+        # initial_value=get_for_current_env(
+        #      {
+        #           "local": pendulum.now().subtract(days=60),
+        #            "dev": pendulum.now().subtract(years=4),
+        #         }
+        #      ),
+        #       lag=7,  # days
+        #    ),
+        # ),
         automation_condition=automation_daily_delta_2_cron,
         columns_to_include=(
             "_id",
