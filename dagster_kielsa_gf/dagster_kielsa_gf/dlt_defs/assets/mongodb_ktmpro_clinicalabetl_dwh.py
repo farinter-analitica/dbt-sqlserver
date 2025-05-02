@@ -105,6 +105,40 @@ collections_config = (
         ),
         tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
     ),
+    DLTRColl(
+        collection_name="consultdoctoroffices",
+        primary_key="_id",
+        incrementals=(
+            IncConfig(
+                cursor_path="createdAt",
+                initial_value=get_for_current_env(
+                    {
+                        "local": pendulum.now().subtract(days=60),
+                        "dev": pendulum.now().subtract(years=4),
+                    }
+                ),
+                lag=7,  # days
+            ),
+        ),
+        automation_condition=automation_daily_delta_2_cron,
+        columns_to_include=(
+            "_id",
+            "active",
+            "bySchedule",
+            "consultationType",
+            "hour",
+            "createdAt",
+            "idDoctor",
+            "idDoctorOffice",
+            "idNurse",
+            "idPatient",
+            "idPostVideoconference",
+            "isConsultAccepted",
+            "status",
+            "updatedAt",
+        ),
+        tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
+    ),
 )
 
 mongodb_ktmpro_clinicalab = mongodb(
@@ -170,7 +204,7 @@ if __name__ == "__main__":
                 in (
                     AssetKey(("dlt_mongodb",)),
                     AssetKey(
-                        ("DL_FARINTER", "mdb_ktmpro_clinicalab", "logpackagektms")
+                        ("DL_FARINTER", "mdb_ktmpro_clinicalab", "consultdoctoroffices")
                     ),
                 )
             )
