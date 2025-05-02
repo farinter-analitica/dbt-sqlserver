@@ -164,6 +164,66 @@ collections_config = (
         ),
         tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
     ),
+    DLTRColl(
+        collection_name="preorders",
+        primary_key="_id",
+        incrementals=(
+            IncConfig(
+                cursor_path="createdAt",
+                initial_value=get_for_current_env(
+                    {
+                        "local": pendulum.now().subtract(days=60),
+                        "dev": pendulum.now().subtract(years=4),
+                    }
+                ),
+                lag=7,  # days
+            ),
+        ),
+        automation_condition=automation_daily_delta_2_cron,
+        columns_to_include=(
+            "_id",
+            "Afiliado_Id",
+            "Bodega_Id",
+            "createdAt",
+            "Cliente_Id",
+            "detail",
+            "discountDetails",
+            "Emp_Id",
+            "idVideo",
+            "isvDetails",
+            "Articulo_Id",
+            "Detalle_Id",
+            "Impuesto_Cant",
+            "Impuesto_Id",
+            "Impuesto_Porc",
+            "Impuesto_Porc_Exoneracion",
+            "Impuesto_Porc_Original",
+            "Impuesto_Precio",
+            "Preventa_Id",
+            "Suc_Id",
+            "TipoDoc_id",
+            "Operacion_id",
+            "Preventa_Articulos",
+            "Preventa_Cliente",
+            "Preventa_Costo",
+            "Preventa_Descuento",
+            "Preventa_Descuento_Exento",
+            "Preventa_Descuento_Tarjeta_FP",
+            "Preventa_Exento",
+            "Preventa_Exento_Bruto",
+            "Preventa_Gasto",
+            "Preventa_Gravado",
+            "Preventa_Gravado_Bruto",
+            "Preventa_Impuesto",
+            "Preventa_Subtotal",
+            "Preventa_Total",
+            "SubDoc_id",
+            "Tipo_Id",
+            "Usuario_Id",
+            "Vendedor_Id",
+        ),
+        tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
+    ),
 )
 
 mongodb_ktmpro_clinicalab = mongodb(
@@ -228,7 +288,7 @@ if __name__ == "__main__":
                 if asset.key
                 in (
                     AssetKey(("dlt_mongodb",)),
-                    AssetKey(("DL_FARINTER", "mdb_ktmpro_clinicalab", "presales")),
+                    AssetKey(("DL_FARINTER", "mdb_ktmpro_clinicalab", "preorders")),
                 )
             )
             assert asset_to_test
