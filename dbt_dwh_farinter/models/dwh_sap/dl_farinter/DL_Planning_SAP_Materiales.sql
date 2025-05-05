@@ -22,15 +22,15 @@
 
 SELECT
     ISNULL(material_id COLLATE DATABASE_DEFAULT, '') AS Material_Id,
-    ISNULL(material_nombre_ref COLLATE DATABASE_DEFAULT, '') AS Material_Nombre_Ref,
-    ISNULL(u_x_c, 0) AS U_X_C,
-    ISNULL(u_x_t, 0) AS U_X_T,
-    ISNULL(gpo_art_id_ref COLLATE DATABASE_DEFAULT, '') AS Gpo_Art_Id_Ref,
-    ISNULL(gpo_art_nombre_ref COLLATE DATABASE_DEFAULT, '') AS Gpo_Art_Nombre_Ref,
-    ISNULL(compra_solo_uxc COLLATE DATABASE_DEFAULT, 'N') AS Compra_Solo_UXC,
-    ISNULL(compra_fact_en_cajas COLLATE DATABASE_DEFAULT, 'N') AS Compra_Fact_En_Cajas,
-    ISNULL(etiquetas COLLATE DATABASE_DEFAULT, '') AS Etiquetas,
-    ISNULL(notas COLLATE DATABASE_DEFAULT, '') AS Notas,
-    ISNULL(sub_gpo_id COLLATE DATABASE_DEFAULT, '') AS Sub_Gpo_Id,
+    material_nombre_ref COLLATE DATABASE_DEFAULT AS Material_Nombre_Ref,
+    u_x_c AS U_X_C,
+    u_x_t AS U_X_T,
+    gpo_art_id_ref COLLATE DATABASE_DEFAULT AS Gpo_Art_Id_Ref,
+    gpo_art_nombre_ref COLLATE DATABASE_DEFAULT AS Gpo_Art_Nombre_Ref,
+    compra_solo_uxc COLLATE DATABASE_DEFAULT AS Compra_Solo_UXC,
+    compra_fact_en_cajas COLLATE DATABASE_DEFAULT AS Compra_Fact_En_Cajas,
+    etiquetas COLLATE DATABASE_DEFAULT AS Etiquetas,
+    notas COLLATE DATABASE_DEFAULT AS Notas,
+    ISNULL(sub_gpo_id COLLATE DATABASE_DEFAULT, 'ST') AS Sub_Gpo_Id,
     GETDATE() AS Fecha_Actualizado
 FROM {{ var('P_SQLLDSUBS_LS') }}.{{ source('PLANNING_DB', 'Materiales') }}

@@ -20,7 +20,7 @@
 SELECT 
     ISNULL(sociedad_id COLLATE DATABASE_DEFAULT, '') AS Sociedad_Id,
     ISNULL(gpo_art_id COLLATE DATABASE_DEFAULT, '') AS Gpo_Art_Id,
-    ISNULL(sub_gpo_id COLLATE DATABASE_DEFAULT, '') AS Sub_Gpo_Id,
+    ISNULL(sub_gpo_id COLLATE DATABASE_DEFAULT, 'ST') AS Sub_Gpo_Id,
     ISNULL(gpo_art_nombre_ref COLLATE DATABASE_DEFAULT, '') AS Gpo_Art_Nombre_Ref,
     ISNULL(gpo_plan_id COLLATE DATABASE_DEFAULT, '') AS Gpo_Plan_Id,
     ISNULL(resp_compras COLLATE DATABASE_DEFAULT, '') AS Resp_Compras,
@@ -30,25 +30,25 @@ SELECT
     ISNULL(plan_centro COLLATE DATABASE_DEFAULT, 'N') AS Plan_Centro, -- Default 'N' from DDL
     ISNULL(excluir_gpos_cliente_id COLLATE DATABASE_DEFAULT, '') AS Excluir_Gpos_Cliente_Id,
     ISNULL(incluir_sociedades_id COLLATE DATABASE_DEFAULT, '') AS Incluir_Sociedades_Id,
-    ISNULL(nutricional COLLATE DATABASE_DEFAULT, 'N') AS Nutricional, -- Assuming 'N' as default if NULL
-    ISNULL(marca_propia COLLATE DATABASE_DEFAULT, 'N') AS Marca_Propia, -- Assuming 'N' as default if NULL
+    nutricional COLLATE DATABASE_DEFAULT as Nutricional, 
+    marca_propia COLLATE DATABASE_DEFAULT AS Marca_Propia, 
     ISNULL(exist_farmacia COLLATE DATABASE_DEFAULT, 'N') AS Exist_Farmacia, -- Default 'N' from DDL
     ISNULL(transito_sinventa COLLATE DATABASE_DEFAULT, 'N') AS Transito_Sinventa, -- Default 'N' from DDL
     ISNULL(gpo_abc_id COLLATE DATABASE_DEFAULT, '') AS Gpo_Abc_Id,
-    ISNULL(devolutivo, 0.0) AS Devolutivo,
-    ISNULL(dia_limite, 0) AS Dia_Limite,
+    devolutivo AS Devolutivo,
+    dia_limite AS Dia_Limite,
     ISNULL(gpo_obs_id COLLATE DATABASE_DEFAULT, 'SD') AS Gpo_Obs_Id, -- Default 'SD' from DDL
     ISNULL(proceso_id COLLATE DATABASE_DEFAULT, '') AS Proceso_Id,
     ISNULL(tiempo_estimado, 0.0) AS Tiempo_Estimado,
-    ISNULL(piso_a, 0.0) AS Piso_A,
-    ISNULL(piso_b, 0.0) AS Piso_B,
-    ISNULL(piso_c, 0.0) AS Piso_C,
-    ISNULL(deficit_kiel_max, 0.0) AS Deficit_Kiel_Max,
-    ISNULL(tiempo_transito, 0.0) AS Tiempo_Transito,
+    piso_a AS Piso_A,
+    piso_b AS Piso_B,
+    piso_c AS Piso_C,
+    deficit_kiel_max AS Deficit_Kiel_Max,
+    tiempo_transito AS Tiempo_Transito,
     ISNULL(procedencia_id COLLATE DATABASE_DEFAULT, '') AS Procedencia_Id,
     ISNULL(gpo_nsp_id COLLATE DATABASE_DEFAULT, 'SD') AS Gpo_Nsp_Id, -- Default 'SD' from DDL
-    ISNULL(periodo, 0.0) AS Periodo,
-    ISNULL(dia_planificado, 0) AS Dia_Planificado,
+    periodo AS Periodo,
+    dia_planificado AS Dia_Planificado,
     ISNULL(distribucion_ref COLLATE DATABASE_DEFAULT, '') AS Distribucion_Ref,
     ISNULL(notas COLLATE DATABASE_DEFAULT, '') AS Notas,
     ISNULL(centro_id_aprov COLLATE DATABASE_DEFAULT, '') AS Centro_Id_Aprov,

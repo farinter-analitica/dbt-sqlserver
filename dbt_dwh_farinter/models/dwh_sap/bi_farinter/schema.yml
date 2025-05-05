@@ -7,3 +7,15 @@ models:
           combination_of_columns: ["GrupoClientes_Nombre"]
           config:
             severity: error
+  - name: VDWH_KielsaReporteDemandaPivot12M_HN
+    config:
+      grants:
+        select: ['db_planning']
+  - name: VDWH_KielsaReporteRegaliasPivot12M_HN
+    config:
+      grants:
+        select: ['db_planning']
+  - name: VDWH_KielsaReporteVentasPivot12M_HN
+    config:
+      grants:
+        select: ['db_planning']
