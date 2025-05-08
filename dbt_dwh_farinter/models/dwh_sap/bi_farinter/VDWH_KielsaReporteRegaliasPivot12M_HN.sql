@@ -5,7 +5,8 @@
 		materialized="view",
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
-        ]
+        ],
+		grants={'select': ['db_planning']}
 	) 
 }}
 
