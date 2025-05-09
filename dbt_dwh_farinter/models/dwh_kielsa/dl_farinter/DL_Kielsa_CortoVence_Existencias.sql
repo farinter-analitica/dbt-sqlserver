@@ -7,7 +7,7 @@
 		tags=["periodo/diario", ],
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		full_refresh=true if not is_incremental() or (current_month_day > 10 and current_month_day < 20) else false,
+		full_refresh=true if not is_incremental() or (current_month_day > 17 and current_month_day < 20) else false,
 		on_schema_change="fail",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
