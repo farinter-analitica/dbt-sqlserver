@@ -90,5 +90,5 @@ SELECT
     ent_ventas,
     ent_traslados,
     ctd_bloqueo,
-    CAST('{{ modules.datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
+    CAST('{{ modules.datetime.datetime.now().strftime("%Y%m%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
 FROM CurrentMonthData
