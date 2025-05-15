@@ -25,7 +25,6 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
     DltPipelineDestMssqlDwh,
     merge_dlt_dagster_metadata,
     MyDagsterDltTranslator,
-    mssql_dwh_destination,
 )
 from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
 from dagster_shared_gf.shared_functions import (
@@ -415,9 +414,7 @@ def create_dlt_asset(
     group_name: str | None = None,
 ) -> AssetsDefinition:
     asset_spec = dlt_t.get_asset_spec(
-        DltResourceTranslatorData(
-            resource=dlt_resource, destination=mssql_dwh_destination
-        )
+        DltResourceTranslatorData(resource=dlt_resource, pipeline=None)
     )
 
     @asset(
@@ -471,7 +468,7 @@ def create_dlt_asset(
                 new_pipeline.drop_pending_packages()
             load_info: LoadInfo = dlt_pipeline_dest_mssql_dwh.run_pipeline(
                 custom_run_resource,
-                new_pipeline,
+                pipeline=new_pipeline,
                 remove_config=not first_iteration,
             )
             context.log.info(
