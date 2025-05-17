@@ -41,6 +41,7 @@ concurrency:
       #   limit: 3
 
   pools:
+    granularity: 'run'
     default_limit: 1
     op_granularity_run_buffer: 1
 
