@@ -10,10 +10,9 @@
       "charliermarsh.ruff",
       "eamodio.gitlens",
       "mtxr.sqltools",
-      "mtxr.sqltools-driver-mssql",
-      "fzhem.sqltools-driver-mssql-commver",
       "mtxr.sqltools-driver-pg",
-      "mtxr.sqltools-driver-sqlite",
+      "ms-mssql.mssql",
+      "ms-ossdata.vscode-pgsql"
     ]
   }
   
