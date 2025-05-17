@@ -478,6 +478,8 @@ def hontrack_api_source(
         write_disposition=write_disposition,
     )
     def drivers_resumen(doc: dict) -> dict:
+        if not isinstance(doc, dict) or doc.get("code") is None:
+            return {}
         return {
             "code": doc["code"],
             "name": doc["name"],
