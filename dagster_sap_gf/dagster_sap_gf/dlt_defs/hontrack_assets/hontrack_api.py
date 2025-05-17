@@ -602,7 +602,7 @@ def _daily_partition_iter(
     ),
     partitions_def=daily_partitions_def,
     backfill_policy=dg.BackfillPolicy.single_run(),
-    pool="hontrack_api_assets_per_day",
+    pool="hontrack_api",
 )
 def hontrack_api_assets_per_day(
     context: dg.AssetExecutionContext,
