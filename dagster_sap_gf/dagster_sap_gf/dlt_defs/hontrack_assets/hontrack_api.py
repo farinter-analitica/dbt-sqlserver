@@ -494,7 +494,7 @@ def hontrack_api_source(
         write_disposition=write_disposition,
     )
     def drivers_resumen_data(doc: dict) -> Iterator[dict]:
-        if doc.get("data") is None or not isinstance(doc, dict):
+        if not isinstance(doc, dict) or doc.get("data") is None:
             yield {}
             return
 
