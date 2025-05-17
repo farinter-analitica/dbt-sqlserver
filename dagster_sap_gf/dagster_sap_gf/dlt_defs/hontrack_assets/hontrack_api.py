@@ -1,4 +1,3 @@
-from collections import deque
 from datetime import datetime, timedelta
 import decimal
 import json
@@ -7,13 +6,7 @@ from typing import Any, Iterator, Optional
 import hashlib
 from dagster_shared_gf.dlt_shared.dlt_resources import merge_dlt_dagster_metadata
 import dlt
-from dagster import (
-    AssetExecutionContext,
-    AssetMaterialization,
-    BackfillPolicy,
-    MaterializeResult,
-    instance_for_test,
-)
+import dagster as dg
 from dagster_dlt import DagsterDltResource, dlt_assets
 from dagster_dlt.dlt_event_iterator import DltEventIterator, DltEventType
 from dlt.sources.rest_api import rest_api_source
@@ -608,16 +601,14 @@ def _daily_partition_iter(
         dataset_name="hontrack_api",
     ),
     partitions_def=daily_partitions_def,
+    backfill_policy=dg.BackfillPolicy.single_run(),
+    pool="hontrack_api_assets_per_day",
 )
 def hontrack_api_assets_per_day(
-    context: AssetExecutionContext,
+    context: dg.AssetExecutionContext,
     dlt: DagsterDltResource,
     dlt_pipeline_dest_mssql_dwh: DltPipelineDestMssqlDwh,
 ):
-    new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
-        "hontrack_api_pipeline", "hontrack_api"
-    )
-    new_pipeline.drop_pending_packages()
     first_partition, last_partition = (
         context.partition_key_range
         if context.has_partition_key_range or context.has_partition_key
@@ -635,87 +626,87 @@ def hontrack_api_assets_per_day(
         f"write_disp: {dlt_pipeline_dest_mssql_dwh.write_disposition}, refresh: {dlt_pipeline_dest_mssql_dwh.refresh}"
     )
 
-    def consolidar_resultados() -> Iterator[DltEventType]:
+    def process_and_yield_results() -> Iterator[DltEventType]:
+        new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
+            "hontrack_api_pipeline", "hontrack_api"
+        )
+        if dlt_pipeline_dest_mssql_dwh.drop_pending_packages:
+            new_pipeline.drop_pending_packages()
+
+        unique_events: dict[str, DltEventType] = {}
         first_iteration = True
+
+        # Procesar fechas de partición en un solo bucle
         for start_of_day, end_of_day in partition_iter:
             context.log.info(
                 f"run_date_from: {start_of_day.isoformat()}, run_date_to: {end_of_day.isoformat()}, date_from: {first_partition}, date_to: {last_partition}"
             )
-            result = dlt.run(
-                context=context,
-                dlt_source=hontrack_api_source(
-                    start_date=start_of_day,
-                    end_date=end_of_day,
-                ),
-                dlt_pipeline=new_pipeline,
-                write_disposition=dlt_pipeline_dest_mssql_dwh.write_disposition
+
+            # Precrear las variables para evitar problemas en memoria iterativa.
+            source = hontrack_api_source(
+                start_date=start_of_day,
+                end_date=end_of_day,
+            )
+            write_disposition = (
+                dlt_pipeline_dest_mssql_dwh.write_disposition
                 if first_iteration
                 or dlt_pipeline_dest_mssql_dwh.write_disposition != "replace"
-                else None,
-                refresh=dlt_pipeline_dest_mssql_dwh.refresh
-                if first_iteration
-                else None,
+                else None
+            )
+            refresh = dlt_pipeline_dest_mssql_dwh.refresh if first_iteration else None
+
+            result = dlt.run(
+                context=context,
+                dlt_source=source,
+                dlt_pipeline=new_pipeline,
+                write_disposition=write_disposition,
+                refresh=refresh,
             )
             first_iteration = False
+
+            # Recopilar eventos y manejar duplicados
             for event in result:
-                yield event
+                askey = event.asset_key
+                if askey:
+                    key = askey.to_python_identifier()
+                    if key in unique_events:
+                        # Unir metadatos para eventos duplicados
+                        final = unique_events[key]
+                        meta_1 = final.metadata if final.metadata else {}
+                        meta_2 = event.metadata if event.metadata else {}
+                        final_meta = merge_dlt_dagster_metadata(meta_1, meta_2)
 
-    def integrar_resultados() -> Iterator[DltEventType]:
-        unique_events: dict[str, DltEventType] = {}
-        lost_events: deque[DltEventType] = deque()
-        for event in consolidar_resultados():
-            askey = event.asset_key
-            if askey:
-                key = askey.to_python_identifier()
-                if key in unique_events:
-                    lost_events.append(event)
-                else:
-                    unique_events[key] = event
+                        # Actualizar el evento con los metadatos combinados
+                        unique_events[key] = (
+                            final.with_metadata(final_meta)
+                            if type(final) is dg.AssetMaterialization
+                            else dg.MaterializeResult(
+                                asset_key=askey, metadata=final_meta
+                            )
+                        )  # type: ignore
+                    else:
+                        unique_events[key] = event
 
-        for event in lost_events:
-            askey = event.asset_key
-            key = askey.to_python_identifier() if askey else ""
-            final = unique_events[key]
-            meta_1 = final.metadata if final.metadata else {}
-            meta_2 = event.metadata if event.metadata else {}
-            final_meta = merge_dlt_dagster_metadata(meta_1, meta_2)
-            unique_events[key] = (
-                final.with_metadata(final_meta)
-                if type(final) is AssetMaterialization
-                else MaterializeResult(asset_key=askey, metadata=final_meta)
-            )  # type: ignore
-
+        # Emitir todos los eventos únicos
         yield from unique_events.values()
 
     results = DltEventIterator(
-        integrar_resultados(), context=context, dlt_pipeline=hontrack_api_pipeline
+        process_and_yield_results(), context=context, dlt_pipeline=hontrack_api_pipeline
     )
-
     # Consolidar resultados
     yield from results
 
 
-hontrack_api_assets_per_day = hontrack_api_assets_per_day.with_attributes(
-    backfill_policy=BackfillPolicy.single_run(),
-)
-
 all_assets = (hontrack_api_assets_per_day,)
 
 if __name__ == "__main__":
-    from dagster import (
-        Definitions,
-        define_asset_job,
-        AssetKey,
-        RunConfig,
-    )
-
-    with instance_for_test() as instance:
+    with dg.instance_for_test() as instance:
         ### test job parti
-        test_job = define_asset_job(
+        test_job = dg.define_asset_job(
             "test_job",
             selection=(
-                AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
-                AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
+                # AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
                 # AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
                 # AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
@@ -724,7 +715,7 @@ if __name__ == "__main__":
             "dlt": DagsterDltResource(),
             "dlt_pipeline_dest_mssql_dwh": dlt_pipeline_dest_mssql_dwh,
         }
-        defs = Definitions(
+        defs = dg.Definitions(
             assets=[hontrack_api_assets_per_day],
             jobs=[test_job],
             resources=test_resources,
@@ -733,14 +724,12 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2024-11-23",
-                "dagster/asset_partition_range_end": "2024-11-25",
-                # "dagster/asset_partition_range_start": "2025-02-02",
-                # "dagster/asset_partition_range_end": "2025-02-03",
+                "dagster/asset_partition_range_start": "2025-04-15",
+                "dagster/asset_partition_range_end": "2025-04-20",
             },
             resources=test_resources,
             instance=instance,
-            run_config=RunConfig(
+            run_config=dg.RunConfig(
                 resources={
                     "dlt_pipeline_dest_mssql_dwh": {
                         "config": {
