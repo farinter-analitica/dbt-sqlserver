@@ -348,6 +348,9 @@ def hontrack_api_source(
 
     def transform_common(resources: tuple) -> None:
         def transform_doc(doc: dict) -> dict:
+            if not isinstance(doc, dict) or doc.get("date_apl") is None:
+                return {}
+
             doc["enterprise_id"] = "farinter"
             doc["date_apl"] = pendulum.from_format(
                 doc["date_apl"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
@@ -362,6 +365,9 @@ def hontrack_api_source(
 
     def transform_sensors_resumen(resource: DltResource) -> None:
         def transform_doc(doc: dict) -> dict:
+            if not isinstance(doc, dict) or doc.get("data") is None:
+                return {}
+
             def transform_data_to_decimals(data: dict) -> dict:
                 if isinstance(data, dict):
                     for key, value in data.items():
@@ -414,6 +420,9 @@ def hontrack_api_source(
         write_disposition=write_disposition,
     )
     def zones_resumen(doc: dict) -> dict:
+        if not isinstance(doc, dict) or doc.get("evtdid") is None:
+            return {}
+
         return {
             "evtdid": doc["evtdid"],
             "enterprise_id": "farinter",
@@ -427,6 +436,10 @@ def hontrack_api_source(
         write_disposition=write_disposition,
     )
     def zones_resumen_data(doc: dict) -> Iterator[dict]:
+        if not isinstance(doc, dict) or doc.get("data") is None:
+            yield {}
+            return
+
         for data in doc["data"]:
             data["evtdfch"] = pendulum.from_format(
                 data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
@@ -707,10 +720,10 @@ if __name__ == "__main__":
         test_job = dg.define_asset_job(
             "test_job",
             selection=(
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
-                # AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
-                # AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
-                # AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
         )
         test_resources = {
@@ -726,8 +739,8 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2025-04-15",
-                "dagster/asset_partition_range_end": "2025-04-20",
+                "dagster/asset_partition_range_start": "2025-05-02",
+                "dagster/asset_partition_range_end": "2025-05-02",
             },
             resources=test_resources,
             instance=instance,
