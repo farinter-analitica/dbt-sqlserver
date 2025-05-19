@@ -5,8 +5,11 @@ import yaml
 import os
 
 from dagster import OpExecutionContext, RunsFilter, graph, op
+from dagster_shared_gf.shared_functions import get_for_current_env
 
-SETTINGS = {"local_storage": {"retention_period": 40}}
+SETTINGS = {
+    "local_storage": {"retention_period": get_for_current_env({"dev": 40, "prd": 31})}
+}
 DAGSTER_HOME = os.environ.get("DAGSTER_HOME") or "."
 
 

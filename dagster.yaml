@@ -41,19 +41,23 @@ concurrency:
       #   limit: 3
 
   pools:
-    granularity: 'run'
+    granularity: "run"
     default_limit: 1
     op_granularity_run_buffer: 1
 
 # Configures how long Dagster keeps sensor / schedule tick data
 retention:
   schedule:
-    purge_after_days: 90 # sets retention policy for schedule ticks of all types
+    purge_after_days: 31 # sets retention policy for schedule ticks of all types
+
   sensor:
     purge_after_days:
       skipped: 7
-      failure: 30
-      success: 90 # keep success ticks indefinitely
+      failure: 20
+      success: 31 
+
+  auto_materialize:
+    purge_after_days: 31
 
 run_retries:
   enabled: true # Omit this key if using Dagster+, since run retries are enabled by default
