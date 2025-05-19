@@ -347,9 +347,9 @@ def hontrack_api_source(
     source = rest_api_source(config=config, name="hontrack_api")
 
     def transform_common(resources: tuple) -> None:
-        def transform_doc(doc: dict) -> dict:
+        def transform_doc(doc: dict) -> dict | None:
             if not isinstance(doc, dict) or doc.get("date_apl") is None:
-                return {}
+                return None
 
             doc["enterprise_id"] = "farinter"
             doc["date_apl"] = pendulum.from_format(
@@ -364,9 +364,9 @@ def hontrack_api_source(
     transform_common(("vehicles_resumen", "sensors_resumen"))
 
     def transform_sensors_resumen(resource: DltResource) -> None:
-        def transform_doc(doc: dict) -> dict:
+        def transform_doc(doc: dict) -> dict | None:
             if not isinstance(doc, dict) or doc.get("data") is None:
-                return {}
+                return None
 
             def transform_data_to_decimals(data: dict) -> dict:
                 if isinstance(data, dict):
@@ -419,10 +419,9 @@ def hontrack_api_source(
         primary_key=["evtdid"],
         write_disposition=write_disposition,
     )
-    def zones_resumen(doc: dict) -> dict:
+    def zones_resumen(doc: dict) -> dict | None:
         if not isinstance(doc, dict) or doc.get("evtdid") is None:
-            return {}
-
+            return None
         return {
             "evtdid": doc["evtdid"],
             "enterprise_id": "farinter",
@@ -435,9 +434,14 @@ def hontrack_api_source(
         primary_key=["_dlt_id"],
         write_disposition=write_disposition,
     )
-    def zones_resumen_data(doc: dict) -> Iterator[dict]:
-        if not isinstance(doc, dict) or doc.get("data") is None:
-            yield {}
+    def zones_resumen_data(doc: dict) -> Iterator[dict | None]:
+        if (
+            not isinstance(doc, dict)
+            or doc.get("data") is None
+            or doc.get("evtdid") is None
+            or doc.get("evtdfch") is None
+        ):
+            yield None
             return
 
         for data in doc["data"]:
@@ -446,7 +450,7 @@ def hontrack_api_source(
             )
             data["_dlt_id"] = str(
                 hashlib.md5(
-                    f"{doc['evtdid']}_{data['plate']}_{data['evtdfch'].strftime('%Y%m%d%H%M%S')}".encode()
+                    f"{doc['evtdid']}_{data.get('plate', 'dlt_no_plate')}_{data['evtdfch'].strftime('%Y%m%d%H%M%S')}".encode()
                 ).hexdigest()
             )
             data["zone_evtdid"] = doc["evtdid"]
@@ -490,9 +494,9 @@ def hontrack_api_source(
         primary_key=["code"],
         write_disposition=write_disposition,
     )
-    def drivers_resumen(doc: dict) -> dict:
+    def drivers_resumen(doc: dict) -> dict | None:
         if not isinstance(doc, dict) or doc.get("code") is None:
-            return {}
+            return None
         return {
             "code": doc["code"],
             "name": doc["name"],
@@ -508,13 +512,13 @@ def hontrack_api_source(
         primary_key=["_dlt_id"],
         write_disposition=write_disposition,
     )
-    def drivers_resumen_data(doc: dict) -> Iterator[dict]:
+    def drivers_resumen_data(doc: dict) -> Iterator[dict | None]:
         if (
             not isinstance(doc, dict)
             or doc.get("data") is None
             or doc.get("code") is None
         ):
-            yield {}
+            yield None
             return
 
         for data in doc["data"]:
@@ -649,8 +653,7 @@ def hontrack_api_assets_per_day(
         new_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
             "hontrack_api_pipeline", "hontrack_api"
         )
-        if dlt_pipeline_dest_mssql_dwh.drop_pending_packages:
-            new_pipeline.drop_pending_packages()
+        new_pipeline.drop_pending_packages()
 
         unique_events: dict[str, DltEventType] = {}
         first_iteration = True
@@ -724,8 +727,9 @@ if __name__ == "__main__":
         test_job = dg.define_asset_job(
             "test_job",
             selection=(
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
+                None
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
