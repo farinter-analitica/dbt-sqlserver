@@ -509,7 +509,11 @@ def hontrack_api_source(
         write_disposition=write_disposition,
     )
     def drivers_resumen_data(doc: dict) -> Iterator[dict]:
-        if not isinstance(doc, dict) or doc.get("data") is None:
+        if (
+            not isinstance(doc, dict)
+            or doc.get("data") is None
+            or doc.get("code") is None
+        ):
             yield {}
             return
 
@@ -720,10 +724,10 @@ if __name__ == "__main__":
         test_job = dg.define_asset_job(
             "test_job",
             selection=(
-                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
-                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
         )
         test_resources = {
@@ -739,8 +743,8 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2025-05-02",
-                "dagster/asset_partition_range_end": "2025-05-02",
+                "dagster/asset_partition_range_start": "2025-05-17",
+                "dagster/asset_partition_range_end": "2025-05-18",
             },
             resources=test_resources,
             instance=instance,
