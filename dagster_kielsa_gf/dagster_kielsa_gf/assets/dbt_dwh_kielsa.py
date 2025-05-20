@@ -1,4 +1,5 @@
 import json
+import shutil
 from collections import deque
 from datetime import datetime, timedelta
 from typing import Sequence
@@ -63,9 +64,11 @@ def create_group_asset_function(select: str, exclude: str, group_name: str):
     ):
         context.log.info(f"Running dbt for group: {group_name}")
         dbt_run_args = get_dbt_run_args(context, config, dbt_resource)
-        yield from (
-            dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
-        )
+        dbt_invocation = dbt_resource.cli(dbt_run_args, context=context)
+        yield from dbt_invocation.stream().fetch_row_counts()
+
+        # Clean up the target directory after the run
+        shutil.rmtree(dbt_invocation.target_path, ignore_errors=True)
 
     # Set a unique name for the function
     group_asset_function.__name__ = f"{group_name}_assets"
@@ -133,9 +136,11 @@ def CRM_Kielsa_RecetasContactarHist(
         context, config, dbt_resource, v_date_from, v_date_to
     )
 
-    yield from (
-        dbt_resource.cli(dbt_run_args, context=context).stream().fetch_row_counts()
-    )
+    dbt_invocation = dbt_resource.cli(dbt_run_args, context=context)
+    yield from dbt_invocation.stream().fetch_row_counts()
+
+    # Clean up the target directory after the run
+    shutil.rmtree(dbt_invocation.target_path, ignore_errors=True)
 
 
 if __name__ == "__main__":
