@@ -1,11 +1,12 @@
-from dagster import build_op_context
-from dagster_shared_gf.utils.clean_storage import delete_old_event_storage, SETTINGS
-
 import os
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, PropertyMock
+
+from dagster import build_op_context
+
+from dagster_shared_gf.utils.clean_storage import SETTINGS, delete_old_event_storage
 
 
 def test_delete_old_event_storage():
@@ -21,6 +22,9 @@ def test_delete_old_event_storage():
         very_old_time = (
             datetime.now() - timedelta(days=retention_days * 2 + 10)
         ).timestamp()  # Beyond extended cutoff
+        triple_cutoff_time = (
+            datetime.now() - timedelta(days=retention_days * 3 + 10)
+        ).timestamp()  # Beyond triple cutoff
         recent_time = datetime.now().timestamp()
 
         # Recent run directory that should be kept (treated as run storage)
@@ -63,13 +67,29 @@ def test_delete_old_event_storage():
         os.utime(new_mixed_file, (recent_time, recent_time))
         os.utime(very_old_mixed_file, (very_old_time, very_old_time))
 
-        # Protected directory and file (should never be deleted)
+        # Protected directory and file (should be deleted only after 3x cutoff)
         protected_dir = storage_dir / "__protected_dir"
         protected_dir.mkdir()
+        # Add an inner file that does not start with __ to prevent empty dir deletion
+        protected_inner_file = protected_dir / "not_protected.txt"
+        protected_inner_file.touch()
+        os.utime(protected_inner_file, (triple_cutoff_time, triple_cutoff_time))
         protected_file = storage_dir / "__protected_file.txt"
         protected_file.touch()
-        os.utime(protected_dir, (very_old_time, very_old_time))
-        os.utime(protected_file, (very_old_time, very_old_time))
+        os.utime(protected_dir, (triple_cutoff_time, triple_cutoff_time))
+        os.utime(protected_file, (triple_cutoff_time, triple_cutoff_time))
+
+        # Protected directory and file that are not yet old enough (should be preserved)
+        protected_dir_recent = storage_dir / "__protected_dir_recent"
+        protected_dir_recent.mkdir()
+        # Add an inner file that does not start with __ to prevent empty dir deletion
+        protected_inner_file_recent = protected_dir_recent / "not_protected.txt"
+        protected_inner_file_recent.touch()
+        os.utime(protected_inner_file_recent, (very_old_time, very_old_time))
+        protected_file_recent = storage_dir / "__protected_file_recent.txt"
+        protected_file_recent.touch()
+        os.utime(protected_dir_recent, (very_old_time, very_old_time))
+        os.utime(protected_file_recent, (very_old_time, very_old_time))
 
         # Capture the existence of directories BEFORE running the function
         before_state = {
@@ -81,6 +101,8 @@ def test_delete_old_event_storage():
             "new_mixed_file_exists": new_mixed_file.exists(),
             "protected_dir_exists": protected_dir.exists(),
             "protected_file_exists": protected_file.exists(),
+            "protected_dir_recent_exists": protected_dir_recent.exists(),
+            "protected_file_recent_exists": protected_file_recent.exists(),
         }
 
         # Create mock context with our test storage
@@ -128,6 +150,12 @@ def test_delete_old_event_storage():
         assert before_state["protected_file_exists"], (
             "Protected file should exist before test"
         )
+        assert before_state["protected_dir_recent_exists"], (
+            "Protected recent directory should exist before test"
+        )
+        assert before_state["protected_file_recent_exists"], (
+            "Protected recent file should exist before test"
+        )
 
         # Check the expected state after running the function
         # Recent run directory should be preserved
@@ -163,6 +191,18 @@ def test_delete_old_event_storage():
             "New file in mixed directory should be preserved"
         )
 
-        # Protected directory and file should be preserved
-        assert protected_dir.exists(), "Protected directory should be preserved"
-        assert protected_file.exists(), "Protected file should be preserved"
+        # Protected directory and file should be deleted (since they're older than 3x cutoff)
+        assert not protected_dir.exists(), (
+            "Protected directory should be deleted after triple cutoff"
+        )
+        assert not protected_file.exists(), (
+            "Protected file should be deleted after triple cutoff"
+        )
+
+        # Protected directory and file that are not yet old enough should be preserved
+        assert protected_dir_recent.exists(), (
+            "Protected recent directory should be preserved"
+        )
+        assert protected_file_recent.exists(), (
+            "Protected recent file should be preserved"
+        )
