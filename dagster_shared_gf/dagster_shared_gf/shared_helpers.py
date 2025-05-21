@@ -4,7 +4,7 @@ import textwrap
 from collections import deque
 from datetime import timedelta
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
 import polars as pl
@@ -135,6 +135,10 @@ class DataframeSQLScriptGenerator:
     _schema_temp_table_relation: str
     _full_relation: str | None = None
     _formatted_primary_keys: tuple[str, ...]
+    _sql_lang: Literal["sqlserver"] = "sqlserver"
+    _quote_mapping: dict[str, tuple[str, str]] = {
+        "sqlserver": (r"[", r"]"),
+    }
 
     def __init__(
         self,
@@ -165,6 +169,7 @@ class DataframeSQLScriptGenerator:
         if sql_lang not in ["sqlserver"]:
             raise ValueError(f"SQL language {sql_lang} not implemented.")
 
+        self._sql_lang = sql_lang
         self._df = self.clean_dataframe_for_sql(df)
         self._df_schema = df.collect_schema()
         self._db_name = db_name
@@ -172,14 +177,20 @@ class DataframeSQLScriptGenerator:
         self._table_name = table_name
         self._temp_table_name = temp_table_name
         self._primary_keys = primary_keys
-        self._schema_table_relation = f"[{self.db_schema}].[{self.table_name}]"
+        self._schema_table_relation = (
+            f"{self.quote_identifier(self.db_schema)}."
+            f"{self.quote_identifier(self.table_name)}"
+        )
         self._full_relation = (
-            f"[{self.db_name}].[{self.db_schema}].[{self.table_name}]"
+            f"{self.quote_identifier(self.db_name)}."
+            f"{self.quote_identifier(self.db_schema)}."
+            f"{self.quote_identifier(self.table_name)}"
             if db_name
             else None
         )
         self._schema_temp_table_relation = (
-            f"[{self.db_schema}].[{self.temp_table_name}]"
+            f"{self.quote_identifier(self.db_schema)}."
+            f"{self.quote_identifier(self.temp_table_name)}"
         )
         self._formatted_primary_keys = self._validate_and_format_pks(
             columns=self.primary_keys
@@ -243,6 +254,35 @@ class DataframeSQLScriptGenerator:
     def formatted_primary_keys(self) -> tuple[str, ...]:
         return self._formatted_primary_keys
 
+    def quote_identifier(self, name: str) -> str:
+        """
+        Quote an identifier if not already quoted, using the quote chars for the SQL dialect.
+
+        Args:
+            name: The identifier or list of identifiers to quote.
+
+        Returns:
+            The quoted identifier.
+        """
+        left, right = self._quote_mapping.get(self._sql_lang, ('"', '"'))
+
+        name = name.strip()
+        if name.startswith(left) and name.endswith(right):
+            return name
+        return f"{left}{name}{right}"
+
+    def quote_identifier_array(self, names: list[str]) -> list[str]:
+        """
+        Quote a list of identifiers if not already quoted, using the quote chars for the SQL dialect.
+
+        Args:
+            names: The list of identifiers to quote.
+
+        Returns:
+            The quoted identifiers.
+        """
+        return [self.quote_identifier(n) for n in names]
+
     def _validate_and_format_pks(
         self, columns: tuple[str, ...] = tuple()
     ) -> tuple[str, ...]:
@@ -267,7 +307,7 @@ class DataframeSQLScriptGenerator:
                 raise ValueError(f"Primary key {pk} cannot be null")
 
             verified_columns.append(pk)
-            formatted_columns.append(f"[{pk}]")
+            formatted_columns.append(self.quote_identifier(pk))
 
         # Check for data duplicates
         if len(verified_columns) == 0:
@@ -367,7 +407,7 @@ class DataframeSQLScriptGenerator:
                     raise ValueError(f"Unsupported data type: {col_type}")
 
             # Add the column definition to the SQL script
-            sql_script += f"    [{col_name}] {sql_type}"
+            sql_script += f"    {self.quote_identifier(col_name)} {sql_type}"
 
             # Check if the column is a primary key
             if col_name in primary_keys:
@@ -572,6 +612,228 @@ class DataframeSQLScriptGenerator:
                 )
             )
         return df
+
+    def merge_table_sql_script(
+        self,
+        temp: bool = True,
+        target_table_relation: str | None = None,
+        source_table_relation: str | None = None,
+        update_columns: list[str] | None = None,
+        insert_columns: list[str] | None = None,
+        match_columns: list[str] | None = None,
+    ) -> str:
+        """
+        Generate a SQL MERGE statement to upsert data from temp table to target table.
+
+        Args:
+            temp: If True, use temp table as source.
+            target_table_relation: Override for target table relation (quoted).
+            source_table_relation: Override for source table relation (quoted).
+                example: "[dbo].[source]"
+            update_columns: Columns to update on match (default: all except PKs).
+            insert_columns: Columns to insert (default: all).
+            match_columns: Columns to match on (default: primary keys).
+
+        Returns:
+            str: SQL MERGE statement.
+        """
+        tgt = target_table_relation or self.schema_table_relation
+        src = source_table_relation or (
+            self.schema_temp_table_relation if temp else self.schema_table_relation
+        )
+        pk_cols = match_columns or list(self.primary_keys)
+        all_cols = list(self.df_schema.keys())
+        upd_cols = update_columns or [c for c in all_cols if c not in pk_cols]
+        ins_cols = insert_columns or all_cols
+
+        # Build ON clause
+        on_clause = " AND ".join(
+            f"TARGET.{self.quote_identifier(col)} = SOURCE.{self.quote_identifier(col)}"
+            for col in pk_cols
+        )
+
+        # Build UPDATE SET clause
+        update_set = (
+            ", ".join(
+                f"TARGET.{self.quote_identifier(col)} = SOURCE.{self.quote_identifier(col)}"
+                for col in upd_cols
+            )
+            if upd_cols
+            else ""
+        )
+
+        # Build INSERT columns and values
+        insert_cols = ", ".join(f"{self.quote_identifier(col)}" for col in ins_cols)
+        insert_vals = ", ".join(
+            f"SOURCE.{self.quote_identifier(col)}" for col in ins_cols
+        )
+
+        sql = f"""
+        MERGE INTO {tgt} AS TARGET
+        USING {src} AS SOURCE
+        ON {on_clause}
+        WHEN MATCHED THEN
+            UPDATE SET {update_set}
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT ({insert_cols}) VALUES ({insert_vals});
+        """
+        return textwrap.dedent(sql)
+
+    def table_exists_sql_script(self, temp: bool = False) -> str:
+        """
+        Generate a SQL script to check if a table exists.
+
+        Args:
+            temp: If True, check for temp table.
+
+        Returns:
+            str: SQL script to check if table exists.
+        """
+        table_name = self.temp_table_name if temp else self.table_name
+
+        return textwrap.dedent(f"""
+            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = '{self.db_schema}'
+            AND TABLE_NAME = '{table_name}'
+        """)
+
+    def view_exists_sql_script(self, temp: bool = False) -> str:
+        """
+        Generate a SQL script to check if a view exists.
+
+        Args:
+            temp: If True, check for temp view.
+
+        Returns:
+            str: SQL script to check if view exists.
+        """
+        table_name = self.temp_table_name if temp else self.table_name
+
+        return textwrap.dedent(f"""
+            SELECT 1 FROM INFORMATION_SCHEMA.VIEWS
+            WHERE TABLE_SCHEMA = '{self.db_schema}'
+            AND TABLE_NAME = '{table_name}'
+        """)
+
+
+class DataframeSQLTableManager:
+    """
+    Orchestrates the full upsert process for a DataFrame into a SQL Server table.
+    All SQL script generation is delegated to DataframeSQLScriptGenerator.
+    Supports cursor reuse for efficiency.
+    """
+
+    def __init__(
+        self,
+        df: pl.DataFrame,
+        db_schema: str,
+        table_name: str,
+        db_connection: Any,
+        db_name: str | None = None,
+        primary_keys: tuple[str, ...] = tuple(),
+        temp_table_name: str | None = None,
+    ):
+        self.generator = DataframeSQLScriptGenerator(
+            df=df,
+            db_schema=db_schema,
+            table_name=table_name,
+            db_name=db_name,
+            primary_keys=primary_keys,
+            temp_table_name=temp_table_name,
+        )
+        self.conn = db_connection
+
+    def _execute_sql(
+        self,
+        sql: str,
+        cursor: Any | None = None,
+        commit: bool = False,
+        fetchone: bool = False,
+    ) -> Any:
+        close_cursor = False
+        result = None
+        if cursor is None:
+            cursor = self.conn.cursor()
+            close_cursor = True
+
+        try:
+            if cursor is not None:
+                cursor.execute(sql)
+                if fetchone:
+                    result = cursor.fetchone()
+                if commit and close_cursor:
+                    self.conn.commit()
+        finally:
+            if close_cursor and cursor is not None:
+                cursor.close()
+        return result
+
+    def table_exists(self, cursor: Any | None = None) -> bool:
+        sql = self.generator.table_exists_sql_script()
+        result = self._execute_sql(sql, cursor=cursor, fetchone=True)
+        return result is not None
+
+    def view_exists(self, cursor: Any | None = None) -> bool:
+        sql = self.generator.view_exists_sql_script()
+        result = self._execute_sql(sql, cursor=cursor, fetchone=True)
+        return result is not None
+
+    def create_table_if_not_exists(self, cursor: Any | None = None) -> None:
+        if not self.table_exists(cursor=cursor):
+            sql = self.generator.create_table_sql_script()
+            self._execute_sql(sql, cursor=cursor, commit=True)
+
+    def create_temp_table(self, cursor: Any | None = None) -> None:
+        sql = self.generator.create_table_sql_script(temp=True)
+        self._execute_sql(sql, cursor=cursor, commit=True)
+
+    def load_dataframe_to_temp(
+        self, file_path: str | None, cursor: Any | None = None
+    ) -> None:
+        """
+        Loads the dataframe to the temp table.
+        If existing file_path is None, it uses the dataframe.write_database method.
+        """
+        if file_path is None:
+            self.generator.df.write_database(
+                self.generator.schema_temp_table_relation, self.conn
+            )
+            return
+        sql = self.generator.bulk_insert_sql_script(
+            file_path=file_path,
+            temp=True,
+        )
+        self._execute_sql(sql, cursor=cursor, commit=True)
+
+    def merge_temp_to_target(self, cursor: Any | None = None) -> None:
+        sql = self.generator.merge_table_sql_script(temp=True)
+        self._execute_sql(sql, cursor=cursor, commit=True)
+
+    def drop_temp_table(self, cursor: Any | None = None) -> None:
+        sql = self.generator.drop_table_sql_script(temp=True)
+        self._execute_sql(sql, cursor=cursor, commit=True)
+
+    def upsert_dataframe(
+        self,
+        file_path: str | None = None,
+        drop_temp: bool = True,
+    ) -> None:
+        """
+        Full process: create table if needed, create temp, load, merge, drop temp.
+        Uses a single cursor for all operations for efficiency.
+        Add a file_path to exiting file to use bulk insert, otherwise it uses dataframe.write_database
+        """
+        cursor = self.conn.cursor()
+        try:
+            self.create_table_if_not_exists(cursor=cursor)
+            self.create_temp_table(cursor=cursor)
+            self.load_dataframe_to_temp(file_path, cursor=cursor)
+            self.merge_temp_to_target(cursor=cursor)
+            if drop_temp:
+                self.drop_temp_table(cursor=cursor)
+            self.conn.commit()
+        finally:
+            cursor.close()
 
 
 class ParquetCacheHandler:
