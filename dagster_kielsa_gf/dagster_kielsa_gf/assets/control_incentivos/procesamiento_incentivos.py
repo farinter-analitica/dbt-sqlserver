@@ -10,8 +10,9 @@ from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos import (
     ReglaIncentivoRegistry,
 )
 from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.config import (
-    DataFramesInputDict,
-    DataFramesOutputDict,
+    DataFramesInput,
+    DataFramesOutput,
+    DataFrameWithPK,
 )
 
 built_in_print = print
@@ -103,7 +104,7 @@ class ProcesamientoIncentivos:
         fecha_inicio: dt.date | None = None,
         fecha_fin: dt.date | None = None,
         limit: int | None = None,
-    ) -> pl.LazyFrame:
+    ) -> DataFrameWithPK:
         fecha_inicio = fecha_inicio or self.fecha_inicio
         fecha_fin = fecha_fin or self.fecha_fin
         limit = limit or self.limit
@@ -158,14 +159,16 @@ class ProcesamientoIncentivos:
         df = df.with_columns((cs.numeric() - cs.ends_with("_Id")).cast(pl.Float64))
         df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
         df = df.with_columns(pl.col("Regalia_Fecha").cast(pl.Date))
-        return df
+        return DataFrameWithPK(
+            df, ("Emp_Id", "Suc_Id", "Caja_Id", "Regalia_Id", "Detalle_Id")
+        )
 
     def get_calendario_data(
         self,
         fecha_inicio: dt.date | None = None,
         fecha_fin: dt.date | None = None,
         limit: int | None = None,
-    ) -> pl.LazyFrame:
+    ) -> DataFrameWithPK:
         fecha_inicio = fecha_inicio or self.fecha_inicio
         fecha_fin = fecha_fin or self.fecha_fin
         limit = limit or self.limit
@@ -210,14 +213,14 @@ class ProcesamientoIncentivos:
         df = get_data(query_trx, self.dwh_farinter_bi)
         df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
         df = df.with_columns(pl.col("Fecha_Calendario").cast(pl.Date))
-        return df.drop("Dummy")
+        return DataFrameWithPK(df, ("Fecha_Calendario",))
 
     def get_articulos_data(
         self,
         fecha_inicio: dt.date | None = None,
         fecha_fin: dt.date | None = None,
         limit: int | None = None,
-    ) -> pl.LazyFrame:
+    ) -> DataFrameWithPK:
         fecha_inicio = fecha_inicio or self.fecha_inicio
         fecha_fin = fecha_fin or self.fecha_fin
         limit = limit or self.limit
@@ -237,9 +240,9 @@ class ProcesamientoIncentivos:
         )
         df = get_data(query_trx, self.dwh_farinter_bi)
         df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
-        return df
+        return DataFrameWithPK(df, ("Articulo_Id",))
 
-    def collect_dataframes(self) -> "ProcesamientoIncentivos":
+    def extract_dataframes(self) -> "ProcesamientoIncentivos":
         """
         Recopila los dataframes necesarios para el procesamiento de incentivos.
         Retorna self para permitir el encadenamiento de métodos.
@@ -251,26 +254,27 @@ class ProcesamientoIncentivos:
         return self
 
     @property
-    def df_input_dict(self) -> DataFramesInputDict:
-        if not hasattr(self, "_df_input_dict"):
+    def df_input_dict(self) -> DataFramesInput:
+        if not hasattr(self, "_df_input"):
             raise ValueError("Los dataframes de entrada no han sido procesados.")
-        return self._df_input_dict
+        return self._df_input
 
-    def process_df_input_dict(self) -> "ProcesamientoIncentivos":
+    def _process_df_input_dict(self) -> "ProcesamientoIncentivos":
         """
         Procesa y almacena los dataframes de entrada requeridos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self._df_input_dict: DataFramesInputDict = {
-            "regalias": self.preparar_data_regalias(),
-            "calendario": self.df_calendario,
-            "articulos": self.df_articulos,
-        }
+        self._df_input: DataFramesInput = DataFramesInput(
+            regalias=self.preparar_data_regalias(),
+            calendario=self.df_calendario,
+            articulos=self.df_articulos,
+        )
         return self
 
-    def preparar_data_regalias(self) -> pl.LazyFrame:
+    def preparar_data_regalias(self) -> DataFrameWithPK:
         # Agrupa por Emp_Id y Fecha_Id para aplicar la regla correspondiente a cada grupo
-        df_regalias = self.df_regalias.select(
+        df_regalias = self.df_regalias.frame
+        df_regalias = df_regalias.select(
             [
                 "Emp_Id",
                 "Suc_Id",
@@ -290,42 +294,85 @@ class ProcesamientoIncentivos:
             df_regalias, emp_id_col="Emp_Id", fecha_col="Fecha_Id"
         )
 
-        return df_regalias
+        return DataFrameWithPK(df_regalias, self.df_regalias.primary_keys)
 
-    def process_df_output_dict(self) -> "ProcesamientoIncentivos":
+    def _process_df_output_dict(self) -> "ProcesamientoIncentivos":
         """
         Procesa y almacena los dataframes de salida requeridos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        resultados: list[DataFramesOutputDict] = []
+        resultados: list[DataFramesOutput] = []
         # Particiona por la columna de regla (instancia)
         for regla in self.regla_registry.map_reglas.values():
-            regla_procesador = regla["Regla_Obj"]
-            output_dict = regla_procesador.procesar(self.df_input_dict)
+            output_dict = regla.procesar(self.df_input_dict)
             resultados.append(output_dict)
 
-        resultado_final = DataFramesOutputDict(
-            regalias_incentivo=pl.concat([r["regalias_incentivo"] for r in resultados]),
+        resultado_final = DataFramesOutput(
+            regalias_incentivo=DataFrameWithPK(
+                pl.concat([r.regalias_incentivo.frame for r in resultados]),
+                self.df_regalias.primary_keys,
+            ),
         )
 
-        self._df_output_dict: DataFramesOutputDict = resultado_final
+        self._df_output = resultado_final
 
         return self
 
-    @property
-    def df_output_dict(self) -> DataFramesOutputDict:
-        if not hasattr(self, "_df_output_dict"):
-            raise ValueError("Los dataframes de salida no han sido procesados.")
-        return self._df_output_dict
+    def estandarizar_dataframes(self) -> "ProcesamientoIncentivos":
+        """
+        Estandariza los dataframes de salida para que tengan las mismas columnas llave.
+        Retorna self para permitir el encadenamiento de métodos.
+        """
+        raise NotImplementedError("Este método no está implementado.")
+        return self
 
-    def process(self) -> "ProcesamientoIncentivos":
+    @property
+    def df_output(self) -> DataFramesOutput:
+        if not hasattr(self, "_df_output"):
+            raise ValueError("Los dataframes de salida no han sido procesados.")
+        return self._df_output
+
+    def process_df_completo(self) -> "ProcesamientoIncentivos":
+        """
+        Procesa los dataframes de salida requeridos y consolida totales agrupados.
+        Retorna self para permitir el encadenamiento de métodos.
+        """
+        self._df_incentivos_completo = pl.DataFrame()
+        raise NotImplementedError("Este método no está implementado.")
+        return self
+
+    @property
+    def df_completo(self) -> pl.DataFrame:
+        """
+        Retorna un dataframe consolidado con los dataframes de salida requeridos.
+        """
+        if not hasattr(self, "_df_incentivos_completo"):
+            raise ValueError("El dataframe completo no ha sido procesado.")
+        return self._df_incentivos_completo
+
+    def load_df(self, tabla: str, df: pl.LazyFrame) -> "ProcesamientoIncentivos":
+        """
+        Carga al dwh un dataframe de salida reemplazando datos existentes.
+        Retorna self para permitir el encadenamiento de métodos.
+        """
+        raise NotImplementedError("Este método no está implementado.")
+        return self
+
+    def load_dataframes_output(self) -> "ProcesamientoIncentivos":
+        """
+        Carga al dwh los dataframes de salida requeridos.
+        Retorna self para permitir el encadenamiento de métodos.
+        """
+        raise NotImplementedError("Este método no está implementado.")
+        return self
+
+    def process_dataframes(self, load: bool = True) -> "ProcesamientoIncentivos":
         """
         Procesa los dataframes de salida requeridos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self.collect_dataframes()
-        self.process_df_input_dict()
-        self.process_df_output_dict()
+        self._process_df_input_dict()
+        self._process_df_output_dict()
 
         return self
 
@@ -349,32 +396,33 @@ if __name__ == "__main__":
         "save_parquet": SAVE_PARQUET,
     }
 
-    procesador_incentivos.collect_dataframes()
+    procesador_incentivos.extract_dataframes()
 
     df_regalias = procesador_incentivos.df_regalias
     print_df(
-        df_regalias,
+        df_regalias.frame,
         "DF Regalias",
         **print_params,
     )
     df_calendario = procesador_incentivos.df_calendario
     print_df(
-        df_calendario,
+        df_calendario.frame,
         "DF Calendario",
         **print_params,
     )
 
     df_articulos = procesador_incentivos.df_articulos
     print_df(
-        df_articulos,
+        df_articulos.frame,
         "DF Articulos",
         **print_params,
     )
+    procesador_incentivos.extract_dataframes()
+    procesador_incentivos.process_dataframes()
 
-    procesador_incentivos.process()
-    df_regalias_incentivo = procesador_incentivos.df_output_dict["regalias_incentivo"]
+    df_regalias_incentivo = procesador_incentivos.df_output.regalias_incentivo
     print_df(
-        df_regalias_incentivo,
+        df_regalias_incentivo.frame,
         "DF Regalias Incentivos",
         **print_params,
     )

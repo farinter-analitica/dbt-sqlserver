@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
 
 import polars as pl
 
@@ -59,35 +58,27 @@ class ReglaIncentivoRegistry:
                 end = min(fechas_a[1], fechas_b[1])
                 if start <= end:
                     raise ValueError(
-                        f"Solapamiento entre {regla_a.nombre} y {regla_b.nombre} "
+                        f"Solapamiento entre {regla_a.regla_nombre} y {regla_b.regla_nombre} "
                         f"para emp_id(s)={emp_ids_inter} en fechas {start} a {end}"
                     )
 
-    def _build_mapping_dict(self) -> dict[str, dict[str, Any]]:
+    def _build_mapping_dict(self) -> dict[str, BaseReglaIncentivo]:
         """
         Devuelve un diccionario con los rangos de cada regla, validando nombres únicos.
         """
-        mapping: dict[str, dict[str, Any]] = {}
+        mapping: dict[str, BaseReglaIncentivo] = {}
         for regla in self.lista_reglas:
-            nombre = regla.nombre
+            nombre = regla.regla_nombre
             if nombre in mapping:
                 raise ValueError(f"Nombre de regla duplicado: {nombre}")
             if regla.es_regla_por_defecto:
                 continue  # no incluimos la regla por defecto
-            emp_ids = regla.emp_ids
-            fechas = regla.rango_fechas
-            mapping[nombre] = {
-                "Regla_Nombre": nombre,
-                "Regla_Emp_Id": emp_ids,
-                "Regla_Fecha_Desde": fechas[0],
-                "Regla_Fecha_Hasta": fechas[1],
-                "Regla_Obj": regla,
-            }
+            mapping[nombre] = regla
 
         return mapping
 
     @property
-    def map_reglas(self) -> dict[str, dict[str, Any]]:
+    def map_reglas(self) -> dict[str, BaseReglaIncentivo]:
         return self._map_reglas
 
     @property
@@ -98,11 +89,11 @@ class ReglaIncentivoRegistry:
         """
         Devuelve la regla correspondiente al nombre dado.
         """
-        if regla_nombre == self.regla_por_defecto.nombre:
+        if regla_nombre == self.regla_por_defecto.regla_nombre:
             return self.regla_por_defecto
         if regla_nombre not in self.map_reglas:
             raise ValueError(f"No existe una regla con el nombre {regla_nombre}")
-        return self.map_reglas[regla_nombre]["Regla_Obj"]
+        return self.map_reglas[regla_nombre]
 
     def _build_mapping_table(self) -> pl.LazyFrame:
         """
@@ -110,8 +101,13 @@ class ReglaIncentivoRegistry:
         """
         mapping_dict = self.map_reglas
         mapping_list = [
-            {k: v for k, v in data.items() if k != "Regla_Obj"}
-            for data in mapping_dict.values()
+            {
+                "Regla_Nombre": regla.regla_nombre,
+                "Regla_Emp_Id": regla.emp_ids,
+                "Regla_Fecha_Desde": regla.rango_fechas[0],
+                "Regla_Fecha_Hasta": regla.rango_fechas[1],
+            }
+            for regla in mapping_dict.values()
         ]
 
         return pl.LazyFrame(
@@ -163,7 +159,7 @@ class ReglaIncentivoRegistry:
             )
             .drop(pl.selectors.ends_with("_right"))
             .with_columns(
-                pl.col("Regla_Nombre").fill_null(self.regla_por_defecto.nombre),
+                pl.col("Regla_Nombre").fill_null(self.regla_por_defecto.regla_nombre),
                 pl.col("Regla_Fecha_Desde").fill_null(
                     self.regla_por_defecto.fecha_desde
                 ),

@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 import datetime as dt
 from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.config import (
     EmpresaID,
-    DataFramesInputDict,
-    DataFramesOutputDict,
+    DataFramesInput,
+    DataFramesOutput,
 )
 
 
@@ -27,7 +27,7 @@ class BaseReglaIncentivo(ABC):
         pass
 
     @property
-    def nombre(self) -> str:
+    def regla_nombre(self) -> str:
         return type(self).__name__
 
     def __init__(self, config: dict | None = None):
@@ -47,7 +47,7 @@ class BaseReglaIncentivo(ABC):
         return emp_id in self.EMP_ID and self.VALID_FROM <= fecha <= self.VALID_UNTIL
 
     @abstractmethod
-    def procesar(self, dataframes: DataFramesInputDict) -> DataFramesOutputDict:
+    def procesar(self, dataframes: DataFramesInput) -> DataFramesOutput:
         """
         Aplica la lógica de incentivo usando los dataframes relevantes.
         Cada regla puede usar solo los dataframes que necesita del diccionario.
@@ -66,7 +66,7 @@ class BaseReglaIncentivo(ABC):
         emp_id = getattr(self, "EMP_ID", None)
         if emp_id is None:
             raise ValueError(
-                f"EMP_ID no puede ser None en ninguna regla, incumple: {self.nombre}"
+                f"EMP_ID no puede ser None en ninguna regla, incumple: {self.regla_nombre}"
             )
         if isinstance(emp_id, (list, set, tuple)):
             return set(emp_id)
@@ -77,7 +77,7 @@ class BaseReglaIncentivo(ABC):
         fecha = getattr(self, "VALID_FROM", None)
         if fecha is None:
             raise ValueError(
-                f"VALID_FROM no puede ser None en ninguna regla, incumple: {self.nombre}"
+                f"VALID_FROM no puede ser None en ninguna regla, incumple: {self.regla_nombre}"
             )
         return fecha
 
@@ -86,7 +86,7 @@ class BaseReglaIncentivo(ABC):
         fecha = getattr(self, "VALID_UNTIL", None)
         if fecha is None:
             raise ValueError(
-                f"VALID_UNTIL no puede ser None en ninguna regla, incumple: {self.nombre}"
+                f"VALID_UNTIL no puede ser None en ninguna regla, incumple: {self.regla_nombre}"
             )
         return fecha
 
