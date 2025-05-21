@@ -3,7 +3,7 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from dagster_shared_gf.shared_helpers import RowTerminator, SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import RowTerminator, DataframeSQLScriptGenerator
 
 
 class DummyDatetime:
@@ -20,7 +20,7 @@ def patch_get_now_datetime(monkeypatch):
 class TestSQLScriptGenerator:
     def test_sqlscriptgenerator_basic_properties(self):
         df = pl.DataFrame({"id": [1, 2], "name": ["a", "b"]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="mytable")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="mytable")
         assert gen.df.equals(df)
         assert gen.db_schema == "dbo"
         assert gen.table_name == "mytable"
@@ -33,14 +33,14 @@ class TestSQLScriptGenerator:
 
     def test_sqlscriptgenerator_full_relation(self):
         df = pl.DataFrame({"id": [1, 2], "name": ["a", "b"]})
-        gen = SQLScriptGenerator(
+        gen = DataframeSQLScriptGenerator(
             df, db_schema="dbo", table_name="mytable", db_name="testdb"
         )
         assert gen.full_relation == "[testdb].[dbo].[mytable]"
 
     def test_sqlscriptgenerator_validate_and_format_pks_success(self):
         df = pl.DataFrame({"id": [1, 2], "name": ["a", "b"]})
-        gen = SQLScriptGenerator(
+        gen = DataframeSQLScriptGenerator(
             df, db_schema="dbo", table_name="mytable", primary_keys=("id",)
         )
         assert gen.formatted_primary_keys == ("[id]",)
@@ -48,14 +48,14 @@ class TestSQLScriptGenerator:
     def test_sqlscriptgenerator_validate_and_format_pks_duplicate(self):
         df = pl.DataFrame({"id": [1, 2], "name": ["a", "b"]})
         with pytest.raises(ValueError, match="Duplicate primary key: id"):
-            SQLScriptGenerator(
+            DataframeSQLScriptGenerator(
                 df, db_schema="dbo", table_name="mytable", primary_keys=("id", "id")
             )
 
     def test_sqlscriptgenerator_validate_and_format_pks_not_in_schema(self):
         df = pl.DataFrame({"id": [1, 2], "name": ["a", "b"]})
         with pytest.raises(ValueError, match="Primary key not_in_schema not in schema"):
-            SQLScriptGenerator(
+            DataframeSQLScriptGenerator(
                 df,
                 db_schema="dbo",
                 table_name="mytable",
@@ -65,14 +65,14 @@ class TestSQLScriptGenerator:
     def test_sqlscriptgenerator_validate_and_format_pks_nulls(self):
         df = pl.DataFrame({"id": [1, None], "name": ["a", "b"]})
         with pytest.raises(ValueError, match="Primary key id cannot be null"):
-            SQLScriptGenerator(
+            DataframeSQLScriptGenerator(
                 df, db_schema="dbo", table_name="mytable", primary_keys=("id",)
             )
 
     def test_sqlscriptgenerator_validate_and_format_pks_duplicates_in_data(self):
         df = pl.DataFrame({"id": [1, 1], "name": ["a", "b"]})
         with pytest.raises(ValueError, match="cannot have duplicates"):
-            SQLScriptGenerator(
+            DataframeSQLScriptGenerator(
                 df, db_schema="dbo", table_name="mytable", primary_keys=("id",)
             )
 
@@ -90,7 +90,7 @@ class TestSQLScriptGenerator:
                 "val_str": ["abc", "def"],
             }
         )
-        gen = SQLScriptGenerator(
+        gen = DataframeSQLScriptGenerator(
             df, db_schema="dbo", table_name="t", primary_keys=("id",)
         )
         sql = gen.create_table_sql_script()
@@ -110,7 +110,7 @@ class TestSQLScriptGenerator:
         df = pl.DataFrame(
             {"id": [1, 2], "short_str": ["a", "b"], "long_str": ["x" * 200, "y" * 200]}
         )
-        gen = SQLScriptGenerator(
+        gen = DataframeSQLScriptGenerator(
             df, db_schema="dbo", table_name="t", primary_keys=("id",)
         )
         sql = gen.create_table_sql_script()
@@ -126,7 +126,7 @@ class TestSQLScriptGenerator:
         with pytest.raises(
             ValueError, match="have string values longer than 255 characters."
         ):
-            SQLScriptGenerator(
+            DataframeSQLScriptGenerator(
                 df, db_schema="dbo", table_name="t", primary_keys=("pk_str",)
             )
 
@@ -135,14 +135,14 @@ class TestSQLScriptGenerator:
             pass
 
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         gen._df_schema = pl.Schema({"id": pl.DataType()})
         with pytest.raises(ValueError, match="Unsupported data type"):
             gen.create_table_sql_script()
 
     def test_drop_table_sql_script_and_view_sql_script(self):
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         sql = gen.drop_table_sql_script()
         assert "DROP TABLE" in sql
         sqlv = gen.drop_view_sql_script()
@@ -150,7 +150,7 @@ class TestSQLScriptGenerator:
 
     def test_primary_key_table_sql_script(self, monkeypatch):
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(
+        gen = DataframeSQLScriptGenerator(
             df, db_schema="dbo", table_name="t", primary_keys=("id",)
         )
         patch_get_now_datetime(monkeypatch)
@@ -159,26 +159,26 @@ class TestSQLScriptGenerator:
 
     def test_primary_key_table_sql_script_no_pk(self):
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         with pytest.raises(ValueError, match="No primary keys defined"):
             gen.primary_key_table_sql_script()
 
     def test_columnstore_table_sql_script(self, monkeypatch):
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         patch_get_now_datetime(monkeypatch)
         sql = gen.columnstore_table_sql_script()
         assert "CREATE CLUSTERED COLUMNSTORE INDEX" in sql
 
     def test_swap_table_with_temp(self):
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         sql = gen.swap_table_with_temp()
         assert "sp_rename" in sql and "DROP TABLE IF EXISTS" in sql
 
     def test_bulk_insert_sql_script_basic(self):
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         sql = gen.bulk_insert_sql_script(
             file_path="file.csv",
             codepage="65001",
@@ -213,7 +213,7 @@ class TestSQLScriptGenerator:
 
     def test_bulk_insert_sql_script_minimal(self):
         df = pl.DataFrame({"id": [1, 2]})
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         sql = gen.bulk_insert_sql_script(file_path="file.csv")
         assert "BULK INSERT" in sql
         assert "FROM 'file.csv'" in sql
@@ -230,7 +230,7 @@ class TestSQLScriptGenerator:
                 "c": ["a", "b", "c", "d"],
             }
         )
-        gen = SQLScriptGenerator(df, db_schema="dbo", table_name="t")
+        gen = DataframeSQLScriptGenerator(df, db_schema="dbo", table_name="t")
         cleaned = gen.clean_dataframe_for_sql(df, rounding=2)
         a_col = cleaned["a"].to_list()
         assert a_col[1] is None

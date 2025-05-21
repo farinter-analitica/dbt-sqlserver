@@ -123,7 +123,7 @@ def create_freshness_checks_for_assets(all_assets):
     )
 
 
-class SQLScriptGenerator:
+class DataframeSQLScriptGenerator:
     _df: pl.DataFrame
     _df_schema: pl.Schema
     _db_name: str | None

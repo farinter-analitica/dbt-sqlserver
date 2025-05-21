@@ -11,7 +11,7 @@ from dagster import (
 )
 
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-from dagster_shared_gf.shared_helpers import SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 from dagster_shared_gf.shared_variables import env_str, tags_repo
 from dagster_shared_gf.automation import automation_monthly_start_delta_1_cron
 
@@ -374,7 +374,7 @@ def IA_Kielsa_Proyeccion_Personal_Necesario(
     #             )
     print(f"Por guardar {len(df_personal_necesario)} filas")
     with dwh_farinter_ia.get_sqlalchemy_conn() as conn:
-        sg = SQLScriptGenerator(
+        sg = DataframeSQLScriptGenerator(
             primary_keys=("Fecha_Id", "Suc_Id", "Hora_Id", "Emp_Id"),
             db_schema="dbo",
             table_name="IA_Kielsa_Proyeccion_Personal_Necesario",

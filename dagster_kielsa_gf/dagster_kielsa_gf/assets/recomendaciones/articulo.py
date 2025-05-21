@@ -2,7 +2,7 @@ import warnings
 from collections import deque
 from datetime import datetime
 
-from dagster_shared_gf.shared_helpers import SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 import numpy as np
 import pendulum as pdl
 import polars as pl
@@ -469,7 +469,7 @@ def save_article_recommendations(
         return
     print(f"Por guardar {len(recommendations)} recomendaciones entre artículos")
     with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
-        sg = SQLScriptGenerator(
+        sg = DataframeSQLScriptGenerator(
             primary_keys=("Articulo_Id", "Articulo_Id_Relacionado"),
             db_schema="dbo",
             table_name="DL_Kielsa_Articulo_ArticuloRelacionado",

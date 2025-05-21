@@ -2,7 +2,7 @@ import warnings
 from collections import deque
 from datetime import datetime
 
-from dagster_shared_gf.shared_helpers import SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 import numpy as np
 import pendulum as pdl
 import polars as pl
@@ -469,7 +469,7 @@ def save_customer_recommendations(
                 print(recommendations.describe())
             return
 
-        sg = SQLScriptGenerator(
+        sg = DataframeSQLScriptGenerator(
             primary_keys=("Monedero_Id", "Articulo_Id_Recomendado"),
             db_schema="dbo",
             table_name="DL_Kielsa_Cliente_ArticuloRecomendado",
