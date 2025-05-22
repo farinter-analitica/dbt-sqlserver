@@ -748,7 +748,6 @@ class DataframeSQLTableManager:
         self,
         sql: str,
         connection: sqla.Connection | None = None,
-        commit: bool = False,
         fetchone: bool = False,
     ) -> Any:
         close_connection = False
@@ -759,15 +758,11 @@ class DataframeSQLTableManager:
             )
             close_connection = True
 
-        trans = None
         try:
-            if commit:
-                trans = connection.begin()
             result_proxy = connection.execute(sqla.text(sql))
             if fetchone:
                 result = result_proxy.fetchone()
-            if commit and trans is not None:
-                trans.commit()
+
         finally:
             if close_connection and hasattr(connection, "close"):
                 connection.close()
@@ -786,11 +781,11 @@ class DataframeSQLTableManager:
     def create_table_if_not_exists(self, connection: Any | None = None) -> None:
         if not self.table_exists(connection=connection):
             sql = self.generator.create_table_sql_script()
-            self._execute_sql(sql, connection=connection, commit=True)
+            self._execute_sql(sql, connection=connection)
 
     def create_temp_table(self, connection: Any | None = None) -> None:
         sql = self.generator.create_table_sql_script(temp=True)
-        self._execute_sql(sql, connection=connection, commit=True)
+        self._execute_sql(sql, connection=connection)
 
     def load_dataframe_to_temp(
         self, file_path: str | None, connection: Any | None = None
@@ -809,15 +804,15 @@ class DataframeSQLTableManager:
             file_path=file_path,
             temp=True,
         )
-        self._execute_sql(sql, connection=connection, commit=True)
+        self._execute_sql(sql, connection=connection)
 
     def merge_temp_to_target(self, connection: Any | None = None) -> None:
         sql = self.generator.merge_table_sql_script(temp=True)
-        self._execute_sql(sql, connection=connection, commit=True)
+        self._execute_sql(sql, connection=connection)
 
     def drop_temp_table(self, connection: Any | None = None) -> None:
         sql = self.generator.drop_table_sql_script(temp=True)
-        self._execute_sql(sql, connection=connection, commit=True)
+        self._execute_sql(sql, connection=connection)
 
     def upsert_dataframe(
         self,
@@ -834,13 +829,13 @@ class DataframeSQLTableManager:
             if isinstance(self.conn, sqla.Engine)
             else self.conn as connection
         ):
-            with connection.begin():
-                self.create_table_if_not_exists(connection=connection)
-                self.create_temp_table(connection=connection)
-                self.load_dataframe_to_temp(file_path, connection=connection)
-                self.merge_temp_to_target(connection=connection)
-                if drop_temp:
-                    self.drop_temp_table(connection=connection)
+            self.create_table_if_not_exists(connection=connection)
+            self.drop_temp_table(connection=connection)
+            self.create_temp_table(connection=connection)
+            self.load_dataframe_to_temp(file_path, connection=connection)
+            self.merge_temp_to_target(connection=connection)
+            if drop_temp:
+                self.drop_temp_table(connection=connection)
 
 
 class ParquetCacheHandler:
