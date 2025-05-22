@@ -829,13 +829,18 @@ class DataframeSQLTableManager:
         Uses a single SQLAlchemy connection for all operations for efficiency.
         Add a file_path to exiting file to use bulk insert, otherwise it uses dataframe.write_database
         """
-        with self.conn.begin() as connection:
-            self.create_table_if_not_exists(connection=connection)
-            self.create_temp_table(connection=connection)
-            self.load_dataframe_to_temp(file_path, connection=connection)
-            self.merge_temp_to_target(connection=connection)
-            if drop_temp:
-                self.drop_temp_table(connection=connection)
+        with (
+            self.conn.connect()
+            if isinstance(self.conn, sqla.Engine)
+            else self.conn as connection
+        ):
+            with connection.begin():
+                self.create_table_if_not_exists(connection=connection)
+                self.create_temp_table(connection=connection)
+                self.load_dataframe_to_temp(file_path, connection=connection)
+                self.merge_temp_to_target(connection=connection)
+                if drop_temp:
+                    self.drop_temp_table(connection=connection)
 
 
 class ParquetCacheHandler:
