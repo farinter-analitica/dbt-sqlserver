@@ -5,6 +5,7 @@ from collections import deque
 from datetime import timedelta
 from pathlib import Path
 from typing import Any, Literal, Optional
+import sqlalchemy as sqla
 
 import numpy as np
 import polars as pl
@@ -161,7 +162,7 @@ class DataframeSQLScriptGenerator:
                 sql_lang (Literal["sqlserver"], optional): The SQL dialect. Defaults to "sqlserver".
                 db_name (str | None, optional): The database name. Defaults to None.
                 primary_keys (tuple[str, ...], optional): Primary key columns. Defaults to an empty tuple.
-                temp_table_name (Optional[str], optional): Temporary table name. Defaults to None.
+                temp_table_name (Optional[str], optional): Temporary table name. Defaults to *_temp_dagster.
 
             Raises:
                 ValueError: If an unsupported SQL language is provided.
@@ -232,7 +233,7 @@ class DataframeSQLScriptGenerator:
 
     @property
     def temp_table_name(self) -> str:
-        return self._temp_table_name or self._table_name
+        return self._temp_table_name or f"{self._table_name}_temp_dagster"
 
     @property
     def schema_table_relation(self) -> str:
@@ -720,7 +721,7 @@ class DataframeSQLTableManager:
     """
     Orchestrates the full upsert process for a DataFrame into a SQL Server table.
     All SQL script generation is delegated to DataframeSQLScriptGenerator.
-    Supports cursor reuse for efficiency.
+    Supports SQLAlchemy connection for efficiency.
     """
 
     def __init__(
@@ -728,7 +729,7 @@ class DataframeSQLTableManager:
         df: pl.DataFrame,
         db_schema: str,
         table_name: str,
-        db_connection: Any,
+        db_connection: sqla.Connection,
         db_name: str | None = None,
         primary_keys: tuple[str, ...] = tuple(),
         temp_table_name: str | None = None,
@@ -741,60 +742,65 @@ class DataframeSQLTableManager:
             primary_keys=primary_keys,
             temp_table_name=temp_table_name,
         )
-        self.conn = db_connection
+        self.conn = db_connection  # This should be a SQLAlchemy Connection or Engine
 
     def _execute_sql(
         self,
         sql: str,
-        cursor: Any | None = None,
+        connection: sqla.Connection | None = None,
         commit: bool = False,
         fetchone: bool = False,
     ) -> Any:
-        close_cursor = False
+        close_connection = False
         result = None
-        if cursor is None:
-            cursor = self.conn.cursor()
-            close_cursor = True
+        if connection is None:
+            connection = (
+                self.conn.connect() if isinstance(self.conn, sqla.Engine) else self.conn
+            )
+            close_connection = True
 
+        trans = None
         try:
-            if cursor is not None:
-                cursor.execute(sql)
-                if fetchone:
-                    result = cursor.fetchone()
-                if commit and close_cursor:
-                    self.conn.commit()
+            if commit:
+                trans = connection.begin()
+            result_proxy = connection.execute(sqla.text(sql))
+            if fetchone:
+                result = result_proxy.fetchone()
+            if commit and trans is not None:
+                trans.commit()
         finally:
-            if close_cursor and cursor is not None:
-                cursor.close()
+            if close_connection and hasattr(connection, "close"):
+                connection.close()
         return result
 
-    def table_exists(self, cursor: Any | None = None) -> bool:
+    def table_exists(self, connection: Any | None = None) -> bool:
         sql = self.generator.table_exists_sql_script()
-        result = self._execute_sql(sql, cursor=cursor, fetchone=True)
+        result = self._execute_sql(sql, connection=connection, fetchone=True)
         return result is not None
 
-    def view_exists(self, cursor: Any | None = None) -> bool:
+    def view_exists(self, connection: Any | None = None) -> bool:
         sql = self.generator.view_exists_sql_script()
-        result = self._execute_sql(sql, cursor=cursor, fetchone=True)
+        result = self._execute_sql(sql, connection=connection, fetchone=True)
         return result is not None
 
-    def create_table_if_not_exists(self, cursor: Any | None = None) -> None:
-        if not self.table_exists(cursor=cursor):
+    def create_table_if_not_exists(self, connection: Any | None = None) -> None:
+        if not self.table_exists(connection=connection):
             sql = self.generator.create_table_sql_script()
-            self._execute_sql(sql, cursor=cursor, commit=True)
+            self._execute_sql(sql, connection=connection, commit=True)
 
-    def create_temp_table(self, cursor: Any | None = None) -> None:
+    def create_temp_table(self, connection: Any | None = None) -> None:
         sql = self.generator.create_table_sql_script(temp=True)
-        self._execute_sql(sql, cursor=cursor, commit=True)
+        self._execute_sql(sql, connection=connection, commit=True)
 
     def load_dataframe_to_temp(
-        self, file_path: str | None, cursor: Any | None = None
+        self, file_path: str | None, connection: Any | None = None
     ) -> None:
         """
         Loads the dataframe to the temp table.
         If existing file_path is None, it uses the dataframe.write_database method.
         """
         if file_path is None:
+            # Use Polars' write_database with SQLAlchemy connection
             self.generator.df.write_database(
                 self.generator.schema_temp_table_relation, self.conn
             )
@@ -803,15 +809,15 @@ class DataframeSQLTableManager:
             file_path=file_path,
             temp=True,
         )
-        self._execute_sql(sql, cursor=cursor, commit=True)
+        self._execute_sql(sql, connection=connection, commit=True)
 
-    def merge_temp_to_target(self, cursor: Any | None = None) -> None:
+    def merge_temp_to_target(self, connection: Any | None = None) -> None:
         sql = self.generator.merge_table_sql_script(temp=True)
-        self._execute_sql(sql, cursor=cursor, commit=True)
+        self._execute_sql(sql, connection=connection, commit=True)
 
-    def drop_temp_table(self, cursor: Any | None = None) -> None:
+    def drop_temp_table(self, connection: Any | None = None) -> None:
         sql = self.generator.drop_table_sql_script(temp=True)
-        self._execute_sql(sql, cursor=cursor, commit=True)
+        self._execute_sql(sql, connection=connection, commit=True)
 
     def upsert_dataframe(
         self,
@@ -820,20 +826,16 @@ class DataframeSQLTableManager:
     ) -> None:
         """
         Full process: create table if needed, create temp, load, merge, drop temp.
-        Uses a single cursor for all operations for efficiency.
+        Uses a single SQLAlchemy connection for all operations for efficiency.
         Add a file_path to exiting file to use bulk insert, otherwise it uses dataframe.write_database
         """
-        cursor = self.conn.cursor()
-        try:
-            self.create_table_if_not_exists(cursor=cursor)
-            self.create_temp_table(cursor=cursor)
-            self.load_dataframe_to_temp(file_path, cursor=cursor)
-            self.merge_temp_to_target(cursor=cursor)
+        with self.conn.begin() as connection:
+            self.create_table_if_not_exists(connection=connection)
+            self.create_temp_table(connection=connection)
+            self.load_dataframe_to_temp(file_path, connection=connection)
+            self.merge_temp_to_target(connection=connection)
             if drop_temp:
-                self.drop_temp_table(cursor=cursor)
-            self.conn.commit()
-        finally:
-            cursor.close()
+                self.drop_temp_table(connection=connection)
 
 
 class ParquetCacheHandler:
