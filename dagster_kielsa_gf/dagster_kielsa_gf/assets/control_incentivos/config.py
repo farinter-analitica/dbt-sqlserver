@@ -3,10 +3,10 @@ from dataclasses import dataclass
 import polars as pl
 
 # Define los IDs válidos en el Literal
-EmpresaID = Literal[1, 2, 3]
+EmpresaID = Literal[1, 2, 3, 4, 5]
 
 # Deriva la lista de IDs válidos a partir del Literal
-EMPRESAS_ID = frozenset(get_args(EmpresaID))
+EMPRESAS_ID: frozenset[EmpresaID] = frozenset(get_args(EmpresaID))
 
 
 @dataclass

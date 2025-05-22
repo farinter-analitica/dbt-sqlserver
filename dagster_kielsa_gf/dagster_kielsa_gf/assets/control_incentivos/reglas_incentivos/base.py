@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import datetime as dt
-from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.config import (
+from dagster_kielsa_gf.assets.control_incentivos.config import (
     EmpresaID,
     DataFramesInput,
     DataFramesOutput,
@@ -62,15 +62,15 @@ class BaseReglaIncentivo(ABC):
         return False
 
     @property
-    def emp_ids(self) -> set[EmpresaID]:
+    def emp_ids(self) -> frozenset[EmpresaID]:
         emp_id = getattr(self, "EMP_ID", None)
         if emp_id is None:
             raise ValueError(
                 f"EMP_ID no puede ser None en ninguna regla, incumple: {self.regla_nombre}"
             )
         if isinstance(emp_id, (list, set, tuple)):
-            return set(emp_id)
-        return {emp_id}
+            return frozenset(emp_id)
+        return emp_id
 
     @property
     def fecha_desde(self) -> dt.date:

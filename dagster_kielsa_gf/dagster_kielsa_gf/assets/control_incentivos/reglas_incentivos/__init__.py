@@ -103,9 +103,9 @@ class ReglaIncentivoRegistry:
         mapping_list = [
             {
                 "Regla_Nombre": regla.regla_nombre,
-                "Regla_Emp_Id": regla.emp_ids,
-                "Regla_Fecha_Desde": regla.rango_fechas[0],
-                "Regla_Fecha_Hasta": regla.rango_fechas[1],
+                "Regla_Emp_Id": tuple(regla.emp_ids),
+                "Regla_Fecha_Desde": regla.fecha_desde,
+                "Regla_Fecha_Hasta": regla.fecha_hasta,
             }
             for regla in mapping_dict.values()
         ]
@@ -146,8 +146,6 @@ class ReglaIncentivoRegistry:
             )
             .drop("Regla_Emp_Id")
         )
-
-        print(join_reglas.head(10).collect())
 
         # Join por Emp_Id y filtrar por rango de fechas
         join_df = (

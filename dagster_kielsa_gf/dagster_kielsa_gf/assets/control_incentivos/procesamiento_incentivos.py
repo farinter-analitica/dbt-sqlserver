@@ -9,7 +9,7 @@ from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos import (
     build_registry_incentivo,
     ReglaIncentivoRegistry,
 )
-from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.config import (
+from dagster_kielsa_gf.assets.control_incentivos.config import (
     DataFramesInput,
     DataFramesOutput,
     DataFrameWithPK,
@@ -332,41 +332,7 @@ class ProcesamientoIncentivos:
             raise ValueError("Los dataframes de salida no han sido procesados.")
         return self._df_output
 
-    def process_df_completo(self) -> "ProcesamientoIncentivos":
-        """
-        Procesa los dataframes de salida requeridos y consolida totales agrupados.
-        Retorna self para permitir el encadenamiento de métodos.
-        """
-        self._df_incentivos_completo = pl.DataFrame()
-        raise NotImplementedError("Este método no está implementado.")
-        return self
-
-    @property
-    def df_completo(self) -> pl.DataFrame:
-        """
-        Retorna un dataframe consolidado con los dataframes de salida requeridos.
-        """
-        if not hasattr(self, "_df_incentivos_completo"):
-            raise ValueError("El dataframe completo no ha sido procesado.")
-        return self._df_incentivos_completo
-
-    def load_df(self, tabla: str, df: pl.LazyFrame) -> "ProcesamientoIncentivos":
-        """
-        Carga al dwh un dataframe de salida reemplazando datos existentes.
-        Retorna self para permitir el encadenamiento de métodos.
-        """
-        raise NotImplementedError("Este método no está implementado.")
-        return self
-
-    def load_dataframes_output(self) -> "ProcesamientoIncentivos":
-        """
-        Carga al dwh los dataframes de salida requeridos.
-        Retorna self para permitir el encadenamiento de métodos.
-        """
-        raise NotImplementedError("Este método no está implementado.")
-        return self
-
-    def process_dataframes(self, load: bool = True) -> "ProcesamientoIncentivos":
+    def process_dataframes(self) -> "ProcesamientoIncentivos":
         """
         Procesa los dataframes de salida requeridos.
         Retorna self para permitir el encadenamiento de métodos.

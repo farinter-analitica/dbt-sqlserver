@@ -3,7 +3,7 @@ import datetime as dt
 from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.base import (
     BaseReglaIncentivo,
 )
-from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.config import (
+from dagster_kielsa_gf.assets.control_incentivos.config import (
     EmpresaID,
     DataFramesInput,
     DataFramesOutput,

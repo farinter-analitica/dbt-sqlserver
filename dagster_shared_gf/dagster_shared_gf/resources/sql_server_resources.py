@@ -13,6 +13,7 @@ from pydantic import Field
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.shared_functions import get_for_current_env
+import sqlalchemy.exc
 
 Row = pyodbc.Row | sqlalchemy.Row
 encode_url = urllib.parse.quote
@@ -254,6 +255,9 @@ class SQLServerResource(ConfigurableResource):
                 f"TrustServerCertificate={{{self.trust_server_certificate}}};"
             )
         return connection_instance
+
+    def get_sqlalchemy_engine(self) -> sqlalchemy.Engine:
+        return sqlalchemy.create_engine(self.get_sqlalchemy_url())
 
     def close_connection(self, connection: Connection):
         try:
