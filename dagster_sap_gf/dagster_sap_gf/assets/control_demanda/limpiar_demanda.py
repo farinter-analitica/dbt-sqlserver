@@ -1,7 +1,7 @@
 import warnings
 from datetime import datetime
 
-from dagster_shared_gf.shared_helpers import SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 import pendulum as pdl
 import polars as pl
 from dagster import (
@@ -166,7 +166,7 @@ def save_demanda_procesada(
         return
     print(f"Por guardar {len(demanda_procesada)} registros")
     with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-        sg = SQLScriptGenerator(
+        sg = DataframeSQLScriptGenerator(
             primary_keys=(
                 "Material_Id",
                 "Fecha_Id",

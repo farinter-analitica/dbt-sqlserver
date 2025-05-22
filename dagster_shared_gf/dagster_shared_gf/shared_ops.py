@@ -4,7 +4,7 @@ from pathlib import PureWindowsPath
 import re
 import time
 from typing import Any, Callable
-from dagster_shared_gf.shared_helpers import SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 import polars as pl
 from dagster import (
     AssetExecutionContext,
@@ -307,7 +307,7 @@ class ExcelFileProcessor:
             df = df.fill_null(strategy="zero")
 
     def _write_to_database(self, df: pl.DataFrame) -> int:
-        sg = SQLScriptGenerator(
+        sg = DataframeSQLScriptGenerator(
             primary_keys=self.schema_config.final_table_primary_keys,
             db_schema=self.db_schema,
             table_name=self.table,

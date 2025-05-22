@@ -2,7 +2,7 @@ from collections import deque
 import warnings
 from datetime import datetime
 
-from dagster_shared_gf.shared_helpers import SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 import pendulum as pdl
 import polars as pl
 from dagster import (
@@ -149,7 +149,7 @@ def procesar_forecast(
 def save_forecast_procesado(
     dwh_farinter_bi: SQLServerResource, forecast_procesado: pl.DataFrame
 ) -> None:
-    sg = SQLScriptGenerator(
+    sg = DataframeSQLScriptGenerator(
         primary_keys=(
             "Material_Id",
             "Fecha_Id",

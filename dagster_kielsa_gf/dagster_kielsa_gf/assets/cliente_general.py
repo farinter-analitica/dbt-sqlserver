@@ -4,7 +4,7 @@ import warnings
 from datetime import datetime
 from typing import Sequence
 
-from dagster_shared_gf.shared_helpers import SQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 import polars as pl
 import polars.testing as pltest
 from dagster import (
@@ -892,7 +892,7 @@ def create_file_on_smb(
 def bulk_load_to_sql_server(
     dwh_farinter_bi: SQLServerResource, file_path: str, df_clientes: pl.DataFrame
 ) -> None:
-    sg = SQLScriptGenerator(
+    sg = DataframeSQLScriptGenerator(
         primary_keys=("Identidad_Limpia", "Emp_Id"),
         db_schema="dbo",
         table_name="BI_Kielsa_Dim_ClienteGeneral",

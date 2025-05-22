@@ -4,7 +4,8 @@ import textwrap
 from collections import deque
 from datetime import timedelta
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
+import sqlalchemy as sqla
 
 import numpy as np
 import polars as pl
@@ -123,7 +124,7 @@ def create_freshness_checks_for_assets(all_assets):
     )
 
 
-class SQLScriptGenerator:
+class DataframeSQLScriptGenerator:
     _df: pl.DataFrame
     _df_schema: pl.Schema
     _db_name: str | None
@@ -135,6 +136,10 @@ class SQLScriptGenerator:
     _schema_temp_table_relation: str
     _full_relation: str | None = None
     _formatted_primary_keys: tuple[str, ...]
+    _sql_lang: Literal["sqlserver"] = "sqlserver"
+    _quote_mapping: dict[str, tuple[str, str]] = {
+        "sqlserver": (r'"', r'"'),
+    }
 
     def __init__(
         self,
@@ -145,6 +150,8 @@ class SQLScriptGenerator:
         db_name: str | None = None,
         primary_keys: tuple[str, ...] = tuple(),
         temp_table_name: Optional[str] = None,
+        load_date: str | None = None,
+        update_date: str | None = None,
     ):
         """
         Initialize a SQLScriptGenerator with configuration for SQL script generation.
@@ -157,7 +164,14 @@ class SQLScriptGenerator:
                 sql_lang (Literal["sqlserver"], optional): The SQL dialect. Defaults to "sqlserver".
                 db_name (str | None, optional): The database name. Defaults to None.
                 primary_keys (tuple[str, ...], optional): Primary key columns. Defaults to an empty tuple.
-                temp_table_name (Optional[str], optional): Temporary table name. Defaults to None.
+                temp_table_name (Optional[str], optional): Temporary table name. Defaults to *_temp_dagster.
+
+                If any of these arguments are provided, change tracking columns will be check.
+                    load_date (str | None, optional): The load date column name. Defaults to None.
+                    update_date (str | None, optional): The update date column name. Defaults to None.
+                If the column name doesn't exists, it will be created with current date.
+                Changes are deployed conditionally on the merge script to not override load_date.
+
 
             Raises:
                 ValueError: If an unsupported SQL language is provided.
@@ -165,25 +179,107 @@ class SQLScriptGenerator:
         if sql_lang not in ["sqlserver"]:
             raise ValueError(f"SQL language {sql_lang} not implemented.")
 
+        self._sql_lang = sql_lang
         self._df = self.clean_dataframe_for_sql(df)
-        self._df_schema = df.collect_schema()
+        if load_date or update_date:
+            self._df = self.add_change_tracking(self._df, load_date, update_date)
+        self._load_date = load_date
+        self._update_date = update_date
+        self._df_schema = self.df.collect_schema()
         self._db_name = db_name
         self._db_schema = db_schema
         self._table_name = table_name
         self._temp_table_name = temp_table_name
         self._primary_keys = primary_keys
-        self._schema_table_relation = f"[{self.db_schema}].[{self.table_name}]"
+        self._schema_table_relation = (
+            f"{self.quote_identifier(self.db_schema)}."
+            f"{self.quote_identifier(self.table_name)}"
+        )
         self._full_relation = (
-            f"[{self.db_name}].[{self.db_schema}].[{self.table_name}]"
+            f"{self.quote_identifier(self.db_name)}."
+            f"{self.quote_identifier(self.db_schema)}."
+            f"{self.quote_identifier(self.table_name)}"
             if db_name
             else None
         )
         self._schema_temp_table_relation = (
-            f"[{self.db_schema}].[{self.temp_table_name}]"
+            f"{self.quote_identifier(self.db_schema)}."
+            f"{self.quote_identifier(self.temp_table_name)}"
         )
         self._formatted_primary_keys = self._validate_and_format_pks(
             columns=self.primary_keys
         )
+
+    def clean_dataframe_for_sql(
+        self, df: pl.DataFrame, rounding: int | None = None
+    ) -> pl.DataFrame:
+        """
+        Clean the DataFrame to ensure all values are SQL-compatible.
+        Cleanings:
+            Replaces infinity and nan values with NULL values.
+            Rounds all numeric columns to the specified number of decimal places.
+
+        Args:
+            df: The DataFrame to clean.
+            rounding: Number of decimal places to round to. If None, no rounding is performed.
+                Values limited between 0 and 16.
+
+        Returns:
+            A cleaned cheap copy of the DataFrame
+        """
+        selection = pl.selectors.expand_selector(df, pl.selectors.float())
+        df = df.clone().with_columns(
+            pl.when(pl.col(selection).is_infinite())
+            .then(None)
+            .otherwise(pl.col(selection))
+            .fill_nan(None)
+            .name.keep()
+        )
+        selection = pl.selectors.expand_selector(
+            df, pl.selectors.numeric() - pl.selectors.float()
+        )
+        df = df.clone().with_columns(pl.col(selection).name.keep())
+        if rounding is not None:
+            df = df.with_columns(
+                (pl.selectors.float() | pl.selectors.decimal()).round(
+                    np.clip(rounding, 0, 16)
+                )
+            )
+        return df
+
+    def add_change_tracking(
+        self,
+        df: pl.DataFrame,
+        load_date: str | None = None,
+        update_date: str | None = None,
+    ) -> pl.DataFrame:
+        """
+        Add change tracking columns to a DataFrame.
+
+        Args:
+            df: The DataFrame to add change tracking columns to.
+            load_date: The name of the load date column.
+            update_date: The name of the update date column.
+
+        Returns:
+            The DataFrame with change tracking columns.
+        """
+        if load_date is not None:
+            if load_date not in df.columns:
+                df = df.with_columns(pl.lit(dt.datetime.today()).alias(load_date))
+            if df.schema[load_date] != pl.Datetime:
+                raise TypeError(
+                    f"load_date must be a datetime column, not {df.schema[load_date]}"
+                )
+        if update_date is not None:
+            if update_date not in df.columns:
+                df = df.with_columns(pl.lit(dt.datetime.today()).alias(update_date))
+            if df.schema[update_date] != pl.Datetime:
+                raise TypeError(
+                    f"update_date must be a datetime column, not {df.schema[update_date]}"
+                )
+
+        return df
 
     @property
     def df(self) -> pl.DataFrame:
@@ -221,7 +317,7 @@ class SQLScriptGenerator:
 
     @property
     def temp_table_name(self) -> str:
-        return self._temp_table_name or self._table_name
+        return self._temp_table_name or f"{self._table_name}_temp_dagster"
 
     @property
     def schema_table_relation(self) -> str:
@@ -242,6 +338,35 @@ class SQLScriptGenerator:
     @property
     def formatted_primary_keys(self) -> tuple[str, ...]:
         return self._formatted_primary_keys
+
+    def quote_identifier(self, name: str) -> str:
+        """
+        Quote an identifier if not already quoted, using the quote chars for the SQL dialect.
+
+        Args:
+            name: The identifier or list of identifiers to quote.
+
+        Returns:
+            The quoted identifier.
+        """
+        left, right = self._quote_mapping.get(self._sql_lang, ('"', '"'))
+
+        name = name.strip()
+        if name.startswith(left) and name.endswith(right):
+            return name
+        return f"{left}{name}{right}"
+
+    def quote_identifier_array(self, names: list[str]) -> list[str]:
+        """
+        Quote a list of identifiers if not already quoted, using the quote chars for the SQL dialect.
+
+        Args:
+            names: The list of identifiers to quote.
+
+        Returns:
+            The quoted identifiers.
+        """
+        return [self.quote_identifier(n) for n in names]
 
     def _validate_and_format_pks(
         self, columns: tuple[str, ...] = tuple()
@@ -267,7 +392,7 @@ class SQLScriptGenerator:
                 raise ValueError(f"Primary key {pk} cannot be null")
 
             verified_columns.append(pk)
-            formatted_columns.append(f"[{pk}]")
+            formatted_columns.append(self.quote_identifier(pk))
 
         # Check for data duplicates
         if len(verified_columns) == 0:
@@ -367,7 +492,7 @@ class SQLScriptGenerator:
                     raise ValueError(f"Unsupported data type: {col_type}")
 
             # Add the column definition to the SQL script
-            sql_script += f"    [{col_name}] {sql_type}"
+            sql_script += f"    {self.quote_identifier(col_name)} {sql_type}"
 
             # Check if the column is a primary key
             if col_name in primary_keys:
@@ -386,7 +511,7 @@ class SQLScriptGenerator:
             self.schema_table_relation if not temp else self.schema_temp_table_relation
         )
         return textwrap.dedent(f"""
-            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
+            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WITH (NOLOCK)
                 WHERE TABLE_SCHEMA = '{self.db_schema}' 
                 AND TABLE_NAME = '{table_name}') 
                 DROP TABLE {schema_table_relation};
@@ -398,7 +523,7 @@ class SQLScriptGenerator:
             self.schema_table_relation if not temp else self.schema_temp_table_relation
         )
         return textwrap.dedent(f"""
-            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.VIEWS 
+            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.VIEWS WITH (NOLOCK)
                 WHERE TABLE_SCHEMA = '{self.db_schema}' 
                 AND TABLE_NAME = '{table_name}') 
                 DROP VIEW {schema_table_relation};
@@ -429,7 +554,7 @@ class SQLScriptGenerator:
         return textwrap.dedent(f"""
             -- Swap the tables
             BEGIN TRANSACTION;
-            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES t
+            IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES t WITH (NOLOCK)
                 WHERE t.TABLE_NAME = '{self.table_name}' and t.TABLE_SCHEMA = '{self.db_schema}')
                 EXEC sp_rename '{self.schema_table_relation}', '{self.table_name}_OLD';
             EXEC sp_rename '{self.schema_temp_table_relation}', '{self.table_name}';
@@ -536,42 +661,268 @@ class SQLScriptGenerator:
 
         return sql
 
-    def clean_dataframe_for_sql(
-        self, df: pl.DataFrame, rounding: int | None = None
-    ) -> pl.DataFrame:
+    def merge_table_sql_script(
+        self,
+        target_table_relation: str | None = None,
+        source_table_relation: str | None = None,
+        update_columns: list[str] | None = None,
+        insert_columns: list[str] | None = None,
+        match_columns: list[str] | None = None,
+    ) -> str:
         """
-        Clean the DataFrame to ensure all values are SQL-compatible.
-        Cleanings:
-            Replaces infinity and nan values with NULL values.
-            Rounds all numeric columns to the specified number of decimal places.
+        Generate a SQL MERGE statement to upsert data from temp table to target table.
 
         Args:
-            df: The DataFrame to clean.
-            rounding: Number of decimal places to round to. If None, no rounding is performed.
-                Values limited between 0 and 16.
+            temp: If True, use temp table as source.
+            target_table_relation: Override for target table relation (quoted).
+            source_table_relation: Override for default temp source table relation (quoted).
+                example: "[dbo].[source]"
+            update_columns: Columns to update on match (default: all except PKs).
+            insert_columns: Columns to insert (default: all).
+            match_columns: Columns to match on (default: primary keys).
 
         Returns:
-            A cleaned cheap copy of the DataFrame
+            str: SQL MERGE statement.
         """
-        selection = pl.selectors.expand_selector(df, pl.selectors.float())
-        df = df.clone().with_columns(
-            pl.when(pl.col(selection).is_infinite())
-            .then(None)
-            .otherwise(pl.col(selection))
-            .fill_nan(None)
-            .name.keep()
+        tgt = target_table_relation or self.schema_table_relation
+        src = source_table_relation or self.schema_temp_table_relation
+
+        pk_cols = match_columns or list(self.primary_keys)
+        all_cols = list(self.df_schema.keys())
+        upd_cols = update_columns or [c for c in all_cols if c not in pk_cols]
+        if self._load_date in upd_cols:
+            upd_cols.remove(self._load_date)
+        ins_cols = insert_columns or all_cols
+
+        # Build ON clause
+        on_clause = " AND ".join(
+            f"TARGET.{self.quote_identifier(col)} = SOURCE.{self.quote_identifier(col)}"
+            for col in pk_cols
         )
-        selection = pl.selectors.expand_selector(
-            df, pl.selectors.numeric() - pl.selectors.float()
-        )
-        df = df.clone().with_columns(pl.col(selection).name.keep())
-        if rounding is not None:
-            df = df.with_columns(
-                (pl.selectors.float() | pl.selectors.decimal()).round(
-                    np.clip(rounding, 0, 16)
-                )
+
+        # Build UPDATE SET clause
+        update_set = (
+            ", ".join(
+                f"TARGET.{self.quote_identifier(col)} = SOURCE.{self.quote_identifier(col)}"
+                for col in upd_cols
             )
-        return df
+            if upd_cols
+            else ""
+        )
+
+        # Build INSERT columns and values
+        insert_cols = ", ".join(f"{self.quote_identifier(col)}" for col in ins_cols)
+        insert_vals = ", ".join(
+            f"SOURCE.{self.quote_identifier(col)}" for col in ins_cols
+        )
+
+        sql = f"""
+        MERGE INTO {tgt} AS TARGET
+        USING {src} AS SOURCE
+        ON {on_clause}
+        WHEN MATCHED THEN
+            UPDATE SET {update_set}
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT ({insert_cols}) VALUES ({insert_vals});
+        """
+        return textwrap.dedent(sql)
+
+    def table_exists_sql_script(self, temp: bool = False) -> str:
+        """
+        Generate a SQL script to check if a table exists.
+
+        Args:
+            temp: If True, check for temp table.
+
+        Returns:
+            str: SQL script to check if table exists.
+        """
+        table_name = self.temp_table_name if temp else self.table_name
+
+        return textwrap.dedent(f"""
+            SELECT 1 FROM INFORMATION_SCHEMA.TABLES WITH (NOLOCK)
+            WHERE TABLE_SCHEMA = '{self.db_schema}'
+            AND TABLE_NAME = '{table_name}'
+        """)
+
+    def view_exists_sql_script(self, temp: bool = False) -> str:
+        """
+        Generate a SQL script to check if a view exists.
+
+        Args:
+            temp: If True, check for temp view.
+
+        Returns:
+            str: SQL script to check if view exists.
+        """
+        table_name = self.temp_table_name if temp else self.table_name
+
+        return textwrap.dedent(f"""
+            SELECT 1 FROM INFORMATION_SCHEMA.VIEWS WITH (NOLOCK)
+            WHERE TABLE_SCHEMA = '{self.db_schema}'
+            AND TABLE_NAME = '{table_name}'
+        """)
+
+    def count_rows_sql_script(self, temp: bool = False) -> str:
+        """
+        Generate a SQL script to count rows in a table.
+
+        Args:
+            temp: If True, count rows in temp table.
+
+        Returns:
+            str: SQL script to count rows in table.
+        """
+        table_name = self.temp_table_name if temp else self.table_name
+
+        return textwrap.dedent(f"""
+            SELECT COUNT(*) FROM {table_name} WITH (NOLOCK)
+        """)
+
+
+class DataframeSQLTableManager:
+    """
+    Orchestrates the full upsert process for a DataFrame into a SQL Server table.
+    All SQL script generation is delegated to DataframeSQLScriptGenerator.
+    Supports SQLAlchemy connection for efficiency.
+    """
+
+    def __init__(
+        self,
+        df: pl.DataFrame,
+        db_schema: str,
+        table_name: str,
+        sqla_engine: sqla.Engine,
+        db_name: str | None = None,
+        primary_keys: tuple[str, ...] = tuple(),
+        temp_table_name: str | None = None,
+        load_date_col: str | None = None,
+        update_date_col: str | None = None,
+    ):
+        self.generator = DataframeSQLScriptGenerator(
+            df=df,
+            db_schema=db_schema,
+            table_name=table_name,
+            db_name=db_name,
+            primary_keys=primary_keys,
+            temp_table_name=temp_table_name,
+            load_date=load_date_col,
+            update_date=update_date_col,
+        )
+        self.engine = sqla_engine.execution_options(isolation_level="AUTOCOMMIT")
+        self.filas_tabla_temp: int | None = None
+        self.filas_total_tabla: int | None = None
+
+    def _execute_sql(
+        self,
+        sql: str,
+        connection: sqla.Connection,
+        fetchone: bool = False,
+    ) -> Any:
+        try:
+            result_proxy = connection.execute(sqla.text(sql))
+            if fetchone:
+                result = result_proxy.fetchone()
+
+                return result
+        except Exception as e:
+            raise RuntimeError(f"Error executing SQL: {sql}") from e
+
+    def table_exists(self, connection: sqla.Connection) -> bool:
+        sql = self.generator.table_exists_sql_script()
+        result = self._execute_sql(sql, connection=connection, fetchone=True)
+        return result is not None
+
+    def view_exists(self, connection: sqla.Connection) -> bool:
+        sql = self.generator.view_exists_sql_script()
+        result = self._execute_sql(sql, connection=connection, fetchone=True)
+        return result is not None
+
+    def count_rows(self, connection: sqla.Connection, temp: bool = False) -> int:
+        sql = self.generator.count_rows_sql_script(temp=temp)
+        result = self._execute_sql(sql, connection=connection, fetchone=True)
+        return result[0] if result is not None else 0
+
+    def create_table_if_not_exists(self, connection: sqla.Connection) -> None:
+        if not self.table_exists(connection=connection):
+            sql = self.generator.create_table_sql_script()
+            self._execute_sql(sql, connection=connection)
+            self.create_primary_key(connection=connection)
+            self.create_columnstore(connection=connection)
+
+    def create_temp_table(self, connection: sqla.Connection) -> None:
+        sql = self.generator.create_table_sql_script(temp=True)
+        self._execute_sql(sql, connection=connection)
+
+    def create_primary_key(self, connection: sqla.Connection) -> None:
+        sql = self.generator.primary_key_table_sql_script()
+        self._execute_sql(sql, connection=connection)
+
+    def create_columnstore(self, connection: sqla.Connection) -> None:
+        sql = self.generator.columnstore_table_sql_script()
+        self._execute_sql(sql, connection=connection)
+
+    def load_dataframe_to_temp(
+        self, connection: sqla.Connection, file_path: str | None
+    ) -> None:
+        """
+        Loads the dataframe to the temp table.
+        If existing file_path is None, it uses the dataframe.write_database method.
+        """
+        if file_path is None:
+            # Use Polars' write_database with SQLAlchemy connection
+            self.generator.df.write_database(
+                self.generator.schema_temp_table_relation,
+                self.engine,
+                if_table_exists="append",
+            )
+        else:
+            sql = self.generator.bulk_insert_sql_script(
+                file_path=file_path,
+                temp=True,
+            )
+            self._execute_sql(sql, connection=connection)
+
+    def merge_temp_to_target(self, connection: sqla.Connection) -> None:
+        sql = self.generator.merge_table_sql_script()
+        self._execute_sql(sql, connection=connection)
+
+    def drop_table(self, connection: sqla.Connection, temp: bool = False) -> None:
+        sql = self.generator.drop_table_sql_script(temp=temp)
+        self._execute_sql(sql, connection=connection)
+
+    def upsert_dataframe(
+        self,
+        file_path: str | None = None,
+        drop_temp: bool = True,
+        drop_target: bool = True,
+    ) -> None:
+        """
+        Full process: create table if needed, create temp, load, merge, drop temp.
+        Uses a single SQLAlchemy connection for all operations for efficiency.
+        Add a file_path to exiting file to use bulk insert, otherwise it uses dataframe.write_database
+
+        Args:
+            file_path: Path to the parquet file to use for bulk insert.
+            drop_temp: Whether to drop the temp table after merging.
+            drop_target: Whether to drop the target table to refresh it.
+        """
+        with (
+            self.engine.connect()
+            if isinstance(self.engine, sqla.Engine)
+            else self.engine as connection
+        ):
+            if drop_target:
+                self.drop_table(connection=connection)
+            self.create_table_if_not_exists(connection=connection)
+            self.drop_table(connection=connection, temp=True)
+            self.create_temp_table(connection=connection)
+            self.load_dataframe_to_temp(connection=connection, file_path=file_path)
+            self.filas_tabla_temp = self.count_rows(temp=True, connection=connection)
+            self.merge_temp_to_target(connection=connection)
+            self.filas_total_tabla = self.count_rows(connection=connection)
+            if drop_temp:
+                self.drop_table(connection=connection, temp=True)
 
 
 class ParquetCacheHandler:
