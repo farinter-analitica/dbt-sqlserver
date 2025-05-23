@@ -59,6 +59,8 @@ all_shared_resources = {
     #
     "db_analitica_etl": postgresql_resources.db_analitica_etl,
     #
+    "db_ia_dotacion_gf": postgresql_resources.db_ia_dotacion_gf,
+    #
     "smb_resource_analitica_nasgftgu02": smb_resources.smb_resource_analitica_nasgftgu02,
     #
     "smb_resource_staging_dagster_dwh": smb_resources.smb_resource_staging_dagster_dwh,
