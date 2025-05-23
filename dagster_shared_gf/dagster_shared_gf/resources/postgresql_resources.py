@@ -5,6 +5,7 @@ from typing import Any, Sequence, Union, Generator
 import sqlalchemy
 from sqlalchemy import text, create_engine, TextClause, Row
 from sqlalchemy.engine import Connection as SQLAConnection
+import sqlalchemy.exc
 from sqlalchemy.pool import QueuePool
 from dagster import ConfigurableResource, EnvVar, get_dagster_logger
 
@@ -199,6 +200,17 @@ db_nocodb_data_gf = PostgreSQLResource(
     default_database="nocodb_data_gf",
 )
 
+db_ia_dotacion_gf = PostgreSQLResource(
+    server=get_for_current_env({"dev": os.environ.get("AURORAQA_PG_FARINTER_HOST")}),
+    databases=["IA_DOTACION"],
+    user=get_for_current_env({"dev": os.environ.get("AURORAQA_PG_FARINTER_USERNAME")}),
+    password=get_for_current_env(
+        {"dev": EnvVar("AURORAQA_PG_FARINTER_SECRET_PASSWORD")}
+    ),
+    default_database="IA_DOTACION",
+)
+
+
 db_independent_analitica_etl = PostgreSQLResource(
     server=p_server,
     databases=["analitica"],
@@ -207,6 +219,15 @@ db_independent_analitica_etl = PostgreSQLResource(
     default_database="analitica",
     independent_instance=True,
 )
+
+if __name__ == "__main__":
+    print("Testing connection to IA_DOTACION database...")
+    try:
+        with db_ia_dotacion_gf.get_connection() as conn:
+            result = conn.execute(text("SELECT 1"))
+            print("Connection successful, SELECT 1 result:", result.scalar())
+    except Exception as e:
+        print("Connection to IA_DOTACION failed:", e)
 
 # Another way:
 # class PostgresResource(ConfigurableResource):
