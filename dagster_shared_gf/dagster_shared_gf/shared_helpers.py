@@ -533,13 +533,13 @@ class DataframeSQLScriptGenerator:
         schema_table_relation = (
             self.schema_table_relation if not temp else self.schema_temp_table_relation
         )
-        pk = self.primary_keys
+        pk = self.formatted_primary_keys
         tn = self.table_name
         if len(pk) == 0:
             raise ValueError("No primary keys defined")
         # Add the nonclustered primary key with randon name
         dynamic_part = get_now_datetime().strftime("%Y%m%dT%H%M%S%f")
-        sql_script = f"ALTER TABLE {schema_table_relation} ADD CONSTRAINT [pk_{tn}_{dynamic_part}] PRIMARY KEY NONCLUSTERED ({', '.join(pk)});\n"
+        sql_script = f'ALTER TABLE {schema_table_relation} ADD CONSTRAINT "pk_{tn}_{dynamic_part}" PRIMARY KEY NONCLUSTERED ({", ".join(pk)});\n'
         return sql_script
 
     def columnstore_table_sql_script(self, temp: bool = False) -> str:
@@ -548,7 +548,7 @@ class DataframeSQLScriptGenerator:
         )
         dynamic_part = get_now_datetime().strftime("%Y%m%dT%H%M%S%f")
         tn = self.table_name
-        return f"CREATE CLUSTERED COLUMNSTORE INDEX [idx_{tn}_{dynamic_part}] ON {schema_table_relation};\n"
+        return f'CREATE CLUSTERED COLUMNSTORE INDEX "idx_{tn}_{dynamic_part}" ON {schema_table_relation};\n'
 
     def swap_table_with_temp(self) -> str:
         return textwrap.dedent(f"""
@@ -561,7 +561,7 @@ class DataframeSQLScriptGenerator:
             COMMIT TRANSACTION;
 
             -- Drop the old table
-            DROP TABLE IF EXISTS [{self.db_schema}].[{self.table_name}_OLD];
+            DROP TABLE IF EXISTS "{self.db_schema}"."{self.table_name}_OLD";
 
             -- Drop the NEW temp table
             DROP TABLE IF EXISTS {self.schema_temp_table_relation};
