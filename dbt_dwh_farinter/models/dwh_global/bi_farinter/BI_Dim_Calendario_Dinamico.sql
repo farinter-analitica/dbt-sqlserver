@@ -33,6 +33,7 @@ SELECT
 	, C.Fecha_Id
 	, C.Anio_ISO
 	, C.Semana_del_Anio_ISO
+	, DATEPART(ISO_WEEK, DATEADD(DAY, 4, C.Fecha_Calendario)) AS Semana_del_Anio_Jue_Mie
 	, C.Mes_ISO
 	, C.Dia_del_Anio_ISO
 	, C.Es_Fin_Anio
@@ -263,7 +264,7 @@ OUTER APPLY
 	(SELECT CAST(GETDATE() AS DATE) AS Fecha_Hoy) F
 WHERE Fecha_Calendario
 BETWEEN DATEFROMPARTS(YEAR(GETDATE()) - 120, 1, 1) AND DATEFROMPARTS(YEAR(GETDATE()) + 5, 12, 31)
-
+--BETWEEN DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1) AND DATEFROMPARTS(YEAR(GETDATE()) + 0, 1, 1)
 /*
 SELECT TOP 100 * FROM BI_Dim_Calendario_Dinamico WHERE Mes_Relativo BETWEEN -12 AND  12 
 	and abs(Mes_Relativo) <> abs(SUBSTRING(Mes_NN_Relativo,5,5)) ORDER BY Fecha_Calendario 
