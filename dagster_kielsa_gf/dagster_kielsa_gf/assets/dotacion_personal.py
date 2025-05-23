@@ -267,9 +267,10 @@ def obtener_efectividad_dotacion_planificada(
 
 
 @dg.asset(
+    key_prefix=("IA_FARINTER", "dbo"),
     description="Datos combinados de dotación de personal: empleados asignados vs marcaciones reales por hora y sucursal.",
     group_name="dotacion_personal",
-    op_tags=tags_repo.AutomationWeekly1,
+    tags=tags_repo.AutomationWeekly1,
     deps=[
         dg.AssetKey(("BI_FARINTER", "dbo", "BI_Kielsa_Hecho_RelojMarcador")),
         dg.AssetKey(("BI_FARINTER", "dbo", "BI_Kielsa_Dim_Sucursal_Horario_DiaSemana")),
@@ -282,7 +283,7 @@ def obtener_efectividad_dotacion_planificada(
     ],
     automation_condition=auto_def.automation_weekly_1_delta_1_cron,
 )
-def efectividad_planificado(
+def IA_Kielsa_Dotacion_Efectividad_Planificado(
     context: dg.AssetExecutionContext,
     dwh_farinter_bi: sqlsr.SQLServerResource,
     db_ia_dotacion_gf: sqlpg.PostgreSQLResource,
@@ -359,7 +360,7 @@ if __name__ == "__main__":
 
         dict_config = dg.RunConfig(
             ops={
-                efectividad_planificado.node_def.name: DotacionPersonalConfig(
+                IA_Kielsa_Dotacion_Efectividad_Planificado.node_def.name: DotacionPersonalConfig(
                     # drop_temp=True,
                     # drop_target=True,
                 )
@@ -369,7 +370,7 @@ if __name__ == "__main__":
         result = dg.materialize(
             assets=[
                 mock_between_asset,
-                efectividad_planificado,
+                IA_Kielsa_Dotacion_Efectividad_Planificado,
                 # Add other assets as needed
             ],
             instance=instance,
@@ -384,7 +385,7 @@ if __name__ == "__main__":
         )
         # Print output for each asset/multi-asset node
         for assetmat in result.asset_materializations_for_node(
-            efectividad_planificado.node_def.name
+            IA_Kielsa_Dotacion_Efectividad_Planificado.node_def.name
         ):
             print(assetmat.metadata)
         # print(result.output_for_node(YOUR_MULTI_ASSET.node_def.name))
