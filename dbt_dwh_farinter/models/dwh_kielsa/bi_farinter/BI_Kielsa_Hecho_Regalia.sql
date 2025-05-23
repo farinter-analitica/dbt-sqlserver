@@ -49,9 +49,9 @@ SELECT
     RD.Valor_Impuesto,
     
     -- Incentivos
-    INC.regalia_aplica_incentivo AS Regalia_Aplica_Incentivo,
-    INC.regalia_valor_incentivo_unitario AS Regalia_Valor_Incentivo_Unitario,
-    INC.regalia_valor_incentivo_total AS Regalia_Valor_Incentivo_Total,
+    ISNULL(INC.regalia_aplica_incentivo, 0) AS Regalia_Aplica_Incentivo,
+    ISNULL(INC.regalia_valor_incentivo_unitario, 0.0) AS Regalia_Valor_Incentivo_Unitario,
+    ISNULL(INC.regalia_valor_incentivo_total, 0.0) AS Regalia_Valor_Incentivo_Total,
     
     -- Audit Fields
     RD.Fecha_Carga,
