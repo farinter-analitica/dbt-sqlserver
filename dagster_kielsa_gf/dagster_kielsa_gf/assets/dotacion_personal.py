@@ -1,13 +1,15 @@
-import dagster as dg
 import datetime as dt
-from dagster_shared_gf.shared_helpers import DataframeSQLTableManager
-from pydantic import Field
-import polars as pl
-from sqlalchemy.engine import Engine as SQLAlchemyEngine
-from dagster_shared_gf.shared_variables import env_str, tags_repo
 
-import dagster_shared_gf.resources.sql_server_resources as sqlsr
+import dagster as dg
+import polars as pl
+from pydantic import Field
+from sqlalchemy.engine import Engine as SQLAlchemyEngine
+
 import dagster_shared_gf.resources.postgresql_resources as sqlpg
+import dagster_shared_gf.resources.sql_server_resources as sqlsr
+from dagster_shared_gf import automation as auto_def
+from dagster_shared_gf.shared_helpers import DataframeSQLTableManager
+from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
 class DotacionPersonalConfig(dg.Config):
@@ -267,7 +269,7 @@ def obtener_efectividad_dotacion_planificada(
 @dg.asset(
     description="Datos combinados de dotación de personal: empleados asignados vs marcaciones reales por hora y sucursal.",
     group_name="dotacion_personal",
-    op_tags=tags_repo.AutomationDaily,
+    op_tags=tags_repo.AutomationWeekly1,
     deps=[
         dg.AssetKey(("BI_FARINTER", "dbo", "BI_Kielsa_Hecho_RelojMarcador")),
         dg.AssetKey(("BI_FARINTER", "dbo", "BI_Kielsa_Dim_Sucursal_Horario_DiaSemana")),
@@ -278,6 +280,7 @@ def obtener_efectividad_dotacion_planificada(
             ("bd_ia_dotacion", "public", "app_horario")
         ),  # Asumiendo que está en la DB por defecto de db_ia_dotacion_gf
     ],
+    automation_condition=auto_def.automation_weekly_1_delta_1_cron,
 )
 def efectividad_planificado(
     context: dg.AssetExecutionContext,
