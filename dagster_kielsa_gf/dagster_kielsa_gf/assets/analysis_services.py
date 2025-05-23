@@ -4,16 +4,16 @@ from dagster import (
     AssetChecksDefinition,
     AssetExecutionContext,
     AssetKey,
-    Field,
     AssetSpec,
+    Field,
     asset,
     load_asset_checks_from_current_module,
     load_assets_from_current_module,
 )
 
+from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, tags_repo
-from dagster_shared_gf.automation import automation_hourly_delta_12_cron
 
 
 @asset(
@@ -57,7 +57,7 @@ def olap_ventas_kielsa_ejecucion(
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_ExistenciasHist_Kielsa"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_KPP_Hecho_Suscripcion_Hist"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_KPP_Hecho_Suscripcion_Actual"]),
-        AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_Regalia_Detalle"]),
+        AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_Regalia"]),
         AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_Receta"]),
     ],
     description="EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General' ó EXEC msdb.dbo.sp_start_job @job_name = 'Kielsa_Tabular_General_CadaHora';",

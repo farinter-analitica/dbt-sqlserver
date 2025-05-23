@@ -2,7 +2,7 @@
 
 {{ 
     config(
-        tags=["automation/periodo_mensual"],
+        tags=["automation/periodo_mensual_inicio"],
         materialized="view",
     )
 }}
