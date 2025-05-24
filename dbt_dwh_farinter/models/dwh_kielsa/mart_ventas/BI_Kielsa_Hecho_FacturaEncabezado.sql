@@ -24,7 +24,7 @@
 		materialized="incremental",
         incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="fail",
+		on_schema_change="append_new_columns",
 		on_clause_filegroup = on_clause,
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
@@ -72,6 +72,7 @@ WITH Facturas AS
 		, FE.[MonederoTarj_Id]
 		, FE.[MonederoTarj_Id_Limpio] as [Monedero_Id]
 		, FE.[Cliente_Id]
+		, FE.[Usuario_Id]
 		, FE.[Vendedor_Id]
 		, FE.[Preventa_Id]
 		, FE.[PreFactura_id]
@@ -156,6 +157,7 @@ WITH Facturas AS
 		, FE.[MonederoTarj_Id]
 		, FE.[MonederoTarj_Id_Limpio] as [Monedero_Id]
 		, FE.[Cliente_Id]
+		, FE.[Usuario_Id]
 		, FE.[Vendedor_Id]
 		, FE.[Preventa_Id]
 		, FE.[PreFactura_id]
