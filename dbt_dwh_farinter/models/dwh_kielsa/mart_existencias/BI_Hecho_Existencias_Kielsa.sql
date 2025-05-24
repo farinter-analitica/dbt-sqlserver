@@ -4,7 +4,7 @@
     config(
 		as_columnstore=true,
 		materialized="incremental",
-		tags=["periodo/diario", "automation/periodo_por_hora", "detener_carga/si"],
+		tags=["periodo/diario", "automation/periodo_por_hora"],
 		incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
 		full_refresh=true if current_month_day > 17 and current_month_day < 20 else false,
