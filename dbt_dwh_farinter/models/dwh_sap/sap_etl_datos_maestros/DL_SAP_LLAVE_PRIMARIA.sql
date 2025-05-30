@@ -77,7 +77,7 @@
     , ISNULL(CAST(A.[SCRTEXT_M] COLLATE DATABASE_DEFAULT AS VARCHAR(20)),'')  AS [SCRTEXT_M]  -- X-Denominador de campo mediano-Check: -Datatype:CHAR-Len:(20,0)
     , ISNULL(CAST(A.[SCRTEXT_L] COLLATE DATABASE_DEFAULT AS VARCHAR(40)),'')  AS [SCRTEXT_L]  -- X-Denominador de campo largo-Check: -Datatype:CHAR-Len:(40,0)
    
-FROM SAPQA.QAS.qas.DD03M A"
+FROM SAPPRD.PRD.prd.DD03M A"
 
 */
 {% if is_incremental() %}
