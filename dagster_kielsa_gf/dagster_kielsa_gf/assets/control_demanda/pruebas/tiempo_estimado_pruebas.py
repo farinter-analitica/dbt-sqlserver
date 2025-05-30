@@ -192,7 +192,7 @@ def get_transactions_data(
         AND FE.Caja_Id = FP.Caja_Id
         AND FE.Factura_Id = FP.Factura_Id
 
-    WHERE FE.Factura_Fecha>= '{fecha_desde_str}' AND FE.Emp_Id = 1
+    WHERE FE.Factura_Fecha>= '{fecha_desde_str}' AND FE.Emp_Id = 1 AND FE.Suc_Id IN (107)
     """)
 
     df = (
@@ -2506,17 +2506,17 @@ if __name__ == "__main__":
         df = get_transactions_data(
             dwh_farinter_bi,
             config=ConfigGetData(
-                fecha_desde=pdt.today().subtract(days=365),
+                fecha_desde=pdt.today().subtract(days=31),
                 use_cache=True,
-                cache_max_age_seconds=3600 * 3600,
+                cache_max_age_seconds=3600,
             ),
         )
         df_marcador = get_marcador_data(
             dwh_farinter_bi,
             config=ConfigGetData(
-                fecha_desde=pdt.today().subtract(days=365),
+                fecha_desde=pdt.today().subtract(days=31),
                 use_cache=True,
-                cache_max_age_seconds=3600 * 3600,
+                cache_max_age_seconds=3600,
             ),
         )
 
