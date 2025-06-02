@@ -269,6 +269,16 @@ read_source_config_full_refresh: ColConfigs = (
         automation_condition=automation_hourly_delta_12_cron,
         tags=tags_repo.AutomationHourly,
     ),
+    DLTRColl(
+        collection_name="hrm_employeeposition",
+        automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.AutomationHourly,
+    ),
+    DLTRColl(
+        collection_name="hrm_position",
+        automation_condition=automation_hourly_delta_12_cron,
+        tags=tags_repo.AutomationHourly,
+    ),
 )
 
 
@@ -388,10 +398,12 @@ def campaigns_recetas_check(dwh_farinter_dl: SQLServerResource) -> AssetCheckRes
     expected_date = get_for_current_env(
         {
             "dev": pendulum.now(default_timezone_teg).subtract(days=1),
-            "prd": pendulum.now(default_timezone_teg).subtract(days=1)
-            if pendulum.now(default_timezone_teg).hour < 5
-            else pendulum.now(default_timezone_teg).replace(
-                hour=4, minute=0, second=0, microsecond=0
+            "prd": (
+                pendulum.now(default_timezone_teg).subtract(days=1)
+                if pendulum.now(default_timezone_teg).hour < 5
+                else pendulum.now(default_timezone_teg).replace(
+                    hour=4, minute=0, second=0, microsecond=0
+                )
             ),
         }
     )
@@ -443,7 +455,11 @@ if __name__ == "__main__":
                 asset
                 for asset in all_mongodb_hn_assets
                 if asset.key
-                in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),)
+                in (
+                    AssetKey(
+                        ("DL_FARINTER", "mongo_db_crm_hn", "hrm_employeeposition")
+                    ),
+                )
             )
             assert asset_to_test
             result = materialize(
