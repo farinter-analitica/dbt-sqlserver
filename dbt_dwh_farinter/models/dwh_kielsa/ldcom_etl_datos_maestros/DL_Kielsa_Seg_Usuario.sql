@@ -66,6 +66,10 @@ AS
 		,[Usuario_Fec_Deshabilitado]
 		,[Usuario_Fec_Eliminado]
 		,[Usuario_Eliminado]
+		,[Usuario_Huella1]
+		,[Usuario_Huella2]
+		,[Usuario_Huella1_Varbinary]
+		,[Usuario_Huella2_Varbinary]
 	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.[Seg_Usuario] 
 	--WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
 	{%- if is_incremental() %}
