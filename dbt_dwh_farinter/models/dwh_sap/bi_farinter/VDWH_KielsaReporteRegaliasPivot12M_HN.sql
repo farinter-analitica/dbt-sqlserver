@@ -63,4 +63,4 @@ FOR
 		[Mes-01]  
 	)  
 ) AS RegaliaPivot
-WHERE RIGHT([ArticuloPadre_Id],10)='10000581'
+--WHERE RIGHT([ArticuloPadre_Id],10)='10000581'
