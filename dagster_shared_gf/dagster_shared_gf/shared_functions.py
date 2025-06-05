@@ -31,6 +31,7 @@ from dagster_graphql import DagsterGraphQLClient
 from dlt.common import pendulum
 from scipy import stats
 from trycast import isassignable
+from dotenv import load_dotenv
 
 from dagster_shared_gf.utils.snake_case_normalizer import SnakeCase
 
@@ -134,6 +135,9 @@ def verify_location_name(location_name: str) -> bool:
 
 
 def get_current_env():
+    dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV")
+    if not dagster_instance_current_env:
+        load_dotenv()
     dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV")
     assert dagster_instance_current_env is not None, (
         "Expected DAGSTER_INSTANCE_CURRENT_ENV, got None"

@@ -439,12 +439,15 @@ def hontrack_api_source(
             not isinstance(doc, dict)
             or doc.get("data") is None
             or doc.get("evtdid") is None
-            or doc.get("evtdfch") is None
         ):
             yield None
             return
 
         for data in doc["data"]:
+            if not isinstance(data, dict) or data.get("evtdfch") is None:
+                yield None
+                continue
+
             data["evtdfch"] = pendulum.from_format(
                 data["evtdfch"], "YYYY-MM-DD HH:mm:ss", tz=default_timezone_teg
             )
@@ -722,16 +725,19 @@ def hontrack_api_assets_per_day(
 all_assets = (hontrack_api_assets_per_day,)
 
 if __name__ == "__main__":
+    # from dotenv import load_dotenv, find_dotenv
+    # env_path = find_dotenv(raise_error_if_not_found=True)
+    # load_dotenv()
     with dg.instance_for_test() as instance:
         ### test job parti
         test_job = dg.define_asset_job(
             "test_job",
             selection=(
-                None
+                # None
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
-                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
-                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
         )
         test_resources = {
@@ -747,8 +753,8 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2025-05-17",
-                "dagster/asset_partition_range_end": "2025-05-18",
+                "dagster/asset_partition_range_start": "2025-06-02",
+                "dagster/asset_partition_range_end": "2025-06-03",
             },
             resources=test_resources,
             instance=instance,
