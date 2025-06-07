@@ -44,12 +44,13 @@ SELECT --top 100
 		INNER JOIN dbo.BI_Dim_Calendario CAL -- {{ source('BI_FARINTER', 'BI_Dim_Calendario') }}
 			ON V.AnioMes_Id = CAL.AnioMes_Id
 			AND V.Fecha_Id = CAL.Fecha_Id
-		WHERE CAL.Anio_Calendario >= YEAR(DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE()))))
-			AND CAL.Fecha_Id > DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE())))
-			AND CAL.Fecha_Id <= DATEADD(MONTH, -1, EOMONTH(GETDATE()))
+		WHERE CAL.Anio_Calendario >= YEAR(EOMONTH(DATEADD(YEAR, -5, GETDATE()), -1))
+			AND CAL.Fecha_Id > EOMONTH(DATEADD(YEAR, -5, GETDATE()), -1)
+			AND CAL.Fecha_Id <= EOMONTH(GETDATE(), -1)
 			AND V.Libre_Cantidad + V.Calidad_Cantidad + V.TransitoAlm_Cantidad+ V.TransitoCentro_Cantidad > 0 
-			AND V.Stock_id = 1 AND 
-			E1.Planificado = 'S'	--and B.Gpo_Obs_Id = 'COINS' --and A.Sociedad_Id = '1200' 
+			AND V.Stock_id = 1 
+			AND E1.Planificado = 'S'	
+			--and B.Gpo_Obs_Id = 'COINS' --and A.Sociedad_Id = '1200' 
 			AND S.Sociedad_Id IN ( '1200', '1300', '1301', '1700', '2500' )
 GROUP BY S.Sociedad_Id
 				, C.Articulo_Id

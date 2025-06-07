@@ -64,9 +64,9 @@ SELECT --top 100
 		FROM	dbo.BI_SAP_Mixto_Facturas V -- {{ ref('BI_SAP_Mixto_Facturas') }}
 		LEFT JOIN DL_FARINTER.dbo.DL_Edit_GrupoClientes_SAP C -- {{ ref('DL_Edit_GrupoClientes_SAP') }}
 			ON V.Cliente_Id = C.Cliente_Id
-		WHERE V.Anio_Calendario >= YEAR(DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE()))))
-			AND V.Fecha_Id > DATEADD(year, -5, DATEADD(MONTH, -1, EOMONTH(GETDATE())))
-			AND V.Fecha_Id <= DATEADD(MONTH, -1, EOMONTH(GETDATE()))
+		WHERE V.Anio_Calendario >= YEAR(EOMONTH(DATEADD(YEAR, -5, GETDATE()), -1))
+			AND V.Fecha_Id > EOMONTH(DATEADD(YEAR, -5, GETDATE()), -1)
+			AND V.Fecha_Id <= EOMONTH(GETDATE(), -1)
 			AND (V.Indicador_Anulado = '' OR V.Indicador_Anulado IS NULL) --Solo lo que no fue anulado
 			AND V.TipoDocumento_Id IN ( 'M',  'O', 'P' ) --Solo las categorias tipo en uso
 		) A
