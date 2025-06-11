@@ -35,10 +35,19 @@ def get_demanda_forecast_data(dwh_farinter_bi: SQLServerResource) -> pl.DataFram
             P.Cantidad_Articulos,
             P.Cantidad_Padre,
             P.Segundos_Transaccion_Estimado,
-            P.Segundos_Actividad_Estimado
+            P.Segundos_Actividad_Estimado,
+            ISNULL(CASE WHEN CAJ.Emp_Id IS NOT NULL
+                THEN 1 ELSE 0 END,0) AS Es_Suc_Autoservicio
         FROM "BI_FARINTER"."dbo".BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora P
         INNER JOIN "BI_FARINTER"."dbo"."BI_Dim_Calendario_Dinamico" C
             ON P.Fecha_Id = C.Fecha_Calendario
+        LEFT JOIN (SELECT Emp_Id, Suc_Id 
+                FROM "DL_FARINTER"."dbo"."DL_Kielsa_Caja"
+                WHERE Caja_Nombre LIKE '%auto%'
+                GROUP BY Emp_Id, Suc_Id
+                ) CAJ
+            ON P.Emp_Id = CAJ.Emp_Id
+            AND P.Suc_Id = CAJ.Suc_Id
         """
     )
 
@@ -204,6 +213,7 @@ def calcular_personal_necesario(
         mu_h = float(row["mu_servidor_hora"])
         cv_sq = float(row["cv_tiempo_cuadrado"])
         tiempo_s = float(row["tiempo_servicio_hora"])
+        es_suc_autoservicio = int(row["Es_Suc_Autoservicio"])
 
         # Manejo de casos extremos
         if carga < 0.01 or lambda_h < 0.01 or mu_h < 0.01:
@@ -279,6 +289,13 @@ def calcular_personal_necesario(
         while calcular_longitud_cola(c_cola) > COLA_MAX and c_cola < c_min + 20:
             c_cola += 1
 
+        if (
+            es_suc_autoservicio == 1
+            and c_cola <= 1
+            and calcular_longitud_cola(c_cola) > 1
+        ):
+            c_cola += 1
+
         # El personal recomendado es el máximo que satisface ambos criterios
         c_recomendado = max(c_tiempo, c_cola)
 
@@ -307,6 +324,7 @@ def calcular_personal_necesario(
                 "mu_servidor_hora",
                 "cv_tiempo_cuadrado",
                 "tiempo_servicio_hora",
+                "Es_Suc_Autoservicio",
             ]
         )
         .map_elements(calcular_metricas_cola, return_dtype=pl.Struct)
@@ -345,6 +363,7 @@ def calcular_personal_necesario(
             ("DL_FARINTER", "nocodb_data_gf", "kielsa_tiempo_transaccion_coeficiente")
         ),
         AssetKey(("BI_FARINTER", "dbo", "BI_Dim_Calendario_Dinamico")),
+        AssetKey(("DL_FARINTER", "dbo", "DL_Kielsa_Caja")),
     ),
     tags=tags_repo.AutomationMonthlyStart,
     automation_condition=automation_monthly_start_delta_1_cron,
