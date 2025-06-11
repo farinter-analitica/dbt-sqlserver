@@ -175,7 +175,11 @@ def nocodb_data_gf_change_sensor(context: SensorEvaluationContext):
         if not result:
             return SkipReason("No tables found or error querying database")
 
-        last_maintenance = result[0][0].strftime("%Y%m%d_%H%M%S")
+        last_maintenance_dt = result[0][0]
+        if last_maintenance_dt is not None:
+            last_maintenance = last_maintenance_dt.strftime("%Y%m%d_%H%M%S")
+        else:
+            last_maintenance = "unknown"
         n_mod_tup = str(result[0][1])
 
         # Create a signature of the current state using hash
