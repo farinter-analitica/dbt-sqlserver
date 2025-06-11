@@ -60,6 +60,7 @@ DROP TABLE IF EXISTS #Temp
     "Conteo_Trx_Contiene_Farma",
     "Cantidad_Unidades_Relativa",
     "Segundos_Transaccion_Estimado"
+    ,"Segundos_Actividad_Estimado"
 ] %}
 
 WITH Calculo AS
@@ -77,15 +78,14 @@ PercentilesReales AS (
         Emp_Id,
         Suc_Id,
         Factura_Fecha AS Fecha_Id,
-        {% for field in metric_fields %}
+        {%- for field in metric_fields %}
         PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY Sum_{{ field }}) 
             OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P25_{{ field }},
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY Sum_{{ field }}) 
             OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P50_{{ field }},
         PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY Sum_{{ field }}) 
             OVER (PARTITION BY Emp_Id, Suc_Id, Factura_Fecha) AS Real_P75_{{ field }}{% if not loop.last %},{% endif %}
-        {% endfor %}
-
+        {%- endfor %}
     FROM {{ ref('BI_Kielsa_Agr_Sucursal_FechaHora') }}
     WHERE Factura_Fecha >= '{{ v_fecha_inicio_correccion }}' 
       AND Factura_Fecha < '{{ v_fecha_hoy }}'
@@ -97,7 +97,7 @@ RatiosPercentiles AS (
         pr.Suc_Id,
         pr.Fecha_Id,
         ROW_NUMBER() OVER (PARTITION BY pr.Emp_Id, pr.Suc_Id ORDER BY pr.Fecha_Id DESC) as Dia_Reciente_Rank,
-        {% for field in metric_fields %}
+        {%- for field in metric_fields %}
         CASE 
             WHEN pp.Proyec_P25_{{ field }} > 0 
             THEN pr.Real_P25_{{ field }} / pp.Proyec_P25_{{ field }}
@@ -113,7 +113,7 @@ RatiosPercentiles AS (
             THEN pr.Real_P75_{{ field }} / pp.Proyec_P75_{{ field }}
             ELSE 1
         END AS Ratio_P75_{{ field }}{% if not loop.last %},{% endif %}
-        {% endfor %}
+        {%- endfor %}
     FROM PercentilesReales pr
     JOIN PercentilesProyectados pp 
         ON pr.Emp_Id = pp.Emp_Id 
@@ -141,12 +141,12 @@ RatiosPromediosPonderados AS (
     SELECT 
         Emp_Id,
         Suc_Id,
-        {% for field in metric_fields %}
+        {%- for field in metric_fields %}
         -- Promedio Ponderado = SUM(Valor * Peso) / SUM(Peso)
         SUM(Ratio_P25_{{ field }} * Peso_Dia) / NULLIF(SUM(Peso_Dia), 0) AS Avg_Ratio_P25_{{ field }},
         SUM(Ratio_P50_{{ field }} * Peso_Dia) / NULLIF(SUM(Peso_Dia), 0) AS Avg_Ratio_P50_{{ field }},
         SUM(Ratio_P75_{{ field }} * Peso_Dia) / NULLIF(SUM(Peso_Dia), 0) AS Avg_Ratio_P75_{{ field }}{% if not loop.last %},{% endif %}
-        {% endfor %}
+        {%- endfor %}
     FROM RatiosConPeso -- Usar la CTE con pesos
     GROUP BY 
         Emp_Id,
@@ -157,7 +157,7 @@ RatiosPercentilLimitados AS (
     SELECT
         Emp_Id,
         Suc_Id,
-        {% for field in metric_fields %}
+        {%- for field in metric_fields %}
         CASE 
             WHEN Avg_Ratio_P25_{{ field }} > 1.5 THEN 1.5
             WHEN Avg_Ratio_P25_{{ field }} < 0.5 THEN 0.5
@@ -173,7 +173,7 @@ RatiosPercentilLimitados AS (
             WHEN Avg_Ratio_P75_{{ field }} < 0.5 THEN 0.5
             ELSE Avg_Ratio_P75_{{ field }} 
         END AS Ratio_P75_Limitado_{{ field }}{% if not loop.last %},{% endif %}
-        {% endfor %}
+        {%- endfor %}
     FROM RatiosPromediosPonderados 
 ),
 -- Aplicar los factores de ajuste a las proyecciones según el rango
@@ -185,7 +185,7 @@ ProyeccionesAjustadas AS (
         c.Hora_Id,
         c.EmpSuc_Id,
         c.Dia_Semana_Iso_Id,
-        {% for field in metric_fields %}
+        {%- for field in metric_fields %}
         CAST(
             CASE 
                 -- Valores por debajo de P25 se ajustan directamente con el ratio del percentil 25
@@ -200,7 +200,7 @@ ProyeccionesAjustadas AS (
                 ELSE c.{{ field }} * rpl.Ratio_P50_Limitado_{{ field }}
             END AS DECIMAL(16,6)
         ) AS {{ field }}{% if not loop.last %},{% endif %}
-        {% endfor %}
+        {%- endfor %}
     FROM {{ref('BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora_Staging')}} c
     LEFT JOIN PercentilesProyectados pp 
         ON c.Emp_Id = pp.Emp_Id 

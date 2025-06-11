@@ -54,7 +54,8 @@ DROP TABLE IF EXISTS #Temp
     "Conteo_Trx_Acumula_Monedero",
     "Conteo_Trx_Contiene_Farma",
     "Cantidad_Unidades_Relativa",
-    "Segundos_Transaccion_Estimado"
+    "Segundos_Transaccion_Estimado",
+    "Segundos_Actividad_Estimado"
 ] %}
 
 WITH Calculo AS
@@ -65,12 +66,12 @@ WITH Calculo AS
         ISNULL(CAL.Fecha_Calendario,'1999-01-01') AS [Fecha_Id],
         ISNULL(PDSH.Hora_Id,0) AS Hora_Id,
         ISNULL(PDS.Dia_Semana_Iso_Id,0) AS Dia_Semana_Iso_Id,
-        {% for field in metric_fields %}
+        {%- for field in metric_fields %}
         CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_{{ field }} ELSE PR.Prom_{{ field }} END)
             *ISNULL(PDS.Peso_{{ field }},1)*ISNULL(PDSH.Part_{{ field }},1)
             *ISNULL(PM.Peso_{{ field }},1)*ISNULL(TVH.Crec_{{ field }},1) AS DECIMAL(16,6)) 
             AS {{ field }}{% if not loop.last %},{% endif %}
-        {% endfor %}
+        {%- endfor %}
     FROM {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaBaseMesesProyec') }} PR
         INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
             ON EMP.Empresa_Id = PR.Emp_Id
@@ -94,6 +95,11 @@ WITH Calculo AS
             ON TVH.Emp_Id = PR.Emp_Id AND TVH.Suc_Id = PR.Suc_Id
         LEFT JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaFeriados') }} PFER
             ON PFER.Emp_Id = PR.Emp_Id AND PFER.Suc_Id = PR.Suc_Id
+        LEFT JOIN {{ ref ('BI_Kielsa_Dim_Sucursal_Horario_DiaSemana') }} HSUC
+            ON HSUC.Emp_Id = PR.Emp_Id AND HSUC.Suc_Id = PR.Suc_Id
+            AND HSUC.Dia_Semana_Iso_Id = CAL.Dia_de_la_Semana
+    WHERE HSUC.Dia_Semana_Iso_Id IS NULL OR HSUC.Es_24_Horas = 1
+        OR PDSH.Hora_Id BETWEEN DATEPART(HOUR, HSUC.H_Apertura) AND HSUC.Horas_Cero_Hasta_Cierre
 )
 SELECT *,
     {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=19, table_alias='')}} [EmpSuc_Id]

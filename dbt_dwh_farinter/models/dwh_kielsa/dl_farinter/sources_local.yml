@@ -176,6 +176,8 @@ sources:
   - name: DL_Kielsa_Articulo_ArticuloRelacionado
   - name: DL_Kielsa_MetaHist
   - name: DL_Planning_ListaNegra
+  - name: DL_Kielsa_Regalia_Incentivo
+  - name: DL_Kielsa_Mov_Inventario_Encabezado
 
 
   config:
@@ -228,6 +230,8 @@ sources:
   tables:
   - name: kielsa_sucursal_horario_dia
   - name: kielsa_sucursal
+  - name: kielsa_tiempo_transaccion_coeficiente
+
 
   config:
     freshness:   # default freshness

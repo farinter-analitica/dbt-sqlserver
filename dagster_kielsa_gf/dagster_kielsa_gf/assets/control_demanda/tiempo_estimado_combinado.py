@@ -19,8 +19,6 @@ import numpy as np
 from xgboost import XGBRegressor
 from sklearn.model_selection import cross_val_score
 import statsmodels.api as sm
-from sklearn.dummy import DummyRegressor
-from sklearn.linear_model import RANSACRegressor
 from dataclasses import dataclass
 
 
@@ -91,57 +89,7 @@ class ConfigGetData(dg.Config):
     )
 
 
-def filtro_ransac_median(
-    df: pl.DataFrame,
-    col_gap: str = "tiempo_actividad_segs",
-    time_col: str = "Timestamp_Aplicado",
-    residual_factor: float = 3.0,
-    min_samples: int | None = None,
-) -> pl.DataFrame:
-    """
-    1) Ordena por time_col.
-    2) RANSAC con DummyRegressor(median) para identificar el ‘nivel’ típico.
-    3) Quita todos los gaps que RANSAC marca como outliers.
-    """
-
-    # 1) Orden y posición
-    df_original = df.sort(time_col).with_row_count("pos_org")
-    df_ord = df_original.sort(time_col).with_row_count("pos")
-
-    # 2) Preparar X,y
-    X = df_ord["pos"].to_numpy().reshape(-1, 1)
-    y = df_ord[col_gap].to_numpy()
-
-    # 3) Umbral por MAD global
-    med = np.median(y)
-    mad = np.median(np.abs(y - med))
-    thresh = residual_factor * mad
-
-    # 4) RANSAC sobre modelo constante (mediana)
-    base = DummyRegressor(strategy="median")
-    if min_samples is None:
-        min_samples = max(1, len(y) // 100)  # al menos 1% de los datos
-    ransac = RANSACRegressor(
-        estimator=base,
-        residual_threshold=thresh,
-        min_samples=min_samples,
-        random_state=42,
-    )
-    ransac.fit(X, y)
-
-    # 5) Máscara de inliers
-    inlier_mask = ransac.inlier_mask_
-
-    # 6) Filtrar en Polars
-    return (
-        df_ord.with_columns(pl.Series("mask", inlier_mask.tolist()))
-        .filter(pl.col("mask"))
-        .sort("pos_org")
-        .drop(["pos", "pos_org", "mask"])
-    )
-
-
-def filter_inactivity_samples(df: pl.DataFrame) -> pl.DataFrame:
+def filter_inactivity_samples(df: pl.LazyFrame) -> pl.LazyFrame:
     """
     Elimina muestras que representan períodos de inactividad.
 
@@ -158,9 +106,9 @@ def filter_inactivity_samples(df: pl.DataFrame) -> pl.DataFrame:
         - "tiempo_actividad_segs" (Numérico)
 
     Retorna:
-      DataFrame filtrado sin las filas de inactividad.
+      LazyFrame filtrado sin las filas de inactividad.
     """
-    if df.is_empty():
+    if df.select(pl.len()).collect(engine="streaming").item() == 0:
         return df
 
     # Parámetros
@@ -170,12 +118,14 @@ def filter_inactivity_samples(df: pl.DataFrame) -> pl.DataFrame:
     long_gap = (
         df.select(
             pl.col("tiempo_actividad_segs").quantile(0.75, interpolation="linear")
-        ).item()
+        )
+        .collect(engine="streaming")
+        .item()
         or 600
     )
 
     return (
-        df.lazy()
+        df
         # — Ventanas y gaps —
         .with_columns(
             [
@@ -264,19 +214,18 @@ def filter_inactivity_samples(df: pl.DataFrame) -> pl.DataFrame:
                 "is_inactive",
             ]
         )
-        .collect()
     )
 
 
 def marcar_segmentos_baja_actividad(
-    df: pl.DataFrame,
+    df: pl.LazyFrame,
     col_gap: str = "tiempo_actividad_segs",
     usuario_col: str = "EmpSucUsr_Id",
     timestamp_col: str = "Timestamp_Aplicado",  # Necesario para ordenar correctamente
     window_size_rolling: int = 5,  # La 'window' original, será 2*window+1 para rolling_median
     threshold_factor: float = 2.0,
     min_segment_len: int = 3,
-) -> pl.DataFrame:
+) -> pl.LazyFrame:
     """
     Marca registros que pertenecen a segmentos de baja actividad usando solo Polars.
     Agrega columna booleana 'eliminar_por_segmento'.
@@ -343,70 +292,6 @@ def marcar_segmentos_baja_actividad(
         "segment_run_id",
         "current_segment_length",
     )
-
-
-def symmetrize_distribution(
-    df: pl.DataFrame, col: str = "tiempo_actividad_segs"
-) -> pl.DataFrame:
-    # 1) Extraemos array y calculamos percentiles
-    x = df[col].to_numpy().astype(float)
-    # q25 = np.percentile(x, 25)
-    q50 = np.percentile(x, 50)
-    percentiles = np.percentile(x, np.arange(51, 91))  # 51 al 90
-
-    # 2) Si el tramo de arriba no existe o Q90=Q50, devolvemos sin cambios
-    q90 = percentiles[-1]
-    if q90 <= q50:
-        return df
-
-    # 3) Reescalado elástico por tramos entre percentiles usando escala de percentil espejo
-    mapped = x.copy()
-    percentiles_above = percentiles
-    percentiles_below = np.percentile(x, 100 - np.arange(51, 91))  # 49 al 10
-    prev_p = q50
-    rng = np.random.default_rng()
-    for i, (p_above, p_below) in enumerate(zip(percentiles_above, percentiles_below)):
-        next_p = p_above
-        mirror_p = p_below
-        # Para cada tramo entre percentiles
-        mask = (x > prev_p) & (x <= next_p)
-        # Selecciona aleatoriamente el 50% de los valores en el tramo para escalar
-        idx = np.where(mask)[0]
-        n_select = int(np.ceil(len(idx) * 0.5))
-        if n_select > 0:
-            selected_idx = rng.choice(idx, size=n_select, replace=False)
-        else:
-            selected_idx = np.array([], dtype=int)
-        # Elasticidad: escala depende de la distancia relativa a q50 dentro del tramo
-        if next_p - q50 == 0:
-            scale = 1.0
-        else:
-            rel = (x[selected_idx] - q50) / (next_p - q50)
-            scale = (q50 - mirror_p) / (next_p - q50)
-            elastic_scale = 1 - rel + rel * scale
-            mapped[selected_idx] = q50 + (x[selected_idx] - q50) * elastic_scale
-        prev_p = next_p
-
-    # Para valores mayores al percentil 90, usar el último factor de escala con espejo en p10
-    mask = x > q90
-    idx = np.where(mask)[0]
-    n_select = int(np.ceil(len(idx) * 0.5))
-    rng = np.random.default_rng()
-    if n_select > 0:
-        selected_idx = rng.choice(idx, size=n_select, replace=False)
-    else:
-        selected_idx = np.array([], dtype=int)
-    p10 = np.percentile(x, 10)
-    if q90 - q50 == 0:
-        scale = 1.0
-    else:
-        rel = (x[selected_idx] - q50) / (q90 - q50)
-        scale = (q50 - p10) / (q90 - q50)
-        elastic_scale = 1 - rel + rel * scale
-        mapped[selected_idx] = q50 + (x[selected_idx] - q50) * elastic_scale
-
-    # 5) Reconstruimos el DataFrame con la columna transformada
-    return df.with_columns(pl.Series(col, mapped))
 
 
 def calculate_min_sample_size(
@@ -496,7 +381,7 @@ def get_movements_data(
     INNER JOIN DL_FARINTER.dbo.DL_Kielsa_Tipo_Mov_Inventario TM
     ON ME.Emp_Id = TM.Emp_Id
     AND ME.Tipo_Id = TM.Tipo_Id
-    LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Usuario U
+    INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Usuario U
     ON ME.Emp_Id = U.Emp_Id
     AND ME.Usuario_Id = U.Usuario_Id
     INNER JOIN 
@@ -531,7 +416,10 @@ def get_movements_data(
 
     WHERE ME.Mov_Fecha >= '{fecha_desde_str}' AND ME.Mov_Fecha <= '{fecha_hasta_str}'
     AND ME.Emp_Id = 1
+    AND ME.Mov_Estado IN ('RE', 'AP')
+    AND NOT U.Usuario_Nombre = 'ENCARGADO WEB'
     {"AND ME.Suc_Id IN (" + ",".join(str(s) for s in config.sucursales) + ")" if config.sucursales is not None else ""}
+
     UNION ALL
     SELECT
         ME.Emp_Id,
@@ -575,7 +463,7 @@ def get_movements_data(
     INNER JOIN DL_FARINTER.dbo.DL_Kielsa_Tipo_Mov_Inventario TM
     ON ME.Emp_Id = TM.Emp_Id
     AND ME.Tipo_Id = TM.Tipo_Id
-    LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Usuario U
+    INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Usuario U
     ON ME.Emp_Id = U.Emp_Id
     AND ME.Usuario_Id = U.Usuario_Id
     INNER JOIN 
@@ -609,6 +497,8 @@ def get_movements_data(
         AND ME.Mov_Id = MP.Mov_Id
     WHERE ME.Mov_Fecha >= '{fecha_desde_str}' AND ME.Mov_Fecha <= '{fecha_hasta_str}'
     AND ME.Emp_Id = 1    
+    AND ME.Mov_Estado IN ('RE', 'AP')
+    AND NOT U.Usuario_Nombre = 'ENCARGADO WEB'
     {"AND ME.Suc_Id IN (" + ",".join(str(s) for s in config.sucursales) + ")" if config.sucursales is not None else ""}
     """)
 
@@ -823,7 +713,7 @@ def tranform_movements_data(df: pl.DataFrame | pl.LazyFrame) -> DataFrameWithMet
     and calculating estimated movement times.
     """
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     llaves_primarias_id = (
         "Emp_Id",
@@ -947,7 +837,7 @@ def tranform_transactions_data(df: pl.DataFrame | pl.LazyFrame) -> DataFrameWith
     and calculating estimated transaction times.
     """
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     llaves_primarias_id = (
         "Emp_Id",
@@ -1071,10 +961,12 @@ def merge_transactions_and_movements(
     Aligns schemas, filters transactions based on movement activity, and concatenates.
     """
     print("Merging transformed transactions with movements...")
+    print(f"Movements: {dfm_movements.dataframe.height}")
+    print(f"Transactions: {dfm_transactions.dataframe.height}")
 
     # df
-    df_movements = dfm_movements.dataframe
-    df_transactions = dfm_transactions.dataframe
+    df_movements = dfm_movements.dataframe.lazy()
+    df_transactions = dfm_transactions.dataframe.lazy()
 
     # Prepare transactions for merge
     df_transactions_prepared = df_transactions.with_columns(
@@ -1084,17 +976,6 @@ def merge_transactions_and_movements(
             pl.lit("TRANSACCION").alias("Tipo_Actividad"),
             pl.col("Factura_Origen").alias("Origen_Actividad"),
             pl.lit("TRANSACCION_VENTA").alias("Tipo_Nombre"),
-            pl.lit(0)
-            .cast(pl.Float64)
-            .alias(
-                "es_merma"
-            ),  # Ensure consistent type, Float64 can hold 0/1 and nulls
-            pl.lit(0).cast(pl.Float64).alias("contiene_merma"),
-            pl.lit(0).cast(pl.Float64).alias("es_interbodega"),
-            pl.lit(0).cast(pl.Float64).alias("es_ajuste"),
-            pl.lit(1).cast(pl.Float64).alias("suma_inventario"),
-            pl.lit(0).cast(pl.Float64).alias("es_tipo_interbodega"),
-            pl.lit(0).cast(pl.Float64).alias("es_mov_interbodega"),
             pl.col("cantidad_productos").alias("cantidad_items"),
             pl.col("cantidad_unidades").alias("cantidad_total"),
             pl.col("valor_neto").alias("valor_total"),
@@ -1134,16 +1015,18 @@ def merge_transactions_and_movements(
     #     if df_movements_aligned[col_name].dtype != df_transactions_aligned[col_name].dtype:
     #         print(f"Type mismatch remains for {col_name}: {df_movements_aligned[col_name].dtype} vs {df_transactions_aligned[col_name].dtype}")
 
-    df_combined = pl.concat(
-        [
-            df_movements_prepared,
-            df_transactions_prepared,
-        ],
-        how="diagonal_relaxed",
-    ).sort(["Emp_Id", "Suc_Id", "Usuario_Id", "Timestamp_Aplicado"])
+    df_combined = (
+        pl.concat(
+            [
+                df_movements_prepared,
+                df_transactions_prepared,
+            ],
+            how="diagonal_relaxed",
+        )
+        .sort(["Emp_Id", "Suc_Id", "Usuario_Id", "Timestamp_Aplicado"])
+        .collect(engine="streaming")
+    )
 
-    print(f"Movements prepared: {df_movements_prepared.height}")
-    print(f"Transactions prepared: {df_transactions_prepared.height}")
     print(f"Total combined records: {df_combined.height}")
 
     all_categorical_columns = dict.fromkeys(dfm_transactions.categorical_columns)
@@ -1158,48 +1041,167 @@ def merge_transactions_and_movements(
 
 def process_categorical_columns(
     df: pl.DataFrame | pl.LazyFrame, columnas_categoricas: tuple[str, ...]
-) -> pl.DataFrame:
+) -> pl.LazyFrame:
     """
     Process categorical columns by grouping rare categories.
     """
-    # --- Agrupar categorías con muestras insuficientes en "otros" ---
+    df_lazy = df.lazy() if isinstance(df, pl.DataFrame) else df
+
+    if not columnas_categoricas:
+        return df.lazy()
+
+    # Calculate minimum sample size once
     n_min = calculate_min_sample_size(
         confidence_level=0.95, margin_of_error=0.1, proportion=0.5
     )
-    # Nota: para estos parámetros, n_min ≈ 97
 
-    # Procesar
+    # Batch approach: Calculate all counts first, then all replacements
+    debug_print(
+        f"Processing {len(columnas_categoricas)} categorical columns with n_min={n_min}"
+    )
 
-    # print(df.sort( by=( "Factura_Fecha", "total_transacciones_hora"), descending = True).head(20))
-    df_lazy = df.lazy()
+    # Step 1: Add count columns for all categorical variables at once
+    count_expressions = [
+        pl.col(col).count().over(pl.col(col)).alias(f"_count_{col}")
+        for col in columnas_categoricas
+    ]
 
-    # Process each column one by one, but maintain lazy state throughout
-    for column_name in columnas_categoricas:
-        # debug_print(f"Procesando columna: {column_name}")
-        # Calculate value counts in eager mode (small operation)
-        counts_df = (
-            df_lazy.select(pl.col(column_name)).collect().to_series().value_counts()
+    df_with_counts = df_lazy.with_columns(count_expressions)
+
+    # Step 2: Apply all replacements based on counts
+    replacement_expressions = [
+        pl.when(pl.col(f"_count_{col}") < n_min)
+        .then(pl.lit("otros"))
+        .otherwise(pl.col(col))
+        .alias(col)
+        for col in columnas_categoricas
+    ]
+
+    # Step 3: Apply replacements and clean up temporary count columns
+    temp_count_columns = [f"_count_{col}" for col in columnas_categoricas]
+
+    result_df = df_with_counts.with_columns(replacement_expressions).drop(
+        temp_count_columns
+    )
+
+    debug_print("Finished processing categorical columns")
+    return result_df
+
+
+def filter_outliers_ransac_by_categories(
+    df: pl.LazyFrame | pl.DataFrame,
+    categorical_columns: tuple[str, ...],
+    target_column: str = "tiempo_actividad_segs",
+    contamination_rate: float = 0.1,
+    n_iterations: int = 100,
+    min_samples_per_group: int = 10,
+    threshold_multipliers: tuple[float, float] = (2.0, 1.5),
+) -> pl.LazyFrame:
+    """
+    Apply RANSAC-style outlier filtering by categorical combinations using Polars.
+
+    Args:
+        df: Input DataFrame (lazy or eager)
+        categorical_columns: Tuple of categorical column names to group by
+        target_column: Column to detect outliers in
+        contamination_rate: Expected proportion of outliers (0.0 to 1.0)
+        n_iterations: Number of RANSAC iterations per group
+        min_samples_per_group: Minimum samples required per categorical combination
+        threshold_multipliers: Multiplier for standard deviation threshold upper, lower.
+
+    Returns:
+        LazyFrame with outliers filtered out
+    """
+    if isinstance(df, pl.DataFrame):
+        df = df.lazy()
+
+    debug_print(f"Filtering outliers by categories: {categorical_columns}")
+
+    original_count = df.select(pl.len()).collect(engine="streaming").item()
+    # Calculate group statistics for RANSAC-style filtering
+    df_with_stats = (
+        df.with_columns(
+            # Group-wise statistics
+            pl.col(target_column)
+            .count()
+            .over(categorical_columns)
+            .alias("group_count"),
+            pl.col(target_column)
+            .median()
+            .over(categorical_columns)
+            .alias("group_median"),
+            pl.col(target_column).std().over(categorical_columns).alias("group_std"),
+            pl.col(target_column)
+            .quantile(0.25)
+            .over(categorical_columns)
+            .alias("group_q25"),
+            pl.col(target_column)
+            .quantile(0.75)
+            .over(categorical_columns)
+            .alias("group_q75"),
         )
+        .with_columns(
+            # RANSAC-style robust statistics
+            (pl.col("group_q75") - pl.col("group_q25")).alias("group_iqr"),
+            # Robust threshold based on median and IQR (more resistant to outliers than mean+std)
+            (
+                pl.col("group_median")
+                - threshold_multipliers[0] * (pl.col("group_q75") - pl.col("group_q25"))
+            ).alias("lower_threshold"),
+            (
+                pl.col("group_median")
+                + threshold_multipliers[1] * (pl.col("group_q75") - pl.col("group_q25"))
+            ).alias("upper_threshold"),
+        )
+        .with_columns(
+            # Mark outliers using robust thresholds
+            (
+                (pl.col(target_column) < pl.col("lower_threshold"))
+                | (pl.col(target_column) > pl.col("upper_threshold"))
+            ).alias("is_outlier_ransac"),
+            # Additional filter: only apply to groups with sufficient samples
+            (pl.col("group_count") >= min_samples_per_group).alias(
+                "sufficient_samples"
+            ),
+        )
+    )
 
-        # Find categories with insufficient samples
-        categorias_insuficientes = counts_df.filter(pl.col("count") < n_min)
+    # Apply RANSAC-style consensus filtering
+    df_filtered = df_with_stats.filter(
+        # Keep non-outliers OR groups with insufficient samples (to avoid over-filtering small groups)
+        (~pl.col("is_outlier_ransac")) | (~pl.col("sufficient_samples"))
+    )
 
-        if categorias_insuficientes.height > 1:
-            # Create a list of values to replace (more efficient than using is_in with a dataframe)
-            valores_a_reemplazar = categorias_insuficientes[column_name]
+    # Clean up temporary columns
+    columns_to_drop = [
+        "group_count",
+        "group_median",
+        "group_std",
+        "group_q25",
+        "group_q75",
+        "group_iqr",
+        "lower_threshold",
+        "upper_threshold",
+        "is_outlier_ransac",
+        "sufficient_samples",
+    ]
 
-            # Update the lazy dataframe with the replacement
-            df_lazy = df_lazy.with_columns(
-                pl.when(pl.col(column_name).is_in(valores_a_reemplazar))
-                .then(pl.lit("otros"))
-                .otherwise(pl.col(column_name))
-                .alias(column_name)
-            )
+    # Only drop columns that exist
+    existing_temp_cols = [col for col in columns_to_drop if col in df_filtered.columns]
+    if existing_temp_cols:
+        df_filtered = df_filtered.drop(existing_temp_cols)
 
-    # Collect only once at the end with streaming engine
-    df = df_lazy.collect(engine="streaming")
+    # Log filtering results
+    filtered_count = df_filtered.select(pl.len()).collect(engine="streaming").item()
+    removed_count = original_count - filtered_count
+    removal_rate = (removed_count / original_count * 100) if original_count > 0 else 0
 
-    return df
+    debug_print(
+        f"RANSAC-style outlier filtering: removed {removed_count} records ({removal_rate:.2f}%)"
+    )
+    debug_print(f"Records: {original_count} → {filtered_count}")
+
+    return df_filtered
 
 
 def transform_data(
@@ -1218,7 +1220,7 @@ def transform_data(
         [
             pl.col("Timestamp_Aplicado").dt.date().alias("Fecha_Actividad"),
         ]
-    )
+    ).lazy()
 
     # Calculate time between activities for each user within each hour
     debug_print("Calculating time between activities (tiempo_actividad_segs)...")
@@ -1247,97 +1249,125 @@ def transform_data(
     df = marcar_segmentos_baja_actividad(df, col_gap="tiempo_actividad_segs")
     # --- START: Inserted "Top User-Activity Hours" filtering logic ---
     debug_print("Calculating hourly activity metrics for top hours filtering...")
+
     # Agrupar por EmpSucUsr_Id, Fecha_Actividad, hora_id para contar actividades
     df_horas_empsucusr = df.group_by(
         "EmpSucUsr_Id", "Emp_Id", "Suc_Id", "Fecha_Actividad", "hora_id"
     ).agg(pl.count().alias("total_actividades_hora_empsucusr"))
-    df_horas_empsuc = df.group_by("Emp_Id", "Suc_Id", "Fecha_Actividad", "hora_id").agg(
-        pl.count().alias("total_actividades_hora_empsuc")
+
+    df_horas_empsuc = (
+        df.group_by("Emp_Id", "Suc_Id", "Fecha_Actividad", "hora_id")
+        .agg(pl.count().alias("total_actividades_hora_empsuc"))
+        .collect(engine="streaming")
     )
 
     # Calcular el top_k por las horas de la empsucusr
     TOP_K_PERCENTAGE_EMPSUCUSR_HOURS = (
-        0.20  # e.g., top 20% de las horas con más actividad por empsucusr y empsuc
+        0.10  # e.g., top 20% de las horas con más actividad
     )
 
-    df_suc_filtered_list = []
-    for df_key_empsuc in df_horas_empsuc.partition_by("Emp_Id", "Suc_Id"):
-        num_top_k_hours_suc = int(
-            TOP_K_PERCENTAGE_EMPSUCUSR_HOURS * df_key_empsuc.height
+    # Vectorized approach: Calculate top-k hours per Emp_Id, Suc_Id group
+    debug_print("Calculating top-k hours per company-branch...")
+    df_top_horas_empsuc = (
+        df_horas_empsuc.lazy()
+        .with_columns(
+            # Calculate the number of top-k hours for each group
+            (pl.len() * TOP_K_PERCENTAGE_EMPSUCUSR_HOURS)
+            .cast(pl.Int64)
+            .over(["Emp_Id", "Suc_Id"])
+            .alias("num_top_k_hours")
         )
-        df_key_empsuc = df_key_empsuc.top_k(
-            num_top_k_hours_suc, by="total_actividades_hora_empsuc"
+        .with_columns(
+            # Rank activities within each group (descending order)
+            pl.col("total_actividades_hora_empsuc")
+            .rank(method="ordinal", descending=True)
+            .over(["Emp_Id", "Suc_Id"])
+            .alias("rank_actividades")
         )
-        # Join the filtered top hours back to the main DataFrame
-        df_suc_filtered = (
-            df.lazy()
-            .join(
-                df_key_empsuc.lazy().select(
-                    ["Emp_Id", "Suc_Id", "Fecha_Actividad", "hora_id"]
-                ),
-                on=["Emp_Id", "Suc_Id", "Fecha_Actividad", "hora_id"],
-                how="inner",
-            )
-            .collect(engine="streaming")
+        .filter(
+            # Keep only top-k ranked hours per group
+            pl.col("rank_actividades") <= pl.col("num_top_k_hours")
         )
+        .drop(["num_top_k_hours", "rank_actividades"])
+        .collect(engine="streaming")
+    )
 
-        df_suc_filtered = filter_inactivity_samples(df_suc_filtered).filter(
-            ~pl.col("eliminar_por_segmento")
-        )
+    # Single join to filter main dataframe to top hours
+    debug_print("Filtering main dataframe to top activity hours...")
+    df = df.join(
+        df_top_horas_empsuc.lazy().select(
+            ["Emp_Id", "Suc_Id", "Fecha_Actividad", "hora_id"]
+        ),
+        on=["Emp_Id", "Suc_Id", "Fecha_Actividad", "hora_id"],
+        how="inner",
+    )
 
-        df_top_horas_empsucusr = df_horas_empsucusr.join(
-            df_key_empsuc.select(["Emp_Id", "Suc_Id"]).unique(),
+    # Apply inactivity filters once
+    df = filter_inactivity_samples(df).filter(~pl.col("eliminar_por_segmento"))
+
+    # Calculate top-k hours per EmpSucUsr_Id
+    debug_print("Calculating top-k hours per user...")
+    df_top_horas_empsucusr = (
+        df_horas_empsucusr.join(
+            df_top_horas_empsuc.lazy().select(["Emp_Id", "Suc_Id"]).unique(),
             on=["Emp_Id", "Suc_Id"],
             how="inner",
         )
-        num_top_k_hours = int(
-            TOP_K_PERCENTAGE_EMPSUCUSR_HOURS * df_top_horas_empsucusr.height
+        .with_columns(
+            # Calculate the number of top-k hours for each user
+            (pl.len() * TOP_K_PERCENTAGE_EMPSUCUSR_HOURS)
+            .cast(pl.Int64)
+            .over(["EmpSucUsr_Id"])
+            .alias("num_top_k_hours_user")
         )
-        df_top_horas_empsucusr = df_top_horas_empsucusr.top_k(
-            num_top_k_hours, by="total_actividades_hora_empsucusr"
+        .with_columns(
+            # Rank activities within each user (descending order)
+            pl.col("total_actividades_hora_empsucusr")
+            .rank(method="ordinal", descending=True)
+            .over(["EmpSucUsr_Id"])
+            .alias("rank_actividades_user")
         )
-
-        df_suc_filtered = (
-            df_suc_filtered.lazy()
-            .join(
-                df_top_horas_empsucusr.lazy().select(
-                    ["EmpSucUsr_Id", "Fecha_Actividad", "hora_id"]
-                ),
-                on=["EmpSucUsr_Id", "Fecha_Actividad", "hora_id"],
-                how="inner",
-            )
-            .collect(engine="streaming")
+        .filter(
+            # Keep only top-k ranked hours per user
+            pl.col("rank_actividades_user") <= pl.col("num_top_k_hours_user")
         )
+        .drop(["num_top_k_hours_user", "rank_actividades_user"])
+    )
 
-        df_suc_filtered_list.append(df_suc_filtered)
+    # Final join to filter to top user-hours
+    df = df.join(
+        df_top_horas_empsucusr.select(["EmpSucUsr_Id", "Fecha_Actividad", "hora_id"]),
+        on=["EmpSucUsr_Id", "Fecha_Actividad", "hora_id"],
+        how="inner",
+    )
 
-    df = pl.concat(df_suc_filtered_list, how="diagonal_relaxed")
+    debug_print("Finalizado filtro tops y actividad")
 
     # Clean up intermediate DataFrames
     del (
         df_horas_empsucusr,
         df_horas_empsuc,
+        df_top_horas_empsuc,
+        df_top_horas_empsucusr,
     )
 
-    if df.height == 0:
+    if df.select(pl.len()).collect(engine="streaming").item() == 0:
         debug_print(
             "DataFrame is empty after 'Top Empsucusr-Activity Hours' filtering. Subsequent steps might not run or yield empty results."
         )
         # return df # Optionally return early if the DataFrame is empty
     # --- END: Inserted "Top Empsucusr-Activity Hours" filtering logic ---
-
-    if df.height == 0:
-        raise ValueError("DataFrame is empty after initial time filters.")
-
     # Quantile-based filtering for outliers
     q1 = (
         df.select(pl.col("tiempo_actividad_segs"))
         .quantile(0.02, interpolation="linear")
+        .collect(engine="streaming")
         .item()
     )
     q3 = (
         df.select(pl.col("tiempo_actividad_segs"))
         .quantile(0.98, interpolation="linear")
+        .collect(engine="streaming")
         .item()
     )
     debug_print(f"Tiempo actividad segs - q1 (0.02): {q1}, q3 (0.98): {q3}")
@@ -1347,7 +1377,7 @@ def transform_data(
         & (pl.col("tiempo_actividad_segs") <= q3)
     ).filter(pl.col("tiempo_actividad_segs").is_not_null())
 
-    if df.height == 0:
+    if df.select(pl.len()).collect(engine="streaming").item() == 0:
         raise ValueError("DataFrame is empty after quantile filters.")
 
     # Calculate active users per hour for filtering against employee count
@@ -1362,18 +1392,22 @@ def transform_data(
     # Join with marcador data
     debug_print("Joining with marcador data...")
     # df_marcador expects Fecha_Calendario, ensure our Fecha_Actividad matches its role    # Prepare df_marcador: Cast Cantidad_Empleados to Float64, but keep IDs as Int64
-    df_marcador_prepared = df_marcador.with_columns(
-        pl.col("Cantidad_Empleados").cast(
-            pl.Float64
-        ),  # Only cast the specific numeric column needed as float
-        pl.col("Fecha_Calendario").cast(pl.Date),
-        # Ensure join keys are Int64 to match the left side (df)
-        pl.col("Emp_Id").cast(pl.Int64),
-        pl.col("Suc_Id").cast(pl.Int64),
-        pl.col("hora_id").cast(
-            pl.Int64
-        ),  # Assuming hora_id in df_marcador is also numeric and needs to be Int64
-    ).rename({"Fecha_Calendario": "Fecha_Actividad_Marcador"})
+    df_marcador_prepared = (
+        df_marcador.with_columns(
+            pl.col("Cantidad_Empleados").cast(
+                pl.Float64
+            ),  # Only cast the specific numeric column needed as float
+            pl.col("Fecha_Calendario").cast(pl.Date),
+            # Ensure join keys are Int64 to match the left side (df)
+            pl.col("Emp_Id").cast(pl.Int64),
+            pl.col("Suc_Id").cast(pl.Int64),
+            pl.col("hora_id").cast(
+                pl.Int64
+            ),  # Assuming hora_id in df_marcador is also numeric and needs to be Int64
+        )
+        .rename({"Fecha_Calendario": "Fecha_Actividad_Marcador"})
+        .lazy()
+    )
 
     df = df.join(
         df_marcador_prepared,
@@ -1391,42 +1425,7 @@ def transform_data(
         | pl.col("Cantidad_Empleados").is_not_null()
     ).drop(cs.ends_with("_right") | cs.by_name("Cantidad_Empleados"))
 
-    df = filtro_ransac_median(df)
-
-    # Quantile-based filtering for outliers
-    q1 = (
-        df.select(pl.col("tiempo_actividad_segs"))
-        .quantile(0.25, interpolation="linear")
-        .item()
-    )
-    q3 = (
-        df.select(pl.col("tiempo_actividad_segs"))
-        .quantile(0.75, interpolation="linear")
-        .item()
-    )
-
-    iqr = q3 - q1
-
-    def clip(value, lower=None, upper=None):
-        if lower is not None and value < lower:
-            return lower
-        if upper is not None and value > upper:
-            return upper
-        return value
-
-    lower_bound = clip(q1 - 1.5 * iqr, 0)
-    upper_bound = clip(q3 + 1.5 * iqr)
-    debug_print(
-        f"Tiempo actividad segs - q1: {q1}, q3: {q3}, IQR: {iqr}, lower_bound: {lower_bound}, upper_bound: {upper_bound}"
-    )
-
-    df = df.filter(
-        (pl.col("tiempo_actividad_segs") >= lower_bound)
-        & (pl.col("tiempo_actividad_segs") <= upper_bound)
-        & (pl.col("tiempo_actividad_segs").is_not_null())
-    )
-
-    if df.height == 0:
+    if df.select(pl.len()).collect(engine="streaming").item() == 0:
         debug_print("DataFrame is empty after employee count filter. Returning empty.")
         return DataFrameWithMeta(
             df, primary_keys=tuple(""), categorical_columns=tuple("")
@@ -1439,6 +1438,25 @@ def transform_data(
     # Exclude IDs and high cardinality text fields not meant for this grouping
     # Filter to only existing columns that are strings/categorical
     df = process_categorical_columns(df, df_combined.categorical_columns)
+
+    # Apply RANSAC-style outlier filtering by categories instead of global quantile filtering
+    debug_print("Applying RANSAC-style outlier filtering by categories...")
+
+    df = filter_outliers_ransac_by_categories(
+        df,
+        categorical_columns=df_combined.categorical_columns,
+        target_column="tiempo_actividad_segs",
+        contamination_rate=0.1,  # Expect 10% outliers
+        n_iterations=100,
+        min_samples_per_group=10,
+        threshold_multipliers=(2.0, 1.0),
+    )
+
+    if df.select(pl.len()).collect(engine="streaming").item() == 0:
+        debug_print("DataFrame is empty after RANSAC outlier filter. Returning empty.")
+        return DataFrameWithMeta(
+            df, primary_keys=tuple(""), categorical_columns=tuple("")
+        )
 
     debug_print("Finished final data transformation.")
 
@@ -3401,8 +3419,9 @@ if __name__ == "__main__":
     with pl.Config(
         set_tbl_cols=40, set_tbl_rows=20, set_fmt_str_lengths=100
     ) as cfg:  # Increased displayed cols
-        days_run = 93
-        use_cache = True
+        days_run = 120
+        use_cache = True  # En falso no guarda ni lee
+        cache_max_age_seconds = 3600 * 3600  # Tiempo a considerar valido el cache
         fecha_desde = pdt.today().subtract(days=days_run)
         fecha_hasta = pdt.today().subtract(days=1)
         # fecha_desde = pdt.date(year=2025, month=5, day=12)
@@ -3416,7 +3435,7 @@ if __name__ == "__main__":
             config=ConfigGetData(
                 fecha_desde=fecha_desde,  # Using 31 days for more data
                 use_cache=use_cache,  # Set to False to refresh cache if needed
-                cache_max_age_seconds=3600 * 3600,
+                cache_max_age_seconds=cache_max_age_seconds,
                 cache_name=f"ut_mov_data_{days_run}",
                 sucursales=sucursales,
             ),
@@ -3426,8 +3445,8 @@ if __name__ == "__main__":
             dwh_farinter_bi,
             config=ConfigGetData(
                 fecha_desde=fecha_desde,
-                use_cache=False,
-                cache_max_age_seconds=3600 * 3600,
+                use_cache=use_cache,
+                cache_max_age_seconds=cache_max_age_seconds,
                 cache_name=f"ut_trx_data_{days_run}",
                 sucursales=sucursales,
             ),
@@ -3438,7 +3457,7 @@ if __name__ == "__main__":
             config=ConfigGetData(
                 fecha_desde=fecha_desde,
                 use_cache=use_cache,
-                cache_max_age_seconds=3600 * 3600,
+                cache_max_age_seconds=cache_max_age_seconds,
                 cache_name=f"ut_marcador_mov_data_{days_run}",
                 sucursales=sucursales,
             ),
@@ -3483,7 +3502,11 @@ if __name__ == "__main__":
 
         # 4. Perform final transformations on the combined data
         dfm_final = transform_data(df_combined, df_marcador)
-        df_final = dfm_final.dataframe.filter(pl.col("Tipo_Actividad") == "TRANSACCION")
+        #### Filtrar tipo de actividad a medir
+        # MOVIMIENTO or TRANSACCION
+        df_final = dfm_final.lazyframe.filter(
+            pl.col("Tipo_Actividad") == "TRANSACCION"
+        ).collect(engine="streaming")
 
         print(f"Final processed data: {df_final.height}")
 
@@ -3571,9 +3594,6 @@ if __name__ == "__main__":
                 "suma_inventario",
                 "es_ajuste",
                 "Tipo_Nombre"
-                # "contiene_farma", # From transactions
-                # "es_tercera_edad", # From transactions
-                # "acumula_monedero", # From transactions
                 "log_cantidad_items",  # Primarily from movements, might be null for transactions if not mapped
                 "log_costo_unitario_prom",  # Primarily from movements
                 "log_cantidad_total_relativa",  # Primarily from movements
