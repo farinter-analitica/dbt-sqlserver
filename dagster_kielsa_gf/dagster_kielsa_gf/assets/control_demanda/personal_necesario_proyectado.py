@@ -34,7 +34,8 @@ def get_demanda_forecast_data(dwh_farinter_bi: SQLServerResource) -> pl.DataFram
             P.Conteo_Transacciones,
             P.Cantidad_Articulos,
             P.Cantidad_Padre,
-            P.Segundos_Transaccion_Estimado
+            P.Segundos_Transaccion_Estimado,
+            P.Segundos_Actividad_Estimado
         FROM "BI_FARINTER"."dbo".BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora P
         INNER JOIN "BI_FARINTER"."dbo"."BI_Dim_Calendario_Dinamico" C
             ON P.Fecha_Id = C.Fecha_Calendario
@@ -55,22 +56,22 @@ def get_demanda_forecast_params_data(
     dwh_farinter_bi: SQLServerResource,
 ) -> pl.DataFrame:
     query_trx = dedent(
-        """
+        f"""
         SELECT MAX(
             CASE
-                WHEN variable = 'desviacion_estandar' THEN coeficiente_ajustado
+                WHEN variable = 'desviacion_estandar' THEN {"coeficiente_ajustado" if env_str == "prd" else "coeficiente"}
                 ELSE NULL
             END
             ) AS Desviacion_Estandar,
         MAX(
             CASE
-                WHEN variable = 'cola_promedio_maxima' THEN coeficiente_ajustado
+                WHEN variable = 'cola_promedio_maxima' THEN {"coeficiente_ajustado" if env_str == "prd" else "coeficiente"}
                 ELSE NULL
             END
         ) AS Cola_Promedio_Maxima,
         MAX(
             CASE
-                WHEN variable = 'tiempo_espera_prom_maximo' THEN coeficiente_ajustado
+                WHEN variable = 'tiempo_espera_prom_maximo' THEN {"coeficiente_ajustado" if env_str == "prd" else "coeficiente"}
                 ELSE NULL
             END
         ) AS Tiempo_Espera_Promedio_Maximo
@@ -122,9 +123,9 @@ def calcular_personal_necesario(
         # Tasa de llegadas (λ) - transacciones por hora
         pl.col("Conteo_Transacciones").alias("lambda_hora"),
         # Tiempo medio de servicio por transacción en segundos
-        (
-            pl.col("Segundos_Transaccion_Estimado") / pl.col("Conteo_Transacciones")
-        ).alias("tiempo_servicio_por_transaccion"),
+        (pl.col("Segundos_Actividad_Estimado") / pl.col("Conteo_Transacciones")).alias(
+            "tiempo_servicio_por_transaccion"
+        ),
     ).with_columns(
         # Tasa de servicio por servidor (μ) - transacciones por hora que puede atender un solo empleado
         (3600 / (pl.col("tiempo_servicio_por_transaccion"))).alias("mu_servidor_hora"),
@@ -152,7 +153,7 @@ def calcular_personal_necesario(
 
     # Alternativamente, podemos calcular la carga ofrecida directamente desde los segundos totales
     df = df.with_columns(
-        (pl.col("Segundos_Transaccion_Estimado") / 3600).alias("carga_ofrecida_total"),
+        (pl.col("Segundos_Actividad_Estimado") / 3600).alias("carga_ofrecida_total"),
         ((pl.col("cv_tiempo_cuadrado") + 1) / 2).sqrt().alias("cv_tiempo"),
     )
 
