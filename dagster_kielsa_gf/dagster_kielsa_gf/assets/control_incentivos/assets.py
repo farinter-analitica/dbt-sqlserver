@@ -34,6 +34,10 @@ class IncentivosConfig(dg.Config):
         default_factory=lambda: list(cfg_incentivos.EMPRESAS_ID),
         description="Lista de IDs de empresas a procesar (por defecto: [1, 2, ...])",
     )
+    update: bool = Field(
+        default=False,
+        description="Si es falso, nunca se sobreescriben registros existentes.",
+    )
     drop_target: bool = Field(
         default=False,
         description="Si es verdadero, la tabla destino se elimina antes de la carga",
@@ -57,6 +61,7 @@ def asset_incentivos_regalias(
     fecha_fin: dt.datetime,
     drop_temp: bool,
     drop_target: bool,
+    update: bool,
 ) -> dg.Output:
     t0 = dt.datetime.now()
 
@@ -79,7 +84,9 @@ def asset_incentivos_regalias(
         load_date_col="Fecha_Carga",
         update_date_col="Fecha_Actualizado",
     )
-    manager.upsert_dataframe(drop_temp=drop_temp, drop_target=drop_target)
+    manager.upsert_dataframe(
+        drop_temp=drop_temp, drop_target=drop_target, update=update
+    )
     filas = df_regalias_incentivo.height
     filas_total_tabla = manager.filas_total_tabla
     filas_tabla_temp = manager.filas_tabla_temp
@@ -141,8 +148,6 @@ def procesamiento_y_carga_incentivos(
     fecha_inicio = dt.datetime.strptime(config.fecha_inicio, "%Y-%m-%d")
     fecha_fin = dt.datetime.strptime(config.fecha_fin, "%Y-%m-%d")
     empresas_id = set(config.empresas_id)
-    drop_temp = config.drop_temp
-    drop_target = config.drop_target
 
     context.log.info(f"Procesando incentivos desde {fecha_inicio} hasta {fecha_fin}")
 
@@ -163,8 +168,9 @@ def procesamiento_y_carga_incentivos(
             dwh_farinter_dl=dwh_farinter_dl,
             fecha_inicio=fecha_inicio,
             fecha_fin=fecha_fin,
-            drop_temp=drop_temp,
-            drop_target=drop_target,
+            drop_temp=config.drop_temp,
+            drop_target=config.drop_target,
+            update=config.update,
         )
 
 
@@ -196,8 +202,12 @@ if __name__ == "__main__":
         dict_config = dg.RunConfig(
             ops={
                 procesamiento_y_carga_incentivos.node_def.name: IncentivosConfig(
+                    fecha_inicio=(dt.date.today() - dt.timedelta(days=90)).strftime(
+                        "%Y-%m-%d"
+                    ),
                     # drop_temp=True,
                     # drop_target=True,
+                    # update=True
                 )
             }
         )
