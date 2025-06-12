@@ -447,6 +447,10 @@ class TestDataframeSQLScriptGenerator:
         assert 'UPDATE SET TARGET."name" = SOURCE."name"' in sql
         assert 'INSERT ("id", "name") VALUES (SOURCE."id", SOURCE."name")' in sql
 
+        sql = gen.merge_table_sql_script(update=False)
+        assert 'UPDATE SET TARGET."name" = SOURCE."name"' not in sql
+        assert "WHEN MATCHED THEN" not in sql
+
     def test_merge_table_sql_script_custom_columns(self, df_basic):
         gen = DataframeSQLScriptGenerator(
             df_basic, db_schema="dbo", table_name="mytable", primary_keys=("id",)
