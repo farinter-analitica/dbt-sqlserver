@@ -7,7 +7,7 @@ from dagster_kielsa_gf.assets.control_incentivos.config import (
     EmpresaID,
     DataFramesInput,
     DataFramesOutput,
-    DataFrameWithPK,
+    LazyFrameWithMeta,
 )
 
 
@@ -24,12 +24,17 @@ class ReglaIncentivoHN2025(BaseReglaIncentivo):
     def VALID_UNTIL(self) -> dt.date:
         return dt.date(9999, 12, 31)
 
+    def filtrar(self, dfs_in: DataFramesInput) -> DataFramesInput:
+        return super().filtrar(dfs_in)
+
     def procesar(self, dataframes: DataFramesInput) -> DataFramesOutput:
+        dataframes = self.filtrar(dataframes)
         dfk_regalias_incentivo = self.procesar_regalias(dataframes)
         resultado = DataFramesOutput(regalias_incentivo=dfk_regalias_incentivo)
         return resultado
 
-    def procesar_regalias(self, dataframes: DataFramesInput) -> DataFrameWithPK:
+    def procesar_regalias(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
+        """Tambien conocidos como canjes"""
         df_regalias = dataframes.regalias.frame
         df_articulos = dataframes.articulos.frame
 
@@ -75,4 +80,6 @@ class ReglaIncentivoHN2025(BaseReglaIncentivo):
             )
         )
 
-        return DataFrameWithPK(df_result, dataframes.regalias.primary_keys)
+        return dataframes.regalias.with_frame(
+            df_result,
+        )

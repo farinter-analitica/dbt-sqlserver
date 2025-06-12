@@ -75,7 +75,7 @@ def asset_incentivos_regalias(
         db_schema=db_schema,
         table_name=table_name,
         sqla_engine=dwh_farinter_dl.get_sqlalchemy_engine(),
-        primary_keys=proc.df_regalias.primary_keys,
+        primary_keys=proc.dfm_regalias.primary_keys,
         load_date_col="Fecha_Carga",
         update_date_col="Fecha_Actualizado",
     )

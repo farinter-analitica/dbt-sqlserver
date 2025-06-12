@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 import datetime as dt
 from dagster_kielsa_gf.assets.control_incentivos.config import (
+    LazyFrameWithMeta,
     EmpresaID,
     DataFramesInput,
     DataFramesOutput,
 )
+import polars as pl
 
 
 class BaseReglaIncentivo(ABC):
@@ -54,6 +56,31 @@ class BaseReglaIncentivo(ABC):
         """
         pass
 
+    @abstractmethod
+    def filtrar(self, dfs_in: DataFramesInput) -> DataFramesInput:
+        """
+        Se deben filtrar los dataframes necesarios.
+        Las reglas no deben devolver solapamientos en resultados.
+
+        Reemplazar o añadir a este paso de acuerdo a necesidad.
+        Tomar en cuenta el cuidado con referencias y clonación.
+        """
+        nuevos = {}
+        for name, lfk in dfs_in.items():
+            lf = lfk.frame
+            if "Regla_Nombre" in lfk.frame.columns:
+                lf = lf.filter(pl.col("Regla_Nombre") == self.regla_nombre)
+            # if lfk.emp_id_name:
+            #     lf = lf.filter(pl.col(lfk.emp_id_name).is_in(self.emp_ids))
+            # if lfk.date_name:
+            #     lf = lf.filter(
+            #         pl.col(lfk.date_name).is_between(self.fecha_desde, self.fecha_hasta)
+            #     )
+            # clonamos con la nueva LazyFrame
+            nuevos[name] = lfk.with_frame(lf)
+
+        return DataFramesInput(**nuevos)
+
     @property
     def es_regla_por_defecto(self) -> bool:
         """
@@ -93,3 +120,6 @@ class BaseReglaIncentivo(ABC):
     @property
     def rango_fechas(self) -> tuple[dt.date, dt.date]:
         return (self.fecha_desde, self.fecha_hasta)
+
+    def procesar_regalias(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
+        raise NotImplementedError("La regla no implementa procesar_regalias")

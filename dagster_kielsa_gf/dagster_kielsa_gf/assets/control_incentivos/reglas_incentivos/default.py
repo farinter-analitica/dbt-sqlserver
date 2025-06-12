@@ -8,7 +8,7 @@ from dagster_kielsa_gf.assets.control_incentivos.config import (
     DataFramesInput,
     DataFramesOutput,
     EMPRESAS_ID,
-    DataFrameWithPK,
+    LazyFrameWithMeta,
 )
 
 
@@ -28,7 +28,20 @@ class ReglaIncentivoDefault(BaseReglaIncentivo):
         # Hasta siempre
         return dt.date(9999, 12, 31)
 
+    def filtrar(self, dfs_in: DataFramesInput) -> DataFramesInput:
+        return super().filtrar(dfs_in)
+
     def procesar(self, dataframes: DataFramesInput) -> DataFramesOutput:
+        dataframes = self.filtrar(dataframes)
+
+        resultado = DataFramesOutput(
+            regalias_incentivo=self.procesar_regalias(dataframes)
+        )
+        # Retorna el diccionario de salida con las columnas esperadas
+        return resultado
+
+    def procesar_regalias(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
+        """Tambien conocidos como canjes"""
         # Espera los dataframes relevantes en el diccionario
         df_regalias = dataframes.regalias.frame
         # Las columnas de salida deben ser las esperadas por el flujo
@@ -38,13 +51,7 @@ class ReglaIncentivoDefault(BaseReglaIncentivo):
             regalia_valor_incentivo_total=pl.lit(None).cast(pl.Float64),
         )
 
-        resultado = DataFramesOutput(
-            regalias_incentivo=DataFrameWithPK(
-                df_result, dataframes.regalias.primary_keys
-            )
-        )
-        # Retorna el diccionario de salida con las columnas esperadas
-        return resultado
+        return dataframes.regalias.with_frame(df_result)
 
     @property
     def es_regla_por_defecto(self) -> bool:

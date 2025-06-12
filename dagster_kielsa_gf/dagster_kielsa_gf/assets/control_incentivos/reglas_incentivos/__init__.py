@@ -10,6 +10,9 @@ from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.base import (
 from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.honduras import (
     ReglaIncentivoHN2025,
 )
+from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.el_salvador import (
+    ReglaIncentivoSV2025,
+)
 from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.default import (
     ReglaIncentivoDefault,
 )
@@ -22,6 +25,7 @@ def get_reglas_incentivo() -> list[BaseReglaIncentivo]:
     """
     reglas: list[BaseReglaIncentivo] = [
         ReglaIncentivoHN2025({}),
+        ReglaIncentivoSV2025({}),
         # ...agrega aquí más reglas...
     ]
 
@@ -185,12 +189,14 @@ if __name__ == "__main__":
     # Supón que tienes un LazyFrame de canjes con columnas "Emp_Id" y "Fecha"
     df_canje = pl.LazyFrame(
         {
-            "Emp_Id": [1, 2, 1, 3],
+            "Emp_Id": [1, 2, 1, 3, 5, 4],
             "Fecha_Id": [
                 dt.date(2023, 1, 1),
                 dt.date(2025, 1, 1),
                 dt.date(2021, 5, 1),
                 dt.date(2022, 7, 1),
+                dt.date(2025, 5, 1),
+                dt.date(2025, 7, 1),
             ],
             # ... otras columnas ...
         }
