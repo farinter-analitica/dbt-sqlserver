@@ -153,7 +153,7 @@ def procesamiento_y_carga_incentivos(
 
     # Procesar incentivos
     proc = incentivos.ProcesamientoIncentivos(
-        dwh_farinter_bi=dwh_farinter_bi,  # Usamos el recurso del DWH
+        connection_str=dwh_farinter_bi.get_arrow_odbc_conn_string(),
         fecha_inicio=fecha_inicio,
         fecha_fin=fecha_fin,
         empresas_id=empresas_id,

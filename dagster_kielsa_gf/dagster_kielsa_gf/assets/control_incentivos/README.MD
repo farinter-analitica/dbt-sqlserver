@@ -71,12 +71,4 @@ class ReglaIncentivoNI2025(BaseReglaIncentivo):
         # Implementar lógica específica aquí
         ...
 ```
-
-## Ventajas del diseño
-
-- **Extensible**: Agregar nuevas reglas no requiere modificar el flujo principal.
-- **Desacoplado**: Cada regla es autocontenida y solo necesita los dataframes relevantes.
-- **Probado**: El flujo puede ser testeado por partes (reglas, orquestador, etc).
-
----
 **Contacto:** Equipo Analítica Farinter

@@ -44,11 +44,23 @@ class ReglaIncentivoDefault(BaseReglaIncentivo):
         """Tambien conocidos como canjes"""
         # Espera los dataframes relevantes en el diccionario
         df_regalias = dataframes.regalias.frame
-        # Las columnas de salida deben ser las esperadas por el flujo
+        # Las columnas de salida deben ser las esperadas minimas por el flujo
         df_result = df_regalias.with_columns(
             regalia_aplica_incentivo=pl.lit(0).cast(pl.Int32),
             regalia_valor_incentivo_unitario=pl.lit(None).cast(pl.Float64),
             regalia_valor_incentivo_total=pl.lit(None).cast(pl.Float64),
+        )
+
+        return dataframes.regalias.with_frame(df_result)
+
+    def procesar_ventas(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
+        # Espera los dataframes relevantes en el diccionario
+        df_ventas = dataframes.regalias.frame
+        # Las columnas de salida deben ser las esperadas minimas por el flujo
+        df_result = df_ventas.with_columns(
+            venta_aplica_incentivo=pl.lit(0).cast(pl.Int32),
+            venta_valor_incentivo_unitario=pl.lit(None).cast(pl.Float64),
+            venta_valor_incentivo_total=pl.lit(None).cast(pl.Float64),
         )
 
         return dataframes.regalias.with_frame(df_result)

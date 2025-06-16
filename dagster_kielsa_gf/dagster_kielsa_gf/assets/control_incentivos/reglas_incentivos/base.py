@@ -123,3 +123,6 @@ class BaseReglaIncentivo(ABC):
 
     def procesar_regalias(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
         raise NotImplementedError("La regla no implementa procesar_regalias")
+
+    def procesar_ventas(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
+        raise NotImplementedError("La regla no implementa procesar_ventas")
