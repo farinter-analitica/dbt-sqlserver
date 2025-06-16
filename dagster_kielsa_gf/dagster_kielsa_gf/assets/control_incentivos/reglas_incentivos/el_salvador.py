@@ -11,6 +11,7 @@ from dagster_kielsa_gf.assets.control_incentivos.config import (
 )
 from dagster_kielsa_gf.assets.control_incentivos.esquemas import (
     VentasSchema,
+    VendedorSchema,
 )
 
 
@@ -122,10 +123,20 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
 
     def procesar_ventas(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
         sv = VentasSchema
+        svv = VendedorSchema
         dfm_ventas = dataframes.ventas
         df_ventas = dfm_ventas.frame
         df_vendedores = dataframes.vendedores.frame
 
-        df_ventas = df_ventas.join(df_vendedores, on=[sv.Emp_Id, sv.Vendedor_Id])
+        df_ventas = df_ventas.join(
+            df_vendedores.select(
+                svv.Emp_Id,
+                svv.Rol_Jerarquia,
+                svv.Sucursal_Id_Asignado,
+            ),
+            on=[sv.Emp_Id, sv.Vendedor_Id],
+        )
+
+        # df_ventas =
 
         return dfm_ventas.with_frame(df_ventas)

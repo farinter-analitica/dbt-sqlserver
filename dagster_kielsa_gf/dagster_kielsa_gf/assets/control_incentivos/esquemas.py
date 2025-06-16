@@ -60,6 +60,25 @@ class VentasSchema(SchemaMeta):
     Valor_Neto = ColMeta()
 
 
+class VendedorSchema(SchemaMeta):
+    Empleado_Id = ColMeta()
+    Empleado_Nombre = ColMeta()
+    Rol_Id = ColMeta()
+    Usuario_Id = ColMeta()
+    Rol = ColMeta()
+    Emp_Id = ColMeta()
+    Hash_EmpleadoEmp = ColMeta()
+    Sucursal_Id_Asignado_Meta = ColMeta()
+    Sucursal_Id_Asignado = ColMeta()
+    Bit_Activo = ColMeta()
+    EmpEmpl_Id = ColMeta()
+    HashStr_EmplEmp = ColMeta()
+    Vendedor_Id = ColMeta()
+    Vendedor_Nombre = ColMeta()
+    Rol_Nombre = ColMeta()
+    Rol_Jerarquia = ColMeta()
+
+
 def set_casting_id(df: pl.LazyFrame) -> pl.LazyFrame:
     df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
     return df

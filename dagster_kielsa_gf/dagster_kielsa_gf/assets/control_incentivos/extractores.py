@@ -4,6 +4,7 @@ from textwrap import dedent
 
 from dagster_kielsa_gf.assets.control_incentivos.esquemas import (
     RegaliasSchema,
+    VendedorSchema,
     VentasSchema,
     set_casting,
     set_casting_id,
@@ -300,6 +301,7 @@ def get_vendedor_data(
         ),
         date_name=None,
         emp_id_name="Emp_Id",
+        schema=VendedorSchema,
     )
 
 
@@ -311,7 +313,7 @@ if __name__ == "__main__":
     class self_config:
         connection_str = connection_str
         fecha_inicio = dt.date(2025, 5, 1)
-        fecha_fin = dt.date(2025, 5, 7)
+        fecha_fin = dt.date(2025, 5, 31)
         empresas_id = {5}
         limit = None
 
