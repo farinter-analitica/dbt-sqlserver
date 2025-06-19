@@ -2,22 +2,35 @@
 
 set -e
 
-# # Ajustar permisos para .ssh
-# if [ -d "/home/vscode/.ssh" ]; then
-#   echo "Ajustando permisos en .ssh..."
-#   sudo chown -R vscode:vscode /home/vscode/.ssh
-#   sudo chmod 700 /home/vscode/.ssh
-#   sudo find /home/vscode/.ssh -type f -name "id_*" -exec chmod 600 {} \;
-#   sudo find /home/vscode/.ssh -type f -name "*.pub" -exec chmod 644 {} \;
-# fi
+# Ajustar permisos para .ssh
+if [ -d "/home/vscode/.ssh" ]; then
+  echo "Ajustando permisos en .ssh..."
+  sudo chown -R vscode:vscode /home/vscode/.ssh
+  sudo chmod 700 /home/vscode/.ssh
+  sudo find /home/vscode/.ssh -type f -name "id_*" -exec chmod 600 {} \;
+  sudo find /home/vscode/.ssh -type f -name "*_key" -exec chmod 600 {} \;
+  sudo find /home/vscode/.ssh -type f -name "*.pub" -exec chmod 644 {} \;
+fi
 
-# # Ajustar permisos para /home/vscode/
-# if [ -d "/home/vscode/" ]; then
-#   echo "Ajustando permisos en /home/vscode/..."
-#   sudo chown -R vscode:vscode /home/vscode/
-# fi
+# Ajustar permisos para /home/vscode/
+if [ -d "/home/vscode/" ]; then
+  echo "Ajustando permisos en /home/vscode/..."
+  sudo chown -R vscode:vscode /home/vscode/
+fi
 
-# echo "Permisos ajustados correctamente."
+if [ -z "$UV_PROJECT_ENVIRONMENT" ]; then
+  echo "Error: UV_PROJECT_ENVIRONMENT no está definido. Por favor, especifícalo en tu devcontainer."
+  exit 1
+fi
+
+# Ajustar permisos para /home/vscode/
+if [ -d "$UV_PROJECT_ENVIRONMENT" ]; then
+  echo "Ajustando permisos en $UV_PROJECT_ENVIRONMENT..."
+  sudo chown -R vscode:vscode $UV_PROJECT_ENVIRONMENT
+fi
+
+echo "Permisos ajustados correctamente."
+
 
 echo 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc
 echo 'eval "$(uvx --generate-shell-completion bash)"' >> ~/.bashrc

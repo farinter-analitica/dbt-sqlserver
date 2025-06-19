@@ -1,8 +1,8 @@
 {
-	"name": "main-dagster-farinter",
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
+	"name": "main-dagster",
+	"dockerComposeFile": ["docker-compose.dev.yaml"],
+	"service": "dev",
+	"shutdownAction": "stopCompose",
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -21,28 +21,18 @@
 			}
 		}
 	},
-	"forwardPorts": [
-		3000
-	],
-	"features": {},
-	//"postStartCommand": "uv run pre-commit install",
+	"workspaceFolder": "/workspaces/main-dagster", 
 	"postCreateCommand": "/bin/bash .devcontainer/post_create.sh && /bin/bash .devcontainer/setup_odbc.sh",
 	"containerEnv": {
+		//Disponibles en todo el contenedor
 		"DISPLAY": "dummy",
 		"PYTHONUNBUFFERED": "True",
 		"UV_LINK_MODE": "copy",
-		"UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv",
-		"VIRTUAL_ENV": "${containerWorkspaceFolder}/.venv",
-		"PYTHONPATH": "$PYTHONPATH:${containerWorkspaceFolder}/.venv/bin"
+		"UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv"
 	},
-	"mounts": [
-		//Con esto reducimos tiempo, compartir shared-uv-cache con otros dockers
-		"type=volume,source=main-dagster-devcontainer-ssh,target=/home/vscode/.ssh",
-		"type=volume,source=shared-uv-cache,target=/home/vscode/.cache/uv",
-		"type=volume,source=main-dagster-devcontainer-venv,target=${containerWorkspaceFolder}/.venv"
-	],
-	"runArgs": [
-		"--env-file",
-		"./.env"
-	]
+	"remoteEnv": {
+		// Esto nos ayuda con las herramientas de vscode en general
+		"PATH": "${containerEnv:VIRTUAL_ENV}/bin:${containerEnv:PATH}",
+		"PYTHONPATH": "${containerWorkspaceFolder}"
+	}
 }

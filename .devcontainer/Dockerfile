@@ -1,5 +1,5 @@
 # Usa la última imagen oficial de Python 3.12 como base
-FROM mcr.microsoft.com/devcontainers/python:3.12
+FROM mcr.microsoft.com/devcontainers/python:3.12 as base
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Instala dependencias del sistema necesarias

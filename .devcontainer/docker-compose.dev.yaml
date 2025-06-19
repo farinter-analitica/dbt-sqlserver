@@ -1,0 +1,45 @@
+services:
+  dev:
+    container_name: main-dagster-dev
+    env_file:
+      # Las variables de entorno se cargan mejor en compose.
+      - ../.env
+    build:
+      dockerfile: .devcontainer/Dockerfile
+      context: ..
+      target: base #El alias en Dockerfile
+    working_dir: /workspaces/main-dagster
+    volumes:
+      # This is where VS Code should expect to find your project's source code
+      # and the value of "workspaceFolder" in .devcontainer/devcontainer.json
+      - ..:/workspaces/main-dagster:cached
+      - main-dagster-devcontainer-ssh:/home/vscode/.ssh
+      - shared-uv-cache:/home/vscode/.cache/uv
+      - main-dagster-devcontainer-venv:/workspaces/main-dagster/.venv
+    # Required for ptrace-based debuggers like C++, Go, and Rust
+    # privileged: true
+    # cap_add:
+    #   - SYS_PTRACE
+    # security_opt:
+    #   - seccomp:unconfined
+    # depends_on:
+    #   - redis
+    #   - mysql
+    #   - toxiproxy
+    ports:
+      - "3000"
+    command:
+      - /bin/bash
+      - -c
+      - |
+          sleep infinity
+
+volumes:
+  # Definición de volúmenes externos para mantener datos entre reinicios
+  # Esto tambien acelera drasticamente la reconstruccion del contenedor
+  main-dagster-devcontainer-ssh:
+    external: true
+  shared-uv-cache:
+    external: true
+  main-dagster-devcontainer-venv:
+    external: true
