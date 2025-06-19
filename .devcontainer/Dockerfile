@@ -26,4 +26,4 @@ EXPOSE 3000
 # Crea el directorio de trabajo
 
 # WORKDIR /workspace
-ENTRYPOINT ["dagster", "dev", "-h", "0.0.0.0"]
+# ENTRYPOINT ["dagster", "dev", "-h", "0.0.0.0"]

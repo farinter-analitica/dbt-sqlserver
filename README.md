@@ -43,7 +43,7 @@ Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Ma
    Con el uso de WSL2 podria conllevar la necesidad de utilizar la configuracion en .devcontainer/.wslconfig para poder acceder a los puertos expuestos desde el host local. %UserProfile%\.wslconfig, fuera de wsl.
 
 ### DAGSTER DEV
-Debes correr dagster dev -h "0.0.0.0" si se cierra para poder acceder a la interfaz de dagster desde el host local.
+Debes correr dagster dev -h "0.0.0.0" para poder acceder a la interfaz de dagster desde el host local.
 
 ### Variables de entorno
 Asegurarse de no incluir rutas de windows en las variables de entorno.

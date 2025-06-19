@@ -95,9 +95,7 @@ else
   echo "⚠️ No se encontró $TEMPLATE_PATH, omitiendo."
 fi
 
-if ! uv pip show pre-commit &> /dev/null; then
-  echo "Instalando pre-commit via uv..."
-  uv run --frozen pre-commit install --install-hooks
-fi
+echo "Instalando pre-commit via uv..."
+uv run --frozen pre-commit install --install-hooks
 
 echo "🎉 Entorno de desarrollo preparado correctamente."

@@ -700,6 +700,17 @@ def reload_code_locations():
 ###############################################################################
 # Deployment Functions Using uv
 ###############################################################################
+def run_dagster_instance_migrate(python_path: str, deploy_dir: str):
+    """
+    Run 'dagster instance migrate' using the specified Python interpreter.
+    """
+    print("Running 'dagster instance migrate'...")
+    run_cmd(
+        [python_path, "-m", "dagster", "instance", "migrate"],
+        error_msg="Failed to run 'dagster instance migrate'",
+        capture=False,
+        cwd=deploy_dir,
+    )
 
 
 def deploy_continuous():
@@ -723,6 +734,7 @@ def deploy_fast():
     install_deps_uv(venv_dir, deploy_dir)
     setup_deploy_keys()
     install_deps_uv(venv_dir, deploy_dir, only_external=True)
+    run_dagster_instance_migrate(python_path, deploy_dir)
     reload_code_locations()
 
 
@@ -739,6 +751,7 @@ def deploy_partial():
     install_deps_uv(venv_dir, deploy_dir)
     setup_deploy_keys()
     install_deps_uv(venv_dir, deploy_dir, only_external=True)
+    run_dagster_instance_migrate(python_path, deploy_dir)
     manage_services(env)
 
 
@@ -756,6 +769,7 @@ def deploy_full():
     setup_deploy_keys()
     install_deps_uv(venv_dir, deploy_dir, only_external=True)
     generate_service(python_path, deploy_dir)
+    run_dagster_instance_migrate(python_path, deploy_dir)
     manage_services(env)
 
 
