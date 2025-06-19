@@ -305,7 +305,7 @@ tables:
       pay_data__payment_uuid:
         data_type: text
         nullable: true
-      error: 
+      error:
         data_type: json
         nullable: true
       error__status_code:

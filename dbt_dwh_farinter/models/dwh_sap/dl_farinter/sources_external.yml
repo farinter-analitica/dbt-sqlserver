@@ -1,59 +1,60 @@
 sources:
-  - name: SAPPRD
-    description: "Base de PRD SAP, usar con variable de linked server"
-    database: PRD
-    schema: prd
-    tables:
-      - name: T001
-      - name: MARA
-      - name: MAKT
-      - name: MARC
-      - name: MARD
-      - name: T001W
-      - name: T001L
-      - name: T001K
-      - name: T006A
-      - name: TVLK
-      - name: MCHB
-      - name: MCHA
-      - name: MCH1
-      - name: MBEW
-      - name: STXH
-      - name: DD02L
-      - name: DD03L
-      - name: DD03M
-      - name: DD07V
-      - name: TTXIT
-      - name: CSKT
-      - name: CEPCT
-      - name: CEPC
-      - name: USER_ADDR
-      - name: ZFRM_EPT_0001
-      - name: VBRK
-      - name: VBRP
-      - name: VBPA3
-      - name: VBPA
-      - name: ADRC
-      - name: ADR2
-      - name: ADRCT
-      - name: PA0105
+- name: SAPPRD
+  description: Base de PRD SAP, usar con variable de linked server
+  database: PRD
+  schema: prd
+  tables:
+  - name: T001
+  - name: MARA
+  - name: MAKT
+  - name: MARC
+  - name: MARD
+  - name: T001W
+  - name: T001L
+  - name: T001K
+  - name: T006A
+  - name: TVLK
+  - name: MCHB
+  - name: MCHA
+  - name: MCH1
+  - name: MBEW
+  - name: STXH
+  - name: DD02L
+  - name: DD03L
+  - name: DD03M
+  - name: DD07V
+  - name: TTXIT
+  - name: CSKT
+  - name: CEPCT
+  - name: CEPC
+  - name: USER_ADDR
+  - name: ZFRM_EPT_0001
+  - name: VBRK
+  - name: VBRP
+  - name: VBPA3
+  - name: VBPA
+  - name: ADRC
+  - name: ADR2
+  - name: ADRCT
+  - name: PA0105
 
 
-  - name: PLANNING_DB
-    description: "Base de tablas cargadas (Data Lake)"
-    database: PLANNING_DB
-    schema: dbo
-    freshness: # default freshness
-        warn_after: {count: 28, period: hour}
-        error_after: {count: 72, period: hour}
-    loaded_at_field: Fecha_Actualizado
-    meta: 
-      dagster: 
+- name: PLANNING_DB
+  description: Base de tablas cargadas (Data Lake)
+  database: PLANNING_DB
+  schema: dbo
+  loaded_at_field: Fecha_Actualizado
+  tables:
+  - name: GposCliente
+  - name: Almacenes
+  - name: ParamSocGpo
+  - name: Materiales
+  - name: GposPlan
+  - name: GposObs
+  config:
+    freshness:   # default freshness
+      warn_after: {count: 28, period: hour}
+      error_after: {count: 72, period: hour}
+    meta:
+      dagster:
         group: planning_etl_dwh
-    tables:
-      - name: GposCliente  
-      - name: Almacenes
-      - name: ParamSocGpo
-      - name: Materiales
-      - name: GposPlan
-      - name: GposObs

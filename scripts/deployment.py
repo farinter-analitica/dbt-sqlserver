@@ -775,7 +775,6 @@ def main():
             "deploy-partial",
             "deploy-fast",
             "deploy-continuous",
-            "dev",
             "install-deps",
             "setup-git",
             "check-deploy-key",
@@ -800,9 +799,7 @@ def main():
     parser.add_argument(
         "--dev", action="store_true", help="Install development dependencies"
     )
-    parser.add_argument(
-        "--test", action="store_true", help="Test the deploy key"
-    )
+    parser.add_argument("--test", action="store_true", help="Test the deploy key")
     args = parser.parse_args()
 
     env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
@@ -818,7 +815,11 @@ def main():
             return False
     elif args.command == "setup-deploy-key":
         return setup_deploy_keys(
-            args.repo, args.org, setup=True, test=args.test or False, force_new=args.force
+            args.repo,
+            args.org,
+            setup=True,
+            test=args.test or False,
+            force_new=args.force,
         )
     elif args.command == "test-deploy-key":
         return setup_deploy_keys(
@@ -837,7 +838,6 @@ def main():
             "deploy-fast": deploy_fast,
             "deploy-continuous": deploy_continuous,
             "reload-code-locations": reload_code_locations,
-            "dev": dev,
         }
         try:
             commands[args.command]()

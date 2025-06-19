@@ -409,6 +409,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "DL_Cal_MaxFechasHist_ClientesMetricas_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
@@ -421,6 +422,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["AN_FARINTER", "dbo"],
         "name": ["AN_Cal_ClientesEstados_Kielsa", "AN_Cal_ClientesEstadosHist_Kielsa"],
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
@@ -437,6 +439,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "AN_Cal_ClientesCategoriasHist_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
@@ -453,6 +456,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
             "AN_Cal_ClientesEstadisticasHist_Kielsa",
         ],
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
@@ -465,6 +469,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Acum_ClientesXLista_CRM",
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
@@ -477,6 +482,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKN_ArticulosRecomendados_Kielsa": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "name": "DL_KN_ArticulosRecomendadosSMS_Kielsa",
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
@@ -490,6 +496,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
     "DL_paCargarKN_ClientesValidacion_Kielsa": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "name": "DL_KN_ClientesValidacion_Kielsa",
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
@@ -503,6 +510,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_KN_RegistroPeriodicoSMS_Kielsa",
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
@@ -532,6 +540,7 @@ store_procedures: Dict[str, Dict[str, Any]] = {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_ClientesVisitasHist",
         "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,

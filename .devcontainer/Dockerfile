@@ -19,6 +19,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Establece el usuario por defecto
 USER vscode
 
+# Expone el puerto
+
+EXPOSE 3000
+
 # Crea el directorio de trabajo
 
 # WORKDIR /workspace
+ENTRYPOINT ["dagster", "dev", "-h", "0.0.0.0"]

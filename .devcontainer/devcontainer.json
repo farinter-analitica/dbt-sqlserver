@@ -2,6 +2,7 @@
 	"name": "main-dagster",
 	"dockerComposeFile": ["docker-compose.dev.yaml"],
 	"service": "dev",
+	"forwardPorts": [3000],
 	"shutdownAction": "stopCompose",
 	"customizations": {
 		"vscode": {

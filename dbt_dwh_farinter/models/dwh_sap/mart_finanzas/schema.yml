@@ -10,7 +10,7 @@ models:
       - name: PlanCuentas_Id
         description: "Diversas estructuras de cuentas, posible una diferente por empresa."
         #constraint: not_null
-        
+
       - name: Cuenta_Id
         description: "Cuenta contable"
         #constraint: not_null

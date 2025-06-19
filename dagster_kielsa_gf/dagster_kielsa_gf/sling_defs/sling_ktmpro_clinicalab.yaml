@@ -11,11 +11,13 @@ defaults:
     flatten: true
 streams:
   KTM-PRO.logtokens:
-    select: ['_id', 'active', 'createdAt', 'token', 'userId']
-    where: '{ "$expr": { "$gte": [ "$createdAt", { "$dateSubtract": { "startDate": { "$ifNull": [ "$createdAt", ISODate("1970-01-08T00:00:00Z") ] }, "unit": "day", "amount": 7 } } ] } }'
+    select: [_id, active, createdAt, token, userId]
+    where: '{ "$expr": { "$gte": [ "$createdAt", { "$dateSubtract": { "startDate":
+      { "$ifNull": [ "$createdAt", ISODate("1970-01-08T00:00:00Z") ] }, "unit": "day",
+      "amount": 7 } } ] } }'
     update_key: created_at
-    primary_key: &id001
-    - '_id'
+    primary_key:
+    - _id
     target_options:
       # table_ddl: |
       #   create table "ktmpro_clinicalab"."{stream_table}" (
@@ -33,7 +35,6 @@ streams:
       # column_typing:
       #   string:
       #     max_length: 255
-          
     ## bug the columnas vacias al inicio
     # columns:
     # - 'active': VARCHAR(5)

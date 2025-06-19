@@ -2,11 +2,11 @@
 storage:
   postgres:
     postgres_db:
-      username: { env: DAGSTER_PG_USERNAME }
-      password: { env: DAGSTER_PG_PASSWORD }
-      hostname: { env: DAGSTER_PG_HOST }
-      db_name: { env: DAGSTER_PG_DB }
-      port: { env: DAGSTER_PG_PORT }
+      username: {env: DAGSTER_PG_USERNAME}
+      password: {env: DAGSTER_PG_PASSWORD}
+      hostname: {env: DAGSTER_PG_HOST}
+      db_name: {env: DAGSTER_PG_DB}
+      port: {env: DAGSTER_PG_PORT}
 auto_materialize:
   use_sensors: true
 # Opt in to run monitoring
@@ -33,15 +33,15 @@ concurrency:
       # - key: "database"
       #   value: "dwh" # applies when the `database` tag has a value of `redshift`
       #   limit: 8
-      - key: "dagster/backfill" # applies when the `dagster/backfill` tag is present, regardless of value
-        limit: 4
+    - key: dagster/backfill     # applies when the `dagster/backfill` tag is present, regardless of value
+      limit: 4
       # - key: "use-case"
       #   value:
       #     applyLimitPerUniqueValue: true
       #   limit: 3
 
   pools:
-    granularity: "run"
+    granularity: run
     default_limit: 1
     op_granularity_run_buffer: 1
 
@@ -54,7 +54,7 @@ retention:
     purge_after_days:
       skipped: 7
       failure: 20
-      success: 31 
+      success: 31
 
   auto_materialize:
     purge_after_days: 31

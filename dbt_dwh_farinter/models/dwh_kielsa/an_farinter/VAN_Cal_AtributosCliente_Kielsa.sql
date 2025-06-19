@@ -5,6 +5,7 @@
        group="kielsa_analitica_atributos",
        tags=["automation/periodo_diario","periodo_unico/si", "automation_only"],
        materialized="view",
+       meta={"owners": ["edwin.martinez@farinter.com"]}
     )
 }}
 

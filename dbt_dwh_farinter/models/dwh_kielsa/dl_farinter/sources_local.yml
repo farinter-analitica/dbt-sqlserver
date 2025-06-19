@@ -1,207 +1,239 @@
 sources:
-  - name: DL_FARINTER
-    description: "Base de tablas cargadas (Data Lake)"
-    database: DL_FARINTER
-    schema: dbo
-    freshness: # default freshness
-        warn_after: {count: 28, period: hour}
-        error_after: {count: 72, period: hour}
-    loaded_at_field: Fecha_Actualizado
+- name: DL_FARINTER
+  description: Base de tablas cargadas (Data Lake)
+  database: DL_FARINTER
+  schema: dbo
+  loaded_at_field: Fecha_Actualizado
+  tables:
+  - name: DL_Kielsa_FacturaEncabezado
+  - name: DL_Kielsa_FacturasPosiciones
+  - name: DL_Kielsa_FacturaPosicionDescuento
+  - name: DL_Kielsa_Articulo_x_Bodega
+  - name: DL_Kielsa_Articulo_x_Compra
+  - name: DL_Kielsa_Sucursal
+    description: >
+      "Contiene la informacion clave de las sucursales de Kielsa"
+    columns:
+    - name: Sucursal_Id
+      description: Codigo de la Sociedad o Empresa Individual
+      config:
+        meta:
+          type: int
+    - name: Fecha_Actualizado
+      description: Fecha de actualizacion de la fila
+  - name: DL_Kielsa_Articulo
+    description: >
+      "Contiene la informacion clave de los articulos de Kielsa"
+    columns:
+    - name: Articulo_Id
+      description: Articulos de Kielsa
+      config:
+        meta:
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+  - name: DL_Kielsa_Categoria_Articulo
+    description: >
+      "Contiene la informacion clave de las categorias de articulos de Kielsa"
+    columns:
+    - name: Categoria_Id
+      description: Categorias de articulos de Kielsa
+      config:
+        meta:
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+  - name: DL_Kielsa_Departamento_Articulo
+    description: >
+      "Contiene la informacion clave de los departamentos de articulos de Kielsa"
+    columns:
+    - name: DeptoArt_Id
+      description: Departamentos de articulos de Kielsa
+      config:
+        meta:
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+  - name: DL_Kielsa_Marca
+    description: >
+      "Contiene la informacion clave de las marcas de articulos de Kielsa"
+    columns:
+    - name: Marca_Id
+      description: Marcas de articulos de Kielsa
+      config:
+        meta:
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+  - name: DL_Kielsa_Casa
+    description: >
+      "Contiene la informacion clave de las casas de articulos de Kielsa"
+    columns:
+    - name: Casa_Id
+      description: Casas de articulos de Kielsa
+      config:
+        meta:
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+  - name: DL_Temp_ArticuloAliados_Kielsa
+  - name: DL_Kielsa_Articulo_Calc
+    description: >
+      "Contiene la informacion calculada de los articulos de Kielsa"
+    columns:
+    - name: Articulo_Id
+      description: Articulos de Kielsa
+      config:
+        meta:
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+  - name: DL_Kielsa_PV_Alerta
+    description: >
+      "Contiene la informacion clave de las alertas de articulos de Kielsa"
+    columns:
+    - name: Alerta_Id
+      description: Alertas de articulos de Kielsa
+      config:
+        meta:
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+  - name: DL_Kielsa_Monedero
+  - name: DL_Kielsa_Cliente
+  - name: DL_Kielsa_Bodega
+  - name: DL_Kielsa_Empleado
+  - name: DL_Kielsa_CanalVenta
+  - name: DL_Kielsa_Articulo_x_Sucursal
+  - name: DL_Kielsa_INV_Demanda_Histo
+  - name: DL_Kielsa_SUC_Demanda_Histo
+  - name: DL_Kielsa_MovimientosHist
+  - name: DL_Kielsa_Tipo_Mov_Inventario
+  - name: DL_Kielsa_INV_Demanda
+  - name: DL_Kielsa_BoletaLocal_Detalle
+  - name: DL_Kielsa_BoletaLocal_Encabezado
+  - name: DL_Kielsa_Boleta_Exterior_Hist
+  - name: DL_Kielsa_Articulo_Alerta
+  - name: DL_Kielsa_ExistenciaHist
+  - name: DL_Kielsa_RecetasDetalle
+  - name: DL_Kielsa_RecetasCabecera
+  - name: DL_ArticulosPresentacionesFormas_ExcelTemp
+  - name: DL_Kielsa_RecetasMedicos
+  - name: DL_Kielsa_FacturasPosiciones_ArboledaOld
+  - name: DL_Kielsa_FacturaEncabezado_ArboledaOld
+  - name: DL_Kielsa_Inv_Despacho_Detalle
+  - name: DL_Kielsa_Inv_Despacho_Encabezado
+  - name: DL_Kielsa_Detalle_Pedido
+  - name: DL_Kielsa_Articulo_Info
+  - name: DL_Kielsa_Orden_Local_Detalle
+  - name: DL_Kielsa_Orden_Local_Encabezado
+  - name: DL_Kielsa_Orden_Exterior_Detalle
+  - name: DL_Kielsa_Orden_Exterior_Encabezado
+  - name: DL_Kielsa_VendedorSucursal
+  - name: DL_Kielsa_Libros_Cliente
+  - name: DL_Kielsa_Libros_Historico
+  - name: DL_Kielsa_Libros_Tipo
+  - name: DL_MDBECOMM_Usuarios
+  - name: DL_Kielsa_KPP_Suscripcion
+  - name: DL_MDBKTMPRO_Clinicas_Usuarios
+  - name: DL_MDBKTMPRO_Clinicas_Videoconf_Cabecera
+  - name: DL_MDBKTMPRO_Clinicas_Postvideoconf
+  - name: DL_MDBKTMPRO_Clinicas_Consultas
+  - name: DL_MDBKTMPRO_Clinicas_Videoconf_Indicaciones
+  - name: DL_MDBKTMPRO_Clinicas_Videoconf_Textos
+  - name: DL_Kielsa_Regalia_Encabezado
+  - name: DL_Kielsa_Regalia_Detalle
+  - name: DL_Kielsa_Monedero_Tarjetas_Replica
+  - name: DL_Kielsa_eCommerceTipoPago
+  - name: DL_Kielsa_eCommerceFormaPago
+  - name: DL_Kielsa_eCommerceOrigen
+  - name: DL_Kielsa_Seg_Rol
+  - name: DL_Kielsa_Cliente_ArticuloRecomendado
+  - name: DL_Kielsa_Enfermedades
+  - name: DL_Kielsa_Patologia_Cronico_Excel
+  - name: DL_Acum_VentasHist_Kielsa
+  - name: DL_Kielsa_Articulo_ArticuloRelacionado
+  - name: DL_Kielsa_MetaHist
+  - name: DL_Planning_ListaNegra
+  - name: DL_Kielsa_Regalia_Incentivo
+
+
+  config:
+    freshness:   # default freshness
+      warn_after: {count: 28, period: hour}
+      error_after: {count: 72, period: hour}
     meta:
-        dagster:
-            group: "ldcom_etl_dwh"
-    tables:
-      - name: DL_Kielsa_FacturaEncabezado
-      - name: DL_Kielsa_FacturasPosiciones
-      - name: DL_Kielsa_FacturaPosicionDescuento
-      - name: DL_Kielsa_Articulo_x_Bodega
-      - name: DL_Kielsa_Articulo_x_Compra
-      - name: DL_Kielsa_Sucursal
-        description: >
-            "Contiene la informacion clave de las sucursales de Kielsa"
-        columns:
-          - name: Sucursal_Id 
-            description: "Codigo de la Sociedad o Empresa Individual"
-            type: int
-          #- name: Fecha_Actualizado
-          #  description: "Fecha de actualizacion de la fila"
-          - name: Fecha_Actualizado
-            description: "Fecha de actualizacion de la fila"
-      - name: DL_Kielsa_Articulo
-        description: >
-            "Contiene la informacion clave de los articulos de Kielsa"
-        columns:
-          - name: Articulo_Id
-            description: "Articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: DL_Kielsa_Categoria_Articulo
-        description: >
-            "Contiene la informacion clave de las categorias de articulos de Kielsa"
-        columns:
-          - name: Categoria_Id
-            description: "Categorias de articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: DL_Kielsa_Departamento_Articulo
-        description: >
-            "Contiene la informacion clave de los departamentos de articulos de Kielsa"
-        columns:
-          - name: DeptoArt_Id
-            description: "Departamentos de articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: DL_Kielsa_Marca
-        description: >
-            "Contiene la informacion clave de las marcas de articulos de Kielsa"
-        columns:
-          - name: Marca_Id
-            description: "Marcas de articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: DL_Kielsa_Casa
-        description: >
-            "Contiene la informacion clave de las casas de articulos de Kielsa"
-        columns:
-          - name: Casa_Id
-            description: "Casas de articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: DL_Temp_ArticuloAliados_Kielsa
-      - name: DL_Kielsa_Articulo_Calc
-        description: >
-            "Contiene la informacion calculada de los articulos de Kielsa"
-        columns:
-          - name: Articulo_Id
-            description: "Articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: DL_Kielsa_PV_Alerta
-        description: >
-            "Contiene la informacion clave de las alertas de articulos de Kielsa"
-        columns:  
-          - name: Alerta_Id
-            description: "Alertas de articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: DL_Kielsa_Monedero
-      - name: DL_Kielsa_Cliente
-      - name: DL_Kielsa_Bodega
-      - name: DL_Kielsa_Empleado
-      - name: DL_Kielsa_CanalVenta
-      - name: DL_Kielsa_Articulo_x_Sucursal
-      - name: DL_Kielsa_INV_Demanda_Histo
-      - name: DL_Kielsa_SUC_Demanda_Histo
-      - name: DL_Kielsa_MovimientosHist
-      - name: DL_Kielsa_Tipo_Mov_Inventario
-      - name: DL_Kielsa_INV_Demanda
-      - name: DL_Kielsa_BoletaLocal_Detalle
-      - name: DL_Kielsa_BoletaLocal_Encabezado
-      - name: DL_Kielsa_Boleta_Exterior_Hist
-      - name: DL_Kielsa_Articulo_Alerta
-      - name: DL_Kielsa_ExistenciaHist
-      - name: DL_Kielsa_RecetasDetalle
-      - name: DL_Kielsa_RecetasCabecera
-      - name: DL_ArticulosPresentacionesFormas_ExcelTemp
-      - name: DL_Kielsa_RecetasMedicos
-      - name: DL_Kielsa_FacturasPosiciones_ArboledaOld
-      - name: DL_Kielsa_FacturaEncabezado_ArboledaOld
-      - name: DL_Kielsa_Inv_Despacho_Detalle
-      - name: DL_Kielsa_Inv_Despacho_Encabezado
-      - name: DL_Kielsa_Detalle_Pedido
-      - name: DL_Kielsa_Articulo_Info
-      - name: DL_Kielsa_Orden_Local_Detalle
-      - name: DL_Kielsa_Orden_Local_Encabezado
-      - name: DL_Kielsa_Orden_Exterior_Detalle
-      - name: DL_Kielsa_Orden_Exterior_Encabezado
-      - name: DL_Kielsa_VendedorSucursal
-      - name: DL_Kielsa_Libros_Cliente
-      - name: DL_Kielsa_Libros_Historico
-      - name: DL_Kielsa_Libros_Tipo
-      - name: DL_MDBECOMM_Usuarios
-      - name: DL_Kielsa_KPP_Suscripcion
-      - name: DL_MDBKTMPRO_Clinicas_Usuarios
-      - name: DL_MDBKTMPRO_Clinicas_Videoconf_Cabecera
-      - name: DL_MDBKTMPRO_Clinicas_Postvideoconf
-      - name: DL_MDBKTMPRO_Clinicas_Consultas
-      - name: DL_MDBKTMPRO_Clinicas_Videoconf_Indicaciones
-      - name: DL_MDBKTMPRO_Clinicas_Videoconf_Textos
-      - name: DL_Kielsa_Regalia_Encabezado
-      - name: DL_Kielsa_Regalia_Detalle
-      - name: DL_Kielsa_Monedero_Tarjetas_Replica
-      - name: DL_Kielsa_eCommerceTipoPago
-      - name: DL_Kielsa_eCommerceFormaPago
-      - name: DL_Kielsa_eCommerceOrigen
-      - name: DL_Kielsa_Seg_Rol
-      - name: DL_Kielsa_Cliente_ArticuloRecomendado
-      - name: DL_Kielsa_Enfermedades
-      - name: DL_Kielsa_Patologia_Cronico_Excel
-      - name: DL_Acum_VentasHist_Kielsa
-      - name: DL_Kielsa_Articulo_ArticuloRelacionado
-      - name: DL_Kielsa_MetaHist
-      - name: DL_Planning_ListaNegra
-      - name: DL_Kielsa_Regalia_Incentivo
+      dagster:
+        group: ldcom_etl_dwh
+- name: DL_FARINTER_mdb_ecommerce_hn
+  description: Base de tablas cargadas (Data Lake)
+  database: DL_FARINTER
+  schema: mdb_ecommerce_hn
+  loaded_at_field: Fecha_Actualizado
+  tables:
+  - name: orders
+  - name: orders__shopping_cart
 
 
-  - name: DL_FARINTER_mdb_ecommerce_hn
-    description: "Base de tablas cargadas (Data Lake)"
-    database: DL_FARINTER
-    schema: mdb_ecommerce_hn
-    freshness: # default freshness
-        warn_after: {count: 28, period: hour}
-        error_after: {count: 72, period: hour}
-    loaded_at_field: Fecha_Actualizado
+
+
+  config:
+    freshness:   # default freshness
+      warn_after: {count: 28, period: hour}
+      error_after: {count: 72, period: hour}
     meta:
-        dagster:
-            group: "ldcom_etl_dwh"
-    tables:
-      - name: orders
-      - name: orders__shopping_cart
-     
-      
+      dagster:
+        group: ldcom_etl_dwh
+- name: DL_FARINTER_excel
+  description: Base de tablas cargadas (Data Lake)
+  database: DL_FARINTER
+  schema: excel
+  loaded_at_field: Fecha_Actualizado
+  tables:
+  - name: DL_Kielsa_Horario_Temp
 
 
-  - name: DL_FARINTER_excel
-    description: "Base de tablas cargadas (Data Lake)"
-    database: DL_FARINTER
-    schema: excel
-    freshness: # default freshness
-        warn_after: {count: 28, period: hour}
-        error_after: {count: 72, period: hour}
-    loaded_at_field: Fecha_Actualizado
+  config:
+    freshness:   # default freshness
+      warn_after: {count: 28, period: hour}
+      error_after: {count: 72, period: hour}
     meta:
-        dagster:
-            group: "ldcom_etl_dwh"
-    tables:
-      - name: DL_Kielsa_Horario_Temp
-     
+      dagster:
+        group: ldcom_etl_dwh
+- name: DL_FARINTER_nocodb_data_gf
+  description: Base de tablas cargadas (Data Lake)
+  database: DL_FARINTER
+  schema: nocodb_data_gf
+  loaded_at_field: Fecha_Actualizado
+  tables:
+  - name: kielsa_sucursal_horario_dia
+  - name: kielsa_sucursal
 
-  - name: DL_FARINTER_nocodb_data_gf
-    description: "Base de tablas cargadas (Data Lake)"
-    database: DL_FARINTER
-    schema: nocodb_data_gf
-    freshness: # default freshness
-        warn_after: {count: 28, period: hour}
-        error_after: {count: 72, period: hour}
-    loaded_at_field: Fecha_Actualizado
+  config:
+    freshness:   # default freshness
+      warn_after: {count: 28, period: hour}
+      error_after: {count: 72, period: hour}
     meta:
-        dagster:
-            group: "nocodb_data_gf"
-    tables:
-      - name: kielsa_sucursal_horario_dia
-      - name: kielsa_sucursal
-     
+      dagster:
+        group: nocodb_data_gf

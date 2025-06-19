@@ -1,9 +1,11 @@
 models:
-  - name: DL_Kielsa_TC_Sugerido
+- name: DL_Kielsa_TC_Sugerido
+  config:
     meta:
-        dagster:
-            owners: ["cleymer.mendoza@farinter.com"]
-  - name: DL_Kielsa_KPP_LogMovimientoSuscripcion_Hist
+      dagster:
+        owners: [cleymer.mendoza@farinter.com]
+- name: DL_Kielsa_KPP_LogMovimientoSuscripcion_Hist
+  config:
     meta:
-        dagster:
-            owners: ["Andrea.Lozano@farinter.com"]
+      dagster:
+        owners: [Andrea.Lozano@farinter.com]

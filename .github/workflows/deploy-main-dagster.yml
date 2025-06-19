@@ -1,28 +1,24 @@
+---
 name: Deploy Dagster
-
 on:
   push:
     branches: [main, dev]
-
 env:
   DAGSTER_INSTANCE_CURRENT_ENV: ${{ github.ref == 'refs/heads/main' && 'prd' || 'dev' }}
   DEPLOY_DIR: ${{ github.ref == 'refs/heads/main' && '/opt/main_dagster_prd' || '/opt/main_dagster_dev' }}
   ENV: ${{ github.ref == 'refs/heads/main' && 'prd' || 'dev' }}
   ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
   DAGSTER_GRAPHQL_PORT: ${{ github.ref == 'refs/heads/main' && '9310' || '9300' }}
-
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
       deployment_type: ${{ steps.commit_override.outputs.deployment_type }}
-    
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
       - name: Check commit message for deployment type
         id: commit_override
         run: |
@@ -33,31 +29,26 @@ jobs:
           else
             echo "deployment_type=deploy-continuous" >> $GITHUB_OUTPUT
           fi
-
   deploy:
     needs: detect-changes
     runs-on: self-hosted
-    
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
       - name: Configure Git Repository
         run: |
           cd ${{ env.DEPLOY_DIR }}
           git config --global --add safe.directory ${{ env.DEPLOY_DIR }}
           export GIT_DIR="${{ env.DEPLOY_DIR }}/.git"
           export GIT_WORK_TREE="${{ env.DEPLOY_DIR }}"
-
-      - name: Update Code from Repository  
+      - name: Update Code from Repository
         run: |
           cd ${{ env.DEPLOY_DIR }}
           git fetch origin
           git checkout ${GITHUB_REF#refs/heads/}
           git pull --rebase origin ${GITHUB_REF#refs/heads/}
-
       - name: Run Deployment
         env:
           ENV: ${{ env.ENV }}
@@ -67,18 +58,15 @@ jobs:
           cd ${{ env.DEPLOY_DIR }}
           python3.12 "${{ env.DEPLOY_DIR }}/scripts/deployment.py" ${{ needs.detect-changes.outputs.deployment_type }}
           echo "Executed deployment strategy: ${{ needs.detect-changes.outputs.deployment_type }}"
-
       - name: Process DBT Files
         run: |
           source ${{ env.DEPLOY_DIR }}/.venv/bin/activate
           python "${{ env.DEPLOY_DIR }}/dbt_dwh_farinter/autoload_dbt_deploy.py"
-
       - name: Verify Deployment Status
         if: always()
-        run: |
+        run: |-
           sudo systemctl status dagster_${{ env.ENV }}_webserver | grep -q "active (running)" && \
           sudo systemctl status dagster_${{ env.ENV }}_daemon | grep -q "active (running)"
-          
           if [[ $? -eq 0 && ${{ job.status }} == 'success' ]]; then
             echo "✅ Deployment to ${{ env.ENV_NAME }} successful"
             echo "Deployment strategy used: ${{ needs.detect-changes.outputs.deployment_type }}"
@@ -86,4 +74,3 @@ jobs:
             echo "❌ Deployment to ${{ env.ENV_NAME }} failed"
             exit 1
           fi
-

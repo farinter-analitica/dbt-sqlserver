@@ -1,81 +1,79 @@
 groups:
-  - name: dbt_first_group
-    owner:
-      # 'name' or 'email' is required; additional properties allowed
-      email: example@farinter.com
-  - name: dbt_second_group_test
-    owner:
-      email: example@farinter.com
-  - name: etl_dwh
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_marts
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_sap_marts
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_marts
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_sap_mart_finanzas
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_sap_mart_datos_maestros
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_mart_finanzas
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_mart_ventas
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_mart_datos_maestros
-    owner:
-      email: brian.padilla@farinter.com
-  - name: ldcom_etl_dwh
-    owner:
-      email: brian.padilla@farinter.com
-  - name: sap_etl_dwh
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_mart_kpp
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_sap_mart_mm
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_mart_existencias
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_sap_mart_ventas
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_mart_datos_maestros
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_snapshots
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_snapshots_kielsa
-    owner:
-      email: brian.padilla@farinter.com	
-  - name: crm_dwh_kielsa
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_an
-    owner:
-      email: brian.padilla@farinter.com
-  - name: db_planning
-    owner:
-      email: brian.padilla@farinter.com
-  - name: dbt_dwh_kielsa_mart_compras
-    owner:
-      email: brian.padilla@farinter.com
-  - name: kielsa_analitica_atributos
-    owner:
-      email: brian.padilla@farinter.com
-      email: edwin.martinez@farinter.com
-  - name: dbt_dwh_sap_an
-    owner:
-      email: brian.padilla@farinter.com
+- name: dbt_first_group
+  owner:
+    email: example@farinter.com
+- name: dbt_second_group_test
+  owner:
+    email: example@farinter.com
+- name: etl_dwh
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_marts
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_sap_marts
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_marts
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_sap_mart_finanzas
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_sap_mart_datos_maestros
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_mart_finanzas
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_mart_ventas
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_mart_datos_maestros
+  owner:
+    email: brian.padilla@farinter.com
+- name: ldcom_etl_dwh
+  owner:
+    email: brian.padilla@farinter.com
+- name: sap_etl_dwh
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_mart_kpp
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_sap_mart_mm
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_mart_existencias
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_sap_mart_ventas
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_mart_datos_maestros
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_snapshots
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_snapshots_kielsa
+  owner:
+    email: brian.padilla@farinter.com
+- name: crm_dwh_kielsa
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_an
+  owner:
+    email: brian.padilla@farinter.com
+- name: db_planning
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_kielsa_mart_compras
+  owner:
+    email: brian.padilla@farinter.com
+- name: kielsa_analitica_atributos
+  owner:
+    email: brian.padilla@farinter.com
+- name: dbt_dwh_sap_an
+  owner:
+    email: brian.padilla@farinter.com

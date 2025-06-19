@@ -1,36 +1,39 @@
 sources:
-  - name: SITEPLUS
-    description: "APPS VARIAS"
-    database: SITEPLUS
-    schema: dbo
+- name: SITEPLUS
+  description: APPS VARIAS
+  database: SITEPLUS
+  schema: dbo
+  tables:
+  - name: Kielsa_Reloj_Marcador_Autorizador
+  - name: Kielsa_Reloj_Marcador
+  config:
     meta:
-        dagster:
-            group: "siteplus_etl_dwh"
-    tables:
-      - name: Kielsa_Reloj_Marcador_Autorizador
-      - name: Kielsa_Reloj_Marcador
-  - name: KPP_DB
-    description: "Kielsa Plus Plus"
-    database: KPP_DB
-    schema: dbo
-    meta:
-        dagster:
-            group: "kpp_etl_dwh"
-    tables:
-      - name: Suscripcion
-      - name: Transacciones
-      - name: LogSuscripcion
-      - name: LogMovimientoSuscripcion
-      - name: Saldo_x_Cliente
-      - name: usuarios
-      - name: Plan_Suscripcion
+      dagster:
+        group: siteplus_etl_dwh
+- name: KPP_DB
+  description: Kielsa Plus Plus
+  database: KPP_DB
+  schema: dbo
+  tables:
+  - name: Suscripcion
+  - name: Transacciones
+  - name: LogSuscripcion
+  - name: LogMovimientoSuscripcion
+  - name: Saldo_x_Cliente
+  - name: usuarios
+  - name: Plan_Suscripcion
 
-  - name: RECETAS
-    description: "RECETAS"
-    database: RECETAS
-    schema: dbo
+  config:
     meta:
-        dagster:
-            group: "recetas_etl_dwh"
-    tables:
-      - name: TR_Actualizador_KielsaCash
+      dagster:
+        group: kpp_etl_dwh
+- name: RECETAS
+  description: RECETAS
+  database: RECETAS
+  schema: dbo
+  tables:
+  - name: TR_Actualizador_KielsaCash
+  config:
+    meta:
+      dagster:
+        group: recetas_etl_dwh

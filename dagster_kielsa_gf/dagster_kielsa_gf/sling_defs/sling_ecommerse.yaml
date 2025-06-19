@@ -1,10 +1,10 @@
 source: MONGODB_ECOMMERCE_HN
 target: DAGSTER_DWH_FARINTER
-  
+
 
 defaults:
   mode: full-refresh
-  object: "{stream_schema}_{stream_table}"
+  object: '{stream_schema}_{stream_table}'
 
 streams:
   kielsaHnDb.ordersfailds:
@@ -15,5 +15,5 @@ streams:
     object: tests.orders
     source_options:
       flatten: true
-    target_options: 
+    target_options:
       column_casing: snake

@@ -55,5 +55,5 @@
   {% call statement('drop_temp_table') -%}
       {{ dropTempTable }}
   {%- endcall %}
-{% endmacro %}
+
 #}

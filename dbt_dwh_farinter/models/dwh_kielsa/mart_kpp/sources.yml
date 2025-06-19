@@ -1,16 +1,16 @@
 sources:
-  - name: Kielsa_KPP
-    description: "Base de planes por suscripcion a Kielsa Plus Plus"
-    database: KPP_DB
-    schema: dbo
-    freshness: # default freshness
-        warn_after: {count: 28, period: hour}
-        error_after: {count: 72, period: hour}
+- name: Kielsa_KPP
+  description: Base de planes por suscripcion a Kielsa Plus Plus
+  database: KPP_DB
+  schema: dbo
     #group: ldcom_etl_dwh #se definió en dbt_project.yml
     #meta:
     #    dagster:
     #        group: "ldcom_etl_dwh"
 
-    tables:
-      - name: Plan_Suscripcion
-      
+  tables:
+  - name: Plan_Suscripcion
+  config:
+    freshness:   # default freshness
+      warn_after: {count: 28, period: hour}
+      error_after: {count: 72, period: hour}

@@ -34,7 +34,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "dagster>=1.9.7,<1.10.15",
+    "dagster>=1.9.7,<1.10.21",
     "dbt-core>=1.8,<2.0",
     "dagster-dbt>=0.24",
     "dbt-postgres>=1.8,<2.0",
@@ -63,6 +63,8 @@ dependencies = [
     "ipython",
     "psutil",
     "requests",
+    "scipy",
+    "dlt",
 ]
 
 [project.optional-dependencies]
@@ -70,18 +72,6 @@ external = ["statstools_gf", "algoritmo_mddme_gf"]
 
 [project.urls]
 Repository = "https://github.com/farinter-analitica/main-dagster"
-
-[dependency-groups]
-dev = [
-    "pytest",
-    "pytest-mock",
-    "pytest-dotenv",
-    "pyright",
-    "ruff",
-    "pre-commit",
-]
-helpers = ["jinja2"]
-
 
 [tool.setuptools]
 packages = ["dagster_shared_gf"]
@@ -92,8 +82,6 @@ dagster_shared_gf = ["dagster_shared_gf_tests"]
 [tool.dagster]
 module_name = "dagster_shared_gf"
 
-[tool.uv]
-default-groups = ["dev", "helpers"]
 # Permite no necesitar conectarse para la primer evaluacion de dependencias.
 dependency-metadata = [
     { name = "statstools_gf" },

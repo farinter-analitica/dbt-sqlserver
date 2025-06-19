@@ -1,5 +1,6 @@
 models:
-  - name: BI_Kielsa_Hecho_IngresoHist
+- name: BI_Kielsa_Hecho_IngresoHist
+  config:
     meta:
-        dagster:
-            owners: ["cleymer.mendoza@farinter.com"]
+      dagster:
+        owners: [cleymer.mendoza@farinter.com]

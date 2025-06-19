@@ -1,26 +1,25 @@
-
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: 'dbt_dwh_farinter'
-version: '1.0.0'
+name: dbt_dwh_farinter
+version: 1.0.0
 
 # This setting configures which "profile" dbt uses for this project.
-profile: 'dbt_dwh_farinter'
+profile: dbt_dwh_farinter
 
 # These configurations specify where dbt should look for different types of files.
 # The `model-paths` config, for example, states that models in this project can be
 # found in the "models/" directory. You probably won't need to change these!
-model-paths: ["models","model_groups"]
-analysis-paths: ["analyses"]
-test-paths: ["tests"]
-seed-paths: ["seeds"]
-macro-paths: ["macros"]
-snapshot-paths: ["snapshots"]
+model-paths: [models, model_groups]
+analysis-paths: [analyses]
+test-paths: [tests]
+seed-paths: [seeds]
+macro-paths: [macros]
+snapshot-paths: [snapshots]
 
 clean-targets:         # directories to be removed by `dbt clean`
-  - "target"
-  - "logs"
+- target
+- logs
 
 
 # Configuring models
@@ -36,166 +35,166 @@ models:
     # Config indicated by + and applies to all files under models/example/
     example:
       +materialized: view
-      +group: "dbt_first_group"
+      +group: dbt_first_group
     dagster_example:
-      +group: "dbt_second_group_test"
+      +group: dbt_second_group_test
     dwh_sap:
-      +tags: ["dagster_sap_gf/dbt"]
+      +tags: [dagster_sap_gf/dbt]
       mart_datos_maestros:
-        +group: "dbt_dwh_sap_mart_datos_maestros"
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_sap_mart_datos_maestros
+        +database: BI_FARINTER
       mart_finanzas:
-        +group: "dbt_dwh_sap_mart_finanzas"
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_sap_mart_finanzas
+        +database: BI_FARINTER
       mart_ventas:
-        +group: "dbt_dwh_sap_mart_ventas"
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_sap_mart_ventas
+        +database: BI_FARINTER
       mart_mm:
-        +group: "dbt_dwh_sap_mart_mm"
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_sap_mart_mm
+        +database: BI_FARINTER
       sap_etl_datos_maestros:
-        +group: "sap_etl_dwh"
-        +database: "DL_FARINTER"
+        +group: sap_etl_dwh
+        +database: DL_FARINTER
       sap_etl_mm:
-        +group: "sap_etl_dwh"
-        +database: "DL_FARINTER"
+        +group: sap_etl_dwh
+        +database: DL_FARINTER
       bi_farinter:
-        +group: 'dbt_dwh_sap_marts'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_sap_marts
+        +database: BI_FARINTER
       dl_farinter:
-        +group: 'sap_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: sap_etl_dwh
+        +database: DL_FARINTER
       bi_db_planning:
-        +schema: 'db_planning'
-        +group: 'db_planning'
-        +database: 'BI_FARINTER'
+        +schema: db_planning
+        +group: db_planning
+        +database: BI_FARINTER
       an_farinter:
-        +group: 'dbt_dwh_sap_an'
-        +database: 'AN_FARINTER'
-        
+        +group: dbt_dwh_sap_an
+        +database: AN_FARINTER
+
     dwh_kielsa:
-      +tags: ["dagster_kielsa_gf/dbt"]
+      +tags: [dagster_kielsa_gf/dbt]
 #      mart_finanzas:
 #        +group: "dbt_dwh_kielsa_mart_finanzas"
       mart_datos_maestros:
-        +group: "dbt_dwh_kielsa_mart_datos_maestros"
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_kielsa_mart_datos_maestros
+        +database: BI_FARINTER
         +meta:
-            dagster:
-                group: "dbt_dwh_kielsa_mart_datos_maestros"
+          dagster:
+            group: dbt_dwh_kielsa_mart_datos_maestros
       mart_existencias:
-        +group: "dbt_dwh_kielsa_mart_existencias"
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_kielsa_mart_existencias
+        +database: BI_FARINTER
       mart_kpp:
-        +group: 'dbt_dwh_kielsa_mart_kpp'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_kielsa_mart_kpp
+        +database: BI_FARINTER
       mart_ventas:
-        +group: 'dbt_dwh_kielsa_mart_ventas'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_kielsa_mart_ventas
+        +database: BI_FARINTER
       mart_compras:
-        +group: 'dbt_dwh_kielsa_mart_compras'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_kielsa_mart_compras
+        +database: BI_FARINTER
       ldcom_etl_datos_maestros:
-        +group: 'ldcom_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: ldcom_etl_dwh
+        +database: DL_FARINTER
       an_farinter:
-        +group: 'dbt_dwh_kielsa_an'
-        +database: 'AN_FARINTER'
+        +group: dbt_dwh_kielsa_an
+        +database: AN_FARINTER
       bi_farinter:
-        +group: 'dbt_dwh_kielsa_marts'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_kielsa_marts
+        +database: BI_FARINTER
       dl_farinter:
-        +group: 'ldcom_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: ldcom_etl_dwh
+        +database: DL_FARINTER
       crm_farinter:
-        +group: 'crm_dwh_kielsa'
-        +database: 'CRM_FARINTER'
+        +group: crm_dwh_kielsa
+        +database: CRM_FARINTER
       ia_farinter:
-        +group: 'ia_farinter_kielsa'
-        +database: 'IA_FARINTER'
+        +group: ia_farinter_kielsa
+        +database: IA_FARINTER
 
     dwh_global:
-      +tags: ["dagster_global_gf/dbt"]
+      +tags: [dagster_global_gf/dbt]
       an_farinter:
-        +group: 'dbt_dwh_an'
-        +database: 'AN_FARINTER'
+        +group: dbt_dwh_an
+        +database: AN_FARINTER
       bi_farinter:
-        +group: 'dbt_dwh_marts'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_marts
+        +database: BI_FARINTER
       dl_farinter:
-        +group: 'etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: etl_dwh
+        +database: DL_FARINTER
 
 snapshots:
   dbt_dwh_farinter:
-    +schema: 'scd'
+    +schema: scd
     dl_farinter:
-      +database: 'DL_FARINTER'
+      +database: DL_FARINTER
       kielsa:
-        +tags: ["dagster_kielsa_gf/dbt"]
-        +group: 'dbt_snapshots_kielsa'
+        +tags: [dagster_kielsa_gf/dbt]
+        +group: dbt_snapshots_kielsa
     example:
-      +group: 'dbt_first_group'
+      +group: dbt_first_group
 
 sources:
   dbt_dwh_farinter:
     dwh_kielsa:
-      +tags: ["dagster_kielsa_gf/dbt"]
+      +tags: [dagster_kielsa_gf/dbt]
       mart_kpp:
-        +group: 'dbt_dwh_kielsa_mart_kpp'
+        +group: dbt_dwh_kielsa_mart_kpp
       an_farinter:
-        +group: 'dbt_dwh_kielsa_an'
-        +database: 'AN_FARINTER'
+        +group: dbt_dwh_kielsa_an
+        +database: AN_FARINTER
       bi_farinter:
-        +database: 'BI_FARINTER'
+        +database: BI_FARINTER
       dl_farinter:
-        +group: 'ldcom_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: ldcom_etl_dwh
+        +database: DL_FARINTER
       crm_farinter:
-        +group: 'crm_dwh_kielsa'
-        +database: 'CRM_FARINTER'
+        +group: crm_dwh_kielsa
+        +database: CRM_FARINTER
       ia_farinter:
-        +group: 'ia_farinter_kielsa'
-        +database: 'IA_FARINTER'
+        +group: ia_farinter_kielsa
+        +database: IA_FARINTER
 
     dwh_sap:
-      +tags: ["dagster_sap_gf/dbt"]
+      +tags: [dagster_sap_gf/dbt]
       mart_finanzas:
-        +group: 'sap_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: sap_etl_dwh
+        +database: DL_FARINTER
       mart_mm:
-        +group: 'sap_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: sap_etl_dwh
+        +database: DL_FARINTER
       mart_ventas:
-        +group: 'sap_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: sap_etl_dwh
+        +database: DL_FARINTER
       sap_etl_datos_maestros:
-        +group: 'sap_prd'
-        +database: 'DL_FARINTER'
+        +group: sap_prd
+        +database: DL_FARINTER
       sap_etl_mm:
-        +group: 'sap_prd'
-        +database: 'DL_FARINTER'
+        +group: sap_prd
+        +database: DL_FARINTER
       an_farinter:
-        +group: 'dbt_dwh_sap_an'
-        +database: 'AN_FARINTER'
+        +group: dbt_dwh_sap_an
+        +database: AN_FARINTER
       bi_farinter:
-        +group: 'dbt_dwh_sap_marts'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_sap_marts
+        +database: BI_FARINTER
       dl_farinter:
-        +group: 'sap_etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: sap_etl_dwh
+        +database: DL_FARINTER
 
     dwh_global:
-      +tags: ["dagster_global_gf/dbt"]
+      +tags: [dagster_global_gf/dbt]
       an_farinter:
-        +group: 'dbt_dwh_an'
-        +database: 'AN_FARINTER'
+        +group: dbt_dwh_an
+        +database: AN_FARINTER
       bi_farinter:
-        +group: 'dbt_dwh_marts'
-        +database: 'BI_FARINTER'
+        +group: dbt_dwh_marts
+        +database: BI_FARINTER
       dl_farinter:
-        +group: 'etl_dwh'
-        +database: 'DL_FARINTER'
+        +group: etl_dwh
+        +database: DL_FARINTER
 #    marts:
 #      +group: "marts_group"
 #      mart1:
@@ -251,7 +250,4 @@ vars:
     SV:
       NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para SV
       DATABASE: LDFASREPSLV # Base de datos de LDFAS con todas las tablas a utilizar para SV
-
-
-
 

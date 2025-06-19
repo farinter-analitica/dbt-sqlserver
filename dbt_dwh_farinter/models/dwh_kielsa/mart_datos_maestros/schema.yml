@@ -26,7 +26,7 @@ models:
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           name: usuario_nombre_unico_afecta_receta
-          combination_of_columns: 
+          combination_of_columns:
             - Usuario_Nombre
             - Emp_Id
           config:

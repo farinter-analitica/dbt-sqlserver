@@ -78,7 +78,7 @@ fi
 source $VIRTUAL_ENV/bin/activate
 
 # Configurar claves SSH de deploy para repos privados
-uv run ./scripts/deployment.py setup-deploy-key --test
+uv run --frozen ./scripts/deployment.py setup-deploy-key --test
 
 # Instalar dependencias externas
 echo "📥 Instalando dependencias externas con uv..."
@@ -97,7 +97,7 @@ fi
 
 if ! uv pip show pre-commit &> /dev/null; then
   echo "Instalando pre-commit via uv..."
-  uv run pre-commit install
+  uv run --frozen pre-commit install --install-hooks
 fi
 
 echo "🎉 Entorno de desarrollo preparado correctamente."

@@ -1,29 +1,37 @@
 models:
-  - name: BI_Kielsa_Hecho_FacturaEncabezado
-  - name: BI_Kielsa_Hecho_CompraHist
-    meta:
-        dagster:
-            owners: ["cleymer.mendoza@farinter.com"]
-  - name: BI_Kielsa_Hecho_Efectividad_CEDI_Hist
+- name: BI_Kielsa_Hecho_FacturaEncabezado
+- name: BI_Kielsa_Hecho_CompraHist
+  config:
     meta:
       dagster:
-          owners: ["cleymer.mendoza@farinter.com"]
+        owners: [cleymer.mendoza@farinter.com]
+- name: BI_Kielsa_Hecho_Efectividad_CEDI_Hist
+  config:
+    meta:
+      dagster:
+        owners: [cleymer.mendoza@farinter.com]
 
-  - name: BI_Kielsa_Agr_Sucursal_PartMes
-    meta:
-      dagster:
-          owners: ["brian.padilla@farinter.com"]
-    columns:
-      - name: Mes_Id
+- name: BI_Kielsa_Agr_Sucursal_PartMes
+  columns:
+  - name: Mes_Id
+    config:
+      meta:
         data_test:
         - check_all_values_exist:
-            values: [1,2,3,4,5,6,7,8,9,10,11,12]
-  - name: BI_Kielsa_Agr_Sucursal_PartDiaSemana
+            values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+  config:
     meta:
       dagster:
-          owners: ["brian.padilla@farinter.com"]
-    columns:
-      - name: Dia_Semana_Iso_Id
+        owners: [brian.padilla@farinter.com]
+- name: BI_Kielsa_Agr_Sucursal_PartDiaSemana
+  columns:
+  - name: Dia_Semana_Iso_Id
+    config:
+      meta:
         data_test:
         - check_all_values_exist:
-            values: [1,2,3,4,5,6,7]
+            values: [1, 2, 3, 4, 5, 6, 7]
+  config:
+    meta:
+      dagster:
+        owners: [brian.padilla@farinter.com]

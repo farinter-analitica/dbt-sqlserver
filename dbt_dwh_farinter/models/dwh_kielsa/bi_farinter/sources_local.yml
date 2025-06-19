@@ -1,59 +1,74 @@
 sources:
-  - name: BI_FARINTER
-    description: "Base de tablas transformadas (Data Warehouse)"
-    database: BI_FARINTER
-    schema: dbo
-    freshness: # default freshness
-        warn_after: {count: 28, period: hour}
-        error_after: {count: 72, period: hour}
-    loaded_at_field: Fecha_Actualizado
+- name: BI_FARINTER
+  description: Base de tablas transformadas (Data Warehouse)
+  database: BI_FARINTER
+  schema: dbo
+  loaded_at_field: Fecha_Actualizado
 
-    tables:
-      - name: BI_Kielsa_Dim_Empresa
+  tables:
+  - name: BI_Kielsa_Dim_Empresa
+    config:
+      meta:
+        dagster:
+          group: dbt_dwh_kielsa_mart_datos_maestros
+  - name: BI_Hecho_SameSucursales_Kielsa
+    config:
+      meta:
+        dagster:
+          group: dbt_dwh_kielsa_mart_datos_maestros
+  - name: BI_Kielsa_Dim_ArticuloSubCategorias
+    description: >
+      "Contiene la informacion clave de las subcategorias de articulos de Kielsa"
+    columns:
+    - name: SubCategoria1Art_Id
+      description: Subcategorias 1 de articulos de Kielsa
+      config:
         meta:
-            dagster:
-                group: "dbt_dwh_kielsa_mart_datos_maestros"
-      - name: BI_Hecho_SameSucursales_Kielsa
+          type: int
+    - name: SubCategoria2Art_Id
+      description: Subcategorias 2 de articulos de Kielsa
+      config:
         meta:
-            dagster:
-                group: "dbt_dwh_kielsa_mart_datos_maestros"
-      - name: BI_Kielsa_Dim_ArticuloSubCategorias
-        description: >
-            "Contiene la informacion clave de las subcategorias de articulos de Kielsa"
+          type: int
+    - name: SubCategoria3Art_Id
+      description: Subcategorias 3 de articulos de Kielsa
+      config:
         meta:
-            dagster:
-                group: "dbt_dwh_kielsa_mart_datos_maestros"
-        columns:
-          - name: SubCategoria1Art_Id
-            description: "Subcategorias 1 de articulos de Kielsa"
-            type: int
-          - name: SubCategoria2Art_Id
-            description: "Subcategorias 2 de articulos de Kielsa"
-            type: int
-          - name: SubCategoria3Art_Id
-            description: "Subcategorias 3 de articulos de Kielsa"
-            type: int
-          - name: SubCategoria4Art_Id
-            description: "Subcategorias 4 de articulos de Kielsa"
-            type: int
-          - name: Emp_Id
-            description: "Empresa de Kielsa"
-            type: int
-      - name: BI_Kielsa_Dim_ArticuloPresentacion
+          type: int
+    - name: SubCategoria4Art_Id
+      description: Subcategorias 4 de articulos de Kielsa
+      config:
         meta:
-            dagster:
-                group: "dbt_dwh_kielsa_mart_datos_maestros"
-      - name: BI_Hecho_ProyeccionVentaseCommerce_Kielsa
-      - name: BI_Kielsa_Dim_ClienteGeneral
-      - name: BI_Kielsa_Dim_TipoSucursal
-      - name: BI_Kielsa_Dim_Dias
-      - name: BI_Kielsa_Dim_DeptoArt
-      - name: BI_Hecho_VentasHist_Kielsa
-      - name: BI_Dim_Monedero_Kielsa
-      - name: BI_Dim_Sucursal_Kielsa
-      - name: BI_Dim_TipoSucursal_Kielsa
-      - name: BI_Dim_Dias
-      - name: BI_Dim_CanalVenta_Kielsa
-      - name: BI_Dim_DeptoArt_Kielsa
-      - name: BI_Dim_TipoCliente_Kielsa
+          type: int
+    - name: Emp_Id
+      description: Empresa de Kielsa
+      config:
+        meta:
+          type: int
+    config:
+      meta:
+        dagster:
+          group: dbt_dwh_kielsa_mart_datos_maestros
+  - name: BI_Kielsa_Dim_ArticuloPresentacion
+    config:
+      meta:
+        dagster:
+          group: dbt_dwh_kielsa_mart_datos_maestros
+  - name: BI_Hecho_ProyeccionVentaseCommerce_Kielsa
+  - name: BI_Kielsa_Dim_ClienteGeneral
+  - name: BI_Kielsa_Dim_TipoSucursal
+  - name: BI_Kielsa_Dim_Dias
+  - name: BI_Kielsa_Dim_DeptoArt
+  - name: BI_Hecho_VentasHist_Kielsa
+  - name: BI_Dim_Monedero_Kielsa
+  - name: BI_Dim_Sucursal_Kielsa
+  - name: BI_Dim_TipoSucursal_Kielsa
+  - name: BI_Dim_Dias
+  - name: BI_Dim_CanalVenta_Kielsa
+  - name: BI_Dim_DeptoArt_Kielsa
+  - name: BI_Dim_TipoCliente_Kielsa
 
+  config:
+    freshness:   # default freshness
+      warn_after: {count: 28, period: hour}
+      error_after: {count: 72, period: hour}

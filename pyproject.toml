@@ -1,5 +1,7 @@
 [tool.pyright]
 typeCheckingMode = "standard"
+venv = ".venv"
+venvPath = "."
 
 [tool.pytest.ini_options]
 env_files = [".env", ".env.test"]
@@ -20,6 +22,7 @@ python_version = "3.12" # Explicitly specify the required Python version
 
 [tool.uv]
 config-settings = { editable_mode = "compat" } # better-toml-ignore
+default-groups = ["dev", "helpers"]
 
 [tool.uv.sources]
 dagster_shared_gf = { workspace = true }
@@ -27,15 +30,28 @@ dagster_sap_gf = { workspace = true }
 dagster_kielsa_gf = { workspace = true }
 
 [tool.uv.workspace]
-members = ["dagster_shared_gf", "dagster_sap_gf", "dagster_kielsa_gf"] 
+members = ["dagster_shared_gf", "dagster_sap_gf", "dagster_kielsa_gf"]
+
+[tool.yamlfix]
+line_lenght = 0
 
 [dependency-groups]
 dev = [
     "dash>=3.0.2",
     "ipykernel>=6.29.5",
     "joblib>=1.4.2",
-    "xlsxwriter>=3.2.2",
+    "yamllint",
+    "yamlfix",
+    "pytest",
+    "pytest-mock",
+    "pytest-dotenv",
+    "pyright",
+    "ruff",
+    "pre-commit",
+    "prettier>=0.0.7",
 ]
+
+helpers = ["jinja2"]
 
 analitics = [
     "matplotlib>=3.10.1",
@@ -44,5 +60,6 @@ analitics = [
     "scikit-learn>=1.6.1",
     "shap>=0.47.1",
     "statsforecast>=2.0.1",
-    "xgboost>=3.0.0"
+    "xgboost>=3.0.0",
+    "xlsxwriter>=3.2.2",
 ]

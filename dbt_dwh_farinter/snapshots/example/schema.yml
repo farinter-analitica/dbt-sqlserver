@@ -1,5 +1,7 @@
 snapshots:
-  - name: my_dbt_scd_example_check
+- name: my_dbt_scd_example_check
+  config:
     group: dbt_first_group
-  - name: my_dbt_scd_example_timestamp
+- name: my_dbt_scd_example_timestamp
+  config:
     group: dbt_second_group_test
