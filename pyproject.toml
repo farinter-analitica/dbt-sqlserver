@@ -1,6 +1,4 @@
 [tool.pyright]
-venvPath = "."
-venv = ".venv"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
@@ -36,13 +34,15 @@ dev = [
     "dash>=3.0.2",
     "ipykernel>=6.29.5",
     "joblib>=1.4.2",
+    "xlsxwriter>=3.2.2",
+]
+
+analitics = [
     "matplotlib>=3.10.1",
-    "neuralforecast>=3.0.0",
     "plotly>=6.0.1",
     "prophet>=1.1.6",
     "scikit-learn>=1.6.1",
     "shap>=0.47.1",
     "statsforecast>=2.0.1",
-    "xgboost>=3.0.0",
-    "xlsxwriter>=3.2.2",
+    "xgboost>=3.0.0"
 ]

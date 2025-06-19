@@ -9,10 +9,6 @@
       "innoverio.vscode-dbt-power-user",
       "charliermarsh.ruff",
       "eamodio.gitlens",
-      "mtxr.sqltools",
-      "mtxr.sqltools-driver-pg",
-      "ms-mssql.mssql",
-      "ms-ossdata.vscode-pgsql"
     ]
   }
   

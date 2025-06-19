@@ -54,10 +54,16 @@ PARENT_PATH = Path(__file__).parent
 REPLICATION_CONFIG_NAME = ".sling_nocodb_data_gf.yaml"
 
 REPLICATION_CONFIG_PATH = PARENT_PATH / REPLICATION_CONFIG_NAME
-REPLICATION_CONFIG_DICT = {}
-with open(REPLICATION_CONFIG_PATH, "r") as file:
-    REPLICATION_CONFIG_DICT = yaml.safe_load(file)
 
+def get_replication_config_dict() -> dict:
+
+    if not os.path.exists(REPLICATION_CONFIG_PATH):
+        return {}
+
+    with open(REPLICATION_CONFIG_PATH, "r") as file:
+        REPLICATION_CONFIG_DICT = yaml.safe_load(file)
+
+    return REPLICATION_CONFIG_DICT
 
 def generate_nocodb_data_gf_sling_yaml():
     source: str = "NOCODB_DATA_GF"
@@ -94,7 +100,7 @@ def generate_nocodb_data_gf_sling_yaml():
 
 
 @sling_assets(
-    replication_config=REPLICATION_CONFIG_DICT,
+    replication_config=get_replication_config_dict(),
     dagster_sling_translator=MyDagsterSlingTranslator(
         asset_database="DL_FARINTER",
         schema_name="nocodb_data_gf",
@@ -107,7 +113,7 @@ def nocodb_data_gf(context: AssetExecutionContext, sling: MySlingResource):
     # context.log.info(f"{len(replication_config.keys())=}")
     # Esperar un tiempo promedio (60) en el que las personas terminan de llenar un campo.
     # Menos 30 de inicializacion. # Espera descontinuada por pasos de integración.
-    global REPLICATION_CONFIG_DICT
+    REPLICATION_CONFIG_DICT = get_replication_config_dict()
 
     hash_actual = calculate_file_checksum(REPLICATION_CONFIG_PATH)
     yaml_path = generate_nocodb_data_gf_sling_yaml()

@@ -44,7 +44,7 @@ class MyDbtCliResource(DbtCliResource):
 dbt_resource = MyDbtCliResource(
     project_dir=os.fspath(dbt_project_dir),
     profiles_dir=os.fspath(dbt_project_dir),
-    target=dbt_target,  # , dbt_executable="/opt/main_dagster_dev/.venv/bin/dbt"
+    target=dbt_target,
     state_path=None,
 )
 

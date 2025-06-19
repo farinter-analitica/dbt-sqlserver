@@ -96,15 +96,6 @@ def install_uv_standalone(reinstall: bool = False):
             capture=False,
         )
         run_cmd(
-            [
-                "bash",
-                "-c",
-                "echo 'eval \"$(uv generate-shell-completion bash)\"' >> ~/.bashrc",
-            ],
-            error_msg="Failed to install uv",
-            capture=False,
-        )
-        run_cmd(
             ["bash", "-c", "source ~/.bashrc"],
             error_msg="Failed to source .bashrc",
             capture=False,
@@ -190,6 +181,7 @@ def install_deps_uv(
     if not only_external:
         print("Installing core dependencies...")
         sync_cmd = [uv_command, "sync"]
+
         if not dev:
             sync_cmd.append("--locked")
             sync_cmd.append("--no-dev")
@@ -205,7 +197,7 @@ def install_deps_uv(
     if only_external:
         print("\nAttempting to install external dependencies...")
         try:
-            sync_cmd = [uv_command, "sync", "--only-group", "external", "--inexact"]
+            sync_cmd = [uv_command, "sync", "--extra", "external", "--inexact"]
             if not dev:
                 sync_cmd.append("--locked")
             run_cmd(
@@ -444,6 +436,7 @@ def setup_deploy_keys(
     setup: bool = True,
     test: bool = True,
     force_new: bool = False,
+    dev: bool = False,
 ) -> bool:
     """
     Check, set up and/or test SSH deploy keys for private GitHub repositories.
@@ -500,6 +493,19 @@ def setup_deploy_keys(
                 print("3. There's a network or SSH configuration issue")
                 print("\nAdd the key to GitHub at:")
                 print(f"https://github.com/{github_org}/{repo_name}/settings/keys")
+                if dev:
+                    # Ask the user if they have added the key to GitHub
+                    answer = (
+                        input(
+                            "\nDid you add the public key to the GitHub repository? [y/N]: "
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if not answer.startswith("y"):
+                        print(
+                            "Aborting. Please add the deploy key to GitHub and try again."
+                        )
                 if not setup:
                     return False
         print(
@@ -578,7 +584,10 @@ def set_deployment_vars() -> tuple[str, str, str, str, str]:
         env, deploy_dir, venv_dir, python_path, pip_path
     """
     env = os.environ.get("ENV", "dev")
-    deploy_dir = os.path.abspath(os.environ.get("DEPLOY_DIR", "."))
+    deploy_dir_env = os.environ.get("DEPLOY_DIR", os.environ.get("DAGSTER_HOME"))
+    if not deploy_dir_env:
+        raise ValueError("DEPLOY_DIR environment variable is not set.")
+    deploy_dir = os.path.abspath(deploy_dir_env)
     venv_dir = os.path.join(deploy_dir, ".venv")
     bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
     python_path = os.path.join(venv_dir, bin_dir, "python")
@@ -594,44 +603,6 @@ def set_deployment_vars() -> tuple[str, str, str, str, str]:
     print(f"Pip bin: {pip_path}")
 
     return env, deploy_dir, venv_dir, python_path, pip_path
-
-
-def dev():
-    """
-    Set up a platform-agnostic development environment using uv.
-
-    This function now:
-      - Reads the required Python version from pyproject.toml.
-      - Creates (or updates) the virtual environment using uv.
-      - Installs both core and external dependencies via uv.
-      - Sets up deploy keys and configures Git.
-    """
-    print("Setting up development environment...")
-    # Use the current working directory as the deployment directory.
-    env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
-
-    # Get the required Python version from configuration (or fallback to default)
-    required_version = get_python_version_from_config(deploy_dir)
-
-    # Install uv standalone
-    install_uv_standalone(reinstall=True)
-
-    # Use uv to create or update the virtual environment and get the Python binary path.
-    venv_dir, python_bin = manage_python_and_venv(
-        deploy_dir, venv_dir, required_version
-    )
-
-    # Install core development dependencies using uv
-    install_deps_uv(venv_dir, deploy_dir, dev=True)
-
-    # Set up SSH deploy keys for private repos
-    setup_deploy_keys()
-
-    # Install external dependencies via uv (non-critical, fallback installation)
-    install_deps_uv(venv_dir, deploy_dir, only_external=True)
-
-    # Configure Git commit templates and pre-commit hooks using uv commands
-    setup_git(python_path)
 
 
 def reload_code_locations():
@@ -829,6 +800,9 @@ def main():
     parser.add_argument(
         "--dev", action="store_true", help="Install development dependencies"
     )
+    parser.add_argument(
+        "--test", action="store_true", help="Test the deploy key"
+    )
     args = parser.parse_args()
 
     env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
@@ -844,7 +818,7 @@ def main():
             return False
     elif args.command == "setup-deploy-key":
         return setup_deploy_keys(
-            args.repo, args.org, setup=True, test=False, force_new=args.force
+            args.repo, args.org, setup=True, test=args.test or False, force_new=args.force
         )
     elif args.command == "test-deploy-key":
         return setup_deploy_keys(

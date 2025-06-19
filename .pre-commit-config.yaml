@@ -4,13 +4,13 @@ default_language_version:
   python: python3.12
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.7
+    rev: v0.12.0
     hooks:
       - id: ruff
         name: Ruff Lint
         entry: ruff
         args: [check, --fix, --exit-non-zero-on-fix]
-        language: python
+        #language: system
         #pass_filenames: false
         types: [python]
       - id: ruff-format
@@ -19,21 +19,21 @@ repos:
         args: [format]
         # System lang would means pre-commit will not try to install a new environment for this hook. It relies on
         # having a pre-existing `make` installed (and scripts/run-pyright.py).
-        language: python
+        #language: system
         #pass_filenames: false
         types: [python]
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.394
+    rev: v1.1.402
     hooks:
       - id: pyright
         name: pyright
         entry: pyright
         args: [--level=warning, --warnings]
-        language: python
+        #language: system
         types: [python]
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.6.6
+    rev: 0.7.13
     hooks:
       - id: uv-lock

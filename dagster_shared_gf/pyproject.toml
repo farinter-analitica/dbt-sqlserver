@@ -62,7 +62,11 @@ dependencies = [
     "wheel",
     "ipython",
     "psutil",
+    "requests",
 ]
+
+[project.optional-dependencies]
+external = ["statstools_gf", "algoritmo_mddme_gf"]
 
 [project.urls]
 Repository = "https://github.com/farinter-analitica/main-dagster"
@@ -76,13 +80,8 @@ dev = [
     "ruff",
     "pre-commit",
 ]
-helpers = [
-    "jinja2",
-]
-external = [
-    "statstools_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_statstools_gf",
-    "algoritmo_mddme_gf @ git+ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git@v1.0.4#subdirectory=py_algoritmo_mddme_gf",
-]
+helpers = ["jinja2"]
+
 
 [tool.setuptools]
 packages = ["dagster_shared_gf"]
@@ -95,3 +94,18 @@ module_name = "dagster_shared_gf"
 
 [tool.uv]
 default-groups = ["dev", "helpers"]
+# Permite no necesitar conectarse para la primer evaluacion de dependencias.
+dependency-metadata = [
+    { name = "statstools_gf" },
+    { name = "algoritmo_mddme_gf" },
+]
+
+[tool.uv.sources.statstools_gf]
+git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git"
+subdirectory = "py_statstools_gf"
+rev = "v1.0.4"
+
+[tool.uv.sources.algoritmo_mddme_gf]
+git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git"
+subdirectory = "py_algoritmo_mddme_gf"
+rev = "v1.0.4"

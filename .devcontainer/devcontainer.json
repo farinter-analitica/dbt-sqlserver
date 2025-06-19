@@ -1,0 +1,48 @@
+{
+	"name": "main-dagster-farinter",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"charliermarsh.ruff",
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"sourcegraph.cody-ai",
+				"redhat.vscode-yaml",
+				"tamasfe.even-better-toml",
+				"eamodio.gitlens",
+				"samuelcolvin.jinjahtml",
+				"innoverio.vscode-dbt-power-user"
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "./.venv/bin/python"
+			}
+		}
+	},
+	"forwardPorts": [
+		3000
+	],
+	"features": {},
+	//"postStartCommand": "uv run pre-commit install",
+	"postCreateCommand": "/bin/bash .devcontainer/post_create.sh && /bin/bash .devcontainer/setup_odbc.sh",
+	"containerEnv": {
+		"DISPLAY": "dummy",
+		"PYTHONUNBUFFERED": "True",
+		"UV_LINK_MODE": "copy",
+		"UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv",
+		"VIRTUAL_ENV": "${containerWorkspaceFolder}/.venv",
+		"PYTHONPATH": "$PYTHONPATH:${containerWorkspaceFolder}/.venv/bin"
+	},
+	"mounts": [
+		//Con esto reducimos tiempo, compartir shared-uv-cache con otros dockers
+		"type=volume,source=main-dagster-devcontainer-ssh,target=/home/vscode/.ssh",
+		"type=volume,source=shared-uv-cache,target=/home/vscode/.cache/uv",
+		"type=volume,source=main-dagster-devcontainer-venv,target=${containerWorkspaceFolder}/.venv"
+	],
+	"runArgs": [
+		"--env-file",
+		"./.env"
+	]
+}

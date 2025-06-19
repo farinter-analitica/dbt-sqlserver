@@ -1,13 +1,13 @@
 import polars as pl
 import pandas as pd
-import matplotlib.pyplot as plt
-from statsforecast import StatsForecast
-from statsforecast.models import Naive, SeasonalNaive, AutoARIMA
-from sklearn.metrics import mean_absolute_error
-from coreforecast.seasonal import find_season_length
-
 
 def plot_best_forecast():
+    import matplotlib.pyplot as plt
+    from statsforecast import StatsForecast
+    from statsforecast.models import Naive, SeasonalNaive, AutoARIMA
+    from sklearn.metrics import mean_absolute_error
+    from coreforecast.seasonal import find_season_length
+
     # Generate an hourly time series for 4 weeks using Polars.
     df = pl.DataFrame(
         {

@@ -1,7 +1,11 @@
 {
     "dbt.enableNewLineagePanel": true,
     "python.analysis.autoImportCompletions": false,
+    "python.testing.pytestArgs": [
+        "."
+    ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "dbt.perspectiveTheme": "Vintage",
+    "python.envFile": "${workspaceFolder}/.env",
 }

@@ -1,37 +1,48 @@
 ## Instalación y Configuración
 
-Para instalar los requisitos en un entorno virtual:
+Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Manager** para gestionar las credenciales y el entorno de desarrollo. **Al abrir el proyecto en VS Code y seleccionar "Reopen in Container", todas las dependencias y configuraciones se instalarán automáticamente.** No es necesario ejecutar scripts manualmente para instalar dependencias o configurar el entorno.
 
-```bash
-# Opción 1: Usando el script de desarrollo (recomendado)
-python scripts/deployment.py dev
-```
+### Requisitos Previos
 
-Este comando ahora utiliza `uv` para:
-- Instalar la versión correcta de Python desde el pyproject.toml
-- Crear un entorno virtual optimizado
-- Instalar todas las dependencias incluyendo las de desarrollo
-- Configurar las llaves SSH para repositorios privados
-- Configurar git commit templates y pre-commit hooks
+- [Docker](https://www.docker.com/products/docker-desktop) instalado y en ejecución.
+   - Si se usa el WSL (mejor rendimiento), debe estar actualizado, si la configuracion de git no funciona usar token de acceso personal.
+- [Git y GCM](https://git-scm.com/) instalado y configurado. [Git for Windows](https://gitforwindows.org/)
+   - Para autenticación automática en el devcontainer instala el [Git Credential Manager](https://aka.ms/gcm) para tu sistema operativo.
+   - Otras opcioones [sharing-git-credentials](https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials)
+   - De lo contrario utilizar un repositorio con token de acceso personal.
+- [Visual Studio Code](https://code.visualstudio.com/) con la extensión [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
 
-```bash
-# Opción 2: Instalación de componentes específicos
-python scripts/deployment.py install-deps        # Instala dependencias básicas
-python scripts/deployment.py install-deps --dev    # Instala dependencias de desarrollo
-python scripts/deployment.py install-deps --only-external  # Solo instala dependencias externas
+### Clonar y Activar el Repositorio en un Dev Container
 
-# Opción 3: Manual
-utiliza uv para instalar las dependencias
-```
+1. **Configurar Git Credential Manager**  
+   Abre una terminal y ejecuta:
+   ```bash
+   git-credential-manager configure
+   ```
+   Sigue las instrucciones para autenticarte y asegurarte de que el modo de autenticación es por HTTPS o SSH según tu preferencia. Esto permitirá que las credenciales se compartan correctamente con el contenedor y puedas hacer `push` y `pull` sin problemas.
 
-## Configuración de GitHub
+   [Más información sobre Git Credential Manager](https://aka.ms/gcm)
 
-Se requiere la creación de un token o una llave SSH para clonar o configurar el repositorio remoto:
+2. **Clonar el repositorio usando Git**  
+   Puedes clonar el repositorio directamente con:
+   ```bash
+   git clone https://github.com/farinter-analitica/main-dagster.git
+   cd main-dagster
+   ```
 
-```bash
-git clone https://<MYTOKEN>@github.com/org-name/repo-name.git
-git add origin https://<MYTOKEN>@github.com/org-name/repo-name.git
-```
+   Opcion b: Clonar con vscode directamente en un volumen (mejor rendimiento pero inaccesible desde el sistema operativo) y saltarse paso 3.
+
+3. **Abrir el proyecto en VS Code y activar el Dev Container**  
+   - Abre la carpeta del repositorio en VS Code.
+   - Si tienes la extensión Dev Containers instalada, VS Code te sugerirá automáticamente "Reabrir en Contenedor" (`Reopen in Container`).  
+   - Si no aparece, abre la paleta de comandos (`Ctrl+Shift+P`), busca "Dev Containers: Reopen in Container" y selecciónalo.
+
+4. **El entorno se instalará automáticamente**  
+   Al abrir el proyecto en el Dev Container, todas las dependencias y configuraciones necesarias se instalarán automáticamente según la configuración del repositorio. No es necesario ejecutar scripts manuales.
+
+### Variables de entorno
+Asegurarse de no incluir rutas de windows en las variables de entorno.
+
 
 ### Configuración de Llaves SSH para Repos Privados
 
@@ -57,7 +68,7 @@ https://github.com/farinter-analitica/algoritmos-gf/settings/keys
 ## Configuración Local
 
 1. Crear los archivos de configuración basándose en los archivos .sample.
-2. Configurar las variables de entorno necesarias en el archivo .env.
+2. Configurar las variables de entorno necesarias en el archivo .env, o .dlt/secrets.toml o .slingdata/env.yaml
 
 ## Ejecución Local
 

@@ -101,7 +101,7 @@ Compras AS
 		, Compra.Existencia AS Existencia_cantidad
 		, Compra.Transito AS Transito_cantidad
 
-		--Politica dias con restricci�n de cantidad minima mayor al maximo sugerido
+		--Politica dias con restricción de cantidad minima mayor al maximo sugerido
 		, CASE
 			WHEN Compra.Politica = 1
 				THEN CASE
@@ -173,7 +173,7 @@ Compras AS
 				END
 		END AS Dias
 
-		--Politica dias con restricci�n de cantidad minima mayor al maximo sugerido
+		--Politica dias con restricción de cantidad minima mayor al maximo sugerido
 		, CASE
 			WHEN Compra.Politica = 1
 				THEN CASE

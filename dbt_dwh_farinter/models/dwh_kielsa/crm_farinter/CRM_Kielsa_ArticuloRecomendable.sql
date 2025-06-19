@@ -15,7 +15,7 @@
 	) 
 }}
 
-WITH 
+WITH
 Articulos_Recomendables as
 (
     SELECT Emp_Id,
