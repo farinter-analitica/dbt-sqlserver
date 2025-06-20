@@ -32,8 +32,6 @@ fi
 echo "Permisos ajustados correctamente."
 
 
-echo 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc
-echo 'eval "$(uvx --generate-shell-completion bash)"' >> ~/.bashrc
 
 # ——————————————————————————————
 # Inicio del setup de entorno de desarrollo
@@ -63,6 +61,11 @@ if ! command -v uv &> /dev/null; then
 else
   echo "uv ya está instalado, omitiendo."
 fi
+
+echo 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc
+echo 'eval "$(uvx --generate-shell-completion bash)"' >> ~/.bashrc
+echo 'eval "$(uv generate-shell-completion zsh)"' >> ~/.zshrc
+echo 'eval "$(uvx --generate-shell-completion zsh)"' >> ~/.zshrc
 
 # Instalar dependencias core
 echo "📥 Instalando dependencias core con uv..."

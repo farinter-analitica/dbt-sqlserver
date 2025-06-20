@@ -7,8 +7,7 @@
       "redhat.vscode-yaml",
       "tamasfe.even-better-toml",
       "innoverio.vscode-dbt-power-user",
-      "charliermarsh.ruff",
-      "eamodio.gitlens",
+      "charliermarsh.ruff"
     ]
   }
   

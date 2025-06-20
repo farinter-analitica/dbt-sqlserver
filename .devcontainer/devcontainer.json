@@ -1,8 +1,12 @@
 {
 	"name": "main-dagster",
-	"dockerComposeFile": ["docker-compose.dev.yaml"],
+	"dockerComposeFile": [
+		"docker-compose.dev.yaml"
+	],
 	"service": "dev",
-	"forwardPorts": [3000],
+	"forwardPorts": [
+		3000
+	],
 	"shutdownAction": "stopCompose",
 	"customizations": {
 		"vscode": {
@@ -13,16 +17,33 @@
 				"sourcegraph.cody-ai",
 				"redhat.vscode-yaml",
 				"tamasfe.even-better-toml",
-				"eamodio.gitlens",
 				"samuelcolvin.jinjahtml",
 				"innoverio.vscode-dbt-power-user"
 			],
 			"settings": {
-				"python.defaultInterpreterPath": "./.venv/bin/python"
+				"python.defaultInterpreterPath": "./.venv/bin/python",
+				"terminal.integrated.defaultProfile.linux": "zsh",
+				"terminal.integrated.profiles.linux": {
+					"zsh": {
+						"path": "/usr/bin/zsh"
+					}
+				}
 			}
 		}
 	},
-	"workspaceFolder": "/workspaces/main-dagster", 
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils": {
+			"installZsh": true,
+			"installOhMyZsh": true,
+			"installOhMyZshConfig": true,
+			"configureZshAsDefaultShell": true
+		},
+		"ghcr.io/devcontainers-extra/features/zsh-plugins:0": {
+			"plugins": "zsh-autosuggestions zsh-syntax-highlighting",
+			"omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions.git https://github.com/zsh-users/zsh-syntax-highlighting.git"
+		}
+	},
+	"workspaceFolder": "/workspaces/main-dagster",
 	"postCreateCommand": "/bin/bash .devcontainer/post_create.sh && /bin/bash .devcontainer/setup_odbc.sh",
 	"containerEnv": {
 		//Disponibles en todo el contenedor
