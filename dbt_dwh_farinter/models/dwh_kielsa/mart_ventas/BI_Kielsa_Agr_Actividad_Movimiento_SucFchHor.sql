@@ -36,18 +36,30 @@
 {%- endif -%}
 
 WITH 
+Movimientos AS (
+    SELECT * FROM {{ source('DL_FARINTER','DL_Kielsa_Mov_Inventario_Encabezado') }}
+),
+TiposMovimientos AS (
+    SELECT * FROM {{ source('DL_FARINTER','DL_Kielsa_Tipo_Mov_Inventario') }}
+    --WHERE Tipo_Tipo_Movimiento != 2 --Traslados = 2
+),
 Movimientos_Considerados AS (
     SELECT
         ME.Emp_Id,
         ME.Suc_Id,
+        ME.Suc_Destino,
         ME.Mov_Fecha_Aplicado,
         ME.Mov_Fecha_Recibido,
-        ME.Mov_Id
-    FROM {{ source('DL_FARINTER','DL_Kielsa_Mov_Inventario_Encabezado') }} ME
+        ME.Mov_Id,
+        TM.Tipo_Tipo_Movimiento
+    FROM Movimientos ME
+    INNER JOIN TiposMovimientos TM
+    ON ME.Tipo_Id = TM.Tipo_Id
+    AND ME.Emp_Id = TM.Emp_Id
     INNER JOIN {{ ref('BI_Kielsa_Dim_Usuario') }} U
     ON ME.Emp_Id = U.Emp_Id
     AND ME.Usuario_Id = U.Usuario_Id
-    WHERE ME.Mov_Estado IN ('RE', 'AP')
+    WHERE ME.Mov_Estado IN ('RE', 'AP') 
     AND U.Usuario_Nombre NOT IN ('ENCARGADO WEB', 'Administrador', 'Logical Data')
     AND ME.Indicador_Borrado <> 1
     {% if is_incremental() %}
@@ -67,11 +79,12 @@ Aplicados AS (
 Recibidos AS (
     SELECT
         ME.Emp_Id,
-        ME.Suc_Id,
+        ME.Suc_Destino as Suc_Id,
         CAST(ME.Mov_Fecha_Recibido AS DATE) AS Fecha_Id,
         DATEPART(HOUR, ME.Mov_Fecha_Recibido) AS Hora_Id,
         ME.Mov_Id
     FROM Movimientos_Considerados ME
+    WHERE ME.Tipo_Tipo_Movimiento = 2 --Traslados = 2
     ),
 Actividades_Movimientos AS (
     SELECT R.Emp_Id, R.Suc_Id, R.Fecha_Id, R.Hora_Id, 'Mov_Aplicado' AS Tipo_Actividad, COUNT(R.Mov_Id) AS Conteo_Movimientos

@@ -221,8 +221,10 @@ def marcar_segmentos_baja_actividad(
     df: pl.LazyFrame,
     col_gap: str = "tiempo_actividad_segs",
     usuario_col: str = "EmpSucUsr_Id",
-    timestamp_col: str = "Timestamp_Aplicado",  # Necesario para ordenar correctamente
-    window_size_rolling: int = 5,  # La 'window' original, será 2*window+1 para rolling_median
+    # Necesario para ordenar correctamente
+    timestamp_col: str = "Timestamp_Aplicado",
+    # La 'window' original, será 2*window+1 para rolling_median
+    window_size_rolling: int = 5,
     threshold_factor: float = 2.0,
     min_segment_len: int = 3,
 ) -> pl.LazyFrame:
@@ -419,7 +421,7 @@ def get_movements_data(
     AND ME.Mov_Estado IN ('RE', 'AP')
     AND NOT U.Usuario_Nombre = 'ENCARGADO WEB'
     {"AND ME.Suc_Id IN (" + ",".join(str(s) for s in config.sucursales) + ")" if config.sucursales is not None else ""}
-
+    --Recibidos (solo traslados)
     UNION ALL
     SELECT
         ME.Emp_Id,
@@ -498,6 +500,7 @@ def get_movements_data(
     WHERE ME.Mov_Fecha >= '{fecha_desde_str}' AND ME.Mov_Fecha <= '{fecha_hasta_str}'
     AND ME.Emp_Id = 1    
     AND ME.Mov_Estado IN ('RE', 'AP')
+    AND TM.Tipo_Tipo_Movimiento = 2
     AND NOT U.Usuario_Nombre = 'ENCARGADO WEB'
     {"AND ME.Suc_Id IN (" + ",".join(str(s) for s in config.sucursales) + ")" if config.sucursales is not None else ""}
     """)
@@ -1413,7 +1416,8 @@ def transform_data(
         df_marcador_prepared,
         left_on=["Emp_Id", "Suc_Id", "hora_id", "Fecha_Actividad"],
         right_on=["Emp_Id", "Suc_Id", "hora_id", "Fecha_Actividad_Marcador"],
-        how="left",  # Use left join to not lose activities if no marker data (though filter might drop them)
+        # Use left join to not lose activities if no marker data (though filter might drop them)
+        how="left",
     )
 
     # Filter based on active users vs. employees
@@ -1546,7 +1550,8 @@ def visualize_data_distribution(
                 ):
                     corr = abs(df.select(pl.corr(target_column, col_name)).item())
                     if not np.isnan(corr):
-                        correlations[col_name] = corr  # Changed from col to col_name
+                        # Changed from col to col_name
+                        correlations[col_name] = corr
                 else:
                     debug_print(
                         f"Skipping correlation for {col_name} due to all nulls or insufficient data."
@@ -1669,7 +1674,8 @@ def visualize_data_distribution(
                 df_pd,
                 x=col_name,  # Changed from col to col_name
                 y=target_column,
-                title=f"{col_name} vs {target_column}",  # Changed from col to col_name
+                # Changed from col to col_name
+                title=f"{col_name} vs {target_column}",
                 trendline="ols",
             )
             html_parts.append(fig.to_html(full_html=False, include_plotlyjs="cdn"))
@@ -1679,7 +1685,8 @@ def visualize_data_distribution(
                 df_pd,
                 x=col_name,
                 y=target_column,
-                title=f"{col_name} vs {target_column}",  # Changed from col to col_name
+                # Changed from col to col_name
+                title=f"{col_name} vs {target_column}",
             )
             html_parts.append(fig.to_html(full_html=False, include_plotlyjs="cdn"))
 
@@ -1730,7 +1737,8 @@ def visualize_data_distribution(
 
     if len(pair_features) > 1:  # Need at least 2 features for a pair plot
         fig_pair = px.scatter_matrix(
-            df_pd.filter(items=pair_features),  # Use .filter to select existing columns
+            # Use .filter to select existing columns
+            df_pd.filter(items=pair_features),
             dimensions=pair_features,
             title="Pair Plot of Selected Features",
             opacity=0.5,
@@ -2315,7 +2323,8 @@ def extract_nonlinear_function(model, X_sample, feature_names):
 
     # Create simple interaction representation based on top features
     for i, feature1 in enumerate(top_features[:3]):  # Use top 3 features
-        for feature2 in top_features[i + 1 : i + 4]:  # Pair with next 3 features
+        # Pair with next 3 features
+        for feature2 in top_features[i + 1 : i + 4]:
             importance1 = importances[list(feature_names).index(feature1)]
             importance2 = importances[list(feature_names).index(feature2)]
 
@@ -2434,7 +2443,8 @@ def print_nonlinear_formula(resultado):
     # 5. Print tree rules (simplified)
     if "tree_rules" in resultado and not resultado["tree_rules"].is_empty():
         print("\nDecision Rules (from first tree):")
-        for i, rule in enumerate(resultado["tree_rules"].to_dicts()[:3]):  # Top 3 rules
+        # Top 3 rules
+        for i, rule in enumerate(resultado["tree_rules"].to_dicts()[:3]):
             print(
                 f"  • Rule {rule['regla_id']}: IF {rule['condiciones']} THEN prediction ≈ {rule['prediccion']:.4f}"
             )
@@ -3330,7 +3340,8 @@ def identify_high_movement_time_factors(modelo_resultado, df, threshold_percenti
     ]
 
     print("\nCategorical feature comparison (high vs. normal movement times):")
-    for col_name in categorical_cols[:5]:  # Limit to top 5 categorical features
+    # Limit to top 5 categorical features
+    for col_name in categorical_cols[:5]:
         # Get value counts for high movement times
         high_counts = (
             high_time_samples.group_by(col_name)
@@ -3419,7 +3430,7 @@ if __name__ == "__main__":
     with pl.Config(
         set_tbl_cols=40, set_tbl_rows=20, set_fmt_str_lengths=100
     ) as cfg:  # Increased displayed cols
-        days_run = 120
+        days_run = 30
         use_cache = True  # En falso no guarda ni lee
         cache_max_age_seconds = 3600 * 3600  # Tiempo a considerar valido el cache
         fecha_desde = pdt.today().subtract(days=days_run)
@@ -3502,7 +3513,7 @@ if __name__ == "__main__":
 
         # 4. Perform final transformations on the combined data
         dfm_final = transform_data(df_combined, df_marcador)
-        #### Filtrar tipo de actividad a medir
+        # Filtrar tipo de actividad a medir
         # MOVIMIENTO or TRANSACCION
         df_final = dfm_final.lazyframe.filter(
             pl.col("Tipo_Actividad") == "TRANSACCION"
@@ -3594,7 +3605,8 @@ if __name__ == "__main__":
                 "suma_inventario",
                 "es_ajuste",
                 "Tipo_Nombre"
-                "log_cantidad_items",  # Primarily from movements, might be null for transactions if not mapped
+                # Primarily from movements, might be null for transactions if not mapped
+                "log_cantidad_items",
                 "log_costo_unitario_prom",  # Primarily from movements
                 "log_cantidad_total_relativa",  # Primarily from movements
                 # Transaction specific log features (if they were not aliased to common names)
@@ -3788,4 +3800,5 @@ if __name__ == "__main__":
 
         print(
             "\n--- Script execution finished ---"
-        )  # ----------------------------------------------------------------------------------()
+            # ----------------------------------------------------------------------------------()
+        )
