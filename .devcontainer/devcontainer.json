@@ -44,7 +44,11 @@
 		}
 	},
 	"workspaceFolder": "/workspaces/main-dagster",
-	"postCreateCommand": "/bin/bash .devcontainer/post_create.sh && /bin/bash .devcontainer/setup_odbc.sh",
+	"postCreateCommand": [
+        "/bin/bash .devcontainer/post_create.sh",
+        "/bin/bash .devcontainer/setup_odbc.sh",
+        "/bin/bash .devcontainer/setup_env.sh"
+    ],
 	"containerEnv": {
 		//Disponibles en todo el contenedor
 		"DISPLAY": "dummy",
@@ -56,7 +60,5 @@
 		// Esto nos ayuda con las herramientas de vscode en general
 		"PATH": "${containerEnv:VIRTUAL_ENV}/bin:${containerEnv:PATH}",
 		"PYTHONPATH": "${containerWorkspaceFolder}"
-	},
-	//para usar el mismo .env en repo nuevo
-	"initializeCommand": "sh .devcontainer/setup_env.sh"
+	}
 }

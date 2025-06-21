@@ -3,7 +3,7 @@ services:
     container_name: main-dagster-dev
     env_file:
       # Las variables de entorno se cargan mejor en compose.
-    - ../.env
+    - ./devcontainer.env
     build:
       dockerfile: .devcontainer/Dockerfile
       context: ..
