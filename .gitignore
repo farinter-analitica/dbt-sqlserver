@@ -130,8 +130,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# git
-#.gitignore
 
 #Dagster ssh://bpadilla@farinter.net@172.16.2.235/opt/main_dagster_dev_bare
 storage/
@@ -154,9 +152,12 @@ secrets.toml
 #sling
 .slingdata/*
 !.slingdata/env.yaml.sample
-.sling*
+.sling_*.yaml
 
 templates_render/
 
 #power user
 .vscode/mcp.json
+
+# git
+!.gitkeep

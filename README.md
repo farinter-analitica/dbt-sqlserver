@@ -31,7 +31,7 @@ Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Ma
    cd main-dagster
    ```
 
-   Opcion b: Clonar con vscode directamente en un volumen (mejor rendimiento y accesible si es WSL2) y saltarse paso 3.
+   Opcion b: Clonar con vscode directamente en un volumen (mejor rendimiento y copiar/pegar por vscode desde local) y saltarse paso 3.
 
 3. **Abrir el proyecto en VS Code y activar el Dev Container**  
    - Abre la carpeta del repositorio en VS Code.
