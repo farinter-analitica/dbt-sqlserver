@@ -327,7 +327,7 @@ def calcular_personal_necesario(
                 "Es_Suc_Autoservicio",
             ]
         )
-        .map_elements(calcular_metricas_cola, return_dtype=pl.Struct)
+        .map_elements(calcular_metricas_cola)
         .alias("metricas_cola")
     )
 
@@ -478,15 +478,10 @@ if __name__ == "__main__" and 1 == 1:
         dwh_farinter_ia,
         dwh_farinter_bi,
     )
-    import warnings
     import datetime as dt
 
     start_time = dt.datetime.now()
     with instance_for_test() as instance:
-        if env_str == "local":
-            warnings.warn(
-                "Running in local mode, using top 10000 rows and no loading to SQL Server"
-            )
 
         @asset(name="between_asset")
         def mock_between_asset() -> int:
