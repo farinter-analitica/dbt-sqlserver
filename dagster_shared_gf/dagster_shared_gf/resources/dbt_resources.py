@@ -48,9 +48,13 @@ dbt_resource = MyDbtCliResource(
     state_path=None,
 )
 
+dbt_manifest_path = dbt_project_dir.joinpath("target", "manifest.json")
 # If DAGSTER_DBT_PARSE_PROJECT_ON_LOAD is set, a manifest will be created at runtime.
 # Otherwise, we expect a manifest to be present in the project's target directory.
-if os.getenv("DAGSTER_DBT_PARSE_PROJECT_ON_LOAD") == 1:
+if (
+    os.getenv("DAGSTER_DBT_PARSE_PROJECT_ON_LOAD") == 1
+    or not dbt_manifest_path.exists()
+):
     dbt_manifest_path = (
         dbt_resource.cli(
             ["--quiet", "parse"],
@@ -59,8 +63,6 @@ if os.getenv("DAGSTER_DBT_PARSE_PROJECT_ON_LOAD") == 1:
         .wait()
         .target_path.joinpath("manifest.json")
     )
-else:
-    dbt_manifest_path = dbt_project_dir.joinpath("target", "manifest.json")
 
 
 def load_manifest(manifest_path) -> Mapping[str, Any]:

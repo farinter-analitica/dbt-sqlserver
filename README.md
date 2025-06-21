@@ -7,14 +7,14 @@ Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Ma
 - [Docker](https://www.docker.com/products/docker-desktop) instalado y en ejecución.
    - Si se usa el WSL (mejor rendimiento), debe estar actualizado, si la configuracion de git no funciona usar token de acceso personal.
 - [Git y GCM](https://git-scm.com/) instalado y configurado. [Git for Windows](https://gitforwindows.org/)
-   - Para autenticación automática en el devcontainer instala el [Git Credential Manager](https://aka.ms/gcm) para tu sistema operativo.
-   - Otras opcioones [sharing-git-credentials](https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials)
+   - Si vscode no autentica correctamente en github, instala el [Git Credential Manager](https://aka.ms/gcm) para tu sistema operativo.
+   - Otras opciones [sharing-git-credentials](https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials)
    - De lo contrario utilizar un repositorio con token de acceso personal.
 - [Visual Studio Code](https://code.visualstudio.com/) con la extensión [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
 
 ### Clonar y Activar el Repositorio en un Dev Container
 
-1. **Configurar Git Credential Manager**  
+1. **Configurar Git Credential Manager (Es posible que vscode no lo necesite)**  
    Abre una terminal y ejecuta:
    ```bash
    git-credential-manager configure
@@ -23,14 +23,15 @@ Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Ma
 
    [Más información sobre Git Credential Manager](https://aka.ms/gcm)
 
-2. **Clonar el repositorio usando Git**  
+2. **Clonar el repositorio usando Git o vscode localmente o en un contenedor (para mejor rendimiento se recomienda usar el dev container directamente)**  
+   Opcion a:
    Puedes clonar el repositorio directamente con:
    ```bash
    git clone https://github.com/farinter-analitica/main-dagster.git
    cd main-dagster
    ```
 
-   Opcion b: Clonar con vscode directamente en un volumen (mejor rendimiento pero inaccesible desde el sistema operativo) y saltarse paso 3.
+   Opcion b: Clonar con vscode directamente en un volumen (mejor rendimiento y accesible si es WSL2) y saltarse paso 3.
 
 3. **Abrir el proyecto en VS Code y activar el Dev Container**  
    - Abre la carpeta del repositorio en VS Code.
@@ -44,6 +45,7 @@ Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Ma
 
 ### DAGSTER DEV
 Debes correr dagster dev -h "0.0.0.0" para poder acceder a la interfaz de dagster desde el host local.
+Accede a la interfaz de dagster en http://localhost:3000
 
 ### Variables de entorno
 Asegurarse de no incluir rutas de windows en las variables de entorno.
