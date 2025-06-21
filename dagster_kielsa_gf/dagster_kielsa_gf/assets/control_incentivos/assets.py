@@ -66,7 +66,7 @@ def asset_incentivos_regalias(
     t0 = dt.datetime.now()
 
     # Cargar incentivos al DWH usando el helper
-    df_regalias_incentivo = proc.df_output.regalias_incentivo.frame.collect(
+    df_regalias_incentivo = proc.dfm_output.regalias_incentivo.frame.collect(
         engine="streaming"
     )
 
@@ -158,7 +158,7 @@ def procesamiento_y_carga_incentivos(
         fecha_fin=fecha_fin,
         empresas_id=empresas_id,
     )
-    proc.extract_dataframes().process_dataframes()
+    proc.extract_dataframes().procesar_reglas()
 
     # Regalias
     if assetkey_regalias_incentivo in context.selected_asset_keys:

@@ -104,7 +104,7 @@ class LazyFrameWithMeta:
 
     def __post_init__(self):
         # Ensure all primary_keys exist in the LazyFrame schema
-        frame_columns = set(self.frame.columns)
+        frame_columns = set(self.frame.collect_schema().names())
         missing = [k for k in self.primary_keys if k not in frame_columns]
         if missing:
             raise ValueError(f"Primary keys not found in frame columns: {missing}")
@@ -141,6 +141,7 @@ class DataFramesInput:
     articulos: LazyFrameWithMeta
     ventas: LazyFrameWithMeta
     vendedores: LazyFrameWithMeta
+    usuarios_sucursales: LazyFrameWithMeta
     # sucursales: LazyFrameWithMeta
     # Agrega aquí otros dataframes relevantes según tu dominio
 

@@ -18,6 +18,7 @@ from dagster_kielsa_gf.assets.control_incentivos.extractores import (
     get_articulos_data,
     get_vendedor_data,
     get_ventas_data,
+    get_usuario_sucursal_data,
 )
 
 built_in_print = print
@@ -84,6 +85,8 @@ def print_df(
 
 class ProcesamientoIncentivos:
     config: ProcConfig
+    _dfm_input: DataFramesInput | None = None
+    _dfm_output: DataFramesOutput | None = None
 
     def __init__(
         self,
@@ -117,6 +120,7 @@ class ProcesamientoIncentivos:
         self.dfm_articulos = get_articulos_data(self.config)
         self.dfm_vendedores = get_vendedor_data(self.config)
         self.dfm_ventas = get_ventas_data(self.config)
+        self.dfm_usuarios_sucursales = get_usuario_sucursal_data(self.config)
 
         return self
 
@@ -150,22 +154,23 @@ class ProcesamientoIncentivos:
         )
 
     @property
-    def df_input_dict(self) -> DataFramesInput:
-        if not hasattr(self, "_df_input"):
+    def dfm_input(self) -> DataFramesInput:
+        if self._dfm_input is None:
             raise ValueError("Los dataframes de entrada no han sido procesados.")
-        return self._df_input
+        return self._dfm_input
 
-    def _process_df_input_dict(self) -> "ProcesamientoIncentivos":
+    def procesar_dataframes(self) -> "ProcesamientoIncentivos":
         """
         Procesa y almacena los dataframes de entrada requeridos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self._df_input: DataFramesInput = DataFramesInput(
+        self._dfm_input = DataFramesInput(
             regalias=self.preparar_data_regalias(),
             calendario=self.dfm_calendario,
             articulos=self.dfm_articulos,
             vendedores=self.dfm_vendedores,
             ventas=self.dfm_ventas,
+            usuarios_sucursales=self.dfm_usuarios_sucursales,
         )
         return self
 
@@ -178,13 +183,11 @@ class ProcesamientoIncentivos:
         # Particiona por la columna de regla (instancia)
         for regla in self.regla_registry.map_reglas.values():
             print(f"Procesando regla {regla.regla_nombre}")
-            output_dict = regla.procesar(self.df_input_dict)
+            output_dict = regla.procesar(self.dfm_input)
             resultados.append(output_dict)
 
         print(f"Procesando regla {self.regla_registry.regla_por_defecto.regla_nombre}")
-        regla_defecto = self.regla_registry.regla_por_defecto.procesar(
-            self.df_input_dict
-        )
+        regla_defecto = self.regla_registry.regla_por_defecto.procesar(self.dfm_input)
         resultados.append(regla_defecto)
 
         print(f"Construyendo resultado final {'...'}")
@@ -197,32 +200,33 @@ class ProcesamientoIncentivos:
             ),
         )
 
-        self._df_output = resultado_final
+        self._dfm_output = resultado_final
 
-        return self
-
-    def estandarizar_dataframes(self) -> "ProcesamientoIncentivos":
-        """
-        Estandariza los dataframes de salida para que tengan las mismas columnas llave.
-        Retorna self para permitir el encadenamiento de métodos.
-        """
-        raise NotImplementedError("Este método no está implementado.")
         return self
 
     @property
-    def df_output(self) -> DataFramesOutput:
-        if not hasattr(self, "_df_output"):
+    def dfm_output(self) -> DataFramesOutput:
+        if self._dfm_output is None:
             raise ValueError("Los dataframes de salida no han sido procesados.")
-        return self._df_output
+        return self._dfm_output
 
-    def process_dataframes(self) -> "ProcesamientoIncentivos":
+    def procesar_reglas(self) -> "ProcesamientoIncentivos":
         """
         Procesa los dataframes de salida requeridos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self._process_df_input_dict()
         self._process_df_output_dict()
 
+        return self
+
+    def procesar(self) -> "ProcesamientoIncentivos":
+        """
+        Procesa todo.
+        Retorna self para permitir el encadenamiento de métodos.
+        """
+        self.extract_dataframes()
+        self.procesar_dataframes()
+        self.procesar_reglas()
         return self
 
 
@@ -285,16 +289,19 @@ if __name__ == "__main__":
 
     if "Extract Process" in DEBUG_KEYS:
         procesador_incentivos.extract_dataframes()
-        procesador_incentivos.process_dataframes()
+        procesador_incentivos.procesar_dataframes()
+        procesador_incentivos.procesar_reglas()
 
-        df_regalias_in = procesador_incentivos.df_input_dict.regalias.frame
+        df_regalias_in = procesador_incentivos.dfm_input.regalias.frame
         print_df(
             df_regalias_in,
             "DF Regalias In",
             **print_params,
         )
 
-        df_regalias_incentivo = procesador_incentivos.df_output.regalias_incentivo.frame
+        df_regalias_incentivo = (
+            procesador_incentivos.dfm_output.regalias_incentivo.frame
+        )
         print_df(
             df_regalias_incentivo,
             "DF Regalias Incentivos",

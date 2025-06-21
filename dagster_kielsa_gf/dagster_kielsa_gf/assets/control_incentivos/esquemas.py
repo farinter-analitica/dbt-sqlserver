@@ -79,6 +79,25 @@ class VendedorSchema(SchemaMeta):
     Rol_Jerarquia = ColMeta()
 
 
+class UsuarioSucursalSchema(SchemaMeta):
+    Usuario_Id = ColMeta()
+    Suc_Id = ColMeta()
+    Emp_Id = ColMeta()
+    Rol_Sucursal = ColMeta()
+    Rol_Id = ColMeta()
+    Rol_Nombre = ColMeta()
+    Rol_Jerarquia = ColMeta()
+    Vendedor_Id = ColMeta()
+    Usuario_Nombre = ColMeta()
+    Bit_Activo = ColMeta()
+    Rol_Fec_Actualizacion = ColMeta()
+    Fecha_Actualizado = ColMeta()
+    EmpSuc_Id = ColMeta()
+    EmpSucUsu_Id = ColMeta()
+    EmpRol_Id = ColMeta()
+    EmpVen_Id = ColMeta()
+
+
 def set_casting_id(df: pl.LazyFrame) -> pl.LazyFrame:
     df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
     return df

@@ -6,12 +6,16 @@ from dagster_kielsa_gf.assets.control_incentivos.esquemas import (
     RegaliasSchema,
     VendedorSchema,
     VentasSchema,
+    UsuarioSucursalSchema,
     set_casting,
     set_casting_id,
 )
 import polars as pl
 
-from dagster_kielsa_gf.assets.control_incentivos.config import LazyFrameWithMeta
+from dagster_kielsa_gf.assets.control_incentivos.config import (
+    LazyFrameWithMeta,
+    ProcConfig,
+)
 
 
 def get_data(
@@ -22,19 +26,12 @@ def get_data(
 
 
 def get_regalias_data(
-    self,
-    fecha_inicio: dt.date | None = None,
-    fecha_fin: dt.date | None = None,
-    limit: int | None = None,
+    proc_config: ProcConfig,
 ) -> LazyFrameWithMeta:
-    fecha_inicio = fecha_inicio or self.fecha_inicio
-    fecha_fin = fecha_fin or self.fecha_fin
-    limit = limit or self.limit
-
     query_trx = dedent(
         f"""
             SELECT
-                {f"TOP ({limit})" if limit is not None else ""}
+                {f"TOP ({proc_config.limit})" if proc_config.limit is not None else ""}
                 RE.Regalia_Id,
                 RE.Regalia_Fecha as Fecha_Id,
                 RE.Regalia_Momento AS Regalia_FechaHora,
@@ -73,12 +70,16 @@ def get_regalias_data(
             AND RD.Suc_Id = RE.Suc_Id
             AND RD.Bodega_Id = RE.Bodega_Id
             AND RD.Caja_Id = RE.Caja_Id
-            WHERE RE.Regalia_Fecha >= CAST('{fecha_inicio.strftime("%Y%m%d")}' AS DATE)
-            AND RE.Regalia_Fecha <= CAST('{fecha_fin.strftime("%Y%m%d")}' AS DATE)
-            AND RE.Emp_Id IN ({", ".join(map(str, self.empresas_id))})
+            WHERE RE.Regalia_Fecha >= CAST('{proc_config.fecha_inicio.strftime("%Y%m%d")}' AS DATE)
+            AND RE.Regalia_Fecha <= CAST('{proc_config.fecha_fin.strftime("%Y%m%d")}' AS DATE)
+            AND RE.Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})
         """
     )
-    df = get_data(query_trx, connection_str, RegaliasSchema.to_schema())
+    df = get_data(
+        query_trx,
+        connection=proc_config.connection_str,
+        schema=RegaliasSchema.to_schema(),
+    )
     return LazyFrameWithMeta(
         df,
         primary_keys=("Emp_Id", "Suc_Id", "Caja_Id", "Regalia_Id", "Detalle_Id"),
@@ -89,18 +90,12 @@ def get_regalias_data(
 
 
 def get_ventas_data(
-    config,
-    fecha_inicio: dt.date | None = None,
-    fecha_fin: dt.date | None = None,
-    limit: int | None = None,
+    proc_config,
 ) -> LazyFrameWithMeta:
-    fecha_inicio = fecha_inicio or config.fecha_inicio
-    fecha_fin = fecha_fin or config.fecha_fin
-    limit = limit or config.limit
     query_trx = dedent(
         f"""
             SELECT
-                {f"TOP ({limit})" if limit is not None else ""}
+                {f"TOP ({proc_config.limit})" if proc_config.limit is not None else ""}
                 FE.Emp_Id,
                 FE.Suc_Id,
                 FE.TipoDoc_id,
@@ -136,12 +131,16 @@ def get_ventas_data(
             LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_TipoCliente TC
                 ON FE.Emp_Id = TC.Emp_Id
                 AND C.Tipo_Cliente_Id = TC.TipoCliente_Id
-            WHERE FE.Factura_Fecha>= CAST('{fecha_inicio.strftime("%Y%m%d")}' AS DATE)
-            AND FE.Factura_Fecha<= CAST('{fecha_fin.strftime("%Y%m%d")}' AS DATE)
-            AND FE.Emp_Id IN ({", ".join(map(str, config.empresas_id))})
+            WHERE FE.Factura_Fecha>= CAST('{proc_config.fecha_inicio.strftime("%Y%m%d")}' AS DATE)
+            AND FE.Factura_Fecha<= CAST('{proc_config.fecha_fin.strftime("%Y%m%d")}' AS DATE)
+            AND FE.Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})
         """
     )
-    df = get_data(query_trx, connection_str, VentasSchema.to_schema())
+    df = get_data(
+        query_trx,
+        connection=proc_config.connection_str,
+        schema=VentasSchema.to_schema(),
+    )
     df = set_casting(df)
     return LazyFrameWithMeta(
         df,
@@ -160,20 +159,12 @@ def get_ventas_data(
 
 
 def get_calendario_data(
-    self,
-    fecha_inicio: dt.date | None = None,
-    fecha_fin: dt.date | None = None,
-    limit: int | None = None,
+    proc_config,
 ) -> LazyFrameWithMeta:
-    fecha_inicio = fecha_inicio or self.fecha_inicio
-    fecha_fin = fecha_fin or self.fecha_fin
-    fecha_inicio = fecha_inicio.replace(year=fecha_inicio.year - 1)
-    fecha_fin = fecha_fin.replace(year=fecha_fin.year + 1)
-    limit = limit or self.limit
     query_trx = dedent(
         f"""
             SELECT 
-                {f"TOP ({limit})" if limit is not None else ""}
+                {f"TOP ({proc_config.limit})" if proc_config.limit is not None else ""}
                 [Fecha_Calendario],
                 [Anio_Calendario],
                 [Mes_Calendario],
@@ -204,11 +195,11 @@ def get_calendario_data(
                 [AnioMes_Id],
                 NULL AS Dummy
             FROM [BI_FARINTER].[dbo].[BI_Dim_Calendario_Dinamico] CAL
-            WHERE Fecha_Calendario >= CAST('{fecha_inicio.strftime("%Y%m%d")}' AS DATE)
-            AND Fecha_Calendario <= CAST('{fecha_fin.strftime("%Y%m%d")}' AS DATE)
+            WHERE Fecha_Calendario >= CAST('{proc_config.fecha_inicio.strftime("%Y%m%d")}' AS DATE)
+            AND Fecha_Calendario <= CAST('{proc_config.fecha_fin.strftime("%Y%m%d")}' AS DATE)
         """
     )
-    df = get_data(query_trx, connection_str)
+    df = get_data(query_trx, connection=proc_config.connection_str)
     df = set_casting_id(df)
     df = df.with_columns(pl.col("Fecha_Calendario").cast(pl.Date))
     return LazyFrameWithMeta(
@@ -220,18 +211,12 @@ def get_calendario_data(
 
 
 def get_articulos_data(
-    self,
-    fecha_inicio: dt.date | None = None,
-    fecha_fin: dt.date | None = None,
-    limit: int | None = None,
+    proc_config,
 ) -> LazyFrameWithMeta:
-    fecha_inicio = fecha_inicio or self.fecha_inicio
-    fecha_fin = fecha_fin or self.fecha_fin
-    limit = limit or self.limit
     query_trx = dedent(
         f"""
             SELECT  
-                {f"TOP ({limit})" if limit is not None else ""}
+                {f"TOP ({proc_config.limit})" if proc_config.limit is not None else ""}
                 [Articulo_Id],
                 [Emp_Id],
                 [Casa_Id],
@@ -239,10 +224,10 @@ def get_articulos_data(
                 [Bit_Marca_Propia],
                 NULL AS Dummy
             FROM [BI_FARINTER].[dbo].[BI_Kielsa_Dim_Articulo] Art
-            WHERE  Emp_Id IN ({", ".join(map(str, self.empresas_id))})
+            WHERE  Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})
         """
     )
-    df = get_data(query_trx, connection_str)
+    df = get_data(query_trx, proc_config.connection_str)
     df = set_casting_id(df)
     return LazyFrameWithMeta(
         df,
@@ -256,18 +241,12 @@ def get_articulos_data(
 
 
 def get_vendedor_data(
-    self,
-    fecha_inicio: dt.date | None = None,
-    fecha_fin: dt.date | None = None,
-    limit: int | None = None,
+    proc_config,
 ) -> LazyFrameWithMeta:
-    fecha_inicio = fecha_inicio or self.fecha_inicio
-    fecha_fin = fecha_fin or self.fecha_fin
-    limit = limit or self.limit
     query_trx = dedent(
         f"""
             SELECT  
-                {f"TOP ({limit})" if limit is not None else ""}
+                {f"TOP ({proc_config.limit})" if proc_config.limit is not None else ""}
                     E.[Empleado_Id]
                 ,E.[Empleado_Nombre]
                 ,E.[Rol_Id]
@@ -288,10 +267,10 @@ def get_vendedor_data(
             LEFT JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Seg_Rol] SR
             ON E.Rol_Id = SR.Rol_Id
             AND E.Emp_Id = SR.Emp_Id
-            WHERE  E.Emp_Id IN ({", ".join(map(str, self.empresas_id))})
+            WHERE  E.Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})
         """
     )
-    df = get_data(query_trx, connection_str)
+    df = get_data(query_trx, proc_config.connection_str)
     df = set_casting_id(df)
     return LazyFrameWithMeta(
         df,
@@ -302,6 +281,47 @@ def get_vendedor_data(
         date_name=None,
         emp_id_name="Emp_Id",
         schema=VendedorSchema,
+    )
+
+
+def get_usuario_sucursal_data(
+    proc_config,
+) -> LazyFrameWithMeta:
+    query_trx = dedent(
+        f"""
+            SELECT
+                {f"TOP ({proc_config.limit})" if proc_config.limit is not None else ""}
+                    Usuario_Id
+                    ,Suc_Id
+                    ,Emp_Id
+                    ,Rol_Sucursal
+                    ,Rol_Id
+                    ,Rol_Nombre
+                    ,Rol_Jerarquia
+                    ,Vendedor_Id
+                    ,Usuario_Nombre
+                    ,Bit_Activo
+                    ,Rol_Fec_Actualizacion
+                    ,Fecha_Actualizado
+                    ,EmpSuc_Id
+                    ,EmpSucUsu_Id
+                    ,EmpRol_Id
+                    ,EmpVen_Id
+            FROM [BI_FARINTER].[dbo].[BI_Kielsa_Dim_UsuarioSucursal]
+            WHERE Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})           
+        """
+    )
+    df = get_data(query_trx, proc_config.connection_str)
+    df = set_casting_id(df)
+    return LazyFrameWithMeta(
+        df,
+        primary_keys=(
+            "Emp_Id",
+            "Vendedor_Id",
+        ),
+        date_name=None,
+        emp_id_name="Emp_Id",
+        schema=UsuarioSucursalSchema,
     )
 
 

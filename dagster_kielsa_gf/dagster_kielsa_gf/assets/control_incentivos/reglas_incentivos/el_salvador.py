@@ -9,10 +9,7 @@ from dagster_kielsa_gf.assets.control_incentivos.config import (
     DataFramesOutput,
     LazyFrameWithMeta,
 )
-from dagster_kielsa_gf.assets.control_incentivos.esquemas import (
-    VentasSchema,
-    VendedorSchema,
-)
+from dagster_kielsa_gf.assets.control_incentivos import esquemas
 
 
 class ReglaIncentivoSV2025(BaseReglaIncentivo):
@@ -121,9 +118,39 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
             df_result,
         )
 
+    def crear_matriz_jerarquia_vendedores(
+        self, dataframes: DataFramesInput
+    ) -> LazyFrameWithMeta:
+        us = esquemas.UsuarioSucursalSchema
+        df_us = dataframes.usuarios_sucursales.frame
+        roles = {
+            "Gerente de Ventas",
+            "Supervisor de Zona",
+            "Jefe de Farmacia",
+            "Sub Jefe de Farmacia",
+            "Cajero",
+            "Dependiente-Pre venta",
+        }
+        df_us = (
+            df_us.select(
+                us.Emp_Id,
+                us.Suc_Id,
+                us.Usuario_Id,
+                us.Rol_Nombre,
+                us.Rol_Jerarquia,
+                us.Vendedor_Id,
+            )
+            .filter(
+                us.Emp_Id.expr.is_in(self.emp_ids) & us.Rol_Nombre.expr.is_in(roles)
+            )
+            .with_row_index()
+        )
+
+        return dataframes.usuarios_sucursales.with_frame(df_us)
+
     def procesar_ventas(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
-        sv = VentasSchema
-        svv = VendedorSchema
+        sv = esquemas.VentasSchema
+        svv = esquemas.VendedorSchema
         dfm_ventas = dataframes.ventas
         df_ventas = dfm_ventas.frame
         df_vendedores = dataframes.vendedores.frame
