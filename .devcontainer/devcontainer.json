@@ -44,11 +44,8 @@
 		}
 	},
 	"workspaceFolder": "/workspaces/main-dagster",
-	"postCreateCommand": [
-        "/bin/bash .devcontainer/post_create.sh",
-        "/bin/bash .devcontainer/setup_odbc.sh",
-        "/bin/bash .devcontainer/setup_env.sh"
-    ],
+  	//"mounts": ["source=${localWorkspaceFolder},target=${containerWorkspaceFolder},type=bind"],
+	"postCreateCommand": "/bin/bash .devcontainer/post_create.sh",
 	"containerEnv": {
 		//Disponibles en todo el contenedor
 		"DISPLAY": "dummy",

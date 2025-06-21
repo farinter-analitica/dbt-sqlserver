@@ -11,9 +11,6 @@ services:
       #args: [ "--sysctl", "net.ipv6.conf.all.disable_ipv6=1"]
     working_dir: /workspaces/main-dagster
     volumes:
-      # This is where VS Code should expect to find your project's source code
-      # and the value of "workspaceFolder" in .devcontainer/devcontainer.json
-    - ..:/workspaces/main-dagster:cached
     - main-dagster-devcontainer-ssh:/home/vscode/.ssh
     - shared-uv-cache:/home/vscode/.cache/uv
     - main-dagster-devcontainer-venv:/workspaces/main-dagster/.venv

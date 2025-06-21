@@ -2,6 +2,9 @@
 
 set -e
 
+# Setup env
+. ./.devcontainer/setup_env.sh
+
 # Ajustar permisos para .ssh
 if [ -d "/home/vscode/.ssh" ]; then
   echo "Ajustando permisos en .ssh..."
@@ -100,5 +103,8 @@ fi
 
 echo "Instalando pre-commit via uv..."
 uv run --frozen pre-commit install --install-hooks
+
+# Setup odbc
+. ./.devcontainer/setup_odbc.sh
 
 echo "🎉 Entorno de desarrollo preparado correctamente."
