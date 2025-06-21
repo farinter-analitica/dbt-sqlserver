@@ -1,5 +1,5 @@
 # Usa la última imagen oficial de Python 3.12 como base
-FROM mcr.microsoft.com/devcontainers/python:3.12 as base
+FROM mcr.microsoft.com/devcontainers/python:3.12 AS base
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Instala dependencias del sistema necesarias
@@ -26,4 +26,4 @@ EXPOSE 3000
 # Crea el directorio de trabajo
 
 # WORKDIR /workspace
-# ENTRYPOINT ["dagster", "dev", "-h", "0.0.0.0"]
+# CMD ["dagster", "dev", "-h", "0.0.0.0"]

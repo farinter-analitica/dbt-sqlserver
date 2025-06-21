@@ -1,19 +1,20 @@
+---
 services:
+  # Ejemplo de uso con devcontainer, esto hara que solo funcione en local/o remoto
+  # dependiendo del montaje o no del espacio de trabajo respectivamente.
   dev:
     container_name: main-dagster-dev
-    env_file:
-      # Las variables de entorno se cargan mejor en compose.
-    - ./devcontainer.env
+    env_file: [./devcontainer.env]
     build:
       dockerfile: .devcontainer/Dockerfile
       context: ..
-      target: base #El alias en Dockerfile
-      #args: [ "--sysctl", "net.ipv6.conf.all.disable_ipv6=1"]
+      target: base  # El alias en Dockerfile
+      # args: ["--sysctl", "net.ipv6.conf.all.disable_ipv6=1"]
     working_dir: /workspaces/main-dagster
     volumes:
-    - main-dagster-devcontainer-ssh:/home/vscode/.ssh
-    - shared-uv-cache:/home/vscode/.cache/uv
-    - main-dagster-devcontainer-venv:/workspaces/main-dagster/.venv
+      - main-dagster-devcontainer-ssh:/home/vscode/.ssh
+      - shared-uv-cache:/home/vscode/.cache/uv
+      - main-dagster-devcontainer-venv:/workspaces/main-dagster/.venv
     # Required for ptrace-based debuggers like C++, Go, and Rust
     # privileged: true
     # cap_add:
@@ -24,14 +25,8 @@ services:
     #   - redis
     #   - mysql
     #   - toxiproxy
-    ports:
-    - 3000:3000
-    command:
-    - /bin/bash
-    - -c
-    - |
-      sleep infinity
-
+    ports: [3000:3000]
+    command: [/bin/bash, -c, "sleep infinity\n"]
 volumes:
   # Definición de volúmenes externos para mantener datos entre reinicios
   # Esto tambien acelera drasticamente la reconstruccion del contenedor
