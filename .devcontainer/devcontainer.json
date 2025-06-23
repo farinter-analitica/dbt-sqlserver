@@ -23,7 +23,9 @@
 				"tamasfe.even-better-toml",
 				"samuelcolvin.jinjahtml",
 				"innoverio.vscode-dbt-power-user",
-				"vscode.git"
+				"vscode.git",
+				"ms-toolsai.jupyter",
+				"ms-toolsai.datawrangler"
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "./.venv/bin/python",
