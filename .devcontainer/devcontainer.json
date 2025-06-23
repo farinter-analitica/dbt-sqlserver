@@ -9,7 +9,7 @@
 		"context": ".."
 	},
 	"forwardPorts": [
-		"3000:3000"
+		3000
 	],
 	"shutdownAction": "stopContainer",
 	"customizations": {
@@ -22,7 +22,8 @@
 				"redhat.vscode-yaml",
 				"tamasfe.even-better-toml",
 				"samuelcolvin.jinjahtml",
-				"innoverio.vscode-dbt-power-user"
+				"innoverio.vscode-dbt-power-user",
+				"vscode.git"
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "./.venv/bin/python",
