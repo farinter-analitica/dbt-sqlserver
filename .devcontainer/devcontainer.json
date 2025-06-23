@@ -32,6 +32,10 @@
 					"zsh": {
 						"path": "/usr/bin/zsh"
 					}
+				},
+				"[python]": {
+					"editor.defaultFormatter": "charliermarsh.ruff",
+					"editor.formatOnSave": true
 				}
 			}
 		}
