@@ -65,7 +65,6 @@ InventarioLotes AS (
         -- Solo stock positivo
         AND (ISNULL(EL.TransitoAlm_Cantidad,0) + ISNULL(EL.Libre_Cantidad,0) + ISNULL(EL.Calidad_Cantidad,0)) > 0
 )
-
 SELECT
     sociedad_id,
     material,
@@ -73,7 +72,7 @@ SELECT
     lote_id,
     CAST(MAX(fecha_cad) AS date) AS fecha_cad,
     SUM(ctd_stock) AS ctd_stock,
-    CAST('{{ modules.datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
+    CAST('{{ modules.datetime.datetime.now().strftime("%Y%m%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
 FROM InventarioLotes
 GROUP BY sociedad_id,
     material,

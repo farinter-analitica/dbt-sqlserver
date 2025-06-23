@@ -47,22 +47,21 @@ InventarioPorVencer AS (
         -- Solo stock libre (Stock_Id = 1)
         AND E.Stock_Id = 1
         -- Fecha de caducidad entre inicio de mes actual y fin de mes + 12 meses
-        AND COALESCE(L.Fecha_Caducidad, '9999-12-31') >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
-        AND COALESCE(L.Fecha_Caducidad, '9999-12-31') <= EOMONTH(DATEADD(MONTH, 12, GETDATE()))
+        AND COALESCE(L.Fecha_Caducidad, '99991231') >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+        AND COALESCE(L.Fecha_Caducidad, '99991231') <= EOMONTH(DATEADD(MONTH, 12, GETDATE()))
         -- Excluir almacenes parametrizados
         AND E.Almacen_Id NOT IN (SELECT Almacen_Id FROM AlmacenesExcluir)
         -- Solo si hay stock
         AND (ISNULL(EL.Libre_Cantidad, 0) + ISNULL(EL.Calidad_Cantidad, 0) + ISNULL(EL.TransitoAlm_Cantidad, 0) + ISNULL(EL.TransitoCentro_Cantidad, 0)) > 0
 )
-
 SELECT
     A.Material_Id AS material,
     MAX(A.Articulo_Nombre) AS descripcion,
-    CAST(COALESCE(L.Fecha_Caducidad, '9999-12-31') AS DATE) AS fecha_cad,
+    CAST(COALESCE(L.Fecha_Caducidad, '99991231') AS DATE) AS fecha_cad,
     ALM.Centro_Id AS centro,
     ALM.Almacen_Id AS almacen,
     SUM(I.stock_calculado) AS stock,
-    CAST('{{ modules.datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
+    CAST('{{ modules.datetime.datetime.now().strftime("%Y%m%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
 FROM InventarioPorVencer I
 INNER JOIN {{ source('BI_FARINTER', 'BI_Dim_Articulo_SAP') }} A
     ON I.Articulo_Id = A.Articulo_Id
@@ -72,7 +71,7 @@ LEFT JOIN {{ source('BI_FARINTER', 'BI_SAP_Dim_Lote') }} L
     ON I.Articulo_Id = L.Articulo_Id
     AND I.Lote_Id = L.Lote_Id
 GROUP BY  A.Material_Id,
-    CAST(COALESCE(L.Fecha_Caducidad, '9999-12-31') AS DATE),
+    CAST(COALESCE(L.Fecha_Caducidad, '99991231') AS DATE),
     ALM.Centro_Id,
     ALM.Almacen_Id
 --ORDER BY material ASC

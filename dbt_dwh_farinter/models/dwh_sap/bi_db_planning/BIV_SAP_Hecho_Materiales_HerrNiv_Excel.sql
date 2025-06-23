@@ -80,5 +80,5 @@ SELECT
         WHEN stock_cantidad_total > 0 THEN stock_valor_total / stock_cantidad_total 
         ELSE NULL 
     END AS precio_uni,
-    CAST('{{ modules.datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
+    CAST('{{ modules.datetime.datetime.now().strftime("%Y%m%d %H:%M:%S") }}' AS datetime) AS fecha_actualizado
 FROM ExistenciasMateriales

@@ -22,7 +22,7 @@
 	  ,EL.Lote_Id
 	  ,CASE WHEN CARTA.Sociedad_Id IS NULL THEN 0 ELSE 1 END as Carta_Id --Recuperar
 	  ,Coalesce(L.LoteProveedor_Id,'X') AS LoteProv_Id
-	  ,Coalesce(L.Fecha_Caducidad,'9999-12-31') AS [FechaCad_Id]
+	  ,Coalesce(L.Fecha_Caducidad,'99991231') AS [FechaCad_Id]
 	  ,Coalesce(L.Fecha_Caducidad_Valida,'') Fecha_Caducidad_Valida
       ,E.[Stock_Id]
       ,C.[Fecha_Id]
@@ -80,7 +80,7 @@
 	  ,EL.Lote_Id
 	  ,CASE WHEN CARTA.Sociedad_Id IS NULL THEN 0 ELSE 1 END as Carta_Id --Recuperar
 	  ,Coalesce(L.LoteProveedor_Id,'X') AS LoteProv_Id
-	  ,Coalesce(L.Fecha_Caducidad,'9999-12-31') AS [FechaCad_Id]
+	  ,Coalesce(L.Fecha_Caducidad,'99991231') AS [FechaCad_Id]
 	  ,Coalesce(L.Fecha_Caducidad_Valida,'') Fecha_Caducidad_Valida
       ,E.[Stock_Id]
       ,C.[Fecha_Id]
@@ -138,7 +138,7 @@
 	  ,EL.Lote_Id
 	  ,CASE WHEN CARTA.Sociedad_Id IS NULL THEN 0 ELSE 1 END as Carta_Id --Recuperar
 	  ,Coalesce(L.LoteProveedor_Id,'X') AS LoteProv_Id
-	  ,Coalesce(L.Fecha_Caducidad,'9999-12-31') AS [FechaCad_Id]
+	  ,Coalesce(L.Fecha_Caducidad,'99991231') AS [FechaCad_Id]
 	  ,Coalesce(L.Fecha_Caducidad_Valida,'') Fecha_Caducidad_Valida
       ,E.[Stock_Id]
       ,C.[Fecha_Id]
