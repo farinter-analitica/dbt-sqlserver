@@ -115,42 +115,27 @@ class ProcesamientoIncentivos:
         Recopila los dataframes necesarios para el procesamiento de incentivos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self.dfm_regalias = get_regalias_data(self.config)
+        self.dfm_regalias = self.inyectar_regla(get_regalias_data(self.config))
         self.dfm_calendario = get_calendario_data(self.config)
         self.dfm_articulos = get_articulos_data(self.config)
         self.dfm_vendedores = get_vendedor_data(self.config)
-        self.dfm_ventas = get_ventas_data(self.config)
+        self.dfm_ventas = self.inyectar_regla(get_ventas_data(self.config))
         self.dfm_usuarios_sucursales = get_usuario_sucursal_data(self.config)
 
         return self
 
-    def preparar_data_regalias(self) -> LazyFrameWithMeta:
+    def inyectar_regla(self, dfm: LazyFrameWithMeta) -> LazyFrameWithMeta:
         # Agrupa por Emp_Id y Fecha_Id para aplicar la regla correspondiente a cada grupo
-        df_regalias = self.dfm_regalias.frame
-        df_regalias = df_regalias.select(
-            [
-                "Emp_Id",
-                "Suc_Id",
-                "Caja_Id",
-                "Vendedor_Id",
-                "Regalia_Id",
-                "Detalle_Id",
-                "Fecha_Id",
-                "Articulo_Padre_Id",
-                "EmpSucCajRegDet_Id",
-                "Cantidad_Padre",
-                "Valor_Costo_Total",
-            ]
-        )
+        df = dfm.frame
 
         # Esto agrega una columna "regla" con la instancia de la regla correspondiente
-        df_regalias = self.regla_registry.asignar_regla_a_dataframe(
-            df_regalias,
-            emp_id_col=self.dfm_regalias.emp_id_name or "Emp_Id",
-            fecha_col=self.dfm_regalias.date_name or "Fecha_Id",
+        df = self.regla_registry.asignar_regla_a_dataframe(
+            df,
+            emp_id_col=dfm.emp_id_name or "Emp_Id",
+            fecha_col=dfm.date_name or "Fecha_Id",
         )
-        return self.dfm_regalias.with_frame(
-            df_regalias,
+        return dfm.with_frame(
+            df,
         )
 
     @property
@@ -165,7 +150,7 @@ class ProcesamientoIncentivos:
         Retorna self para permitir el encadenamiento de métodos.
         """
         self._dfm_input = DataFramesInput(
-            regalias=self.preparar_data_regalias(),
+            regalias=self.dfm_regalias,
             calendario=self.dfm_calendario,
             articulos=self.dfm_articulos,
             vendedores=self.dfm_vendedores,
@@ -192,12 +177,29 @@ class ProcesamientoIncentivos:
 
         print(f"Construyendo resultado final {'...'}")
         resultado_final = DataFramesOutput(
-            regalias_incentivo=self.dfm_regalias.with_frame(
+            regalias_incentivo=self.dfm_input.regalias.with_frame(
                 pl.concat(
                     [r.regalias_incentivo.frame for r in resultados],
                     how="diagonal_relaxed",
                 ),
             ),
+            detalle_incentivo=LazyFrameWithMeta(
+                frame=pl.concat(
+                    [r.detalle_incentivo.frame for r in resultados],
+                    how="diagonal_relaxed",
+                ),
+                primary_keys=(
+                    "Fecha_Id",
+                    "Emp_Id",
+                    "Suc_Id",
+                    "Vendedor_Id",
+                    "Articulo_Id",
+                    "CanalVenta_Id",
+                    "Detalle_Id",
+                ),
+                date_name="Fecha_Id",
+                emp_id_name="Emp_Id",
+            ).validate_primary_keys(),
         )
 
         self._dfm_output = resultado_final

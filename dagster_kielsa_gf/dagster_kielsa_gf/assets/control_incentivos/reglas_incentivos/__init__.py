@@ -133,7 +133,7 @@ class ReglaIncentivoRegistry:
         # Convertir tipos por si es necesario
         df = df.with_columns(regla_fecha_datos=pl.col(fecha_col).cast(pl.Date))
         mapping_table = mapping_table.with_columns(
-            pl.col("Regla_Emp_Id").cast(df.schema[emp_id_col]),
+            pl.col("Regla_Emp_Id").cast(df.collect_schema()[emp_id_col]),
             pl.col("Regla_Fecha_Desde").cast(pl.Date),
             pl.col("Regla_Fecha_Hasta").cast(pl.Date),
         )

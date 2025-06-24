@@ -80,6 +80,21 @@ def get_regalias_data(
         connection=proc_config.connection_str,
         schema=RegaliasSchema.to_schema(),
     )
+    df = df.select(
+        [
+            "Emp_Id",
+            "Suc_Id",
+            "Caja_Id",
+            "Vendedor_Id",
+            "Regalia_Id",
+            "Detalle_Id",
+            "Fecha_Id",
+            "Articulo_Padre_Id",
+            "EmpSucCajRegDet_Id",
+            "Cantidad_Padre",
+            "Valor_Costo_Total",
+        ]
+    )
     return LazyFrameWithMeta(
         df,
         primary_keys=("Emp_Id", "Suc_Id", "Caja_Id", "Regalia_Id", "Detalle_Id"),
@@ -102,18 +117,19 @@ def get_ventas_data(
                 FE.Caja_Id,
                 FE.Factura_Id,
                 FE.Factura_Fecha AS Fecha_Id,
-                FE.Vendedor_Id,
-                ISNULL(FE.Cliente_Id, 0) AS Cliente_Id,
+                MAX(FE.Vendedor_Id) AS Vendedor_Id,
+                FP.CanalVenta_Id,
+                --ISNULL(FE.Cliente_Id, 0) AS Cliente_Id,
                 FE.EmpSucDocCajFac_Id,
-                ISNULL(FE.Monedero_Id, 'X') AS Monedero_Id,
-                ISNULL(M.Tipo_Plan, 'X') AS TipoPlan_Nombre,
-                ISNULL(TC.TipoCliente_Id, 0) AS TipoCliente_Id,
-                ISNULL(TC.TipoCliente_Nombre, 'X') AS TipoCliente_Nombre,
+                --ISNULL(FE.Monedero_Id, 'X') AS Monedero_Id,
+                ISNULL(MAX(M.Tipo_Plan), 'X') AS TipoPlan_Nombre,
+                ISNULL(MAX(TC.TipoCliente_Id), 0) AS TipoCliente_Id,
+                ISNULL(MAX(TC.TipoCliente_Nombre), 'X') AS TipoCliente_Nombre,
                 FP.Articulo_Id,
-                FP.Detalle_Id,
-                FP.Cantidad_Padre,
-                FP.Valor_Acum_Monedero,
-                FP.Valor_Neto
+                --FP.Detalle_Id,
+                SUM(FP.Cantidad_Padre) AS Cantidad_Padre,
+                SUM(FP.Valor_Acum_Monedero) AS Valor_Acum_Monedero,
+                SUM(FP.Valor_Neto) AS Valor_Neto
             FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaEncabezado FE
             INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaPosicion FP
                 ON FE.Emp_Id = FP.Emp_Id
@@ -134,6 +150,16 @@ def get_ventas_data(
             WHERE FE.Factura_Fecha>= CAST('{proc_config.fecha_inicio.strftime("%Y%m%d")}' AS DATE)
             AND FE.Factura_Fecha<= CAST('{proc_config.fecha_fin.strftime("%Y%m%d")}' AS DATE)
             AND FE.Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})
+            GROUP BY 
+            FE.Emp_Id,
+            FE.Suc_Id,
+            FE.TipoDoc_id,
+            FE.Factura_Fecha,
+            FE.Caja_Id,
+            FE.Factura_Id,
+            FP.CanalVenta_Id,
+            FE.EmpSucDocCajFac_Id,
+            FP.Articulo_Id
         """
     )
     df = get_data(
@@ -150,7 +176,8 @@ def get_ventas_data(
             "TipoDoc_id",
             "Caja_Id",
             "Factura_Id",
-            "Detalle_Id",
+            "Articulo_Id",
+            # "Detalle_Id",
         ),
         date_name="Fecha_Id",
         emp_id_name="Emp_Id",
@@ -301,8 +328,6 @@ def get_usuario_sucursal_data(
                     ,Vendedor_Id
                     ,Usuario_Nombre
                     ,Bit_Activo
-                    ,Rol_Fec_Actualizacion
-                    ,Fecha_Actualizado
                     ,EmpSuc_Id
                     ,EmpSucUsu_Id
                     ,EmpRol_Id
@@ -313,7 +338,7 @@ def get_usuario_sucursal_data(
     )
     df = get_data(query_trx, proc_config.connection_str)
     df = set_casting_id(df)
-    return LazyFrameWithMeta(
+    dfm: LazyFrameWithMeta = LazyFrameWithMeta(
         df,
         primary_keys=(
             "Emp_Id",
@@ -323,6 +348,7 @@ def get_usuario_sucursal_data(
         emp_id_name="Emp_Id",
         schema=UsuarioSucursalSchema,
     )
+    return dfm
 
 
 if __name__ == "__main__":

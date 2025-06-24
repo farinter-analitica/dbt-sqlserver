@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 import datetime as dt
-from typing import Callable, Literal, get_args, Optional
+from typing import Any, Callable, ClassVar, Literal, TypeVar, get_args, Optional
 from dataclasses import dataclass, fields
 import polars as pl
 from polars.schema import SchemaInitDataType
@@ -11,83 +11,95 @@ EmpresaID = Literal[1, 2, 3, 4, 5]
 # Deriva la lista de IDs válidos a partir del Literal
 EMPRESAS_ID: frozenset[EmpresaID] = frozenset(get_args(EmpresaID))
 
+SchemaT = TypeVar("SchemaT", bound="SchemaBase")
+ExprFn = Callable[[], pl.Expr]
 
-class ColumnMeta(str):
-    """
-    ColumnMeta is a string subclass that represents a column in a Polars DataFrame.
-    It can also store an optional expression function and data type.
-    The name is set automatically from the attribute name where it's assigned.
-    """
 
-    _expr_fn: Optional[Callable[[], pl.Expr]]
-    _dtype: Optional[SchemaInitDataType]
+class Column(str):
+    _name: str | None
+    _dtype: SchemaInitDataType | None
+    _expr: pl.Expr | None
 
     def __new__(
-        cls,
-        name: Optional[str] = None,
-        expr_fn: Optional[Callable[[], pl.Expr]] = None,
-        dtype: Optional[SchemaInitDataType] = None,
+        cls, name: str | None = None, dtype: Any = None, expr: pl.Expr | None = None
     ):
-        # Name will be set later by metaclass
-        if name is None:
-            obj = str.__new__(cls, "")
-        else:
-            obj = str.__new__(cls, name)
-        obj._expr_fn = expr_fn
+        obj = super().__new__(cls, name or "")
+        obj._name = name
         obj._dtype = dtype
+        obj._expr = expr
         return obj
 
-    def _set_name(self, name: str):
-        # Called by metaclass to set the name after assignment
-        self._name = name
-
-    def __str__(self):
-        if not hasattr(self, "_name"):
-            raise ValueError("ColumnMeta name not set")
+    @property
+    def name(self) -> str:
+        if self._name is None:
+            raise ValueError("Name is not set")
         return self._name
 
     @property
-    def expr_fn(self) -> Optional[Callable[[], pl.Expr]]:
-        return self._expr_fn
-
-    @property
-    def dtype(self) -> Optional[SchemaInitDataType]:
+    def dtype(self) -> SchemaInitDataType:
+        if self._dtype is None:
+            raise ValueError("Dtype is not set")
         return self._dtype
 
     @property
     def expr(self) -> pl.Expr:
-        if self._expr_fn is None:
-            return pl.col(str(self))
-        return self._expr_fn()
+        if self._expr is None:
+            return pl.col(self.name)
+        return self._expr
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"Column(name={self.name!r}, dtype={self._dtype}, expr={self._expr})"
 
 
-class SchemaMetaType(type):
-    def __new__(mcs, name, bases, namespace):
-        for attr, value in namespace.items():
-            if isinstance(value, ColumnMeta):
-                value._set_name(attr)
-        return super().__new__(mcs, name, bases, namespace)
+class SchemaBase:
+    _columns: ClassVar[dict[str, Column]]
 
+    def __init_subclass__(cls: type, **kwargs: Any) -> None:
+        super().__init_subclass__(
+            **kwargs
+        )  # Es buena práctica llamar a la implementación de la clase base.
 
-class SchemaMeta(metaclass=SchemaMetaType):
-    """Base schema: gather ColumnMeta from this class and all superclasses."""
+        # Este diccionario guardará las columnas procesadas para la subclase actual
+        columns_for_this_subclass = {}
+
+        # Iterar a través de los atributos de la subclase
+        # Usamos vars(cls) para obtener solo los atributos definidos directamente en esta subclase
+        # y dir(cls) para incluir atributos heredados o métodos, si fuera necesario
+        for attr_name, attr_value in cls.__dict__.items():
+            if isinstance(attr_value, Column):
+                col: Column = attr_value
+                # Si el nombre de la columna no está establecido (es vacío), usar el nombre del atributo
+                if col._name is None or col._name == "":
+                    # Crear una *nueva* instancia de Column con el nombre rellenado
+                    # y los mismos dtype y expr.
+                    # Esto es crucial porque los objetos Column son mutables a este nivel
+                    # y queremos que cada Column tenga el nombre correcto.
+                    new_col = Column(attr_name, dtype=col._dtype, expr=col._expr)
+
+                    # Reemplazar el atributo en la clase con la nueva instancia de Column.
+                    # Esto asegura que cuando accedas a MySchema.ID, obtengas la Column con el nombre "ID".
+                    setattr(cls, attr_name, new_col)
+                    columns_for_this_subclass[attr_name] = new_col
+                else:
+                    columns_for_this_subclass[attr_name] = col
+
+        # Asignar las columnas procesadas al atributo _columns de la subclase
+        cls._columns = columns_for_this_subclass
 
     @classmethod
-    def _collect_column_meta(cls) -> list[ColumnMeta]:
-        cols: list[ColumnMeta] = []
-        for base in reversed(cls.__mro__):
-            for val in vars(base).values():
-                if isinstance(val, ColumnMeta):
-                    cols.append(val)
-        return cols
-
-    @classmethod
-    def columns(cls) -> list[ColumnMeta]:
-        return cls._collect_column_meta()
+    def columns(cls) -> list[Column]:
+        return list(cls._columns.values())
 
     @classmethod
     def to_mapping(cls) -> dict[str, SchemaInitDataType]:
-        return {str(col): col.dtype for col in cls.columns() if col.dtype is not None}
+        return {
+            col.name: col.dtype
+            for col in cls._columns.values()
+            if col._dtype is not None
+        }
 
     @classmethod
     def to_schema(cls) -> pl.Schema:
@@ -100,11 +112,14 @@ class LazyFrameWithMeta:
     primary_keys: tuple[str, ...]
     date_name: Optional[str] = None
     emp_id_name: Optional[str] = None
-    schema: Optional[type[SchemaMeta]] = None
+    schema: Optional[type[SchemaBase]] = None
+    validar_llave_primaria: Optional[bool] = False
+    columnas_iniciales: Optional[list[str]] = None
 
     def __post_init__(self):
         # Ensure all primary_keys exist in the LazyFrame schema
-        frame_columns = set(self.frame.collect_schema().names())
+        frame_columns = self.frame.limit(1).collect(engine="streaming").columns
+        self.columnas_iniciales = frame_columns
         missing = [k for k in self.primary_keys if k not in frame_columns]
         if missing:
             raise ValueError(f"Primary keys not found in frame columns: {missing}")
@@ -119,18 +134,58 @@ class LazyFrameWithMeta:
         if self.emp_id_name and self.emp_id_name not in frame_columns:
             raise ValueError("El campo empresa asignado debe existir")
 
-    def with_frame(self, lf: pl.LazyFrame) -> "LazyFrameWithMeta":
+        if self.validar_llave_primaria:
+            self.validate_primary_keys()
+
+    def with_frame(
+        self,
+        lf: pl.LazyFrame,
+        primary_keys: Optional[tuple[str, ...]] = None,
+        validar_llave_primaria: Optional[bool] = None,
+    ) -> "LazyFrameWithMeta":
         """
         Crea una nueva instancia de LazyFrameWithMeta usando el nuevo LazyFrame `lf`
-        pero conservando primary_keys, date_name y emp_id_name de esta instancia.
+        pero conservando primary_keys, date_name y emp_id_name de esta instancia,
+        a menos que se especifique lo contrario.
         """
+        primary_keys = primary_keys or self.primary_keys
+        validar_llave_primaria = validar_llave_primaria or self.validar_llave_primaria
+
         return LazyFrameWithMeta(
             frame=lf,
-            primary_keys=self.primary_keys,
+            primary_keys=primary_keys,
             date_name=self.date_name,
             emp_id_name=self.emp_id_name,
             schema=self.schema,
+            validar_llave_primaria=validar_llave_primaria,
         )
+
+    def validate_primary_keys(self) -> "LazyFrameWithMeta":
+        """
+        Validates the primary keys of the LazyFrame to ensure no duplicates exist.
+
+        If `validar_llave_primaria` is True, this method checks that the primary keys
+        do not contain any duplicate values. If duplicates are found, a ValueError is raised.
+
+        Returns:
+            LazyFrameWithMeta: The current instance, allowing for method chaining.
+
+        Raises:
+            ValueError: If duplicate primary keys are detected when validation is enabled.
+        """
+        llaves_primarias = self.frame.select(self.primary_keys).collect(
+            engine="streaming"
+        )
+        if llaves_primarias.is_duplicated().any():
+            raise ValueError("Las llaves primarias contienen duplicados")
+
+        df_vacios = llaves_primarias.null_count()
+        if df_vacios.sum_horizontal().item() > 0:
+            raise ValueError(
+                f"Las llaves primarias están vacías en {df_vacios.columns}"
+            )
+
+        return self
 
 
 # Entrada: dataframes disponibles para las reglas
@@ -180,7 +235,7 @@ class DataFramesInput:
 @dataclass
 class DataFramesOutput:
     regalias_incentivo: LazyFrameWithMeta
-    resumen: Optional[LazyFrameWithMeta] = None
+    detalle_incentivo: LazyFrameWithMeta
 
 
 @dataclass

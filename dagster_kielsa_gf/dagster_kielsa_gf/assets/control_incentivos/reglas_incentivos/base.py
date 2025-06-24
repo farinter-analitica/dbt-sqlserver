@@ -68,7 +68,7 @@ class BaseReglaIncentivo(ABC):
         nuevos = {}
         for name, lfk in dfs_in.items():
             lf = lfk.frame
-            if "Regla_Nombre" in lfk.frame.columns:
+            if "Regla_Nombre" in lfk.frame.limit(1).collect(engine="streaming").columns:
                 lf = lf.filter(pl.col("Regla_Nombre") == self.regla_nombre)
             # if lfk.emp_id_name:
             #     lf = lf.filter(pl.col(lfk.emp_id_name).is_in(self.emp_ids))

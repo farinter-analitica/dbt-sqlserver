@@ -879,7 +879,7 @@ class DataframeSQLTableManager:
             load_date=load_date_col,
             update_date=update_date_col,
         )
-        self.engine = sqla_engine.execution_options(isolation_level="AUTOCOMMIT")
+        self.engine = sqla_engine
         self.filas_tabla_temp: int | None = None
         self.filas_total_tabla: int | None = None
 
@@ -889,14 +889,9 @@ class DataframeSQLTableManager:
         connection: sqla.Connection,
         fetchone: bool = False,
     ) -> Any:
-        try:
-            result_proxy = connection.execute(sqla.text(sql))
+        with connection.execute(sqla.text(sql)) as result_proxy:
             if fetchone:
-                result = result_proxy.fetchone()
-
-                return result
-        except Exception as e:
-            raise RuntimeError(f"Error executing SQL: {sql}") from e
+                return result_proxy.fetchone()
 
     def table_exists(self, connection: sqla.Connection) -> bool:
         sql = self.generator.table_exists_sql_script()
@@ -1026,7 +1021,7 @@ class DataframeSQLTableManager:
         self,
         file_path: str | None = None,
         drop_temp: bool = True,
-        drop_target: bool = True,
+        drop_target: bool = False,
         update: bool = True,
     ) -> None:
         """
@@ -1040,18 +1035,16 @@ class DataframeSQLTableManager:
             drop_target: Whether to drop the target table to refresh it.
             update: On false doesn't update existing records.
         """
-        with (
-            self.engine.connect()
-            if isinstance(self.engine, sqla.Engine)
-            else self.engine as connection
-        ):
+        with self.engine.begin() as connection:
+            self.drop_table(connection=connection, temp=True)
+            self.create_temp_table(connection=connection)
+        with self.engine.begin() as connection:
+            self.load_dataframe_to_temp(connection=connection, file_path=file_path)
+            self.filas_tabla_temp = self.count_rows(temp=True, connection=connection)
+        with self.engine.begin() as connection:
             if drop_target:
                 self.drop_table(connection=connection)
             self.create_table_if_not_exists(connection=connection)
-            self.drop_table(connection=connection, temp=True)
-            self.create_temp_table(connection=connection)
-            self.load_dataframe_to_temp(connection=connection, file_path=file_path)
-            self.filas_tabla_temp = self.count_rows(temp=True, connection=connection)
             self.sync_schema_from_temp(connection=connection)
             self.merge_temp_to_target(connection=connection, update=update)
             self.filas_total_tabla = self.count_rows(connection=connection)

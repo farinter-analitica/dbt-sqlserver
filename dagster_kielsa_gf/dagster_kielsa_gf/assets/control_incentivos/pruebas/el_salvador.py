@@ -6,6 +6,7 @@ from dagster_kielsa_gf.assets.control_incentivos import (
     reglas_incentivos,
 )
 from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_bi
+from pathlib import Path
 
 DEBUG = True
 DEBUG_KEYS = []
@@ -32,9 +33,10 @@ def print_df(
         and message
         and (any(key in message for key in debug_keys) or debug_keys == [])
     ):
-        if isinstance(df, pl.LazyFrame):
-            df = df.collect(engine="auto")
         print(f"\n{'=' * 80}\n{message}\n{'=' * 80}")
+        if isinstance(df, pl.LazyFrame):
+            print(df.explain(engine="streaming"))
+            df = df.collect(engine="auto")
         print(
             f"\nShape: {df.shape} | Memory usage: {df.estimated_size(unit='mb'):.2f} MB"
         )
@@ -58,6 +60,8 @@ def print_df(
                 parquet_path = (
                     f".cache/{message.replace(' ', '_').replace(':', '')}.parquet"
                 )
+            if not Path(parquet_path).parent.exists():
+                Path(parquet_path).parent.mkdir(parents=True, exist_ok=True)
             df.limit(parquet_rows_limit).write_parquet(parquet_path)
             print(f"DataFrame saved to {parquet_path}")
 
@@ -71,6 +75,21 @@ procesador_incentivos = procesamiento_incentivos.ProcesamientoIncentivos(
 
 
 if __name__ == "__main__":
+    DEBUG = True
+    # DEBUG_KEYS = ["DF Regalias Incentivos","DF Ventas Incentivos", "DF Vendedores",
+    # "Extract Process", "DF Regalias In", DF Usuarios Sucursales, ...]
+    DEBUG_KEYS = [
+        # "DF Usuarios Sucursales",
+        "DF Ventas Incentivos",
+        # "DF Jerarquia Roles",
+    ]
+
+    SAVE_PARQUET = True
+
+    dfm_jerarquia_roles = reglas_incentivos.ReglaIncentivoSV2025().jerarquia_roles()
+
+    print_df(dfm_jerarquia_roles.frame, "DF Jerarquia Roles")
+
     dfm_usuarios_sucursales = extractores.get_usuario_sucursal_data(
         procesador_incentivos.config
     )
@@ -78,21 +97,22 @@ if __name__ == "__main__":
     df_test = (
         reglas_incentivos.ReglaIncentivoSV2025()
         .crear_matriz_jerarquia_vendedores(
-            dataframes=procesador_incentivos.extract_dataframes()
+            dfm=procesador_incentivos.extract_dataframes()
             .procesar_dataframes()
-            .dfm_input
+            .dfm_input.usuarios_sucursales
         )
         .frame
     )
 
-    DEBUG = True
-    # DEBUG_KEYS = ["DF Regalias Incentivos","DF Ventas Incentivos", "DF Vendedores",
-    # "Extract Process", "DF Regalias In", DF Usuarios Sucursales, ...]
-    DEBUG_KEYS = ["DF Usuarios Sucursales"]
-    SAVE_PARQUET = True
+    dfm_ventas_incentivos = reglas_incentivos.ReglaIncentivoSV2025().procesar_ventas(
+        dataframes=procesador_incentivos.extract_dataframes()
+        .procesar_dataframes()
+        .dfm_input
+    )
+
     print_df(
-        df_test,
-        "DF Usuarios Sucursales",
+        dfm_ventas_incentivos.frame,
+        "DF Ventas Incentivos",
         save_parquet=SAVE_PARQUET,
         debug_keys=DEBUG_KEYS,
     )
