@@ -421,22 +421,13 @@ class DataframeSQLScriptGenerator:
 
         return tuple(formatted_columns)
 
-    def create_table_sql_script(self, temp: bool = False) -> str:
+    def _map_dtype_to_sql(self, col_name: str, col_type: pl.DataType) -> str:
         """
-        Generate a SQL script to create a table based on a Polars DataFrame schema.
-
-        Returns:
-        - str: The SQL script to create the table.
+        Reutiliza la lógica de create_table_sql_script para mapear
+        un dtype de Polars a la definición SQL.
         """
-        schema = self.df_schema
         primary_keys = self.primary_keys
         df = self.df
-        schema_table_relation = (
-            self.schema_table_relation if not temp else self.schema_temp_table_relation
-        )
-
-        # Initialize the SQL script
-        sql_script = f"CREATE TABLE {schema_table_relation} (\n"
 
         TYPE_MAPPING: dict[SchemaInitDataType, str] = {
             pl.Int8: "TINYINT",
@@ -454,42 +445,64 @@ class DataframeSQLScriptGenerator:
             pl.Time: "TIME(0)",
         }
 
+        # Map the Polars data type to a SQL Server data type
+        # Get the basic type mapping first
+        sql_type = TYPE_MAPPING.get(col_type)
+
+        # Handle special cases
+        if sql_type is None:
+            if col_type == pl.Utf8:
+                string_lenght: int = df.get_column(col_name).str.len_chars().max()  # type: ignore
+                string_lenght = string_lenght if string_lenght else 0
+                if col_name in primary_keys and not string_lenght > 50:
+                    sql_type = "NVARCHAR(50)"
+                elif string_lenght <= 100:
+                    sql_type = "NVARCHAR(100)"
+                elif string_lenght <= 255:
+                    # Use NVARCHAR for string columns with a maximum length of 255
+                    sql_type = "NVARCHAR(255)"
+                elif col_name in primary_keys:
+                    raise ValueError(
+                        f"Primary key {col_name} shouldn't be longer than 255 characters"
+                    )
+                else:
+                    sql_type = "NVARCHAR(MAX)"
+            elif col_type == pl.Datetime:
+                if col_type.time_zone is not None:  # type: ignore
+                    sql_type = "DATETIMEOFFSET(0)"
+                else:
+                    sql_type = "DATETIME2(0)"
+            elif col_type == pl.Decimal:
+                # Use DECIMAL with precision and scale
+                precision = col_type.precision  # type: ignore
+                scale = col_type.scale  # type: ignore
+                sql_type = f"DECIMAL({precision}, {scale})"
+            else:
+                raise ValueError(f"Unsupported data type: {col_type}")
+
+        return sql_type
+
+    def create_table_sql_script(self, temp: bool = False) -> str:
+        """
+        Generate a SQL script to create a table based on a Polars DataFrame schema.
+
+        Returns:
+        - str: The SQL script to create the table.
+        """
+        schema = self.df_schema
+        primary_keys = self.primary_keys
+        schema_table_relation = (
+            self.schema_table_relation if not temp else self.schema_temp_table_relation
+        )
+
+        # Initialize the SQL script
+        sql_script = f"CREATE TABLE {schema_table_relation} (\n"
+
         # Iterate over the columns in the schema
         for col_name, col_type in schema.items():
             # Map the Polars data type to a SQL Server data type
             # Get the basic type mapping first
-            sql_type = TYPE_MAPPING.get(col_type)
-
-            # Handle special cases
-            if sql_type is None:
-                if col_type == pl.Utf8:
-                    string_lenght: int = df.get_column(col_name).str.len_chars().max()  # type: ignore
-                    string_lenght = string_lenght if string_lenght else 0
-                    if col_name in primary_keys and not string_lenght > 50:
-                        sql_type = "NVARCHAR(50)"
-                    elif string_lenght <= 100:
-                        sql_type = "NVARCHAR(100)"
-                    elif string_lenght <= 255:
-                        # Use NVARCHAR for string columns with a maximum length of 255
-                        sql_type = "NVARCHAR(255)"
-                    elif col_name in primary_keys:
-                        raise ValueError(
-                            f"Primary key {col_name} shouldn't be longer than 255 characters"
-                        )
-                    else:
-                        sql_type = "NVARCHAR(MAX)"
-                elif col_type == pl.Datetime:
-                    if col_type.time_zone is not None:  # type: ignore
-                        sql_type = "DATETIMEOFFSET(0)"
-                    else:
-                        sql_type = "DATETIME2(0)"
-                elif col_type == pl.Decimal:
-                    # Use DECIMAL with precision and scale
-                    precision = col_type.precision  # type: ignore
-                    scale = col_type.scale  # type: ignore
-                    sql_type = f"DECIMAL({precision}, {scale})"
-                else:
-                    raise ValueError(f"Unsupported data type: {col_type}")
+            sql_type = self._map_dtype_to_sql(col_name, col_type)
 
             # Add the column definition to the SQL script
             sql_script += f"    {self.quote_identifier(col_name)} {sql_type}"
@@ -504,6 +517,53 @@ class DataframeSQLScriptGenerator:
         sql_script = sql_script[:-2] + "\n);\n"
 
         return sql_script
+
+    def _compose_sql_type_from_meta(self, meta: dict[str, Any]) -> str:
+        """
+        Dada la metadata de INFORMATION_SCHEMA.COLUMNS,
+        construye la parte 'TIPO(...)' para el DDL.
+        """
+        dt = meta["data_type"].upper()
+        if "CHAR" in dt:
+            length = meta.get("character_maximum_length") or "MAX"
+            return f"{dt}({length})"
+        elif dt in ("DECIMAL", "NUMERIC"):
+            prec = meta["numeric_precision"] or 18
+            scale = meta["numeric_scale"] or 0
+            return f"{dt}({prec},{scale})"
+        else:
+            # INT, BIGINT, DATE, DATETIME2, BIT, etc.
+            return dt
+
+    def generate_alter_from_temp(
+        self,
+        target_meta: dict[str, dict[str, Any]],
+        temp_meta: dict[str, dict[str, Any]],
+    ) -> list[str]:
+        """
+        Compara columnas de target_meta vs temp_meta y devuelve la lista de
+        ALTER TABLE … ADD/ALTER COLUMN para alinear target al temp.
+        """
+        alters: list[str] = []
+        tbl = self.schema_table_relation
+
+        for col, temp_m in temp_meta.items():
+            sql_type = self._compose_sql_type_from_meta(temp_m)
+            if col not in target_meta:
+                # columna nueva
+                alters.append(
+                    f"ALTER TABLE {tbl} ADD {self.quote_identifier(col)} {sql_type};"
+                )
+            else:
+                tgt_m = target_meta[col]
+                tgt_type = self._compose_sql_type_from_meta(tgt_m)
+                # si difieren (por tipo o longitud/precisión), alteramos
+                if tgt_type != sql_type:
+                    alters.append(
+                        f"ALTER TABLE {tbl} ALTER COLUMN {self.quote_identifier(col)} {sql_type};"
+                    )
+
+        return alters
 
     def drop_table_sql_script(self, temp: bool = False) -> str:
         table_name = self.table_name if not temp else self.temp_table_name
@@ -668,6 +728,7 @@ class DataframeSQLScriptGenerator:
         update_columns: list[str] | None = None,
         insert_columns: list[str] | None = None,
         match_columns: list[str] | None = None,
+        update: bool = True,
     ) -> str:
         """
         Generate a SQL MERGE statement to upsert data from temp table to target table.
@@ -680,6 +741,7 @@ class DataframeSQLScriptGenerator:
             update_columns: Columns to update on match (default: all except PKs).
             insert_columns: Columns to insert (default: all).
             match_columns: Columns to match on (default: primary keys).
+            ignore_if_exists: Do not update existing keys.
 
         Returns:
             str: SQL MERGE statement.
@@ -701,14 +763,18 @@ class DataframeSQLScriptGenerator:
         )
 
         # Build UPDATE SET clause
-        update_set = (
-            ", ".join(
-                f"TARGET.{self.quote_identifier(col)} = SOURCE.{self.quote_identifier(col)}"
-                for col in upd_cols
+        if update:
+            update_set = (
+                "UPDATE SET "
+                + ", ".join(
+                    f"TARGET.{self.quote_identifier(col)} = SOURCE.{self.quote_identifier(col)}"
+                    for col in upd_cols
+                )
+                if upd_cols
+                else ""
             )
-            if upd_cols
-            else ""
-        )
+        else:
+            update_set = ""
 
         # Build INSERT columns and values
         insert_cols = ", ".join(f"{self.quote_identifier(col)}" for col in ins_cols)
@@ -719,9 +785,13 @@ class DataframeSQLScriptGenerator:
         sql = f"""
         MERGE INTO {tgt} AS TARGET
         USING {src} AS SOURCE
-        ON {on_clause}
+        ON {on_clause}{
+            f'''
         WHEN MATCHED THEN
-            UPDATE SET {update_set}
+            {update_set}'''
+            if update
+            else ""
+        }
         WHEN NOT MATCHED BY TARGET THEN
             INSERT ({insert_cols}) VALUES ({insert_vals});
         """
@@ -809,7 +879,7 @@ class DataframeSQLTableManager:
             load_date=load_date_col,
             update_date=update_date_col,
         )
-        self.engine = sqla_engine.execution_options(isolation_level="AUTOCOMMIT")
+        self.engine = sqla_engine
         self.filas_tabla_temp: int | None = None
         self.filas_total_tabla: int | None = None
 
@@ -819,14 +889,9 @@ class DataframeSQLTableManager:
         connection: sqla.Connection,
         fetchone: bool = False,
     ) -> Any:
-        try:
-            result_proxy = connection.execute(sqla.text(sql))
+        with connection.execute(sqla.text(sql)) as result_proxy:
             if fetchone:
-                result = result_proxy.fetchone()
-
-                return result
-        except Exception as e:
-            raise RuntimeError(f"Error executing SQL: {sql}") from e
+                return result_proxy.fetchone()
 
     def table_exists(self, connection: sqla.Connection) -> bool:
         sql = self.generator.table_exists_sql_script()
@@ -883,8 +948,69 @@ class DataframeSQLTableManager:
             )
             self._execute_sql(sql, connection=connection)
 
-    def merge_temp_to_target(self, connection: sqla.Connection) -> None:
-        sql = self.generator.merge_table_sql_script()
+    def _fetch_columns_metadata(
+        self, connection: sqla.Connection, table_name: str, schema: str
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Devuelve { column_name: {data_type, character_maximum_length, numeric_precision, numeric_scale} }
+        """
+        sql = textwrap.dedent(f"""
+            SELECT
+                COLUMN_NAME,
+                DATA_TYPE,
+                CHARACTER_MAXIMUM_LENGTH,
+                NUMERIC_PRECISION,
+                NUMERIC_SCALE
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = '{schema}'
+              AND TABLE_NAME   = '{table_name}'
+        """)
+        rows = (
+            connection.execute(
+                sqla.text(sql),
+            )
+            .mappings()
+            .all()
+        )
+
+        return {
+            r["COLUMN_NAME"]: {
+                "data_type": r["DATA_TYPE"],
+                "character_maximum_length": r["CHARACTER_MAXIMUM_LENGTH"],
+                "numeric_precision": r["NUMERIC_PRECISION"],
+                "numeric_scale": r["NUMERIC_SCALE"],
+            }
+            for r in rows
+        }
+
+    def sync_schema_from_temp(self, connection: sqla.Connection) -> None:
+        """
+        Lee metadata de columnas de target y de temp.
+        Genera y ejecuta ALTER TABLE para alinear target a temp.
+        """
+
+        # leer esquemas
+        target_meta = self._fetch_columns_metadata(
+            connection,
+            table_name=self.generator.table_name,
+            schema=self.generator.db_schema,
+        )
+        if target_meta:
+            temp_meta = self._fetch_columns_metadata(
+                connection,
+                table_name=self.generator.temp_table_name,
+                schema=self.generator.db_schema,
+            )
+
+            # generar y ejecutar alters
+            alters = self.generator.generate_alter_from_temp(target_meta, temp_meta)
+            for stmt in alters:
+                self._execute_sql(stmt, connection)
+
+    def merge_temp_to_target(
+        self, connection: sqla.Connection, update: bool = True
+    ) -> None:
+        sql = self.generator.merge_table_sql_script(update=update)
         self._execute_sql(sql, connection=connection)
 
     def drop_table(self, connection: sqla.Connection, temp: bool = False) -> None:
@@ -895,7 +1021,8 @@ class DataframeSQLTableManager:
         self,
         file_path: str | None = None,
         drop_temp: bool = True,
-        drop_target: bool = True,
+        drop_target: bool = False,
+        update: bool = True,
     ) -> None:
         """
         Full process: create table if needed, create temp, load, merge, drop temp.
@@ -906,20 +1033,20 @@ class DataframeSQLTableManager:
             file_path: Path to the parquet file to use for bulk insert.
             drop_temp: Whether to drop the temp table after merging.
             drop_target: Whether to drop the target table to refresh it.
+            update: On false doesn't update existing records.
         """
-        with (
-            self.engine.connect()
-            if isinstance(self.engine, sqla.Engine)
-            else self.engine as connection
-        ):
+        with self.engine.begin() as connection:
+            self.drop_table(connection=connection, temp=True)
+            self.create_temp_table(connection=connection)
+        with self.engine.begin() as connection:
+            self.load_dataframe_to_temp(connection=connection, file_path=file_path)
+            self.filas_tabla_temp = self.count_rows(temp=True, connection=connection)
+        with self.engine.begin() as connection:
             if drop_target:
                 self.drop_table(connection=connection)
             self.create_table_if_not_exists(connection=connection)
-            self.drop_table(connection=connection, temp=True)
-            self.create_temp_table(connection=connection)
-            self.load_dataframe_to_temp(connection=connection, file_path=file_path)
-            self.filas_tabla_temp = self.count_rows(temp=True, connection=connection)
-            self.merge_temp_to_target(connection=connection)
+            self.sync_schema_from_temp(connection=connection)
+            self.merge_temp_to_target(connection=connection, update=update)
             self.filas_total_tabla = self.count_rows(connection=connection)
             if drop_temp:
                 self.drop_table(connection=connection, temp=True)

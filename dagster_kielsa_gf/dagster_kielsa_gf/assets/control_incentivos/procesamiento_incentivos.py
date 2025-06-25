@@ -1,19 +1,18 @@
 import datetime as dt
-from textwrap import dedent
 
 import polars as pl
-import polars.selectors as cs
 
-from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos import (
+from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.config import (
     build_registry_incentivo,
     ReglaIncentivoRegistry,
 )
 from dagster_kielsa_gf.assets.control_incentivos.config import (
     DataFramesInput,
     DataFramesOutput,
-    DataFrameWithPK,
+    LazyFrameWithMeta,
+    ProcConfig,
 )
+import dagster_kielsa_gf.assets.control_incentivos.extractores as extractores
 
 built_in_print = print
 DEBUG = False
@@ -77,224 +76,85 @@ def print_df(
             print(f"DataFrame saved to {parquet_path}")
 
 
-def get_data(query: str, dwh_farinter_bi: SQLServerResource) -> pl.LazyFrame:
-    df = pl.read_database(query, dwh_farinter_bi.get_arrow_odbc_conn_string()).lazy()
-    return df
-
-
 class ProcesamientoIncentivos:
+    config: ProcConfig
+    _dfm_input: DataFramesInput | None = None
+    _dfm_output: DataFramesOutput | None = None
+
     def __init__(
         self,
-        dwh_farinter_bi: SQLServerResource,
+        connection_str: str,
         fecha_inicio: dt.date,
         fecha_fin: dt.date,
-        empresas_id: set[int] = {1},
+        empresas_id: set[int] | None = None,
         limit: int | None = None,
         regla_registry: ReglaIncentivoRegistry | None = None,
     ):
-        self.dwh_farinter_bi = dwh_farinter_bi
-        self.fecha_inicio = fecha_inicio
-        self.fecha_fin = fecha_fin
+        if empresas_id is None:
+            empresas_id = {1, 5}
+        self.config = ProcConfig(
+            connection_str=connection_str,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            empresas_id=empresas_id,
+            limit=limit,
+        )
         self.empresas_id = empresas_id
         self.limit = limit
         self.regla_registry = regla_registry or build_registry_incentivo()
-
-    def get_regalias_data(
-        self,
-        fecha_inicio: dt.date | None = None,
-        fecha_fin: dt.date | None = None,
-        limit: int | None = None,
-    ) -> DataFrameWithPK:
-        fecha_inicio = fecha_inicio or self.fecha_inicio
-        fecha_fin = fecha_fin or self.fecha_fin
-        limit = limit or self.limit
-        query_trx = dedent(
-            f"""
-                SELECT
-                    {f"TOP ({limit})" if limit is not None else ""}
-                    RE.Regalia_Id,
-                    RE.Regalia_Fecha,
-                    RE.Regalia_Momento AS Regalia_FechaHora,
-                    RE.Emp_Id,
-                    RE.Suc_Id,
-                    RE.Bodega_Id,
-                    RE.Caja_Id,
-                    RE.EmpSucCajReg_Id,
-                    RD.Detalle_Id,
-                    RD.Articulo_Id,
-                    RD.Articulo_Padre_Id,
-                    RE.Cliente_Id,
-                    RE.Identidad_Limpia,
-                    RE.Mov_Id,
-                    RE.Vendedor_Id,
-                    RE.Operacion_Id,
-                    RE.Preventa_Id,
-                    RE.Tipo_Origen,
-                    RD.Detalle_Momento,
-                    RD.Cantidad_Original,
-                    RD.Cantidad_Padre,
-                    RD.Valor_Costo_Unitario,
-                    RD.Valor_Costo_Total,
-                    RD.Precio_Unitario,
-                    RD.Valor_Impuesto,
-                    RE.EmpSuc_Id,
-                    RE.EmpCli_Id,
-                    RE.EmpVen_Id,
-                    RE.EmpMon_Id,
-                    RD.EmpArt_Id,
-                    RD.EmpSucCajRegDet_Id
-                FROM [BI_FARINTER].[dbo].[BI_Kielsa_Hecho_Regalia_Detalle] RD
-                INNER JOIN  [BI_FARINTER].[dbo].[BI_Kielsa_Hecho_Regalia_Encabezado] RE
-                ON RD.Regalia_Id = RE.Regalia_Id
-                AND RD.Emp_Id = RE.Emp_Id
-                AND RD.Suc_Id = RE.Suc_Id
-                AND RD.Bodega_Id = RE.Bodega_Id
-                AND RD.Caja_Id = RE.Caja_Id
-                WHERE RE.Regalia_Fecha >= '{fecha_inicio.strftime("%Y%m%d")}' 
-                AND RE.Regalia_Fecha <= '{fecha_fin.strftime("%Y%m%d")}'
-                AND RE.Emp_Id IN ({", ".join(map(str, self.empresas_id))})
-            """
-        )
-        df = get_data(query_trx, self.dwh_farinter_bi)
-        df = df.with_columns((cs.numeric() - cs.ends_with("_Id")).cast(pl.Float64))
-        df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
-        df = df.with_columns(pl.col("Regalia_Fecha").cast(pl.Date))
-        return DataFrameWithPK(
-            df, ("Emp_Id", "Suc_Id", "Caja_Id", "Regalia_Id", "Detalle_Id")
-        )
-
-    def get_calendario_data(
-        self,
-        fecha_inicio: dt.date | None = None,
-        fecha_fin: dt.date | None = None,
-        limit: int | None = None,
-    ) -> DataFrameWithPK:
-        fecha_inicio = fecha_inicio or self.fecha_inicio
-        fecha_fin = fecha_fin or self.fecha_fin
-        limit = limit or self.limit
-        query_trx = dedent(
-            f"""
-                SELECT 
-                    {f"TOP ({limit})" if limit is not None else ""}
-                    [Fecha_Calendario],
-                    [Anio_Calendario],
-                    [Mes_Calendario],
-                    [Dia_Calendario],
-                    [Trimestre_Calendario],
-                    [Semana_del_Trimestre],
-                    [Dia_del_Trimestre],
-                    [Mes_Inicio],
-                    [Mes_Fin],
-                    [Es_Fin_Mes],
-                    [Semana_del_Mes],
-                    [Semana_Inicio],
-                    [Semana_Fin],
-                    [Mes_Nombre],
-                    [Mes_Nombre_Corto],
-                    [Dia_de_la_Semana],
-                    [Dia_Nombre],
-                    [Dia_del_Anio],
-                    [Anio_ISO],
-                    [Semana_del_Anio_ISO],
-                    [Mes_ISO],
-                    [Dia_del_Anio_ISO],
-                    [Es_Fin_Anio],
-                    [Es_dia_Habil],
-                    [NoLaboral_Paises],
-                    [Es_Inicio_Anio],
-                    [Es_Inicio_Mes],
-                    [AnioMes_Id],
-                    NULL AS Dummy
-                FROM [BI_FARINTER].[dbo].[BI_Dim_Calendario_Dinamico] CAL
-                WHERE Fecha_Calendario >= '{fecha_inicio.replace(year=fecha_inicio.year - 1).strftime("%Y%m%d")}' 
-                AND Fecha_Calendario <= '{fecha_fin.replace(year=fecha_fin.year + 1).strftime("%Y%m%d")}'
-            """
-        )
-        df = get_data(query_trx, self.dwh_farinter_bi)
-        df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
-        df = df.with_columns(pl.col("Fecha_Calendario").cast(pl.Date))
-        return DataFrameWithPK(df, ("Fecha_Calendario",))
-
-    def get_articulos_data(
-        self,
-        fecha_inicio: dt.date | None = None,
-        fecha_fin: dt.date | None = None,
-        limit: int | None = None,
-    ) -> DataFrameWithPK:
-        fecha_inicio = fecha_inicio or self.fecha_inicio
-        fecha_fin = fecha_fin or self.fecha_fin
-        limit = limit or self.limit
-        query_trx = dedent(
-            f"""
-                SELECT  
-                    {f"TOP ({limit})" if limit is not None else ""}
-                    [Articulo_Id],
-                    [Emp_Id],
-                    [Casa_Id],
-                    [Casa_Nombre],
-                    [Bit_Marca_Propia],
-                    NULL AS Dummy
-                FROM [BI_FARINTER].[dbo].[BI_Kielsa_Dim_Articulo] Art
-                WHERE  Emp_Id IN ({", ".join(map(str, self.empresas_id))})
-            """
-        )
-        df = get_data(query_trx, self.dwh_farinter_bi)
-        df = df.with_columns((cs.numeric() & cs.ends_with("_Id")).cast(pl.Int32))
-        return DataFrameWithPK(df, ("Articulo_Id",))
 
     def extract_dataframes(self) -> "ProcesamientoIncentivos":
         """
         Recopila los dataframes necesarios para el procesamiento de incentivos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self.df_regalias = self.get_regalias_data()
-        self.df_calendario = self.get_calendario_data()
-        self.df_articulos = self.get_articulos_data()
+        self.dfm_regalias = extractores.get_regalias_data(self.config)
+        self.dfm_calendario = extractores.get_calendario_data(self.config)
+        self.dfm_articulos = extractores.get_articulos_data(self.config)
+        self.dfm_vendedores = extractores.get_vendedor_data(self.config)
+        self.dfm_ventas = extractores.get_ventas_data(self.config)
+        self.dfm_usuarios_sucursales = extractores.get_usuario_sucursal_data(
+            self.config
+        )
+        self.dfm_roles = extractores.get_rol_data(self.config)
 
         return self
 
-    @property
-    def df_input_dict(self) -> DataFramesInput:
-        if not hasattr(self, "_df_input"):
-            raise ValueError("Los dataframes de entrada no han sido procesados.")
-        return self._df_input
+    def inyectar_regla(self, dfm: LazyFrameWithMeta) -> LazyFrameWithMeta:
+        # Agrupa por Emp_Id y Fecha_Id para aplicar la regla correspondiente a cada grupo
+        df = dfm.frame
 
-    def _process_df_input_dict(self) -> "ProcesamientoIncentivos":
+        # Esto agrega una columna "regla" con la instancia de la regla correspondiente
+        df = self.regla_registry.asignar_regla_a_dataframe(
+            df,
+            emp_id_col=dfm.emp_id_name or "Emp_Id",
+            fecha_col=dfm.date_name or "Fecha_Id",
+        )
+        return dfm.with_frame(
+            df,
+        )
+
+    @property
+    def dfm_input(self) -> DataFramesInput:
+        if self._dfm_input is None:
+            raise ValueError("Los dataframes de entrada no han sido procesados.")
+        return self._dfm_input
+
+    def procesar_dataframes(self) -> "ProcesamientoIncentivos":
         """
         Procesa y almacena los dataframes de entrada requeridos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self._df_input: DataFramesInput = DataFramesInput(
-            regalias=self.preparar_data_regalias(),
-            calendario=self.df_calendario,
-            articulos=self.df_articulos,
+        self._dfm_input = DataFramesInput(
+            regalias=self.inyectar_regla(self.dfm_regalias),
+            calendario=self.dfm_calendario,
+            articulos=self.dfm_articulos,
+            vendedores=self.dfm_vendedores,
+            ventas=self.inyectar_regla(self.dfm_ventas),
+            usuarios_sucursales=self.dfm_usuarios_sucursales,
+            roles=self.dfm_roles,
         )
         return self
-
-    def preparar_data_regalias(self) -> DataFrameWithPK:
-        # Agrupa por Emp_Id y Fecha_Id para aplicar la regla correspondiente a cada grupo
-        df_regalias = self.df_regalias.frame
-        df_regalias = df_regalias.select(
-            [
-                "Emp_Id",
-                "Suc_Id",
-                "Caja_Id",
-                "Regalia_Id",
-                "Detalle_Id",
-                pl.col("Regalia_Fecha").alias("Fecha_Id"),
-                "Articulo_Padre_Id",
-                "EmpSucCajRegDet_Id",
-                "Cantidad_Padre",
-                "Valor_Costo_Total",
-            ]
-        )
-
-        # Esto agrega una columna "regla" con la instancia de la regla correspondiente
-        df_regalias = self.regla_registry.asignar_regla_a_dataframe(
-            df_regalias, emp_id_col="Emp_Id", fecha_col="Fecha_Id"
-        )
-
-        return DataFrameWithPK(df_regalias, self.df_regalias.primary_keys)
 
     def _process_df_output_dict(self) -> "ProcesamientoIncentivos":
         """
@@ -304,42 +164,65 @@ class ProcesamientoIncentivos:
         resultados: list[DataFramesOutput] = []
         # Particiona por la columna de regla (instancia)
         for regla in self.regla_registry.map_reglas.values():
-            output_dict = regla.procesar(self.df_input_dict)
+            print(f"Procesando regla {regla.regla_nombre}")
+            output_dict = regla.procesar(self.dfm_input)
             resultados.append(output_dict)
 
+        print(f"Procesando regla {self.regla_registry.regla_por_defecto.regla_nombre}")
+        regla_defecto = self.regla_registry.regla_por_defecto.procesar(self.dfm_input)
+        resultados.append(regla_defecto)
+
+        print(f"Construyendo resultado final {'...'}")
         resultado_final = DataFramesOutput(
-            regalias_incentivo=DataFrameWithPK(
-                pl.concat([r.regalias_incentivo.frame for r in resultados]),
-                self.df_regalias.primary_keys,
+            regalias_incentivo=self.dfm_input.regalias.with_frame(
+                pl.concat(
+                    [r.regalias_incentivo.frame for r in resultados],
+                    how="diagonal_relaxed",
+                ),
             ),
+            detalle_incentivo=LazyFrameWithMeta(
+                frame=pl.concat(
+                    [r.detalle_incentivo.frame for r in resultados],
+                    how="diagonal_relaxed",
+                ),
+                primary_keys=(
+                    "Fecha_Id",
+                    "EmpSucDocCajFac_Id",
+                    "Articulo_Id",
+                    "Usuario_Id",
+                ),
+                date_name="Fecha_Id",
+                emp_id_name="Emp_Id",
+            ).validate_primary_keys(),
         )
 
-        self._df_output = resultado_final
+        self._dfm_output = resultado_final
 
-        return self
-
-    def estandarizar_dataframes(self) -> "ProcesamientoIncentivos":
-        """
-        Estandariza los dataframes de salida para que tengan las mismas columnas llave.
-        Retorna self para permitir el encadenamiento de métodos.
-        """
-        raise NotImplementedError("Este método no está implementado.")
         return self
 
     @property
-    def df_output(self) -> DataFramesOutput:
-        if not hasattr(self, "_df_output"):
+    def dfm_output(self) -> DataFramesOutput:
+        if self._dfm_output is None:
             raise ValueError("Los dataframes de salida no han sido procesados.")
-        return self._df_output
+        return self._dfm_output
 
-    def process_dataframes(self) -> "ProcesamientoIncentivos":
+    def procesar_reglas(self) -> "ProcesamientoIncentivos":
         """
         Procesa los dataframes de salida requeridos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self._process_df_input_dict()
         self._process_df_output_dict()
 
+        return self
+
+    def procesar(self) -> "ProcesamientoIncentivos":
+        """
+        Procesa todo.
+        Retorna self para permitir el encadenamiento de métodos.
+        """
+        self.extract_dataframes()
+        self.procesar_dataframes()
+        self.procesar_reglas()
         return self
 
 
@@ -347,13 +230,15 @@ if __name__ == "__main__":
     from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_bi
 
     DEBUG = True
-    DEBUG_KEYS = ["DF Regalias Incentivos", "sql"]
+    # DEBUG_KEYS = ["DF Regalias Incentivos","DF Ventas Incentivos", "DF Vendedores",  "Extract Process", "DF Regalias In", ...]
+    DEBUG_KEYS = ["DF Ventas Incentivos", "DF Vendedores"]
     SAVE_PARQUET = True
 
     procesador_incentivos = ProcesamientoIncentivos(
-        dwh_farinter_bi=dwh_farinter_bi,
+        connection_str=dwh_farinter_bi.get_arrow_odbc_conn_string(),
         fecha_inicio=dt.date(2025, 5, 1),
         fecha_fin=dt.date(2025, 5, 7),
+        empresas_id={5},
     )
 
     print_params = {
@@ -364,31 +249,57 @@ if __name__ == "__main__":
 
     procesador_incentivos.extract_dataframes()
 
-    df_regalias = procesador_incentivos.df_regalias
+    df_regalias = procesador_incentivos.dfm_regalias.frame
     print_df(
-        df_regalias.frame,
+        df_regalias,
         "DF Regalias",
         **print_params,
     )
-    df_calendario = procesador_incentivos.df_calendario
+    df_calendario = procesador_incentivos.dfm_calendario.frame
     print_df(
-        df_calendario.frame,
+        df_calendario,
         "DF Calendario",
         **print_params,
     )
 
-    df_articulos = procesador_incentivos.df_articulos
+    df_articulos = procesador_incentivos.dfm_articulos.frame
     print_df(
-        df_articulos.frame,
+        df_articulos,
         "DF Articulos",
         **print_params,
     )
-    procesador_incentivos.extract_dataframes()
-    procesador_incentivos.process_dataframes()
 
-    df_regalias_incentivo = procesador_incentivos.df_output.regalias_incentivo
+    df_vendedores = procesador_incentivos.dfm_vendedores.frame
     print_df(
-        df_regalias_incentivo.frame,
-        "DF Regalias Incentivos",
+        df_vendedores,
+        "DF Vendedores",
         **print_params,
     )
+
+    df_ventas = procesador_incentivos.dfm_ventas.frame
+    print_df(
+        df_ventas,
+        "DF Ventas",
+        **print_params,
+    )
+
+    if "Extract Process" in DEBUG_KEYS:
+        procesador_incentivos.extract_dataframes()
+        procesador_incentivos.procesar_dataframes()
+        procesador_incentivos.procesar_reglas()
+
+        df_regalias_in = procesador_incentivos.dfm_input.regalias.frame
+        print_df(
+            df_regalias_in,
+            "DF Regalias In",
+            **print_params,
+        )
+
+        df_regalias_incentivo = (
+            procesador_incentivos.dfm_output.regalias_incentivo.frame
+        )
+        print_df(
+            df_regalias_incentivo,
+            "DF Regalias Incentivos",
+            **print_params,
+        )
