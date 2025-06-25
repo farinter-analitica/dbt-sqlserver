@@ -77,3 +77,6 @@ groups:
 - name: dbt_dwh_sap_an
   owner:
     email: brian.padilla@farinter.com
+- name: adm_dwh_kielsa
+  owner:
+    email: brian.padilla@farinter.com

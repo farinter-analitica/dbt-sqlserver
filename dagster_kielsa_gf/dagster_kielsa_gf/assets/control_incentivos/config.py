@@ -177,7 +177,9 @@ class LazyFrameWithMeta:
             engine="streaming"
         )
         if llaves_primarias.is_duplicated().any():
-            raise ValueError("Las llaves primarias contienen duplicados")
+            raise ValueError(
+                f"Las llaves primarias de contienen duplicados. {llaves_primarias.filter(llaves_primarias.is_duplicated()).head(10)}"
+            )
 
         df_vacios = llaves_primarias.null_count()
         if df_vacios.sum_horizontal().item() > 0:
@@ -197,6 +199,7 @@ class DataFramesInput:
     ventas: LazyFrameWithMeta
     vendedores: LazyFrameWithMeta
     usuarios_sucursales: LazyFrameWithMeta
+    roles: LazyFrameWithMeta
     # sucursales: LazyFrameWithMeta
     # Agrega aquí otros dataframes relevantes según tu dominio
 
@@ -229,6 +232,10 @@ class DataFramesInput:
         """
         for _, df in self:
             yield df
+
+
+class DataFramesRegla(DataFramesInput):
+    ventas_incentivo: LazyFrameWithMeta
 
 
 # Salida: resultados procesados por la regla

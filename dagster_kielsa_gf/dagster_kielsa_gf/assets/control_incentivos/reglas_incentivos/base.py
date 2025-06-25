@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 import datetime as dt
+import hashlib
+from dagster_kielsa_gf.assets.control_incentivos import esquemas
 from dagster_kielsa_gf.assets.control_incentivos.config import (
     LazyFrameWithMeta,
     EmpresaID,
@@ -31,6 +33,19 @@ class BaseReglaIncentivo(ABC):
     @property
     def regla_nombre(self) -> str:
         return type(self).__name__
+
+    @property
+    def regla_hash(self) -> int:
+        # SQL Server admite enteros en el rango de -2,147,483,648 a 2,147,483,647 (entero con signo de 4 bytes)
+        # Usaremos un entero con signo de 4 bytes y nos aseguraremos de que el valor esté en este rango
+        hash_bytes = hashlib.sha256(self.regla_nombre.encode()).digest()[:4]
+        value = int.from_bytes(hash_bytes, "big", signed=True)
+        # Aseguramos que el valor esté en el rango de int de SQL Server
+        if value < -2_147_483_648 or value > 2_147_483_647:
+            value = (
+                (value + 2_147_483_648) % (2_147_483_647 - (-2_147_483_648) + 1)
+            ) + (-2_147_483_648)
+        return value
 
     def __init__(self, config: dict | None = None):
         self.config = config or {}
@@ -68,8 +83,8 @@ class BaseReglaIncentivo(ABC):
         nuevos = {}
         for name, lfk in dfs_in.items():
             lf = lfk.frame
-            if "Regla_Nombre" in lfk.frame.limit(1).collect(engine="streaming").columns:
-                lf = lf.filter(pl.col("Regla_Nombre") == self.regla_nombre)
+            if "Regla_Hash" in lfk.frame.limit(1).collect(engine="streaming").columns:
+                lf = lf.filter(pl.col("Regla_Hash") == self.regla_hash)
             # if lfk.emp_id_name:
             #     lf = lf.filter(pl.col(lfk.emp_id_name).is_in(self.emp_ids))
             # if lfk.date_name:
@@ -126,3 +141,75 @@ class BaseReglaIncentivo(ABC):
 
     def procesar_ventas(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
         raise NotImplementedError("La regla no implementa procesar_ventas")
+
+    def procesar_ventas_base(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
+        sv = esquemas.VentasSchema
+        dfm_ventas = dataframes.ventas
+        df_ventas = dfm_ventas.frame
+        dfm_usuario_sucursal = dataframes.usuarios_sucursales
+        sm = esquemas.UsuarioSucursalSchema
+        df_usuario_sucursal = dfm_usuario_sucursal.frame
+
+        # Distribuir Asegurados (al final es por articulo, asegurados es por factura)
+        df_ventas = df_ventas.with_columns(
+            (
+                sv.TipoCliente_Nombre.expr.str.contains("(?i).*ASEGURAD.*")
+                | sv.TipoPlan_Nombre.expr.str.contains("(?i).*ASEGURAD.*")
+            ).alias("Es_Factura_Asegurada"),
+            pl.concat_str(sv.EmpSucDocCajFac_Id, sv.Articulo_Id, separator="-").alias(
+                "EmpSucDocCajFacArt_Id"
+            ),
+        )
+
+        # Agrupar
+        # Ventas propias
+        df_ventas = df_ventas.group_by(
+            [
+                sv.Fecha_Id,
+                sv.EmpSucDocCajFac_Id,
+                sv.Articulo_Id,
+            ]
+        ).agg(
+            sv.Cantidad_Padre.expr.sum(),
+            sv.Valor_Neto.expr.sum(),
+            sv.Valor_Utilidad.expr.sum(),
+            sv.Valor_Descuento_Proveedor.expr.sum(),
+            pl.col("Regla_Hash").first(),
+            sv.Emp_Id.expr.first(),
+            sv.Suc_Id.expr.first(),
+            sv.CanalVenta_Id.expr.first(),
+            sv.Vendedor_Id.expr.first(),
+            sv.Usuario_Id.expr.first(),
+            pl.col("Es_Factura_Asegurada").first(),
+        )
+
+        # Traer Rol
+        df_ventas = (
+            df_ventas.join(
+                df_usuario_sucursal.select(
+                    sm.Emp_Id,
+                    sm.Usuario_Id,
+                    sm.Suc_Id,
+                    sm.Rol_Id,
+                ),
+                on=[sv.Emp_Id, sv.Usuario_Id, sv.Suc_Id],
+                how="left",
+            )
+            .with_columns(
+                pl.col("Rol_Id").fill_null(0),
+            )
+            .drop(pl.selectors.ends_with("_right"))
+        )
+
+        df_ventas_vendedores = df_ventas.with_columns(
+            pl.col("Cantidad_Padre").fill_null(0),
+            pl.col("Valor_Neto").fill_null(0),
+            pl.lit(1).cast(pl.Int32).alias("venta_aplica_incentivo"),
+            pl.lit(None).cast(pl.Float64).alias("venta_valor_incentivo_unitario"),
+            pl.lit(None).cast(pl.Float64).alias("venta_valor_incentivo_total"),
+        )
+
+        return dfm_ventas.with_frame(
+            df_ventas_vendedores,
+            primary_keys=(sv.Fecha_Id, sv.EmpSucDocCajFac_Id, sv.Articulo_Id),
+        )

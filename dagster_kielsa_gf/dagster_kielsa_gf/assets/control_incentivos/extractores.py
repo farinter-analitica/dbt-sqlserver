@@ -2,14 +2,7 @@ import datetime as dt
 from textwrap import dedent
 
 
-from dagster_kielsa_gf.assets.control_incentivos.esquemas import (
-    RegaliasSchema,
-    VendedorSchema,
-    VentasSchema,
-    UsuarioSucursalSchema,
-    set_casting,
-    set_casting_id,
-)
+import dagster_kielsa_gf.assets.control_incentivos.esquemas as esquemas
 import polars as pl
 
 from dagster_kielsa_gf.assets.control_incentivos.config import (
@@ -78,7 +71,7 @@ def get_regalias_data(
     df = get_data(
         query_trx,
         connection=proc_config.connection_str,
-        schema=RegaliasSchema.to_schema(),
+        schema=esquemas.RegaliasSchema.to_schema(),
     )
     df = df.select(
         [
@@ -100,7 +93,7 @@ def get_regalias_data(
         primary_keys=("Emp_Id", "Suc_Id", "Caja_Id", "Regalia_Id", "Detalle_Id"),
         date_name="Fecha_Id",
         emp_id_name="Emp_Id",
-        schema=RegaliasSchema,
+        schema=esquemas.RegaliasSchema,
     )
 
 
@@ -118,7 +111,8 @@ def get_ventas_data(
                 FE.Factura_Id,
                 FE.Factura_Fecha AS Fecha_Id,
                 MAX(FE.Vendedor_Id) AS Vendedor_Id,
-                FP.CanalVenta_Id,
+                MAX(FE.Usuario_Id) AS Usuario_Id,
+                MAX(FP.CanalVenta_Id) AS CanalVenta_Id,
                 --ISNULL(FE.Cliente_Id, 0) AS Cliente_Id,
                 FE.EmpSucDocCajFac_Id,
                 --ISNULL(FE.Monedero_Id, 'X') AS Monedero_Id,
@@ -129,7 +123,9 @@ def get_ventas_data(
                 --FP.Detalle_Id,
                 SUM(FP.Cantidad_Padre) AS Cantidad_Padre,
                 SUM(FP.Valor_Acum_Monedero) AS Valor_Acum_Monedero,
-                SUM(FP.Valor_Neto) AS Valor_Neto
+                SUM(FP.Valor_Neto) AS Valor_Neto,
+                SUM(FP.Valor_Utilidad) AS Valor_Utilidad,
+                SUM(FP.Descuento_Proveedor) AS Valor_Descuento_Proveedor
             FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaEncabezado FE
             INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaPosicion FP
                 ON FE.Emp_Id = FP.Emp_Id
@@ -157,7 +153,6 @@ def get_ventas_data(
             FE.Factura_Fecha,
             FE.Caja_Id,
             FE.Factura_Id,
-            FP.CanalVenta_Id,
             FE.EmpSucDocCajFac_Id,
             FP.Articulo_Id
         """
@@ -165,9 +160,9 @@ def get_ventas_data(
     df = get_data(
         query_trx,
         connection=proc_config.connection_str,
-        schema=VentasSchema.to_schema(),
+        schema=esquemas.VentasSchema.to_schema(),
     )
-    df = set_casting(df)
+    df = esquemas.set_casting(df)
     return LazyFrameWithMeta(
         df,
         primary_keys=(
@@ -181,7 +176,7 @@ def get_ventas_data(
         ),
         date_name="Fecha_Id",
         emp_id_name="Emp_Id",
-        schema=VentasSchema,
+        schema=esquemas.VentasSchema,
     )
 
 
@@ -227,7 +222,7 @@ def get_calendario_data(
         """
     )
     df = get_data(query_trx, connection=proc_config.connection_str)
-    df = set_casting_id(df)
+    df = esquemas.set_casting_id(df)
     df = df.with_columns(pl.col("Fecha_Calendario").cast(pl.Date))
     return LazyFrameWithMeta(
         df,
@@ -255,7 +250,7 @@ def get_articulos_data(
         """
     )
     df = get_data(query_trx, proc_config.connection_str)
-    df = set_casting_id(df)
+    df = esquemas.set_casting_id(df)
     return LazyFrameWithMeta(
         df,
         primary_keys=(
@@ -298,7 +293,7 @@ def get_vendedor_data(
         """
     )
     df = get_data(query_trx, proc_config.connection_str)
-    df = set_casting_id(df)
+    df = esquemas.set_casting_id(df)
     return LazyFrameWithMeta(
         df,
         primary_keys=(
@@ -307,7 +302,7 @@ def get_vendedor_data(
         ),
         date_name=None,
         emp_id_name="Emp_Id",
-        schema=VendedorSchema,
+        schema=esquemas.VendedorSchema,
     )
 
 
@@ -333,22 +328,52 @@ def get_usuario_sucursal_data(
                     ,EmpRol_Id
                     ,EmpVen_Id
             FROM [BI_FARINTER].[dbo].[BI_Kielsa_Dim_UsuarioSucursal]
-            WHERE Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})           
+            WHERE Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})                      
         """
     )
     df = get_data(query_trx, proc_config.connection_str)
-    df = set_casting_id(df)
+    df = esquemas.set_casting_id(df)
     dfm: LazyFrameWithMeta = LazyFrameWithMeta(
         df,
         primary_keys=(
             "Emp_Id",
-            "Vendedor_Id",
+            "Usuario_Id",
         ),
         date_name=None,
         emp_id_name="Emp_Id",
-        schema=UsuarioSucursalSchema,
+        schema=esquemas.UsuarioSucursalSchema,
     )
     return dfm
+
+
+def get_rol_data(
+    proc_config,
+) -> LazyFrameWithMeta:
+    query_trx = dedent(
+        f"""
+            SELECT  
+                {f"TOP ({proc_config.limit})" if proc_config.limit is not None else ""}
+                [Emp_Id],
+                [Rol_Id],
+                [Rol_Nombre],
+                [Rol_Padre],
+                [Rol_Jerarquia]
+            FROM [DL_FARINTER].[dbo].[DL_Kielsa_Seg_Rol]
+            WHERE Emp_Id IN ({", ".join(map(str, proc_config.empresas_id))})
+        """
+    )
+    df = get_data(query_trx, proc_config.connection_str)
+    df = esquemas.set_casting_id(df)
+    return LazyFrameWithMeta(
+        df,
+        primary_keys=(
+            "Emp_Id",
+            "Rol_Id",
+        ),
+        date_name=None,
+        emp_id_name="Emp_Id",
+        schema=esquemas.RolSchema,
+    )
 
 
 if __name__ == "__main__":

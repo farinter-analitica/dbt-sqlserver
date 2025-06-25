@@ -106,10 +106,11 @@ def cargar_asset_incentivos(
         table_name=table_name,
         sqla_engine=dwh_farinter_dl.get_sqlalchemy_engine(),
         primary_keys=lazyframe_meta.primary_keys,
-        load_date_col="Fecha_Carga",
+        load_date_col=None,  # Mejorar rendimiento, es tabla grande
         update_date_col="Fecha_Actualizado",
     )
 
+    # Tenemos que hacer carga masiva por los datos grandes
     file_path = create_csv_file_on_smb(
         smb_resource_staging_dagster_dwh=smb_resource_staging_dagster_dwh,
         df_clientes=manager.generator.df,
@@ -186,6 +187,7 @@ def procesamiento_y_carga_incentivos(
     fecha_inicio = dt.datetime.strptime(config.fecha_inicio, "%Y-%m-%d")
     fecha_fin = dt.datetime.strptime(config.fecha_fin, "%Y-%m-%d")
     empresas_id = set(config.empresas_id)
+    drop_target = config.drop_target
 
     context.log.info(f"Procesando incentivos desde {fecha_inicio} hasta {fecha_fin}")
 
@@ -224,7 +226,7 @@ def procesamiento_y_carga_incentivos(
                     fecha_inicio=mes_inicio,
                     fecha_fin=mes_fin,
                     drop_temp=config.drop_temp,
-                    drop_target=config.drop_target,
+                    drop_target=drop_target,
                     update=config.update,
                     smb_resource_staging_dagster_dwh=smb_resource_staging_dagster_dwh,
                 )
@@ -246,7 +248,7 @@ def procesamiento_y_carga_incentivos(
                     fecha_inicio=mes_inicio,
                     fecha_fin=mes_fin,
                     drop_temp=config.drop_temp,
-                    drop_target=config.drop_target,
+                    drop_target=drop_target,
                     update=config.update,
                     smb_resource_staging_dagster_dwh=smb_resource_staging_dagster_dwh,
                 )
@@ -254,7 +256,7 @@ def procesamiento_y_carga_incentivos(
                 meta_detalle["mes"] = mes_inicio.strftime("%Y-%m")
                 resultados_detalle.append(meta_detalle)
 
-            config.drop_target = False
+            drop_target = False
 
         next_month = (current.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
         current = next_month
@@ -329,12 +331,12 @@ if __name__ == "__main__":
         dict_config = dg.RunConfig(
             ops={
                 procesamiento_y_carga_incentivos.node_def.name: IncentivosConfig(
-                    fecha_inicio=(dt.date.today() - dt.timedelta(days=90)).strftime(
+                    fecha_inicio=(dt.date.today() - dt.timedelta(days=31)).strftime(
                         "%Y-%m-%d"
                     ),
                     # drop_temp=True,
                     # drop_target=True,
-                    # update=True
+                    update=True,
                 )
             }
         )
@@ -353,7 +355,7 @@ if __name__ == "__main__":
                 # Add other resources as needed
             },
             run_config=dict_config,
-            selection=[assetkey_detalle_incentivo],
+            selection=[assetkey_regalias_incentivo],
         )
         # Print output for each asset/multi-asset node
         for assetmat in result.asset_materializations_for_node(

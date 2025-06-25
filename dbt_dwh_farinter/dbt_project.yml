@@ -112,6 +112,9 @@ models:
       ia_farinter:
         +group: ia_farinter_kielsa
         +database: IA_FARINTER
+      adm_farinter:
+        +group: adm_dwh_kielsa
+        +database: ADM_FARINTER
 
     dwh_global:
       +tags: [dagster_global_gf/dbt]

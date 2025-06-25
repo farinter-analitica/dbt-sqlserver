@@ -2,7 +2,7 @@ import datetime as dt
 
 import polars as pl
 
-from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos import (
+from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.config import (
     build_registry_incentivo,
     ReglaIncentivoRegistry,
 )
@@ -12,14 +12,7 @@ from dagster_kielsa_gf.assets.control_incentivos.config import (
     LazyFrameWithMeta,
     ProcConfig,
 )
-from dagster_kielsa_gf.assets.control_incentivos.extractores import (
-    get_regalias_data,
-    get_calendario_data,
-    get_articulos_data,
-    get_vendedor_data,
-    get_ventas_data,
-    get_usuario_sucursal_data,
-)
+import dagster_kielsa_gf.assets.control_incentivos.extractores as extractores
 
 built_in_print = print
 DEBUG = False
@@ -115,12 +108,15 @@ class ProcesamientoIncentivos:
         Recopila los dataframes necesarios para el procesamiento de incentivos.
         Retorna self para permitir el encadenamiento de métodos.
         """
-        self.dfm_regalias = self.inyectar_regla(get_regalias_data(self.config))
-        self.dfm_calendario = get_calendario_data(self.config)
-        self.dfm_articulos = get_articulos_data(self.config)
-        self.dfm_vendedores = get_vendedor_data(self.config)
-        self.dfm_ventas = self.inyectar_regla(get_ventas_data(self.config))
-        self.dfm_usuarios_sucursales = get_usuario_sucursal_data(self.config)
+        self.dfm_regalias = extractores.get_regalias_data(self.config)
+        self.dfm_calendario = extractores.get_calendario_data(self.config)
+        self.dfm_articulos = extractores.get_articulos_data(self.config)
+        self.dfm_vendedores = extractores.get_vendedor_data(self.config)
+        self.dfm_ventas = extractores.get_ventas_data(self.config)
+        self.dfm_usuarios_sucursales = extractores.get_usuario_sucursal_data(
+            self.config
+        )
+        self.dfm_roles = extractores.get_rol_data(self.config)
 
         return self
 
@@ -150,12 +146,13 @@ class ProcesamientoIncentivos:
         Retorna self para permitir el encadenamiento de métodos.
         """
         self._dfm_input = DataFramesInput(
-            regalias=self.dfm_regalias,
+            regalias=self.inyectar_regla(self.dfm_regalias),
             calendario=self.dfm_calendario,
             articulos=self.dfm_articulos,
             vendedores=self.dfm_vendedores,
-            ventas=self.dfm_ventas,
+            ventas=self.inyectar_regla(self.dfm_ventas),
             usuarios_sucursales=self.dfm_usuarios_sucursales,
+            roles=self.dfm_roles,
         )
         return self
 
@@ -190,12 +187,9 @@ class ProcesamientoIncentivos:
                 ),
                 primary_keys=(
                     "Fecha_Id",
-                    "Emp_Id",
-                    "Suc_Id",
-                    "Vendedor_Id",
+                    "EmpSucDocCajFac_Id",
                     "Articulo_Id",
-                    "CanalVenta_Id",
-                    "Detalle_Id",
+                    "Usuario_Id",
                 ),
                 date_name="Fecha_Id",
                 emp_id_name="Emp_Id",

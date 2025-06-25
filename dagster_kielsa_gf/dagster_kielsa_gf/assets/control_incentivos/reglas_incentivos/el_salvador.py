@@ -1,3 +1,4 @@
+from typing import TypedDict
 import polars as pl
 import datetime as dt
 from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos.base import (
@@ -122,40 +123,60 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
             df_result.drop(pl.selectors.ends_with("_Right")),
         )
 
-    def jerarquia_roles(self) -> LazyFrameWithMeta:
-        roles = pl.DataFrame(
-            [
-                {"Rol_Nombre": "Gerente de Ventas", "Rol_Responsable": None},
-                {
-                    "Rol_Nombre": "Supervisor de Zona",
-                    "Rol_Responsable": "Gerente de Ventas",
-                },
-                {
-                    "Rol_Nombre": "Jefe de Farmacia",
-                    "Rol_Responsable": "Supervisor de Zona",
-                },
-                {
-                    "Rol_Nombre": "Sub Jefe de Farmacia",
-                    "Rol_Responsable": "Jefe de Farmacia",
-                },
-                {"Rol_Nombre": "Cajero", "Rol_Responsable": "Sub Jefe de Farmacia"},
-                {
-                    "Rol_Nombre": "Dependiente-Pre venta",
-                    "Rol_Responsable": "Sub Jefe de Farmacia",
-                },
-            ]
+    def jerarquia_roles(self, df_roles: LazyFrameWithMeta) -> LazyFrameWithMeta:
+        emp_id = list(self.emp_ids)[-1]
+        Rol = TypedDict(
+            "Rol",
+            Rol_Nombre=str,
+            Rol_Responsable=str | None,
+            Emp_Id=int,
         )
-        relaciones_directas = roles.filter(
+        roles_dict: list[Rol] = [
+            {
+                "Rol_Nombre": "Gerente de Ventas",
+                "Rol_Responsable": None,
+                "Emp_Id": emp_id,
+            },
+            {
+                "Rol_Nombre": "Supervisor de Zona",
+                "Rol_Responsable": "Gerente de Ventas",
+                "Emp_Id": emp_id,
+            },
+            {
+                "Rol_Nombre": "Jefe de Farmacia",
+                "Rol_Responsable": "Supervisor de Zona",
+                "Emp_Id": emp_id,
+            },
+            {
+                "Rol_Nombre": "Sub Jefe de Farmacia",
+                "Rol_Responsable": "Jefe de Farmacia",
+                "Emp_Id": emp_id,
+            },
+            {
+                "Rol_Nombre": "Cajero",
+                "Rol_Responsable": "Sub Jefe de Farmacia",
+                "Emp_Id": emp_id,
+            },
+            {
+                "Rol_Nombre": "Dependiente-Pre venta",
+                "Rol_Responsable": "Sub Jefe de Farmacia",
+                "Emp_Id": emp_id,
+            },
+        ]
+        roles_jerarquia: pl.DataFrame = pl.DataFrame(roles_dict)
+        relaciones_directas = roles_jerarquia.filter(
             pl.col("Rol_Responsable").is_not_null()
         ).select(
             pl.col("Rol_Responsable").alias("Rol_Ancestro"),
             pl.col("Rol_Nombre").alias("Rol_Descendiente"),
+            pl.col("Emp_Id"),
         )
 
         # Relaciones propias (cada rol es su propio descendiente)
-        relaciones_propias = roles.select(
+        relaciones_propias = roles_jerarquia.select(
             pl.col("Rol_Nombre").alias("Rol_Ancestro"),
             pl.lit("Propio").alias("Rol_Descendiente"),
+            pl.col("Emp_Id"),
         )
 
         todas_las_relaciones = [relaciones_directas, relaciones_propias]
@@ -168,11 +189,12 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
             # El resultado es una nueva relación (Ancestro: A, Descendiente: C)
             nuevos_descendientes = frontera.join(
                 relaciones_directas,
-                left_on="Rol_Descendiente",
-                right_on="Rol_Ancestro",
+                left_on=["Rol_Descendiente", "Emp_Id"],
+                right_on=["Rol_Ancestro", "Emp_Id"],
             ).select(
                 pl.col("Rol_Ancestro"),  # El ancestro original de la frontera
                 pl.col("Rol_Descendiente_right").alias("Rol_Descendiente"),
+                pl.col("Emp_Id"),
             )
 
             # Si el DataFrame resultante está vacío, hemos recorrido toda la jerarquía.
@@ -187,22 +209,57 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
 
         # 3. Concatenamos todos los niveles de relaciones en un solo DataFrame.
         # Esto nos da el mapeo completo de cada ancestro con todos sus descendientes.
-        df_jerarquia_roles = pl.concat(todas_las_relaciones).rename(
-            {"Rol_Ancestro": "Rol_Responsable", "Rol_Descendiente": "Rol_Descendiente"}
+        df_jerarquia_roles = (
+            pl.concat(todas_las_relaciones)
+            .rename(
+                {
+                    "Rol_Ancestro": "Rol_Responsable",
+                    "Rol_Descendiente": "Rol_Descendiente",
+                }
+            )
+            .lazy()
+        )
+
+        sr = esquemas.RolSchema
+        df_jerarquia_roles = (
+            df_jerarquia_roles.join(
+                df_roles.frame.select(
+                    sr.Emp_Id,
+                    sr.Rol_Nombre.expr.alias("Rol_Responsable"),
+                    sr.Rol_Id.expr.alias("Rol_Id_Responsable"),
+                ),
+                on=[sr.Emp_Id, "Rol_Responsable"],
+                how="left",
+            )
+            .join(
+                df_roles.frame.select(
+                    sr.Emp_Id,
+                    sr.Rol_Nombre.expr.alias("Rol_Descendiente"),
+                    sr.Rol_Id.expr.alias("Rol_Id_Descendiente"),
+                ),
+                on=[sr.Emp_Id, "Rol_Descendiente"],
+                how="left",
+            )
+            .with_columns(
+                # Llenar el propio
+                pl.col("Rol_Id_Descendiente").fill_null(pl.col("Rol_Id_Responsable")),
+            )
         )
 
         return LazyFrameWithMeta(
-            df_jerarquia_roles.lazy(),
+            df_jerarquia_roles,
             primary_keys=("Rol_Responsable", "Rol_Descendiente"),
             validar_llave_primaria=True,
         )
 
     def crear_matriz_jerarquia_vendedores(
-        self, dfm: LazyFrameWithMeta
+        self, dfmu: LazyFrameWithMeta, dfmr: LazyFrameWithMeta
     ) -> LazyFrameWithMeta:
         us = esquemas.UsuarioSucursalSchema
-        df_us = dfm.frame
-        jerarquia_roles = self.jerarquia_roles().frame
+        df_us = dfmu.frame.filter(
+            (pl.col("Rol_Id").is_not_null()) & (pl.col("Rol_Id") != 0)
+        )
+        jerarquia_roles = self.jerarquia_roles(dfmr).frame
 
         df_us = (
             df_us.select(
@@ -210,153 +267,107 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
                 us.Suc_Id,
                 us.Usuario_Id,
                 us.Rol_Nombre,
+                us.Rol_Id,
                 us.Rol_Jerarquia,
                 us.Vendedor_Id,
             )
-            .filter(
-                us.Emp_Id.expr.is_in(self.emp_ids) & us.Vendedor_Id.expr.is_not_null()
-            )
+            .filter(us.Emp_Id.expr.is_in(self.emp_ids))
             .with_row_index()
             .join(
                 jerarquia_roles,
-                left_on="Rol_Nombre",
-                right_on="Rol_Responsable",
+                left_on=["Emp_Id", "Rol_Id"],
+                right_on=["Emp_Id", "Rol_Id_Responsable"],
+                how="inner",
             )
         )
 
-        return dfm.with_frame(
+        return dfmu.with_frame(
             df_us,
-            primary_keys=(us.Emp_Id, us.Suc_Id, us.Vendedor_Id, "Rol_Descendiente"),
-            validar_llave_primaria=True,
+            primary_keys=(us.Emp_Id, us.Suc_Id, us.Usuario_Id, "Rol_Id_Descendiente"),
+            # validar_llave_primaria=True,
         )
 
     def procesar_ventas(self, dataframes: DataFramesInput) -> LazyFrameWithMeta:
+        dfm_ventas = self.procesar_ventas_base(dataframes)
+        df_ventas = dfm_ventas.frame
+
+        # Reproceso por roles jerarquicos
         sv = esquemas.VentasSchema
         svv = esquemas.VendedorSchema
-        dfm_ventas = dataframes.ventas
-        df_ventas = dfm_ventas.frame
-        df_vendedores = dataframes.vendedores.frame
+        dfm_usuario_sucursal = dataframes.usuarios_sucursales
         dfm_matriz_jerarquia = self.crear_matriz_jerarquia_vendedores(
-            dataframes.usuarios_sucursales
+            dfm_usuario_sucursal, dataframes.roles
         )
         df_matriz_jerarquia = dfm_matriz_jerarquia.frame
-
-        # Distribuir Asegurados (al final es por articulo, asegurados es por factura)
-        df_ventas = df_ventas.with_columns(
-            (
-                sv.TipoCliente_Nombre.expr.str.contains("(?i).*ASEGURAD.*")
-                | sv.TipoPlan_Nombre.expr.str.contains("(?i).*ASEGURAD.*")
-            ).alias("Es_Factura_Asegurada"),
-            pl.concat_str(sv.EmpSucDocCajFac_Id, sv.Articulo_Id, separator="-").alias(
-                "EmpSucDocCajFacArt_Id"
-            ),
+        columnas = {
+            "Fecha_Id",
+            "EmpSucDocCajFac_Id",
+            "CanalVenta_Id",
+            "Emp_Id",
+            "Suc_Id",
+            "Vendedor_Id",
+            "Usuario_Id",
+            "Rol_Id",
+            "Rol_Id_Descendiente",
+            "Articulo_Id",
+            "Cantidad_Padre",
+            "Valor_Neto",
+            "Regla_Hash",
+        }
+        df_matriz_jerarquia = df_matriz_jerarquia.select(
+            "Emp_Id",
+            "Suc_Id",
+            "Vendedor_Id",
+            "Usuario_Id",
+            "Rol_Id",
+            "Rol_Id_Descendiente",
         )
-
-        # Calcular Ctd_Posiciones por EmpSucDocCajFac_Id
-        df_ctd_posiciones = df_ventas.group_by(sv.EmpSucDocCajFac_Id).agg(
-            pl.col("EmpSucDocCajFacArt_Id").n_unique().alias("Ctd_Posiciones"),
-            pl.col("Regla_Nombre").first().alias("Regla_Nombre"),
-        )
-
-        # Unir de nuevo para tener Ctd_Posiciones y Regla_Nombre en df_ventas
-        df_ventas = df_ventas.join(
-            df_ctd_posiciones,
-            on=sv.EmpSucDocCajFac_Id,
-            how="left",
-        )
-
-        df_ventas = df_ventas.with_columns(
-            (
-                pl.when(pl.col("Es_Factura_Asegurada") == 1)
-                .then(1.0 / pl.col("Ctd_Posiciones"))
-                .otherwise(0.0)
-            ).alias("Ctd_Asegurados_Distribuido")
-        )
-
-        # Traer Rol
-        df_ventas = df_ventas.join(
-            df_vendedores.select(
-                svv.Emp_Id,
-                svv.Vendedor_Id,
-                svv.Sucursal_Id_Asignado.expr.alias("Suc_Id"),
-                svv.Rol_Nombre,
-            ),
-            on=[sv.Emp_Id, sv.Vendedor_Id, sv.Suc_Id],
-        )
-
-        # Ventas propias
-        df_ventas = df_ventas.group_by(
-            [
-                sv.Emp_Id,
-                sv.Suc_Id,
-                sv.Vendedor_Id,
-                sv.Articulo_Id,
-                sv.Fecha_Id,
-                svv.Rol_Nombre,
-                sv.CanalVenta_Id,
-            ]
-        ).agg(
-            sv.Cantidad_Padre.expr.sum().alias("Cantidad_Padre"),
-            sv.Valor_Neto.expr.sum().alias("Valor_Neto"),
-            pl.col("Ctd_Asegurados_Distribuido")
-            .sum()
-            .alias("Ctd_Asegurados_Distribuido"),
-            pl.col("Regla_Nombre").first().alias("Regla_Nombre"),
-        )
-
         df_ventas_propias = (
-            df_matriz_jerarquia.filter(pl.col("Rol_Descendiente") == "Propio")
+            df_matriz_jerarquia.filter(
+                pl.col("Rol_Id") == pl.col("Rol_Id_Descendiente")
+            )
             .join(
                 df_ventas,
-                left_on=["Emp_Id", "Suc_Id", "Vendedor_Id"],
-                right_on=[sv.Emp_Id, sv.Suc_Id, sv.Vendedor_Id],
+                left_on=["Emp_Id", "Suc_Id", "Usuario_Id"],
+                right_on=[sv.Emp_Id, sv.Suc_Id, sv.Usuario_Id],
                 how="inner",
             )
             .drop(pl.selectors.ends_with("_right"))
-        )
+        ).select(columnas)
 
-        # Ventas descendientes
-        df_ventas_rol = df_ventas.group_by(
-            [
-                sv.Emp_Id,
-                sv.Suc_Id,
-                sv.Articulo_Id,
-                sv.Fecha_Id,
-                svv.Rol_Nombre,
-                sv.CanalVenta_Id,
-            ]
-        ).agg(
-            sv.Cantidad_Padre.expr.sum().alias("Cantidad_Padre"),
-            sv.Valor_Neto.expr.sum().alias("Valor_Neto"),
-            pl.col("Ctd_Asegurados_Distribuido")
-            .sum()
-            .alias("Ctd_Asegurados_Distribuido"),
-            pl.col("Regla_Nombre").first().alias("Regla_Nombre"),
+        # Ventas descendientes para el mismo vendedor
+        df_ventas_rol = df_ventas.drop([sv.Usuario_Id, sv.Vendedor_Id]).with_columns(
+            svv.Rol_Id.expr.alias("Rol_Id_Descendiente")
         )
 
         df_ventas_descendientes = (
-            df_matriz_jerarquia.filter(pl.col("Rol_Descendiente") != "Propio")
+            df_matriz_jerarquia.filter(
+                pl.col("Rol_Id") != pl.col("Rol_Id_Descendiente")
+            )
             .join(
                 df_ventas_rol,
-                left_on=["Emp_Id", "Suc_Id", "Rol_Descendiente"],
-                right_on=[sv.Emp_Id, sv.Suc_Id, "Rol_Nombre"],
+                left_on=["Emp_Id", "Suc_Id", "Rol_Id_Descendiente"],
+                right_on=[sv.Emp_Id, sv.Suc_Id, "Rol_Id_Descendiente"],
                 how="inner",
             )
             .drop(pl.selectors.ends_with("_right"))
+        ).select(columnas)
+
+        # Ventas sin rol jerarquico
+        df_ventas_sin_rol = (
+            df_ventas.filter(pl.col("Rol_Id") == 0)
+            .with_columns(pl.lit(0).alias("Rol_Id_Descendiente"))
+            .select(columnas)
         )
 
+        # Fin reproceso por roles
         # Ventas totales propios + descendientes
-        df_ventas_vendedores = pl.concat([df_ventas_propias, df_ventas_descendientes])
+        df_ventas_vendedores = pl.concat(
+            [df_ventas_propias, df_ventas_descendientes, df_ventas_sin_rol],
+        )
         df_ventas_vendedores = df_ventas_vendedores.with_columns(
             pl.col("Cantidad_Padre").fill_null(0),
             pl.col("Valor_Neto").fill_null(0),
-            pl.col("Ctd_Asegurados_Distribuido").fill_null(0),
-            pl.concat_str(
-                [
-                    pl.col("Rol_Descendiente"),
-                ],
-                separator="-",
-            ).alias("Detalle_Id"),
             pl.lit(1).cast(pl.Int32).alias("venta_aplica_incentivo"),
             pl.lit(None).cast(pl.Float64).alias("venta_valor_incentivo_unitario"),
             pl.lit(None).cast(pl.Float64).alias("venta_valor_incentivo_total"),
@@ -364,13 +375,4 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
 
         return dfm_ventas.with_frame(
             df_ventas_vendedores,
-            primary_keys=(
-                "Fecha_Id",
-                "Emp_Id",
-                "Suc_Id",
-                "Vendedor_Id",
-                "Articulo_Id",
-                "CanalVenta_Id",
-                "Detalle_Id",
-            ),
         )

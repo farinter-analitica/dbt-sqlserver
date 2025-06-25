@@ -23,12 +23,9 @@ class VentasSchema(SchemaBase):
     CanalVenta_Id = Column()
     Caja_Id = Column()
     EmpSucDocCajFac_Id = Column()
-    Regalia_Id = Column()
-    Detalle_Id = Column()
     Fecha_Id = Column()
-    Cliente_Id = Column()
-    Monedero_Id = Column()
     Vendedor_Id = Column()
+    Usuario_Id = Column()
     TipoPlan_Nombre = Column()
     TipoCliente_Id = Column()
     TipoCliente_Nombre = Column()
@@ -36,6 +33,8 @@ class VentasSchema(SchemaBase):
     Cantidad_Padre = Column()
     Valor_Acum_Monedero = Column()
     Valor_Neto = Column()
+    Valor_Utilidad = Column()
+    Valor_Descuento_Proveedor = Column()
 
 
 class VendedorSchema(SchemaBase):
@@ -72,6 +71,14 @@ class UsuarioSucursalSchema(SchemaBase):
     EmpSucUsu_Id = Column()
     EmpRol_Id = Column()
     EmpVen_Id = Column()
+
+
+class RolSchema(SchemaBase):
+    Emp_Id = Column()
+    Rol_Id = Column()
+    Rol_Nombre = Column()
+    Rol_Padre = Column()
+    Rol_Jerarquia = Column()
 
 
 def set_casting_id(df: pl.LazyFrame) -> pl.LazyFrame:

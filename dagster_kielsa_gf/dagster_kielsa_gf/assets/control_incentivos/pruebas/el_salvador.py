@@ -1,9 +1,9 @@
+from dagster_kielsa_gf.assets.control_incentivos.reglas_incentivos import config
 import polars as pl
 import datetime as dt
 from dagster_kielsa_gf.assets.control_incentivos import (
     extractores,
     procesamiento_incentivos,
-    reglas_incentivos,
 )
 from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_bi
 from pathlib import Path
@@ -81,30 +81,54 @@ if __name__ == "__main__":
     DEBUG_KEYS = [
         # "DF Usuarios Sucursales",
         "DF Ventas Incentivos",
+        # "DF Jerarquia Vendedores",
         # "DF Jerarquia Roles",
     ]
 
     SAVE_PARQUET = True
 
-    dfm_jerarquia_roles = reglas_incentivos.ReglaIncentivoSV2025().jerarquia_roles()
+    dataframes = (
+        procesador_incentivos.extract_dataframes().procesar_dataframes().dfm_input
+    )
 
-    print_df(dfm_jerarquia_roles.frame, "DF Jerarquia Roles")
+    dfm_jerarquia_roles = config.ReglaIncentivoSV2025().jerarquia_roles(
+        df_roles=dataframes.roles
+    )
+
+    print_df(
+        dfm_jerarquia_roles.frame,
+        "DF Jerarquia Roles",
+        save_parquet=SAVE_PARQUET,
+        debug_keys=DEBUG_KEYS,
+    )
 
     dfm_usuarios_sucursales = extractores.get_usuario_sucursal_data(
         procesador_incentivos.config
     )
 
-    df_test = (
-        reglas_incentivos.ReglaIncentivoSV2025()
+    print_df(
+        dfm_usuarios_sucursales.frame,
+        "DF Usuarios Sucursales",
+        save_parquet=SAVE_PARQUET,
+        debug_keys=DEBUG_KEYS,
+    )
+
+    df_jerarquia_vendedores = (
+        config.ReglaIncentivoSV2025()
         .crear_matriz_jerarquia_vendedores(
-            dfm=procesador_incentivos.extract_dataframes()
-            .procesar_dataframes()
-            .dfm_input.usuarios_sucursales
+            dfmu=dataframes.usuarios_sucursales, dfmr=dataframes.roles
         )
         .frame
     )
 
-    dfm_ventas_incentivos = reglas_incentivos.ReglaIncentivoSV2025().procesar_ventas(
+    print_df(
+        df_jerarquia_vendedores,
+        "DF Jerarquia Vendedores",
+        save_parquet=SAVE_PARQUET,
+        debug_keys=DEBUG_KEYS,
+    )
+
+    dfm_ventas_incentivos = config.ReglaIncentivoSV2025().procesar_ventas(
         dataframes=procesador_incentivos.extract_dataframes()
         .procesar_dataframes()
         .dfm_input
@@ -115,4 +139,5 @@ if __name__ == "__main__":
         "DF Ventas Incentivos",
         save_parquet=SAVE_PARQUET,
         debug_keys=DEBUG_KEYS,
+        parquet_rows_limit=1000000,
     )
