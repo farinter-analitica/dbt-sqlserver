@@ -176,7 +176,6 @@ sources:
   - name: DL_Kielsa_Articulo_ArticuloRelacionado
   - name: DL_Kielsa_MetaHist
   - name: DL_Planning_ListaNegra
-  - name: DL_Kielsa_Regalia_Incentivo
 
 
   config:
