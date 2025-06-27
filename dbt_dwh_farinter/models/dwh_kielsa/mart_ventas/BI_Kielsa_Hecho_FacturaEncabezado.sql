@@ -49,7 +49,9 @@
 ) }}
 
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -0, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+	{% set last_date = run_single_value_query_on_relation_and_return(
+		query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, 
+		relation_not_found_value='19000101'|string)|string %}
 {% else %}
 	{% set last_date = '19000101' %}
 {% endif %}
@@ -79,6 +81,22 @@ WITH Facturas AS
 		, FE.Factura_Numero_CAI AS Factura_Clave_Tributaria
 		, FE.[Factura_Estado]
 		, FE.[Factura_Origen]
+		, CASE
+				WHEN FEXP.Factura_Id IS NOT NULL
+					THEN 5 --eCommerce
+				ELSE CASE FE.Factura_Origen
+							WHEN 'FA'
+								THEN 1	--Venta de sucursal
+							WHEN 'EX'
+								THEN 2	--Domicilio
+							WHEN 'PU'
+								THEN 3	--Recoger en sucursal
+							WHEN 'PR'
+								THEN 4	--Preventa
+							ELSE 0
+						END --Origen desconocido
+			END 
+			AS CanalVenta_Id
 		, FE.[AnioMes_Id]
 		, ISNULL(FE.Factura_Costo, 0) Valor_Costo
 		, ISNULL(FE.Factura_Costo_Bonificacion, 0) Valor_Costo_Bonificacion
@@ -131,6 +149,16 @@ WITH Facturas AS
 		ON BOD.Bodega_Id = FE.Bodega_Id
 		AND BOD.Sucursal_Id = FE.Suc_Id
 		AND BOD.Emp_Id = FE.Emp_Id
+	LEFT JOIN (SELECT DISTINCT A.Emp_Id, A.TipoDoc_Id, A.Suc_Id, A.Caja_Id, A.Factura_Id 
+			FROM {{ref('DL_Kielsa_Exp_Factura_Express')}} A
+			WHERE A.Orden_Usuario_Registro = 'WEB'
+					AND A.Estatus_Id = 'T'
+			)	FEXP
+		ON FE.Emp_Id = FEXP.Emp_Id
+		AND FE.TipoDoc_Id = FEXP.TipoDoc_Id
+		AND FE.Suc_Id = FEXP.Suc_Id
+		AND FE.Caja_Id = FEXP.Caja_Id
+		AND FE.Factura_Id = FEXP.Factura_Id
 	{% if is_incremental() and last_date != '19000101' %} 
 	WHERE FE.Fecha_Actualizado >= '{{ last_date }}' AND FE.Factura_Fecha >= DATEADD(MONTH, -1, GETDATE())
 	{% else %}
@@ -164,6 +192,22 @@ WITH Facturas AS
 		, FE.Factura_Numero_CAI AS Factura_Clave_Tributaria
 		, FE.[Factura_Estado]
 		, FE.[Factura_Origen]
+		, CASE
+				WHEN FEXP.Factura_Id IS NOT NULL
+					THEN 5 --eCommerce
+				ELSE CASE FE.Factura_Origen
+							WHEN 'FA'
+								THEN 1	--Venta de sucursal
+							WHEN 'EX'
+								THEN 2	--Domicilio
+							WHEN 'PU'
+								THEN 3	--Recoger en sucursal
+							WHEN 'PR'
+								THEN 4	--Preventa
+							ELSE 0
+						END --Origen desconocido
+			END 
+			AS CanalVenta_Id
 		, FE.[AnioMes_Id]
 		, ISNULL(FE.Factura_Costo, 0) Valor_Costo
 		, ISNULL(FE.Factura_Costo_Bonificacion, 0) Valor_Costo_Bonificacion
@@ -212,6 +256,16 @@ WITH Facturas AS
 		ON BOD.Bodega_Id = FE.Bodega_Id
 		AND BOD.Sucursal_Id = FE.Suc_Id
 		AND BOD.Emp_Id = FE.Emp_Id
+	LEFT JOIN (SELECT DISTINCT A.Emp_Id, A.TipoDoc_Id, A.Suc_Id, A.Caja_Id, A.Factura_Id 
+			FROM {{ref('DL_Kielsa_Exp_Factura_Express')}} A
+			WHERE A.Orden_Usuario_Registro = 'WEB'
+					AND A.Estatus_Id = 'T'
+			)	FEXP
+		ON FE.Emp_Id = FEXP.Emp_Id
+		AND FE.TipoDoc_Id = FEXP.TipoDoc_Id
+		AND FE.Suc_Id = FEXP.Suc_Id
+		AND FE.Caja_Id = FEXP.Caja_Id
+		AND FE.Factura_Id = FEXP.Factura_Id
 	WHERE FE.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FE.AnioMes_Id >= YEAR(DATEADD(YEAR, -3, GETDATE()))*100 + 1
 ) 
 
