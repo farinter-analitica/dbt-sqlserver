@@ -331,7 +331,7 @@ if __name__ == "__main__":
         dict_config = dg.RunConfig(
             ops={
                 procesamiento_y_carga_incentivos.node_def.name: IncentivosConfig(
-                    fecha_inicio=(dt.date.today() - dt.timedelta(days=31)).strftime(
+                    fecha_inicio=(dt.date.today() - dt.timedelta(days=24)).strftime(
                         "%Y-%m-%d"
                     ),
                     # drop_temp=True,

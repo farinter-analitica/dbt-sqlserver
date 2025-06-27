@@ -24,7 +24,7 @@ class ReglaIncentivoSV2025(BaseReglaIncentivo):
 
     @property
     def VALID_UNTIL(self) -> dt.date:
-        return dt.date(2025, 5, 31)
+        return dt.date(9999, 12, 31)
 
     def filtrar(self, dfs_in: DataFramesInput) -> DataFramesInput:
         return super().filtrar(dfs_in)

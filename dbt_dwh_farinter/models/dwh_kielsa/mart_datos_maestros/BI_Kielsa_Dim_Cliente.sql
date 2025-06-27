@@ -2,12 +2,12 @@
 {% set unique_key_list = ["Cliente_Id","Emp_Id"] %}
 {{ 
     config(
-		as_columnstore=false,
+		as_columnstore=true,
 		tags=["periodo/diario","automation/periodo_por_hora"],
 		materialized="incremental",
         incremental_strategy="farinter_merge",
 		unique_key=unique_key_list,
-		on_schema_change="fail",
+		on_schema_change="append_new_columns",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		post_hook=[
@@ -37,4 +37,5 @@ SELECT [Emp_Id]
         ,Hash_ClienteEmp
         ,Tipo_Cliente
         ,[Fecha_Actualizado]
+        ,CAST(CASE WHEN Tipo_Cliente LIKE '%Asegurad%' THEN 1 ELSE 0 AS BIT) AS Es_Aseguradora
   FROM {{ source('DL_FARINTER', 'DL_Kielsa_Cliente') }} 

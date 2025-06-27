@@ -193,7 +193,8 @@ class ProcesamientoIncentivos:
                 ),
                 date_name="Fecha_Id",
                 emp_id_name="Emp_Id",
-            ).validate_primary_keys(),
+            ),
+            validar=True,
         )
 
         self._dfm_output = resultado_final

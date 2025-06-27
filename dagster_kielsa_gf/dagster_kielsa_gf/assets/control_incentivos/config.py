@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 import datetime as dt
 from typing import Any, Callable, ClassVar, Literal, TypeVar, get_args, Optional
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 import polars as pl
 from polars.schema import SchemaInitDataType
 
@@ -162,17 +162,19 @@ class LazyFrameWithMeta:
 
     def validate_primary_keys(self) -> "LazyFrameWithMeta":
         """
-        Validates the primary keys of the LazyFrame to ensure no duplicates exist.
+        Valida las llaves primarias del LazyFrame para asegurar que no existan duplicados.
 
-        If `validar_llave_primaria` is True, this method checks that the primary keys
-        do not contain any duplicate values. If duplicates are found, a ValueError is raised.
+        Esta función recolecta (collect) todas las llaves primarias del dataframe para revisarlas.
+        Si `validar_llave_primaria` es True, este método verifica que las llaves primarias
+        no contengan valores duplicados. Si se encuentran duplicados, se lanza un ValueError.
 
         Returns:
-            LazyFrameWithMeta: The current instance, allowing for method chaining.
+            LazyFrameWithMeta: La instancia actual, permitiendo encadenamiento de métodos.
 
         Raises:
-            ValueError: If duplicate primary keys are detected when validation is enabled.
+            ValueError: Si se detectan llaves primarias duplicadas cuando la validación está habilitada.
         """
+        # Se recolectan todas las llaves primarias del dataframe para su validación
         llaves_primarias = self.frame.select(self.primary_keys).collect(
             engine="streaming"
         )
@@ -241,8 +243,48 @@ class DataFramesRegla(DataFramesInput):
 # Salida: resultados procesados por la regla
 @dataclass
 class DataFramesOutput:
-    regalias_incentivo: LazyFrameWithMeta
-    detalle_incentivo: LazyFrameWithMeta
+    _regalias_incentivo: LazyFrameWithMeta = field(repr=False)
+    _detalle_incentivo: LazyFrameWithMeta = field(repr=False)
+    _validar: bool = field(default=False, repr=False)
+
+    def __init__(
+        self,
+        regalias_incentivo: LazyFrameWithMeta,
+        detalle_incentivo: LazyFrameWithMeta,
+        validar: bool = False,
+    ):
+        """
+        Inicializa una nueva instancia del dataclass de salida para el procesamiento de incentivos.
+
+        Argumentos:
+            regalias_incentivo (LazyFrameWithMeta): DataFrame que contiene los datos de regalías de incentivos.
+            detalle_incentivo (LazyFrameWithMeta): DataFrame que contiene los detalles del incentivo.
+            validar (bool, opcional): Bandera para habilitar la validación de claves primarias
+                (solo se valida al obtener un dataframe). Por defecto es False.
+        """
+        self._regalias_incentivo = regalias_incentivo
+        self._detalle_incentivo = detalle_incentivo
+        self._validar = validar
+
+    @property
+    def regalias_incentivo(self) -> LazyFrameWithMeta:
+        if self._validar:
+            self._regalias_incentivo.validate_primary_keys()
+        return self._regalias_incentivo
+
+    @regalias_incentivo.setter
+    def regalias_incentivo(self, value: LazyFrameWithMeta):
+        self._regalias_incentivo = value
+
+    @property
+    def detalle_incentivo(self) -> LazyFrameWithMeta:
+        if self._validar:
+            self._detalle_incentivo.validate_primary_keys()
+        return self._detalle_incentivo
+
+    @detalle_incentivo.setter
+    def detalle_incentivo(self, value: LazyFrameWithMeta):
+        self._detalle_incentivo = value
 
 
 @dataclass

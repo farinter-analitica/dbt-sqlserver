@@ -68,8 +68,8 @@ def print_df(
 
 procesador_incentivos = procesamiento_incentivos.ProcesamientoIncentivos(
     connection_str=dwh_farinter_bi.get_arrow_odbc_conn_string(),
-    fecha_inicio=dt.date(2025, 5, 1),
-    fecha_fin=dt.date(2025, 5, 7),
+    fecha_inicio=dt.date(2025, 6, 1),
+    fecha_fin=dt.date(2025, 6, 7),
     empresas_id={5},
 )
 
@@ -80,9 +80,10 @@ if __name__ == "__main__":
     # "Extract Process", "DF Regalias In", DF Usuarios Sucursales, ...]
     DEBUG_KEYS = [
         # "DF Usuarios Sucursales",
-        "DF Ventas Incentivos",
+        # "DF Ventas Incentivos",
         # "DF Jerarquia Vendedores",
         # "DF Jerarquia Roles",
+        "DF Regalias Incentivos",
     ]
 
     SAVE_PARQUET = True
@@ -137,6 +138,20 @@ if __name__ == "__main__":
     print_df(
         dfm_ventas_incentivos.frame,
         "DF Ventas Incentivos",
+        save_parquet=SAVE_PARQUET,
+        debug_keys=DEBUG_KEYS,
+        parquet_rows_limit=1000000,
+    )
+
+    dfm_regalias_incentivos = config.ReglaIncentivoSV2025().procesar_regalias(
+        dataframes=procesador_incentivos.extract_dataframes()
+        .procesar_dataframes()
+        .dfm_input
+    )
+
+    print_df(
+        dfm_regalias_incentivos.frame,
+        "DF Regalias Incentivos",
         save_parquet=SAVE_PARQUET,
         debug_keys=DEBUG_KEYS,
         parquet_rows_limit=1000000,
