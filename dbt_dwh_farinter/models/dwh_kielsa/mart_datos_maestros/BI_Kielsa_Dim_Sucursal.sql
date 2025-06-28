@@ -23,7 +23,49 @@
 		
 ) -}}
 
-
+WITH
+Sucursal_Numero AS
+(
+  SELECT
+    *, CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS INT) AS [Sucursal_Numero]
+    , CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS VARCHAR(50))  AS [Sucursal_Numero_Char]
+    , LEN(CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS VARCHAR(50))) AS [Sucursal_Numero_Len]
+  FROM
+    (SELECT
+      *
+      , (LEN(Sucursal_Nombre) + 2 - Posicion_Inicial_Derecha) - Posicion_Inicial AS Longitud_Numero
+      , LEN(Sucursal_Nombre) Longitud_Nombre
+    FROM
+      (SELECT
+        *
+        , PATINDEX('%[0-9]%', [Sucursal_Nombre]) AS Posicion_Inicial
+        , PATINDEX('%[A-Z]%', SUBSTRING([Sucursal_Nombre], PATINDEX('%[0-9]%', [Sucursal_Nombre]) + 1, 50)) AS Posicion_Final
+        , PATINDEX('%[0-9]%', REVERSE([Sucursal_Nombre])) AS Posicion_Inicial_Derecha
+        , PATINDEX(
+          '%[A-Z]%'
+          , SUBSTRING(REVERSE([Sucursal_Nombre]), PATINDEX('%[0-9]%', REVERSE([Sucursal_Nombre])) + 1, 50)) AS Posicion_Final_Derecha
+      FROM
+        (SELECT
+          [Sucursal_Id]
+          , [Emp_Id]
+          , 'A' + REPLACE(REPLACE(UPPER([Sucursal_Nombre]), ' ', ''), '-', '') + 'Z' AS [Sucursal_Nombre]
+        FROM	DL_FARINTER.dbo.DL_Kielsa_Sucursal -- {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }}
+        ) SN ) SNP
+    WHERE Posicion_Inicial > 0) SNP2
+),
+Sucursal_Numero_Fila as
+(
+  SELECT
+    *, ROW_NUMBER() OVER (PARTITION BY [Sucursal_Numero] ORDER BY [Sucursal_Id] DESC) AS [Fila]
+  FROM Sucursal_Numero
+),
+Sucursal_Numero_Fila_Unico as
+(
+  SELECT
+    *
+  FROM Sucursal_Numero_Fila
+  WHERE [Fila] = 1
+)
 SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
         ,ISNULL(S.[Emp_Id],0) AS [Emp_Id]
         ,[Version_Id]
@@ -96,32 +138,7 @@ SELECT ISNULL(S.[Sucursal_Id],0) AS [Sucursal_Id]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
         ,ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
 FROM DL_FARINTER.dbo.DL_Kielsa_Sucursal S -- {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }} S
-LEFT JOIN (SELECT
-    *, CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS INT) AS [Sucursal_Numero]
-    , CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS VARCHAR(50))  AS [Sucursal_Numero_Char]
-    , LEN(CAST(SUBSTRING(SNP2.Sucursal_Nombre, SNP2.Posicion_Inicial, SNP2.Posicion_Final) AS VARCHAR(50))) AS [Sucursal_Numero_Len]
-  FROM
-    (SELECT
-      *
-      , (LEN(Sucursal_Nombre) + 2 - Posicion_Inicial_Derecha) - Posicion_Inicial AS Longitud_Numero
-      , LEN(Sucursal_Nombre) Longitud_Nombre
-    FROM
-      (SELECT
-        *
-        , PATINDEX('%[0-9]%', [Sucursal_Nombre]) AS Posicion_Inicial
-        , PATINDEX('%[A-Z]%', SUBSTRING([Sucursal_Nombre], PATINDEX('%[0-9]%', [Sucursal_Nombre]) + 1, 50)) AS Posicion_Final
-        , PATINDEX('%[0-9]%', REVERSE([Sucursal_Nombre])) AS Posicion_Inicial_Derecha
-        , PATINDEX(
-          '%[A-Z]%'
-          , SUBSTRING(REVERSE([Sucursal_Nombre]), PATINDEX('%[0-9]%', REVERSE([Sucursal_Nombre])) + 1, 50)) AS Posicion_Final_Derecha
-      FROM
-        (SELECT
-          [Sucursal_Id]
-          , [Emp_Id]
-          , 'A' + REPLACE(REPLACE(UPPER([Sucursal_Nombre]), ' ', ''), '-', '') + 'Z' AS [Sucursal_Nombre]
-        FROM	DL_FARINTER.dbo.DL_Kielsa_Sucursal -- {{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }}
-        ) SN ) SNP
-    WHERE Posicion_Inicial > 0) SNP2) SN
+LEFT JOIN Sucursal_Numero_Fila_Unico SN
   ON S.Sucursal_Id = SN.Sucursal_Id
   AND S.Emp_Id = SN.Emp_Id
 LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Sucursal_Rol_Usuario_Asignado RSJ -- {{ ref('DL_Kielsa_Sucursal_Rol_Usuario_Asignado') }} US

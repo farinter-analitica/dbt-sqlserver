@@ -94,13 +94,7 @@ WITH Marcador_Base AS (
 		--AND SUBSTRING(Computadora, 2, 3) NOT LIKE '%[^0-9]%' 
         --AND Id_Empleado = 'KKARGUETA' AND HEntrada >= '20250211'
         --AND DATEDIFF(DAY, HEntrada, HSalida) <= 3
-)
--- SELECT top 100 * 
--- FROM Marcador_Base
--- where sospecha_id=2 
--- ORDER BY HEntrada DESC
-,
---WITH
+),
 Horarios AS 
 (
     --TODO: Deberian ser horarios planeados historicos
@@ -110,7 +104,6 @@ Horarios AS
 	--where h_apertura > h_cierre
     WHERE h_apertura  IS NOT NULL
 ),
---SELECT * FROM Horarios
 Marcador_Horario AS
 (
 	SELECT 
@@ -131,6 +124,7 @@ Marcador_Horario AS
         --TODO: Falta el pais en la tabla de horarios
 		ON S.Sucursal_Id = Horarios.suc_id
 		AND Marcador_Base.dia_semana_iso_id = Horarios.dia_semana_iso_id
+		AND Marcador_Base.Pais_Id = Horarios.Emp_Id
 ),
 Marcador_Horario_Sospechoso AS
 (
@@ -171,7 +165,6 @@ Horas_Promedio AS
 	WHERE sospecha_id = 0
 	GROUP BY Id_Empleado
 ),
---SELECT TOP 100 * FROM Horas_Promedio
 Marcador_Corregido AS
 (
 	SELECT MH.*,
@@ -216,13 +209,8 @@ Marcador_Corregido AS
 	FROM Marcador_Horario_Sospechoso MH
 	LEFT JOIN Horas_Promedio HP
 		ON MH.Id_Empleado = HP.Id_Empleado
-)
-/*
-SELECT TOP 1000 * 
-FROM Marcador_Corregido
-WHERE sospecha_id IN (3)
-AND Id_Empleado='CKPUERTO' AND fecha_entrada >= '20230701' AND fecha_entrada < '20230710'*/
-,Marcador_Final AS
+),
+Marcador_Final AS
 (
 	SELECT 
         isnull(MC.Ciclo,0) as Ciclo_Id,
@@ -249,6 +237,16 @@ AND Id_Empleado='CKPUERTO' AND fecha_entrada >= '20230701' AND fecha_entrada < '
 		CASE WHEN MC.fh_salida_corregida > DATEADD(HOUR, 2, MC.fh_cierre)
 			THEN DATEADD(HOUR, 2, MC.fh_cierre) ELSE MC.fh_salida_corregida END AS FH_Salida_Corregida
 	FROM Marcador_Corregido MC
+),
+Comprobar AS
+(
+	SELECT Ciclo_Id, COUNT(*) as cnt
+	FROM (
+		SELECT isnull(MC.Ciclo,0) as Ciclo_Id
+		FROM Marcador_Horario MC
+	) t
+	GROUP BY Ciclo_Id
+	HAVING COUNT(*) > 1
 )
 SELECT --TOP 100 
     *,
