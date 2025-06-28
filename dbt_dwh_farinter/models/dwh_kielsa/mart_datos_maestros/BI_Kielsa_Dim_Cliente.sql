@@ -37,5 +37,5 @@ SELECT [Emp_Id]
         ,Hash_ClienteEmp
         ,Tipo_Cliente
         ,[Fecha_Actualizado]
-        ,CAST(CASE WHEN Tipo_Cliente LIKE '%Asegurad%' THEN 1 ELSE 0 AS BIT) AS Es_Aseguradora
+        ,CAST(CASE WHEN Tipo_Cliente LIKE '%Asegurad%' THEN 1 ELSE 0 AS BIT END) AS Es_Aseguradora
   FROM {{ source('DL_FARINTER', 'DL_Kielsa_Cliente') }} 
