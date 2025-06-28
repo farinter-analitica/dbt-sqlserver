@@ -69,17 +69,17 @@ WITH Resumen_Fecha_Desde AS
 	---FULL REFRESH
 	{% endif %}
 SELECT
-	FE.[Factura_Fecha] Factura_Fecha
+	ISNULL(FE.[Factura_Fecha], '19000101' ) Factura_Fecha
 	, DATEPART(HOUR,FE.[Factura_FechaHora]) Hora_Id
 	, FP.[Detalle_Fecha]
-	, CAST(FE.[Emp_Id] AS SMALLINT) AS [Emp_Id]
-	, FE.[Suc_Id]
-	, FE.[Bodega_Id]
-	, FE.[Caja_Id]
-	, FE.[TipoDoc_Id]
-	, FE.[Factura_Id]
+	, ISNULL(CAST(FE.[Emp_Id] AS SMALLINT),0) AS [Emp_Id]
+	, ISNULL(FE.[Suc_Id],0) AS [Suc_Id]
+	, ISNULL(FE.[Bodega_Id],0) AS [Bodega_Id]
+	, ISNULL(FE.[Caja_Id],0) AS [Caja_Id]
+	, ISNULL(FE.[TipoDoc_Id],0) AS [TipoDoc_Id]
+	, ISNULL(FE.[Factura_Id],0) AS [Factura_Id]
 	, FP.[Detalle_Id]
-	, FP.[Articulo_Id]
+	, ISNULL(FP.[Articulo_Id],0) AS [Articulo_Id]
 	, FP.[Detalle_Cantidad]
 	, FP.[Cantidad_Padre]
 	, FP.[Valor_Bruto]
@@ -274,17 +274,17 @@ WHERE FE.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) AND FE.AnioMes_Id >= YEAR
 UNION ALL
 --Carga de historico sistema anterior arboleda
 SELECT
-	FE.[Factura_Fecha] Factura_Fecha
+	ISNULL(FE.[Factura_Fecha], '19000101' )	 Factura_Fecha
 	, DATEPART(HOUR,FE.[Factura_FechaHora]) Hora_Id
 	, FP.[Detalle_Fecha]
-	, CAST(444 AS SMALLINT) AS [Emp_Id] --Nuevo ID
-	, FE.[Suc_Id]
-	, FE.[Bodega_Id]
-	, FE.[Caja_Id]
-	, FE.[TipoDoc_Id]
-	, FE.[Factura_Id]
+	, ISNULL(CAST(444 AS SMALLINT),0) AS [Emp_Id] --Nuevo ID
+	, ISNULL(FE.[Suc_Id],0) AS [Suc_Id]
+	, ISNULL(FE.[Bodega_Id],0) AS [Bodega_Id]
+	, ISNULL(FE.[Caja_Id],0) AS [Caja_Id]
+	, ISNULL(FE.[TipoDoc_Id],0) AS [TipoDoc_Id]
+	, ISNULL(FE.[Factura_Id],0) AS [Factura_Id]
 	, FP.[Detalle_Id]
-	, FP.[Articulo_Id]
+	, ISNULL(FP.[Articulo_Id],0) AS [Articulo_Id]
 	, FP.[Detalle_Cantidad]
 	, FP.[Cantidad_Padre]
 	, FP.[Valor_Bruto]

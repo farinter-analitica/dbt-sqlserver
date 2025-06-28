@@ -89,10 +89,12 @@ Recibidos AS (
 Actividades_Movimientos AS (
     SELECT R.Emp_Id, R.Suc_Id, R.Fecha_Id, R.Hora_Id, 'Mov_Aplicado' AS Tipo_Actividad, COUNT(R.Mov_Id) AS Conteo_Movimientos
     FROM Recibidos R
+    WHERE Fecha_Id >= '{{v_fecha_inicio}}' AND Fecha_Id <= '{{v_fecha_fin}}'
     GROUP BY R.Emp_Id, R.Suc_Id, R.Fecha_Id, R.Hora_Id
     UNION ALL
     SELECT A.Emp_Id, A.Suc_Id, A.Fecha_Id, A.Hora_Id, 'Mov_Recibido' AS Tipo_Actividad, COUNT(A.Mov_Id) AS Conteo_Movimientos
     FROM Aplicados A
+    WHERE Fecha_Id >= '{{v_fecha_inicio}}' AND Fecha_Id <= '{{v_fecha_fin}}'
     GROUP BY A.Emp_Id, A.Suc_Id, A.Fecha_Id, A.Hora_Id
     )
 SELECT  ISNULL(AM.Emp_Id, 0) AS Emp_Id,
