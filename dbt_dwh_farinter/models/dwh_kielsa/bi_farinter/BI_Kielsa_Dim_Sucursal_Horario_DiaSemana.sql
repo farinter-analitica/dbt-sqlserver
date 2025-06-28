@@ -45,10 +45,11 @@ nocodb_horarios AS (
             ns.supervisor_nombre
     FROM [DL_FARINTER].[nocodb_data_gf].[kielsa_sucursal_horario_dia] h -- {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_sucursal_horario_dia') }}
     INNER JOIN [DL_FARINTER].[nocodb_data_gf].[kielsa_sucursal] ns -- {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_sucursal') }}
-    ON ns.emp_id=h.emp_id
-    AND ns.suc_id=h.suc_id
+        ON ns.emp_id=h.emp_id
+        AND ns.suc_id=h.suc_id
+    {%- if is_incremental() %}
     WHERE h.fecha_actualizado >= '{{last_date}}'
-        
+    {%- endif %}       
 ),
 
 Horario_Bruto AS 
@@ -61,7 +62,7 @@ Horario_Bruto AS
         H.h_apertura AS H_Apertura,
         H.h_cierre AS H_Cierre,
         CAST(h.H_Apertura AS datetime) AS FH_Apertura,
-        CASE WHEN h.H_Apertura > h.H_Cierre 
+        CASE WHEN h.H_Apertura >= h.H_Cierre 
 			THEN DATEADD(DAY,1,CAST(h.H_Cierre  AS datetime))
 			ELSE CAST(h.H_Cierre  AS datetime) END AS FH_Cierre
 		, 

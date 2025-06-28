@@ -34,10 +34,20 @@ def get_demanda_forecast_data(dwh_farinter_bi: SQLServerResource) -> pl.DataFram
             P.Conteo_Transacciones,
             P.Cantidad_Articulos,
             P.Cantidad_Padre,
-            P.Segundos_Transaccion_Estimado
+            P.Segundos_Transaccion_Estimado,
+            P.Segundos_Actividad_Estimado,
+            ISNULL(CASE WHEN CAJ.Emp_Id IS NOT NULL
+                THEN 1 ELSE 0 END,0) AS Es_Suc_Autoservicio
         FROM "BI_FARINTER"."dbo".BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora P
         INNER JOIN "BI_FARINTER"."dbo"."BI_Dim_Calendario_Dinamico" C
             ON P.Fecha_Id = C.Fecha_Calendario
+        LEFT JOIN (SELECT Emp_Id, Suc_Id 
+                FROM "DL_FARINTER"."dbo"."DL_Kielsa_Caja"
+                WHERE Caja_Nombre LIKE '%auto%'
+                GROUP BY Emp_Id, Suc_Id
+                ) CAJ
+            ON P.Emp_Id = CAJ.Emp_Id
+            AND P.Suc_Id = CAJ.Suc_Id
         """
     )
 
@@ -55,22 +65,22 @@ def get_demanda_forecast_params_data(
     dwh_farinter_bi: SQLServerResource,
 ) -> pl.DataFrame:
     query_trx = dedent(
-        """
+        f"""
         SELECT MAX(
             CASE
-                WHEN variable = 'desviacion_estandar' THEN coeficiente_ajustado
+                WHEN variable = 'desviacion_estandar' THEN {"coeficiente_ajustado" if env_str == "prd" else "coeficiente"}
                 ELSE NULL
             END
             ) AS Desviacion_Estandar,
         MAX(
             CASE
-                WHEN variable = 'cola_promedio_maxima' THEN coeficiente_ajustado
+                WHEN variable = 'cola_promedio_maxima' THEN {"coeficiente_ajustado" if env_str == "prd" else "coeficiente"}
                 ELSE NULL
             END
         ) AS Cola_Promedio_Maxima,
         MAX(
             CASE
-                WHEN variable = 'tiempo_espera_prom_maximo' THEN coeficiente_ajustado
+                WHEN variable = 'tiempo_espera_prom_maximo' THEN {"coeficiente_ajustado" if env_str == "prd" else "coeficiente"}
                 ELSE NULL
             END
         ) AS Tiempo_Espera_Promedio_Maximo
@@ -122,9 +132,9 @@ def calcular_personal_necesario(
         # Tasa de llegadas (λ) - transacciones por hora
         pl.col("Conteo_Transacciones").alias("lambda_hora"),
         # Tiempo medio de servicio por transacción en segundos
-        (
-            pl.col("Segundos_Transaccion_Estimado") / pl.col("Conteo_Transacciones")
-        ).alias("tiempo_servicio_por_transaccion"),
+        (pl.col("Segundos_Actividad_Estimado") / pl.col("Conteo_Transacciones")).alias(
+            "tiempo_servicio_por_transaccion"
+        ),
     ).with_columns(
         # Tasa de servicio por servidor (μ) - transacciones por hora que puede atender un solo empleado
         (3600 / (pl.col("tiempo_servicio_por_transaccion"))).alias("mu_servidor_hora"),
@@ -152,7 +162,7 @@ def calcular_personal_necesario(
 
     # Alternativamente, podemos calcular la carga ofrecida directamente desde los segundos totales
     df = df.with_columns(
-        (pl.col("Segundos_Transaccion_Estimado") / 3600).alias("carga_ofrecida_total"),
+        (pl.col("Segundos_Actividad_Estimado") / 3600).alias("carga_ofrecida_total"),
         ((pl.col("cv_tiempo_cuadrado") + 1) / 2).sqrt().alias("cv_tiempo"),
     )
 
@@ -203,6 +213,7 @@ def calcular_personal_necesario(
         mu_h = float(row["mu_servidor_hora"])
         cv_sq = float(row["cv_tiempo_cuadrado"])
         tiempo_s = float(row["tiempo_servicio_hora"])
+        es_suc_autoservicio = int(row["Es_Suc_Autoservicio"])
 
         # Manejo de casos extremos
         if carga < 0.01 or lambda_h < 0.01 or mu_h < 0.01:
@@ -278,6 +289,13 @@ def calcular_personal_necesario(
         while calcular_longitud_cola(c_cola) > COLA_MAX and c_cola < c_min + 20:
             c_cola += 1
 
+        if (
+            es_suc_autoservicio == 1
+            and c_cola <= 1
+            and calcular_longitud_cola(c_cola) > 1
+        ):
+            c_cola += 1
+
         # El personal recomendado es el máximo que satisface ambos criterios
         c_recomendado = max(c_tiempo, c_cola)
 
@@ -306,9 +324,10 @@ def calcular_personal_necesario(
                 "mu_servidor_hora",
                 "cv_tiempo_cuadrado",
                 "tiempo_servicio_hora",
+                "Es_Suc_Autoservicio",
             ]
         )
-        .map_elements(calcular_metricas_cola, return_dtype=pl.Struct)
+        .map_elements(calcular_metricas_cola)
         .alias("metricas_cola")
     )
 
@@ -344,6 +363,7 @@ def calcular_personal_necesario(
             ("DL_FARINTER", "nocodb_data_gf", "kielsa_tiempo_transaccion_coeficiente")
         ),
         AssetKey(("BI_FARINTER", "dbo", "BI_Dim_Calendario_Dinamico")),
+        AssetKey(("DL_FARINTER", "dbo", "DL_Kielsa_Caja")),
     ),
     tags=tags_repo.AutomationMonthlyStart,
     automation_condition=automation_monthly_start_delta_1_cron,
@@ -458,15 +478,10 @@ if __name__ == "__main__" and 1 == 1:
         dwh_farinter_ia,
         dwh_farinter_bi,
     )
-    import warnings
     import datetime as dt
 
     start_time = dt.datetime.now()
     with instance_for_test() as instance:
-        if env_str == "local":
-            warnings.warn(
-                "Running in local mode, using top 10000 rows and no loading to SQL Server"
-            )
 
         @asset(name="between_asset")
         def mock_between_asset() -> int:

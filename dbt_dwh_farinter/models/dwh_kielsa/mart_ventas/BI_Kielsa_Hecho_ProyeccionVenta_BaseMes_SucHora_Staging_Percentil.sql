@@ -38,7 +38,8 @@
     "Conteo_Trx_Acumula_Monedero",
     "Conteo_Trx_Contiene_Farma",
     "Cantidad_Unidades_Relativa",
-    "Segundos_Transaccion_Estimado"
+    "Segundos_Transaccion_Estimado",
+    "Segundos_Actividad_Estimado",
 ] -%}
 
 WITH Calculo AS
