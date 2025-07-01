@@ -18,7 +18,6 @@
 				"charliermarsh.ruff",
 				"ms-python.python",
 				"ms-python.vscode-pylance",
-				"sourcegraph.cody-ai",
 				"redhat.vscode-yaml",
 				"tamasfe.even-better-toml",
 				"samuelcolvin.jinjahtml",
