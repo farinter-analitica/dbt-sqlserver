@@ -8,4 +8,10 @@
     "python.testing.pytestEnabled": true,
     "dbt.perspectiveTheme": "Vintage",
     "python.envFile": "${workspaceFolder}/.env",
+    "[sql]": {
+        "editor.defaultFormatter": "dorzey.vscode-sqlfluff"
+    },
+    "[jinja-sql]": {
+        "editor.defaultFormatter": "dorzey.vscode-sqlfluff"
+    }
 }

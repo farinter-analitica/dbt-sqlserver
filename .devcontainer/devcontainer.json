@@ -37,6 +37,12 @@
 				"[python]": {
 					"editor.defaultFormatter": "charliermarsh.ruff",
 					"editor.formatOnSave": true
+				},
+				"[sql]": {
+					"editor.defaultFormatter": "dorzey.vscode-sqlfluff"
+				},
+				"[jinja-sql]": {
+					"editor.defaultFormatter": "dorzey.vscode-sqlfluff"
 				}
 			}
 		}

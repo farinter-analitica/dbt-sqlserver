@@ -1,0 +1,4 @@
+[sqlfluff]
+exclude_rules = capitalisation.identifiers
+max_line_length = 200
+dialect = tsql
