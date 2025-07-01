@@ -144,14 +144,14 @@ def cargar_asset_incentivos(
         assetkey_regalias_incentivo.to_python_identifier(): dg.AssetOut(
             key=assetkey_regalias_incentivo,
             description="Tabla de incentivos procesados para regalias",
-            tags=tags_repo.AutomationDaily,
+            tags=tags_repo.AutomationDaily | tags_repo.DetenerCarga,
             automation_condition=auto_def.automation_daily_delta_2_cron,
             is_required=False,
         ),
         assetkey_detalle_incentivo.to_python_identifier(): dg.AssetOut(
             key=assetkey_detalle_incentivo,
             description="Tabla de incentivos procesados para detalle consolidado",
-            tags=tags_repo.AutomationDaily,
+            tags=tags_repo.AutomationDaily | tags_repo.DetenerCarga,
             automation_condition=auto_def.automation_daily_delta_2_cron,
             is_required=False,
         ),

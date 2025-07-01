@@ -6,12 +6,7 @@ import ssl
 from datetime import datetime
 from typing import Optional, Sequence
 
-from dagster import (
-    ConfigurableResource,
-    EnvVar,
-    SensorEvaluationContext,
-    sensor,
-)
+import dagster as dg
 
 EMAIL_MESSAGE = """From: {email_from}
 To: {email_to}
@@ -57,7 +52,7 @@ def send_email_via_starttls(
         server.sendmail(email_from, email_to, message.encode("utf-8"))
 
 
-class EmailSenderResource(ConfigurableResource):
+class EmailSenderResource(dg.ConfigurableResource):
     email_from: str
     email_password: str
     smtp_host: str
@@ -65,11 +60,14 @@ class EmailSenderResource(ConfigurableResource):
     smtp_user: Optional[str] = None
     smtp_type: str = "SSL"
 
-    def send_email(self, email_to: Sequence[str], email_subject: str, email_body: str):
+    def send_email(
+        self, email_to: Sequence[str] | set[str], email_subject: str, email_body: str
+    ):
         # email_message = MIMEText(email_body,'html', 'utf-8')
         # email_message['From'] = self.email_from
         # email_message['To'] = ",".join(email_to)
         # email_message['Subject'] = email_subject
+        email_to = list(email_to)
 
         email_message = EMAIL_MESSAGE.format(
             email_to=",".join(email_to),
@@ -104,9 +102,28 @@ class EmailSenderResource(ConfigurableResource):
             raise Exception(f'smtp_type "{self.smtp_type}" is not supported.')
 
 
+class ValidatedEnvVar(str):
+    """A string-like class that validates environment variable exists at runtime."""
+
+    _env_var_name: str
+
+    def __new__(cls, env_var_name: str):
+        instance = str.__new__(cls, "")
+        instance._env_var_name = env_var_name
+        return instance
+
+    def __str__(self) -> str:
+        value = os.getenv(self._env_var_name)
+        if not value:
+            raise ValueError(
+                f"Environment variable '{self._env_var_name}' is required but not set"
+            )
+        return value
+
+
 enviador_correo_e_analitica_farinter = EmailSenderResource(
-    email_from=os.getenv("DAGSTER_EMAIL_ADDRESS"),
-    email_password=EnvVar("DAGSTER_SECRET_EMAIL_PASSWORD"),
+    email_from=ValidatedEnvVar("DAGSTER_EMAIL_ADDRESS"),
+    email_password=dg.EnvVar("DAGSTER_SECRET_EMAIL_PASSWORD"),
     smtp_host="mail.farinter.hn",
     smtp_port=465,
     smtp_type="SSL",
@@ -128,9 +145,9 @@ def check_max_value_difference(max_value_a: datetime, max_value_b: datetime) -> 
     return (max_value_b - max_value_a).days <= 1
 
 
-@sensor(minimum_interval_seconds=3600)
+@dg.sensor(minimum_interval_seconds=3600)
 def _example_for_tests(
-    context: SensorEvaluationContext,
+    context: dg.SensorEvaluationContext,
     enviador_correo_e_analitica_farinter: EmailSenderResource,
 ):
     # Configuration for the databases and tables
@@ -152,53 +169,6 @@ def _example_for_tests(
         email_to = ["brian.padilla@farinter.com"]  # Replace with actual recipients
 
         email_sender.send_email(email_to, email_subject, email_body)
-        return 1  # Email sent successfully
+        return dg.SensorResult(is_completed=True)
 
-    return 0  # No email sent
-
-
-def custom_job_failure_email_body(context: SensorEvaluationContext):
-    dagster_run = context.run
-    failure_event = context.failure_event
-
-    # Retrieve the stats snapshot for the current run_id
-    stats_snapshot = context.instance.get_run_stats(dagster_run.run_id)
-
-    # Convert UNIX timestamps to datetime objects
-    start_time = (
-        datetime.fromtimestamp(stats_snapshot.start_time)
-        if stats_snapshot.start_time
-        else None
-    )
-    end_time = (
-        datetime.fromtimestamp(stats_snapshot.end_time)
-        if stats_snapshot.end_time
-        else None
-    )
-
-    # Format datetime objects as strings if needed
-    start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S") if start_time else "N/A"
-    end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S") if end_time else "N/A"
-
-    # Construct the URL to the run in Dagit (replace with your actual Dagit URL)
-    dagit_url = f"http://dagit.mycompany.com/instance/runs/{dagster_run.run_id}"
-
-    # Include more details in the email body
-    email_body = f"""
-    Job {dagster_run.job_name} failed!
-    Run ID: {dagster_run.run_id}
-    Pipeline Snapshot ID: {dagster_run.pipeline_snapshot_id}
-    Start Time: {start_time_str}
-    End Time: {end_time_str}
-    Run Tags: {dagster_run.tags}
-    Run Config: {dagster_run.run_config}
-    Dagit Run Link: {dagit_url}
-
-    Error Message:
-    {failure_event.message}
-
-    Stack Trace:
-    {failure_event.error.stack_trace if failure_event.error else "No stack trace available."}
-    """
-
-    return email_body
+    return dg.SensorResult(is_completed=False)

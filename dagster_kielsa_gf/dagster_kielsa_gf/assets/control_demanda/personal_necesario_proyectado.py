@@ -13,7 +13,7 @@ from dagster import (
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 from dagster_shared_gf.shared_variables import env_str, tags_repo
-from dagster_shared_gf.automation import automation_monthly_start_delta_1_cron
+from dagster_shared_gf.automation import automation_weekly_1_delta_1_cron
 
 cfg = pl.Config()
 
@@ -365,8 +365,8 @@ def calcular_personal_necesario(
         AssetKey(("BI_FARINTER", "dbo", "BI_Dim_Calendario_Dinamico")),
         AssetKey(("DL_FARINTER", "dbo", "DL_Kielsa_Caja")),
     ),
-    tags=tags_repo.AutomationMonthlyStart,
-    automation_condition=automation_monthly_start_delta_1_cron,
+    tags=tags_repo.AutomationWeekly1 | tags_repo.AutomationOnly,
+    automation_condition=automation_weekly_1_delta_1_cron,
 )
 def IA_Kielsa_Proyeccion_Personal_Necesario(
     context: AssetExecutionContext,
