@@ -606,94 +606,107 @@ def set_deployment_vars() -> tuple[str, str, str, str, str]:
 
 
 def reload_code_locations():
+    """
+    Reload all Dagster code locations by sending the ReloadWorkspaceMutation GraphQL mutation.
+    This is equivalent to pressing the "Reload all" button in the Dagster web UI.
+    """
     try:
         import requests
-        import yaml
+        import os
 
-        def reload_code_location(host: str, port: int, location_name: str) -> dict:
-            """
-            Sends a GraphQL mutation to the Dagster webserver to reload the specified repository location.
-
-            :param host: The hostname or IP of the Dagster webserver (e.g. 'localhost', '100.#.#.#').
-            :param port: The port the webserver is running on (e.g. 9786).
-            :param location_name: The code location name to reload.
-            :return: The JSON response from the Dagster webserver.
-            """
-
-            # This is the GraphQL mutation string used to reload a repository location.
-            graphql_mutation = """
-                mutation ReloadRepositoryLocationMutation($location: String!) {
-                    reloadRepositoryLocation(repositoryLocationName: $location) {
-                        ... on WorkspaceLocationEntry {
+        graphql_mutation = """
+        mutation ReloadWorkspaceMutation {
+          reloadWorkspace {
+            ... on Workspace {
+              id
+              locationEntries {
+                name
+                id
+                loadStatus
+                locationOrLoadError {
+                  ... on RepositoryLocation {
+                    id
+                    repositories {
+                      id
+                      name
+                      pipelines {
                         id
-                        loadStatus
+                        name
                         __typename
-                        }
-                        __typename
+                      }
+                      __typename
                     }
-                    }
-                """
-
-            variables = {"location": location_name}
-
-            # GraphQL endpoint; note ?op=... is optional but matches what the UI does
-            url = f"http://{host}:{port}/graphql?op=ReloadRepositoryLocationMutation"
-
-            # For local/unsecured development, these headers are often enough. Adjust as needed for auth.
-            headers = {
-                "content-type": "application/json",
-                "accept": "*/*",
+                    __typename
+                  }
+                  ...PythonErrorFragment
+                  __typename
+                }
+                __typename
+              }
+              __typename
             }
+            ...UnauthorizedErrorFragment
+            ...PythonErrorFragment
+            __typename
+          }
+        }
 
-            payload = {
-                "operationName": "ReloadRepositoryLocationMutation",
-                "variables": variables,
-                "query": graphql_mutation,
-            }
+        fragment UnauthorizedErrorFragment on UnauthorizedError {
+          message
+          __typename
+        }
 
-            response = requests.post(url, headers=headers, json=payload, verify=False)
-            response.raise_for_status()  # Raise exception if the request failed at the HTTP level
+        fragment PythonErrorFragment on PythonError {
+          message
+          stack
+          errorChain {
+            ...PythonErrorChain
+            __typename
+          }
+          __typename
+        }
 
-            return response.json()
+        fragment PythonErrorChain on ErrorChainLink {
+          isExplicitLink
+          error {
+            message
+            stack
+            __typename
+          }
+          __typename
+        }
+        """
 
-        # Read workspace.yaml to get code location names
-        with open("workspace.yaml", "r") as f:
-            workspace_config = yaml.safe_load(f)
-
-        location_names = []
-        load_from = workspace_config.get("load_from", [])
-        for entry in load_from:
-            # entry is a dict like {'python_module': {...}} or {'python_file': {...}}
-            for value in entry.values():
-                # value is the nested dict like {'module_name': ..., 'location_name': ...}
-                if isinstance(value, dict) and "location_name" in value:
-                    location_names.append(value["location_name"])
-                    # Assume only one location_name per entry in load_from
-                    break
-
-        if not location_names:
-            print("No code locations found in workspace.yaml.")
-            return False
-
-        for location_name in location_names:
-            reload_code_location(
-                host="localhost",
-                port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)),
-                location_name=location_name,
+        host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
+        port = int(
+            os.environ.get(
+                "DAGSTER_WEBSERVER_PORT", os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)
             )
-            print(f"Reloaded code location: {location_name}")
+        )
 
-        print("Code locations reloaded successfully.")
+        url = f"http://{host}:{port}/graphql?op=ReloadWorkspaceMutation"
+        headers = {
+            "content-type": "application/json",
+            "accept": "*/*",
+        }
+        payload = {
+            "operationName": "ReloadWorkspaceMutation",
+            "variables": {},
+            "query": graphql_mutation,
+        }
+
+        response = requests.post(url, headers=headers, json=payload, verify=False)
+        response.raise_for_status()
+        result = response.json()
+        print("Reload Workspace Response:", result)
+        print("All code locations reloaded successfully.")
         return True
 
     except ImportError as e:
-        print(
-            "Error: Failed to import reload_code_location from dagster_shared_gf."
-            f"Error: {e}"
-        )
+        print(f"Error: Required package not found: {e}")
         return False
     except Exception as e:
-        print(f"Error reloading code locations: {e}")
+        print(f"Error reloading all code locations: {e}")
         return False
 
 
