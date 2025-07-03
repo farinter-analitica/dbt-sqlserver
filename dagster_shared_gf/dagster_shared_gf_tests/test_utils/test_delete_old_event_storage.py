@@ -19,12 +19,12 @@ def test_delete_old_event_storage():
         # Set up timestamps based on retention periods
         retention_days = float(SETTINGS["local_storage"]["retention_period"])
         old_time = (datetime.now() - timedelta(days=retention_days + 10)).timestamp()
-        very_old_time = (
-            datetime.now() - timedelta(days=retention_days * 2 + 10)
+        protected_time = (
+            datetime.now() - timedelta(days=retention_days + 6)
         ).timestamp()  # Beyond extended cutoff
-        triple_cutoff_time = (
+        beyond_protected_time = (
             datetime.now() - timedelta(days=retention_days * 3 + 10)
-        ).timestamp()  # Beyond triple cutoff
+        ).timestamp()  # Beyond protected cutoff
         recent_time = datetime.now().timestamp()
 
         # Recent run directory that should be kept (treated as run storage)
@@ -49,9 +49,9 @@ def test_delete_old_event_storage():
         deep_old.mkdir(parents=True)
         old_file = deep_old / "file.txt"
         old_file.touch()
-        os.utime(nested_old_dir, (very_old_time, very_old_time))
-        os.utime(deep_old, (very_old_time, very_old_time))
-        os.utime(old_file, (very_old_time, very_old_time))
+        os.utime(nested_old_dir, (protected_time, protected_time))
+        os.utime(deep_old, (protected_time, protected_time))
+        os.utime(old_file, (protected_time, protected_time))
 
         # Mixed directory (should only delete very old file, keep new)
         mixed_dir = storage_dir / "mixed"
@@ -65,19 +65,19 @@ def test_delete_old_event_storage():
         os.utime(mixed_dir, (recent_time, recent_time))
         os.utime(old_mixed_file, (old_time, old_time))
         os.utime(new_mixed_file, (recent_time, recent_time))
-        os.utime(very_old_mixed_file, (very_old_time, very_old_time))
+        os.utime(very_old_mixed_file, (protected_time, protected_time))
 
-        # Protected directory and file (should be deleted only after 3x cutoff)
+        # Protected directory and file (should be deleted only after cutoff)
         protected_dir = storage_dir / "__protected_dir"
         protected_dir.mkdir()
         # Add an inner file that does not start with __ to prevent empty dir deletion
         protected_inner_file = protected_dir / "not_protected.txt"
         protected_inner_file.touch()
-        os.utime(protected_inner_file, (triple_cutoff_time, triple_cutoff_time))
+        os.utime(protected_inner_file, (beyond_protected_time, beyond_protected_time))
         protected_file = storage_dir / "__protected_file.txt"
         protected_file.touch()
-        os.utime(protected_dir, (triple_cutoff_time, triple_cutoff_time))
-        os.utime(protected_file, (triple_cutoff_time, triple_cutoff_time))
+        os.utime(protected_dir, (beyond_protected_time, beyond_protected_time))
+        os.utime(protected_file, (beyond_protected_time, beyond_protected_time))
 
         # Protected directory and file that are not yet old enough (should be preserved)
         protected_dir_recent = storage_dir / "__protected_dir_recent"
@@ -85,11 +85,11 @@ def test_delete_old_event_storage():
         # Add an inner file that does not start with __ to prevent empty dir deletion
         protected_inner_file_recent = protected_dir_recent / "not_protected.txt"
         protected_inner_file_recent.touch()
-        os.utime(protected_inner_file_recent, (very_old_time, very_old_time))
+        os.utime(protected_inner_file_recent, (protected_time, protected_time))
         protected_file_recent = storage_dir / "__protected_file_recent.txt"
         protected_file_recent.touch()
-        os.utime(protected_dir_recent, (very_old_time, very_old_time))
-        os.utime(protected_file_recent, (very_old_time, very_old_time))
+        os.utime(protected_dir_recent, (protected_time, protected_time))
+        os.utime(protected_file_recent, (protected_time, protected_time))
 
         # Capture the existence of directories BEFORE running the function
         before_state = {

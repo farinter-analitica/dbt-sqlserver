@@ -31,7 +31,7 @@ def clean_dbt_targets_old_files(context: OpExecutionContext) -> None:
 
     retention_days = float(SETTINGS["local_storage"]["retention_period"])
     cutoff_date = datetime.now() - timedelta(days=retention_days)
-    protected_cutoff_date = datetime.now() - timedelta(days=retention_days * 3)
+    protected_cutoff_date = datetime.now() - timedelta(days=retention_days + 10)
 
     total_files_deleted = 0
     total_protected_skipped = 0
@@ -122,11 +122,11 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
     retention_days = float(SETTINGS["local_storage"]["retention_period"])
     cutoff_date = datetime.now() - timedelta(days=retention_days)
     extended_cutoff_date = datetime.now() - timedelta(
-        days=retention_days * 2
-    )  # Double retention period for unrelated files
-    triple_extended_cutoff_date = datetime.now() - timedelta(
-        days=retention_days * 3
-    )  # Triple retention period for protected items
+        days=retention_days + 5
+    )  # for unrelated files
+    protected_cutoff_date = datetime.now() - timedelta(
+        days=retention_days + 10
+    )  # Tfor protected items
 
     storage_dirs_deleted = 0
     unrelated_files_deleted = 0
@@ -160,7 +160,7 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
             else:
                 # For unrelated storage, delete old files first
                 files_deleted, protected_deleted = delete_old_files_in_directory(
-                    path, extended_cutoff_date, context, triple_extended_cutoff_date
+                    path, extended_cutoff_date, context, protected_cutoff_date
                 )
                 unrelated_files_deleted += files_deleted
                 protected_items_deleted += protected_deleted
@@ -177,7 +177,7 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
         elif path.is_file():
             # Handle files with extended retention period
             if path.name.startswith("__"):
-                if creation_time < triple_extended_cutoff_date:
+                if creation_time < protected_cutoff_date:
                     try:
                         path.unlink()
                         protected_items_deleted += 1
@@ -198,13 +198,13 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
         f"Deleted {storage_dirs_deleted} storage directories older than {retention_days} days"
     )
     context.log.info(
-        f"Deleted {unrelated_files_deleted} unrelated files older than {retention_days * 2} days"
+        f"Deleted {unrelated_files_deleted} unrelated files older than {extended_cutoff_date}"
     )
     context.log.info(
         f"Deleted {unrelated_empty_dirs_deleted} empty unrelated directories"
     )
     context.log.info(
-        f"Deleted {protected_items_deleted} protected items (starting with '__') older than {retention_days * 3} days"
+        f"Deleted {protected_items_deleted} protected items (starting with '__') older than {protected_cutoff_date}"
     )
 
 
