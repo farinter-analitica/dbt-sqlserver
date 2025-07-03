@@ -440,6 +440,7 @@ store_procedures: dict[str, StoreProcedureConfig] = {
         "deps": [
             AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero"]),
         ],
     },
     "AN_paCargarCal_ClientesCategorias_Kielsa": {
@@ -545,18 +546,6 @@ store_procedures: dict[str, StoreProcedureConfig] = {
         "deps": [
             AssetKey(["AN_FARINTER", "dbo", "AN_Param_Pesos_Kielsa"]),
             AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_VentasHist_Kielsa"]),
-        ],
-    },
-    "DL_paCargarKielsa_ClientesVisitasHist": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_ClientesVisitasHist",
-        "group_name": "kielsa_analitica_atributos",
-        "owners": ["edwin.martinez@farinter.com"],
-        "tags": tags_repo.AutomationDaily.tag
-        | tags_repo.UniquePeriod.tag
-        | tags_repo.AutomationOnly.tag,
-        "deps": [
-            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
         ],
     },
     "DL_paCargarKielsa_Tipo_Mov_Inventario": {
