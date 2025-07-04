@@ -87,8 +87,8 @@ wheels = [
 
 [[package]]
 name = "algoritmo-mddme-gf"
-version = "1.0.5"
-source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=algoritmo-mddme-gf&rev=v1.0.5#2fee45bba4295ad520ed7b970e6d4806b91011df" }
+version = "1.0.6"
+source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=algoritmo-mddme-gf&rev=v1.0.6#3093b87d667d12a98fdd5cd2006043d79a747afb" }
 dependencies = [
     { name = "numpy" },
     { name = "polars" },
@@ -852,7 +852,7 @@ external = [
 
 [package.metadata]
 requires-dist = [
-    { name = "algoritmo-mddme-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=algoritmo-mddme-gf&rev=v1.0.5" },
+    { name = "algoritmo-mddme-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=algoritmo-mddme-gf&rev=v1.0.6" },
     { name = "arrow-odbc" },
     { name = "dagster", specifier = ">=1.9.7,<1.10.21" },
     { name = "dagster-cloud" },
@@ -881,7 +881,7 @@ requires-dist = [
     { name = "requests" },
     { name = "scipy" },
     { name = "smbprotocol" },
-    { name = "statstools-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=statstools-gf&rev=v1.0.5" },
+    { name = "statstools-gf", marker = "extra == 'external'", git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=statstools-gf&rev=v1.0.6" },
     { name = "trycast" },
     { name = "wheel" },
     { name = "xlsx2csv" },
@@ -4437,8 +4437,8 @@ wheels = [
 
 [[package]]
 name = "statstools-gf"
-version = "0.7.5"
-source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=statstools-gf&rev=v1.0.5#2fee45bba4295ad520ed7b970e6d4806b91011df" }
+version = "0.7.6"
+source = { git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git?subdirectory=statstools-gf&rev=v1.0.6#3093b87d667d12a98fdd5cd2006043d79a747afb" }
 dependencies = [
     { name = "lightgbm" },
     { name = "numpy" },
