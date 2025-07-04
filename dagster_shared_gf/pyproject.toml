@@ -90,10 +90,10 @@ dependency-metadata = [
 
 [tool.uv.sources.statstools_gf]
 git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git"
-subdirectory = "py_statstools_gf"
-rev = "v1.0.4"
+subdirectory = "statstools-gf"
+rev = "v1.0.5"
 
 [tool.uv.sources.algoritmo_mddme_gf]
 git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git"
-subdirectory = "py_algoritmo_mddme_gf"
-rev = "v1.0.4"
+subdirectory = "algoritmo-mddme-gf"
+rev = "v1.0.5"
