@@ -193,6 +193,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     DetenerCarga: Tags = Tags(key="detener_carga/si", value="")
     """{"detener_carga/si": ""} Usar para detener la carga por cualquier motivo."""
 
+    Descontinuado: Tags = Tags(key="descontinuado/si", value="")
+    """{"descontinuado/si": ""} Usar para definir que es descontinuado."""
+
     Automation: Tags = Tags(key="automation/si", value="")
     """{"automation/si": ""} Usar para definir que tiene automatizacion pero puede usarse en jobs."""
 

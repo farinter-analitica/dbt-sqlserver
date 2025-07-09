@@ -13,6 +13,7 @@ sources:
   - name: AN_Cal_ClientesMetricas_Kielsa
   - name: AN_Cal_ClientesEstadisticas_Kielsa
   - name: AN_Cal_ClientesEstados_Kielsa
+  - name: AN_Kielsa_EstadosCliente
 
   config:
     freshness:   # default freshness

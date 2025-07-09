@@ -434,11 +434,23 @@ store_procedures: dict[str, StoreProcedureConfig] = {
         "name": ["AN_Cal_ClientesEstados_Kielsa", "AN_Cal_ClientesEstadosHist_Kielsa"],
         "group_name": "kielsa_analitica_atributos",
         "owners": ["edwin.martinez@farinter.com"],
+        "tags": tags_repo.DetenerCarga | tags_repo.Descontinuado,
+        "deps": [
+            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero"]),
+        ],
+    },
+    "AN_Kielsa_paCarga_EstadosCliente": {
+        "key_prefix": ["AN_FARINTER", "dbo"],
+        "name": ["AN_Kielsa_EstadosCliente"],
+        "group_name": "kielsa_analitica_atributos",
+        "owners": ["edwin.martinez@farinter.com"],
         "tags": tags_repo.AutomationDaily.tag
         | tags_repo.UniquePeriod.tag
         | tags_repo.AutomationOnly.tag,
         "deps": [
-            AssetKey(["DL_FARINTER", "dbo", "DL_Acum_VentasHist_Kielsa"]),
+            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_FacturaEncabezado"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_ClientesVisitasHist"]),
             AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero"]),
         ],

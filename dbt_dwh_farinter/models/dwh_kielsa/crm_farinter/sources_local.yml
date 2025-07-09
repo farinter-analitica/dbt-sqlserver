@@ -1,5 +1,7 @@
 sources:
 - name: CRM_FARINTER
+  database: CRM_FARINTER
+  schema: dbo
   tables:
     - name: CRM_Kielsa_CarritoSeguimiento
     - name: CAMPANA
