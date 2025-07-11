@@ -25,10 +25,6 @@ WITH agr_monedero AS (
     SELECT
         M.Monedero_Id,
         M.Emp_Id,
-        MAGR.Fecha_Primer_Factura,
-        MAGR.Fecha_Ultima_Factura,
-        MAGR.Cantidad_Facturas,
-        MAGR.Cantidad_Dias,
         M.Celular,
         M.Telefono,
         M.Tipo_Plan,
@@ -39,13 +35,17 @@ WITH agr_monedero AS (
         M.Saldo_Puntos,
         M.Ingreso,
         M.Monedero_Nombre,
-        MAGR.Fecha_Actualizado
-    FROM {{ ref('BI_Kielsa_Agr_Monedero') }} AS MAGR
-    INNER JOIN {{ ref('BI_Kielsa_Dim_Monedero') }} AS M
+        MAGR.Fecha_Actualizado,
+        ISNULL(MAGR.Fecha_Primer_Factura, '19000101') AS Fecha_Primer_Factura,
+        ISNULL(MAGR.Fecha_Ultima_Factura, '19000101') AS Fecha_Ultima_Factura,
+        ISNULL(MAGR.Cantidad_Dias, 0) AS Cantidad_Dias,
+        ISNULL(MAGR.Cantidad_Facturas, 0) AS Cantidad_Facturas
+    FROM {{ ref('BI_Kielsa_Dim_Monedero') }} AS M
+    LEFT JOIN {{ ref('BI_Kielsa_Agr_Monedero') }} AS MAGR
         ON
-            MAGR.Monedero_Id = M.Monedero_Id
-            AND MAGR.Emp_Id = M.Emp_Id
-    WHERE M.Emp_Id = 1
+            M.Monedero_Id = MAGR.Monedero_Id
+            AND M.Emp_Id = MAGR.Emp_Id
+    WHERE M.Emp_Id = 1 AND (M.Activo_Indicador = 1 OR MAGR.Monedero_Id IS NOT NULL)
 ),
 
 base AS (
@@ -133,8 +133,8 @@ final AS (
         COALESCE(TipoSucursal.TipoSucursal_Nombre, '') AS TipoSucursal_Nombre,
         COALESCE(CatHorario.Categoria, '') AS Hora,
         COALESCE(CatDiaMes.Categoria, '') AS Dia_Mes,
-        COALESCE(Dias.Dias_Nombre, '') AS Dia_Semana,
-        COALESCE(Canal.CanalVenta_Nombre, '') AS Canal,
+        COALESCE(Dias.Dias_Nombre, 'N/A') AS Dia_Semana,
+        COALESCE(Canal.CanalVenta_Nombre, 'N/A') AS Canal,
         COALESCE(DeptoArt.DeptoArt_Nombre, '') AS Depto_Articulo,
         COALESCE(CatEnfermedades.Categoria, '') AS Enfermedades,
         COALESCE(CatCanje.Participacion, CatEnfermedades.Participacion, 0) AS Participacion,
@@ -178,6 +178,10 @@ final AS (
         CASE WHEN CARSEG.Identidad IS NOT NULL THEN 1 ELSE 0 END AS Notificar_Carrito_Pendiente,
         CASE
             WHEN base.Ingreso >= DATEADD(DAY, -31, GETDATE()) THEN 'Nuevo'
+            WHEN base.Ultima_Compra <= DATEADD(YEAR, -1, GETDATE()) THEN 'Inactivo'
+            WHEN
+                CMETRIC.Prom_EntreTrx IS NOT NULL AND CMETRIC.Prom_EntreTrx < 31
+                AND base.Ultima_Compra >= DATEADD(DAY, CMETRIC.Prom_EntreTrx, GETDATE()) THEN 'Activo'
             WHEN CESTADOS.[Estado] IS NOT NULL THEN CESTADOS.[Estado]
             WHEN base.Ticket_Promedio > 0 THEN 'Activo'
             ELSE 'Inactivo'
