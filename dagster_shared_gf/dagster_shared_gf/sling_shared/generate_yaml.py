@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Any, Union
 import sqlalchemy as sql
 from pathlib import Path
 from textwrap import dedent
+from dagster_shared_gf.shared_functions import normalize_table_identifier
 
 
 def get_caller_directory() -> str:
@@ -116,37 +117,44 @@ def is_file_cache_valid(
 
 def generate_sling_yaml_from_source(
     engine: Union[sql.Engine, sql.Connection],
-    source_schema: str,
-    output_filename: str = "sling.yaml",
-    output_dir: Optional[str | Path] = None,
-    source: str = "NOCODB_DATA_GF",
-    target: str = "DAGSTER_DWH_FARINTER",
+    source_schemas: Union[str, List[str]],
+    output_filename: str,
+    source: str,
+    target: str,
+    output_dir: Optional[Path | str] = None,
     defaults: Optional[Dict[str, Any]] = None,
-    update_keys: list = ["fecha_actualizado", "updated_at"],
+    update_keys: List[str] = ["fecha_actualizado", "updated_at"],
+    target_schema: str = "sling_data",
 ) -> str:
     """
-    Inspecciona el esquema PostgreSQL dado (usando reflexión de SQLAlchemy)
-    y genera un archivo YAML con formato Sling.
+    Inspecciona uno o más esquemas PostgreSQL (usando reflexión de SQLAlchemy)
+    y genera un archivo YAML con formato Sling que incluye streams de todos ellos.
 
     Args:
         engine: Instancia de SQLAlchemy Engine o Connection.
-        schema: El esquema PostgreSQL a reflejar (por ejemplo, "kielsa").
+        source_schemas: Un esquema o una lista de esquemas PostgreSQL a reflejar.
         output_filename: Nombre del archivo YAML a escribir.
         output_dir: Directorio donde guardar el archivo YAML. Si es None, usa el directorio del llamador.
         source: Nombre del origen de datos.
         target: Nombre del destino de datos.
         defaults: Configuración predeterminada. Si es None, usa la configuración por defecto.
-        update_key: Nombre de la columna de actualización encontrada por prioridad.
+        update_keys: Lista de nombres de columna candidatos para update_key, por orden de prioridad.
 
     Returns:
         str: Ruta al archivo YAML generado.
 
-    Se omiten tablas sin claves primarias o columna de actualización.
+    Se omiten tablas sin claves primarias y sin ninguna columna de update_key.
     """
+    # Asegurar que source_schemas sea una lista
+    if isinstance(source_schemas, str):
+        schemas = [source_schemas]
+    else:
+        schemas = source_schemas
+
     if defaults is None:
         defaults = {
             "mode": "incremental",
-            "object": "sling_data.{stream_schema}_{stream_table}",
+            "object": f"{target_schema}.{{stream_schema}}_{{stream_table}}",
             "target_options": {"column_casing": "snake", "adjust_column_type": True},
             "source_options": {"flatten": True},
         }
@@ -161,98 +169,117 @@ def generate_sling_yaml_from_source(
     # Ruta completa al archivo de salida
     output_path = os.path.join(output_dir, output_filename)
 
-    metadata = sql.MetaData()
-    # Reflejar tablas del esquema especificado
-    metadata.reflect(bind=engine, schema=source_schema)
-
     streams: Dict[str, Dict[str, Any]] = {}
+    for schema in schemas:
+        metadata = sql.MetaData()
+        # Reflejar tablas del esquema especificado
+        metadata.reflect(bind=engine, schema=schema)
 
-    # Iterar sobre cada tabla reflejada
-    for table_name, table in metadata.tables.items():
-        # Extraer solo el nombre de la tabla sin el esquema
-        table_name_only = table.name
-        default_table = True if "-" in table_name_only else False
+        streams: Dict[str, Dict[str, Any]] = {}
 
-        # Construir una clave de stream usando el esquema y nombre de tabla (por ejemplo, "kielsa.mytable")
-        full_table_name = f"""\"{source_schema}\".\"{table_name_only}\""""
+        # Iterar sobre cada tabla reflejada
+        for table_name, table in metadata.tables.items():
+            # Extraer solo el nombre de la tabla sin el esquema
+            table_name_only = table.name
+            default_table = True if "-" in table_name_only else False
 
-        # Obtener la lista de columnas de clave primaria
-        pk_columns: List[str] = [str(col.name) for col in table.primary_key]
+            # Construir una clave de stream usando el esquema y nombre de tabla (por ejemplo, "kielsa.mytable")
+            full_table_name = f"""\"{schema}\".\"{table_name_only}\""""
 
-        # Verificar si existe la columna update_key en la tabla
-        column_names = [col.name for col in table.columns]
-        final_update_key = update_keys[0]
-        has_update_key = False
-        for update_key in update_keys:
-            final_update_key = update_key
-            has_update_key = update_key in column_names
-            if has_update_key:
-                break
+            # Obtener la lista de columnas de clave primaria
+            pk_columns: List[str] = [str(col.name) for col in table.primary_key]
 
-        if not pk_columns and not has_update_key:
-            continue  # Omitir tablas sin claves primarias y fecha de actualización
-
-        # Obtener las columnas con índices únicos
-        unique_idx_columns = []
-        for idx in table.indexes:
-            if idx.unique:
-                unique_idx_columns.extend([str(col.name) for col in idx.columns])
-                break
-
-        if not unique_idx_columns:
-            for cst in table.constraints:
-                if isinstance(cst, sql.UniqueConstraint):
-                    if cst.columns == pk_columns:
-                        continue
-
-                    unique_idx_columns.extend([str(col.name) for col in cst.columns])
+            # Verificar si existe la columna update_key en la tabla
+            column_names = [col.name for col in table.columns]
+            final_update_key = update_keys[0]
+            has_update_key = False
+            for update_key in update_keys:
+                final_update_key = update_key
+                has_update_key = update_key in column_names
+                if has_update_key:
                     break
 
-        # Convertir tipos problematicos, izquierda el nombre, derecha en la query
-        types_mapping: Dict[str, tuple] = {
-            "TIME": ("VARCHAR(20)", "::varchar(20)"),
-            "BOOLEAN": ("INTEGER", "::integer"),
-            "VARCHAR": ("VARCHAR(100)", "::varchar(100)"),
-        }
+            if not pk_columns and not has_update_key:
+                continue  # Omitir tablas sin claves primarias y fecha de actualización
 
-        stream_entry: Dict[str, Any] = {}
-        if has_update_key:
-            # Si existe la columna fecha_actualizado, usarla como update_key
-            stream_entry["update_key"] = final_update_key
-            stream_entry["sql"] = dedent(
-                f"""
-                select 
-                    {
-                    ", ".join(
-                        [
-                            f'"{col.name}"{types_mapping.get(str(col.type), ("", ""))[1]}'
-                            for col in table.columns
-                        ]
+            # Obtener las columnas con índices únicos
+            unique_idx_columns = []
+            for idx in table.indexes:
+                if idx.unique:
+                    unique_idx_columns.extend([str(col.name) for col in idx.columns])
+                    break
+
+            if not unique_idx_columns:
+                for cst in table.constraints:
+                    if isinstance(cst, sql.UniqueConstraint):
+                        if cst.columns == pk_columns:
+                            continue
+
+                        unique_idx_columns.extend(
+                            [str(col.name) for col in cst.columns]
+                        )
+                        break
+
+            # Convertir tipos problematicos, izquierda el nombre, derecha en la query
+            types_mapping: Dict[str, tuple] = {
+                "TIME": ("VARCHAR(20)", "::varchar(20)"),
+                "BOOLEAN": ("INTEGER", "::integer"),
+                "VARCHAR": ("VARCHAR(100)", "::varchar(100)"),
+            }
+
+            stream_entry: Dict[str, Any] = {}
+            if has_update_key:
+                # Si existe la columna fecha_actualizado, usarla como update_key
+                stream_entry["update_key"] = final_update_key
+                stream_entry["sql"] = dedent(
+                    f"""
+                    select 
+                        {
+                        ", ".join(
+                            [
+                                f'"{col.name}"{types_mapping.get(str(col.type), ("", ""))[1]}'
+                                for col in table.columns
+                            ]
+                        )
+                    }
+                    from {full_table_name} 
+                    where \"{
+                        final_update_key
+                    }\" > coalesce({{incremental_value}}::timestamp, '2001-01-01'::timestamp) - INTERVAL '1 day'
+                    """
+                )
+            if default_table or not has_update_key:
+                stream_entry["disabled"] = True
+
+            # Construir la entrada de stream por tabla
+            stream_entry["object"] = (
+                f"{target_schema}.{normalize_table_identifier(schema)}_{normalize_table_identifier(table_name_only)}"
+            )
+            stream_entry["primary_key"] = pk_columns
+            stream_entry["target_options"] = {
+                "table_keys": {
+                    "primary": pk_columns,
+                    "unique": unique_idx_columns,
+                },
+                "use_bulk": False,
+            }
+            stream_entry["columns"] = [
+                {
+                    str(col.name): str(
+                        types_mapping.get(str(col.type), (col.type, ""))[0]
                     )
                 }
-                from {full_table_name} 
-                where \"{
-                    final_update_key
-                }\" > coalesce({{incremental_value}}::timestamp, '2001-01-01'::timestamp) - INTERVAL '1 day'
-                """
-            )
-        if default_table or not has_update_key:
-            stream_entry["disabled"] = True
+                for col in table.columns
+            ]
+            streams[full_table_name] = stream_entry
 
-        # Construir la entrada de stream por tabla
-        stream_entry["primary_key"] = pk_columns
-        stream_entry["target_options"] = {
-            "table_keys": {
-                "primary": pk_columns,
-                "unique": unique_idx_columns,
-            },
-            "use_bulk": False,
+    # Agregar placeholder si esta vacio para que siempre pueda ejecutarse el asset
+    if not streams:
+        streams["placeholder"] = {
+            "disabled": False,
+            "primary_key": ["id"],
+            "columns": [{"id": "INTEGER"}],
         }
-        stream_entry["columns"] = [
-            {str(col.name): str(types_mapping.get(str(col.type), (col.type, ""))[0])}
-            for col in table.columns
-        ]
-        streams[full_table_name] = stream_entry
 
     # Construir la estructura de configuración YAML final
     config: Dict[str, Any] = {
@@ -284,7 +311,14 @@ if __name__ == "__main__":
 
         # Crear el motor de conexión
         engine = sql.create_engine(connection_string)
-        generate_sling_yaml_from_source(engine, schema_name, output_file)
+        generate_sling_yaml_from_source(
+            engine=engine,
+            source_schemas=schema_name,
+            output_filename=output_file,
+            output_dir=".",
+            source="NOCODB_DATA_GF",
+            target="DAGSTER_DWH_FARINTER",
+        )
     else:
         # Comportamiento predeterminado cuando se ejecuta sin argumentos
         try:
@@ -301,7 +335,12 @@ if __name__ == "__main__":
 
             # Generar el archivo YAML de Sling
             generate_sling_yaml_from_source(
-                engine, target_schema, output_filename="sling.yaml"
+                engine=engine,
+                source_schemas=target_schema,
+                output_filename="sling.yaml",
+                output_dir=".",
+                source="NOCODB_DATA_GF",
+                target="DAGSTER_DWH_FARINTER",
             )
         except ImportError:
             print(

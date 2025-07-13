@@ -1,17 +1,21 @@
 import requests
+import uuid
+from typing import Optional
 
-# minimal_graphql_mutation = """
-# mutation ReloadRepositoryLocationMutation($location: String!) {
-#     reloadRepositoryLocation(repositoryLocationName: $location) {
-#         ... on WorkspaceLocationEntry {
-#         id
-#         loadStatus
-#         __typename
-#         }
-#         __typename
-#     }
-#     }
-# """
+from dagster_graphql import DagsterGraphQLClient
+
+
+def get_client(
+    host: Optional[str] = None, port: Optional[int] = None
+) -> DagsterGraphQLClient:
+    """
+    Instancia un cliente GraphQL de Dagster apuntando al webserver.
+    """
+    if host is None:
+        host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
+    if port is None:
+        port = int(os.environ.get("DAGSTER_WEBSERVER_PORT", 3000))
+    return DagsterGraphQLClient(hostname=host, port_number=port)
 
 
 def reload_workspace(host: str, port: int) -> dict:
@@ -100,6 +104,9 @@ def reload_workspace(host: str, port: int) -> dict:
         "operationName": "ReloadWorkspaceMutation",
         "variables": {},
         "query": graphql_mutation,
+        "Origin": f"http://{host}:{port}",
+        "Referer": f"http://{host}:{port}/deployment/locations",
+        "idempotency-key": str(uuid.uuid4()),
     }
 
     response = requests.post(url, headers=headers, json=payload, verify=False)
@@ -176,6 +183,9 @@ def reload_code_location(host: str, port: int, location_name: str) -> dict:
     headers = {
         "content-type": "application/json",
         "accept": "*/*",
+        "Origin": f"http://{host}:{port}",
+        "Referer": f"http://{host}:{port}/deployment/locations",
+        "idempotency-key": str(uuid.uuid4()),
     }
     payload = {
         "operationName": "ReloadRepositoryLocationMutation",

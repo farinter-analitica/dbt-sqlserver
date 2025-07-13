@@ -2,13 +2,7 @@ import os
 import json
 from pathlib import Path
 
-from dagster import (
-    op,
-    Out,
-    OpExecutionContext,
-    Output,
-    graph,
-)
+import dagster as dg
 from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
 
 
@@ -18,13 +12,11 @@ UPDATE_FIELDS = ["fecha_actualizado", "updated_at"]
 CACHE_DIR = Path(".cache")
 
 
-@op(
-    out={"processed_tables": Out(list)},
-    tags={"kind": "nocodb_maintenance"},
-)
 def create_timestamp_triggers(
-    context: OpExecutionContext, db_nocodb_data_gf: PostgreSQLResource, schema_name: str
-) -> Output:
+    context: dg.OpExecutionContext,
+    db_nocodb_data_gf: PostgreSQLResource,
+    schema_name: str,
+) -> dg.Output:
     """
     Creates timestamp triggers for PostgreSQL tables in the specified schema.
 
@@ -60,7 +52,7 @@ def create_timestamp_triggers(
     tables_result = db_nocodb_data_gf.query(query)
     if not tables_result:
         context.log.warning(f"No tables found in schema '{schema_name}'")
-        return Output([], "processed_tables")
+        return dg.Output([], "processed_tables")
 
     tables = [row[0] for row in tables_result]
     context.log.info(f"Found {len(tables)} tables in schema '{schema_name}'")
@@ -188,23 +180,10 @@ def create_timestamp_triggers(
     except Exception as e:
         context.log.error(f"Error updating cache: {e}")
 
-    return Output(processed_tables, "processed_tables")
+    return dg.Output(processed_tables, "processed_tables")
 
-
-@graph(
-    description="Graph for nocodb schema control operations",
-    tags={"kind": "nocodb_schema_control"},
-)
-def nocodb_schema_control_graph():
-    create_timestamp_triggers()
-
-
-nocodb_schema_control_job = nocodb_schema_control_graph.to_job(
-    name="nocodb_schema_control_job",
-)
 
 if __name__ == "__main__":
-    from dagster import instance_for_test, ResourceDefinition
     from dagster_shared_gf.resources.postgresql_resources import db_nocodb_data_gf
     from datetime import datetime
     import warnings
@@ -215,35 +194,23 @@ if __name__ == "__main__":
 
     start_time = datetime.now()
 
-    with instance_for_test() as instance:
+    with dg.instance_for_test() as instance:
         if env_str == "local" and 1 == 2:
             warnings.warn("Running in local mode with test database connection")
 
             # Create mock or real PostgreSQL resource based on environment
             # Mock PostgreSQL resource for testing
-            db_nocodb_data_gf = ResourceDefinition.mock_resource()
+            db_nocodb_data_gf = dg.ResourceDefinition.mock_resource()
 
         # Run the job with the appropriate resources
-        result = nocodb_schema_control_job.execute_in_process(
-            instance=instance,
-            resources={
-                "db_nocodb_data_gf": db_nocodb_data_gf,
-            },
-            run_config={
-                "ops": {
-                    create_timestamp_triggers.name: {
-                        "inputs": {"schema_name": "kielsa"}
-                    }
-                }
-            },
+        result = create_timestamp_triggers(
+            context=dg.build_op_context(),
+            db_nocodb_data_gf=db_nocodb_data_gf,  # type: ignore
+            schema_name="kielsa",
         )
 
         # Print the output of the operation
-        print(
-            result.output_for_node(
-                create_timestamp_triggers.name, output_name="processed_tables"
-            )
-        )
+        print(result.value)
 
     end_time = datetime.now()
     print(

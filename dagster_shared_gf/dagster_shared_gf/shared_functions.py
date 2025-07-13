@@ -616,6 +616,9 @@ def calculate_file_checksum(file_path: Union[str, Path]) -> str:
     Returns:
         Hexadecimal digest of the file content
     """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
     # BLAKE2b is both fast and secure
     hash_method = hashlib.blake2b()
     with open(file_path, "rb") as file:

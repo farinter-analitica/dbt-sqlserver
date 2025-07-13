@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Sequence, Iterable, Optional
-from dagster import AssetKey, AssetSpec, AutomationCondition
+from typing import Any, Literal, Mapping, Iterable, Optional
+import dagster as dg
 from dagster_shared_gf.shared_variables import Tags
 from dagster_sling import DagsterSlingTranslator, SlingResource
 
@@ -9,34 +9,36 @@ from dagster_sling import DagsterSlingTranslator, SlingResource
 class MyDagsterSlingTranslator(DagsterSlingTranslator):
     schema_name: str | None = None
     asset_database: str | None = None
-    automation_condition: AutomationCondition | None = None
-    prefix_key: Optional[Sequence[str]] = None
-    source_prefix_key: Optional[Sequence[str]] = None
+    automation_condition: dg.AutomationCondition | None = None
+    prefix_key: Optional[Iterable[str]] = None
+    source_prefix_key: Optional[Iterable[str]] = None
     tags: Optional[Tags | Mapping[str, str]] = None
     group_name: Optional[str] = None
+    deps: Optional[Iterable[dg.AssetKey]] = None
 
-    def get_asset_spec(self, stream_definition: Mapping[str, Any]) -> AssetSpec:
+    def get_asset_spec(self, stream_definition: Mapping[str, Any]) -> dg.AssetSpec:
         """Defines the asset spec for the Sling resource"""
 
-        return AssetSpec(
+        default_spec = super().get_asset_spec(stream_definition)
+        extra_deps = self.deps or []
+
+        new_spec = default_spec.replace_attributes(
             key=self._custom_get_asset_key(stream_definition),
-            deps=self._custom_get_deps_asset_keys(stream_definition),
-            metadata=self._default_metadata_fn(stream_definition),
+            deps=[*self._custom_get_deps_asset_keys(stream_definition), *extra_deps],
             automation_condition=self._custom_get_automation_condition(),
             # or self._default_automation_condition_fn(resource),
             tags={
-                **self._default_tags_fn(stream_definition),
+                **default_spec.tags,
                 **self._custom_get_tags(),
             },
-            group_name=self.group_name
-            or self._default_group_name_fn(stream_definition),
-            # Preserve the default behavior for these attributes
-            description=self._default_description_fn(stream_definition),
-            # owners=self._default_owners_fn(resource),
-            kinds=self._default_kinds_fn(stream_definition),
+            group_name=self.group_name or default_spec.group_name,
         )
 
-    def _custom_get_asset_key(self, stream_definition: Mapping[str, Any]) -> AssetKey:
+        return new_spec
+
+    def _custom_get_asset_key(
+        self, stream_definition: Mapping[str, Any]
+    ) -> dg.AssetKey:
         """
         Defines asset key for a given stream definition.
 
@@ -55,7 +57,7 @@ class MyDagsterSlingTranslator(DagsterSlingTranslator):
         sanitized_name = self.sanitize_stream_name(resource_name)
 
         if self.prefix_key:
-            return AssetKey([*self.prefix_key, sanitized_name])
+            return dg.AssetKey([*self.prefix_key, sanitized_name])
         else:
             components = []
             if self.asset_database:
@@ -63,11 +65,11 @@ class MyDagsterSlingTranslator(DagsterSlingTranslator):
             if self.schema_name:
                 components.append(self.schema_name)
             components.append(sanitized_name)
-            return AssetKey(components)
+            return dg.AssetKey(components)
 
     def _custom_get_deps_asset_keys(
         self, stream_definition: Mapping[str, Any]
-    ) -> Iterable[AssetKey]:
+    ) -> Iterable[dg.AssetKey]:
         """
         Defines dependencies for a given stream definition.
 
@@ -85,11 +87,11 @@ class MyDagsterSlingTranslator(DagsterSlingTranslator):
 
         # Create a dependency on a source asset in "mongodb" database
         if self.source_prefix_key:
-            return [AssetKey([*self.source_prefix_key, sanitized_name])]
+            return [dg.AssetKey([*self.source_prefix_key, sanitized_name])]
         else:
             return self._default_deps_fn(stream_definition)
 
-    def _custom_get_automation_condition(self) -> Optional[AutomationCondition]:
+    def _custom_get_automation_condition(self) -> Optional[dg.AutomationCondition]:
         """
         Returns the custom automation condition if specified.
 
