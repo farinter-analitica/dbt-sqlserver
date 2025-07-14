@@ -1,4 +1,4 @@
-analiticasu ALL=(ALL) NOPASSWD: /*/uv run --frozen /*/scripts/generate_dagster_service.py
+analiticasu ALL=(ALL) NOPASSWD: /home/analiticasu/.local/bin/uv run --frozen /opt/*/scripts/generate_dagster_service.py
 analiticasu ALL=(ALL) NOPASSWD:  /bin/systemctl status dagster_*_webserver, \
   /bin/systemctl status dagster_*_daemon, \
   /bin/systemctl restart dagster_*_webserver, \

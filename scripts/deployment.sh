@@ -52,9 +52,6 @@ install_uv_standalone() {
         if ! echo "$PATH" | grep -q "$CARGO_BIN_DIR"; then
             export PATH="$CARGO_BIN_DIR:$PATH"
         fi
-        if [ -f "$HOME/.bashrc" ]; then
-            source "$HOME/.bashrc"
-        fi
     else
         error_exit "Este script solo soporta Linux para despliegue."
     fi
@@ -96,7 +93,8 @@ manage_services() {
 
 generate_service() {
     echo "Generando template de servicio..."
-    sudo uv run --frozen ./scripts/generate_dagster_service.py
+    CMD_PATH="$(realpath ./scripts/generate_dagster_service.py)"
+    sudo "$CARGO_UV_BIN" run --frozen "$CMD_PATH"
 }
 
 run_dagster_instance_migrate() {
