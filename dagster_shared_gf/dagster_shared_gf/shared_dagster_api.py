@@ -1,8 +1,9 @@
 import requests
-import uuid
 from typing import Optional
+from enum import Enum
+from dataclasses import dataclass
 
-from dagster_graphql import DagsterGraphQLClient
+from dagster_graphql import DagsterGraphQLClient, ReloadRepositoryLocationStatus
 
 
 def get_client(
@@ -18,191 +19,157 @@ def get_client(
     return DagsterGraphQLClient(hostname=host, port_number=port)
 
 
-def reload_workspace(host: str, port: int) -> dict:
-    """
-    Sends a GraphQL mutation to the Dagster webserver to reload the entire workspace (all locations).
+def reload_code_location(host: str, port: int, location_name: str) -> bool:
+    client = get_client(host, port)
+    result = client.reload_repository_location(location_name)
+    return result.status == ReloadRepositoryLocationStatus.SUCCESS
 
-    :param host: The hostname or IP of the Dagster webserver (e.g. 'localhost', '100.#.#.#').
-    :param port: The port the webserver is running on (e.g. 9786).
-    :return: The JSON response from the Dagster webserver.
-    """
 
-    # This is the GraphQL mutation string used to reload the entire workspace.
-    graphql_mutation = """
-    mutation ReloadWorkspaceMutation {
-      reloadWorkspace {
-        ... on Workspace {
-          id
-          locationEntries {
-            name
-            id
-            loadStatus
-            locationOrLoadError {
-              ... on RepositoryLocation {
-                id
-                repositories {
-                  id
-                  name
-                  pipelines {
-                    id
-                    name
-                    __typename
-                  }
-                  __typename
-                }
-                __typename
-              }
-              ...PythonErrorFragment
-              __typename
-            }
-            __typename
-          }
-          __typename
-        }
-        ...UnauthorizedErrorFragment
-        ...PythonErrorFragment
-        __typename
-      }
-    }
+class ReloadWorkspaceStatus(Enum):
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
 
-    fragment UnauthorizedErrorFragment on UnauthorizedError {
-      message
+
+@dataclass
+class ReloadWorkspaceInfo:
+    status: ReloadWorkspaceStatus
+    failure_type: Optional[str] = None
+    message: Optional[str] = None
+
+
+RELOAD_WORKSPACE_MUTATION = """
+mutation GraphQLClientReloadWorkspace {
+   reloadWorkspace {
       __typename
-    }
-
-    fragment PythonErrorFragment on PythonError {
-      message
-      stack
-      errorChain {
-        ...PythonErrorChain
-        __typename
-      }
-      __typename
-    }
-
-    fragment PythonErrorChain on ErrorChainLink {
-      isExplicitLink
-      error {
-        message
-        stack
-        __typename
-      }
-      __typename
-    }
-    """
-
-    # GraphQL endpoint; note ?op=... is optional but matches what the UI does
-    url = f"http://{host}:{port}/graphql?op=ReloadWorkspaceMutation"
-
-    # For local/unsecured development, these headers are often enough. Adjust as needed for auth.
-    headers = {
-        "content-type": "application/json",
-        "accept": "*/*",
-    }
-
-    payload = {
-        "operationName": "ReloadWorkspaceMutation",
-        "variables": {},
-        "query": graphql_mutation,
-        "Origin": f"http://{host}:{port}",
-        "Referer": f"http://{host}:{port}/deployment/locations",
-        "idempotency-key": str(uuid.uuid4()),
-    }
-
-    response = requests.post(url, headers=headers, json=payload, verify=False)
-    response.raise_for_status()  # Raise exception if the request failed at the HTTP level
-
-    return response.json()
-
-
-def reload_code_location(host: str, port: int, location_name: str) -> dict:
-    """
-    Sends a GraphQL mutation to the Dagster webserver to reload the specified repository location.
-
-    :param host: The hostname or IP of the Dagster webserver (e.g. 'localhost', '100.#.#.#').
-    :param port: The port the webserver is running on (e.g. 9786).
-    :param location_name: The code location name to reload.
-    :return: The JSON response from the Dagster webserver.
-    """
-    graphql_mutation = """
-    mutation ReloadRepositoryLocationMutation($location: String!) {
-      reloadRepositoryLocation(repositoryLocationName: $location) {
-        ... on WorkspaceLocationEntry {
-          id
+      ... on Workspace {
+        locationEntries {
+          name
           loadStatus
           locationOrLoadError {
-            ... on RepositoryLocation {
-              id
-              __typename
-            }
-            ...PythonErrorFragment
             __typename
+            ... on RepositoryLocation {
+              repositories {
+                name
+              }
+            }
+            ... on PythonError {
+              message
+            }
           }
-          __typename
         }
-        ... on UnauthorizedError {
-          message
-          __typename
-        }
-        ... on ReloadNotSupported {
-          message
-          __typename
-        }
-        ... on RepositoryLocationNotFound {
-          message
-          __typename
-        }
-        ...PythonErrorFragment
-        __typename
       }
-    }
-
-    fragment PythonErrorFragment on PythonError {
-      message
-      stack
-      errorChain {
-        ...PythonErrorChain
-        __typename
-      }
-      __typename
-    }
-
-    fragment PythonErrorChain on ErrorChainLink {
-      isExplicitLink
-      error {
+      ... on UnauthorizedError {
         message
-        stack
-        __typename
       }
-      __typename
-    }
-    """
+      ... on PythonError {
+        message
+      }
+   }
+}
+"""
 
-    variables = {"location": location_name}
-    url = f"http://{host}:{port}/graphql?op=ReloadRepositoryLocationMutation"
-    headers = {
-        "content-type": "application/json",
-        "accept": "*/*",
-        "Origin": f"http://{host}:{port}",
-        "Referer": f"http://{host}:{port}/deployment/locations",
-        "idempotency-key": str(uuid.uuid4()),
-    }
-    payload = {
-        "operationName": "ReloadRepositoryLocationMutation",
-        "variables": variables,
-        "query": graphql_mutation,
-    }
-    response = requests.post(url, headers=headers, json=payload, verify=False)
-    response.raise_for_status()
-    return response.json()
+
+def reload_workspace_standard(
+    host: Optional[str] = None, port: Optional[int] = None
+) -> ReloadWorkspaceInfo:
+    """
+    Reloads the entire Dagster workspace, which reloads all repository locations.
+
+    This follows the same pattern as reload_repository_location from the DagsterGraphQLClient.
+
+    Args:
+        host: The hostname or IP of the Dagster webserver
+        port: The port the webserver is running on
+
+    Returns:
+        ReloadWorkspaceInfo: Object with information about the result of the reload request
+    """
+    import os
+
+    if host is None:
+        host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
+    if port is None:
+        port = int(os.environ.get("DAGSTER_WEBSERVER_PORT", 3000))
+
+    client = get_client(host, port)
+
+    try:
+        res_data = client._execute(RELOAD_WORKSPACE_MUTATION)
+        query_result = res_data["reloadWorkspace"]
+        query_result_type = query_result["__typename"]
+
+        if query_result_type == "Workspace":
+            # Check if any location entries have errors
+            location_entries = query_result.get("locationEntries", [])
+            failed_locations = []
+
+            for entry in location_entries:
+                location_or_error = entry.get("locationOrLoadError", {})
+                if location_or_error.get("__typename") == "PythonError":
+                    failed_locations.append(
+                        {
+                            "name": entry.get("name"),
+                            "error": location_or_error.get("message"),
+                        }
+                    )
+
+            if failed_locations:
+                return ReloadWorkspaceInfo(
+                    status=ReloadWorkspaceStatus.FAILURE,
+                    failure_type="PartialFailure",
+                    message=f"Some locations failed to reload: {failed_locations}",
+                )
+            else:
+                return ReloadWorkspaceInfo(status=ReloadWorkspaceStatus.SUCCESS)
+
+        elif query_result_type == "UnauthorizedError":
+            return ReloadWorkspaceInfo(
+                status=ReloadWorkspaceStatus.FAILURE,
+                failure_type="UnauthorizedError",
+                message=query_result["message"],
+            )
+        elif query_result_type == "PythonError":
+            return ReloadWorkspaceInfo(
+                status=ReloadWorkspaceStatus.FAILURE,
+                failure_type="PythonError",
+                message=query_result["message"],
+            )
+        else:
+            return ReloadWorkspaceInfo(
+                status=ReloadWorkspaceStatus.FAILURE,
+                failure_type=query_result_type,
+                message=query_result.get("message", "Unknown error"),
+            )
+
+    except Exception as e:
+        return ReloadWorkspaceInfo(
+            status=ReloadWorkspaceStatus.FAILURE,
+            failure_type="ClientError",
+            message=str(e),
+        )
+
+
+def reload_workspace(host: str, port: int) -> bool:
+    """
+    Reloads the entire Dagster workspace, which reloads all repository locations.
+
+    Args:
+        host: The hostname or IP of the Dagster webserver
+        port: The port the webserver is running on
+
+    Returns:
+        True if the reload was successful, False otherwise
+    """
+    info = reload_workspace_standard(host, port)
+    return info.status == ReloadWorkspaceStatus.SUCCESS
 
 
 if __name__ == "__main__":
     import os
 
     # Example usage:
-    host = os.environ.get("DAGSTER_WEBSERVER_HOST", "172.16.2.235")
-    port = int(os.environ.get("DAGSTER_WEBSERVER_PORT", 9300))
+    host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
+    port = int(os.environ.get("DAGSTER_WEBSERVER_PORT", 3000))
     location_to_reload = "dagster_kielsa_gf"
 
     try:

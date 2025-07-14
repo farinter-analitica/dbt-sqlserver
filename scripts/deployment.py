@@ -4,14 +4,10 @@ import sys
 import subprocess
 import platform
 import argparse
-import shutil
 
 # Minimum Python version for running this script
 REQUIRED_MAJOR = 3
 REQUIRED_MINOR = 11
-DEFAULT_PYTHON_VERSION = f"{REQUIRED_MAJOR}.{REQUIRED_MINOR}"
-CARGO_BIN_DIR = os.path.expanduser("~/.local/bin")
-CARGO_UV_BIN = os.path.join(CARGO_BIN_DIR, "uv")
 
 # List of private repositories for SSH deploy key management
 PRIVATE_REPOS_TO_SSH = [
@@ -47,187 +43,9 @@ def run_cmd(
         ) from e
 
 
-def get_uv_command() -> str:
-    """Get the uv command, preferring the one in PATH, else using the saved CARGO_UV_BIN."""
-    return (
-        "uv"
-        if shutil.which("uv")
-        else CARGO_UV_BIN + ".exe"
-        if platform.system() == "Windows"
-        else CARGO_UV_BIN
-    )
-
-
-###############################################################################
-# uv Integration Functions
-###############################################################################
-
-
-def install_uv_standalone(reinstall: bool = False):
-    """
-    Install uv using its standalone installer only if it is not already installed.
-    This installs uv to ~/.cargo/bin and updates PATH accordingly.
-    """
-    exit = False
-    if shutil.which("uv"):
-        print("uv is already installed, skipping installation.")
-        exit = True
-
-    if exit and not reinstall:
-        return
-
-    print("uv not installed or reinstall requested. Proceeding with installation...")
-
-    # Create cargo bin directory if it doesn't exist
-    try:
-        os.makedirs(CARGO_BIN_DIR, exist_ok=True)
-    except Exception as e:
-        print(f"Ignored error creating cargo bin directory: {e}")
-
-    if platform.system() == "Linux":
-        # Add cargo_bin to PATH if not already there
-        if CARGO_UV_BIN not in os.environ.get("PATH", ""):
-            os.environ["PATH"] = (
-                f"{CARGO_UV_BIN}{os.pathsep}{os.environ.get('PATH', '')}"
-            )
-        run_cmd(
-            ["bash", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
-            error_msg="Failed to install uv",
-            capture=False,
-        )
-        run_cmd(
-            ["bash", "-c", "source ~/.bashrc"],
-            error_msg="Failed to source .bashrc",
-            capture=False,
-        )
-
-    elif platform.system() == "Windows":
-        run_cmd(
-            ["powershell", "-Command", "irm https://astral.sh/uv/install.ps1 | iex"],
-            error_msg="Failed to install uv",
-            capture=False,
-        )
-
-
-def get_python_version_from_config(deploy_dir: str) -> str:
-    """
-    Extract Python version from pyproject.toml.
-    Returns the required version (defaulting to DEFAULT_PYTHON_VERSION if not found).
-    """
-    pyproject_file = os.path.join(deploy_dir, "pyproject.toml")
-    try:
-        with open(pyproject_file, "rb") as f:
-            import tomllib  # Requires Python 3.11+
-
-            pyproject_data = tomllib.load(f)
-            required_version = (
-                pyproject_data.get("tool", {})
-                .get("main_dagster", {})
-                .get("python_version", DEFAULT_PYTHON_VERSION)
-            )
-            return required_version
-    except Exception as e:
-        print(f"Error reading Python version from config: {e}")
-        return DEFAULT_PYTHON_VERSION
-
-
-def manage_python_and_venv(
-    deploy_dir: str, venv_dir: str, required_version: str
-) -> tuple[str, str]:
-    """
-    Unified Python version and virtual environment management using uv.
-    Installs the required Python version, removes any existing venv,
-    and creates a new virtual environment using uv.
-    Returns the venv directory and the path to the new Python binary.
-    """
-    print(f"Installing Python {required_version} using uv...")
-
-    # Check if uv is in PATH, otherwise use the saved CARGO_UV_BIN path
-    uv_command = get_uv_command()
-
-    # Install the required Python
-    run_cmd(
-        [uv_command, "python", "install", required_version],
-        error_msg=f"Failed to install Python {required_version}",
-        capture=False,
-    )
-
-    print("Creating virtual environment using uv...")
-    run_cmd(
-        [uv_command, "venv", "-p", required_version, venv_dir],
-        error_msg="Failed to create virtual environment",
-        capture=False,
-    )
-
-    # Manually re-mark the venv as active by setting VIRTUAL_ENV
-    os.environ["VIRTUAL_ENV"] = venv_dir
-
-    bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
-    python_path = os.path.join(venv_dir, bin_dir, "python")
-    return venv_dir, python_path
-
-
-def install_deps_uv(
-    venv_dir: str, deploy_dir: str, dev: bool = False, only_external: bool = False
-):
-    """
-    Install dependencies using uv.
-    - Installs foundation packages and local packages (with optional dev flag).
-    - When only_external is True, attempts to install external dependencies.
-    """
-    # Check if uv is in PATH, otherwise use the saved CARGO_UV_BIN path
-    uv_command = get_uv_command()
-
-    if not only_external:
-        print("Installing core dependencies...")
-        sync_cmd = [uv_command, "sync"]
-
-        if not dev:
-            sync_cmd.append("--locked")
-            sync_cmd.append("--no-dev")
-            sync_cmd.append("--inexact")
-
-        run_cmd(
-            sync_cmd,
-            error_msg="Dagster deps installation failed",
-            capture=False,
-            cwd=deploy_dir,
-        )
-
-    if only_external:
-        print("\nAttempting to install external dependencies...")
-        try:
-            sync_cmd = [uv_command, "sync", "--extra", "external", "--inexact"]
-            if not dev:
-                sync_cmd.append("--locked")
-            run_cmd(
-                sync_cmd,
-                error_msg="External dependency installation",
-                capture=False,
-                cwd=deploy_dir,
-            )
-            print("✅ External dependencies installed successfully")
-        except RuntimeError as e:
-            print(f"⚠️ External dependencies could not be installed: {e}")
-            print("The system will continue to function without these dependencies.")
-
-
 ###############################################################################
 # Legacy Environment & SSH Management (Backwards Compatible)
 ###############################################################################
-
-
-def check_vars():
-    """Ensure required environment variables are provided."""
-    for var in ["ENV", "DEPLOY_DIR"]:
-        if not os.environ.get(var):
-            sys.exit(f"Error: {var} must be explicitly provided (e.g., {var}=value).")
-
-
-def check_os():
-    """Ensure the script is running on Linux (for deployment targets)."""
-    if platform.system() != "Linux":
-        sys.exit("This deployment procedure is intended for Linux systems only.")
 
 
 def manage_services(env: str, action: str = "restart"):
@@ -244,23 +62,6 @@ def manage_services(env: str, action: str = "restart"):
     )
 
 
-def generate_service(python_bin: str, deploy_dir: str):
-    """Regenerate service templates (full deployment only)."""
-    print("Generating service template...")
-    cmd = [
-        "sudo",
-        python_bin,
-        os.path.join(deploy_dir, "scripts", "generate_dagster_service.py"),
-    ]
-    try:
-        output = run_cmd(cmd)
-        if output:
-            sys.stdout.write(output)
-    except RuntimeError as e:
-        raise Exception(f"Error executing command: {' '.join(cmd)}\n{e}") from e
-
-
-# SSH deploy key management functions remain largely unchanged for backward compatibility.
 def check_deploy_key(repo_name="algoritmos-gf"):
     """Check if a deploy key exists for the specified repository."""
     home_dir = os.path.expanduser("~")
@@ -517,273 +318,28 @@ def setup_deploy_keys(
     return True
 
 
-def setup_git(python_path: str) -> bool:
-    """
-    Automate Git configuration for commit templates and pre-commit hooks using uv.
-    This version replaces direct pip commands with uv equivalents and handles cases
-    where uv isn't in the PATH.
-    """
-    print("Configuring Git commit template and pre-commit hooks...")
-    template_path = os.path.join("templates", "commit-template.git.txt")
-
-    # Check if uv is in PATH, otherwise use the saved CARGO_UV_BIN path
-    uv_command = get_uv_command()
-
-    try:
-        # Verify Git is available and set commit template
-        run_cmd(["git", "--version"], error_msg="Git not found")
-        run_cmd(
-            ["git", "config", "commit.template", template_path],
-            error_msg="Failed to set Git commit template",
-        )
-        print("Git commit template configured successfully.")
-
-        # Use uv to check if pre-commit is installed; install if missing
-        try:
-            run_cmd(
-                [uv_command, "pip", "show", "pre-commit"],
-                error_msg="Pre-commit not found",
-            )
-        except RuntimeError:
-            print("Installing pre-commit via uv...")
-            run_cmd(
-                [uv_command, "pip", "install", "pre-commit"],
-                error_msg="Failed to install pre-commit",
-            )
-
-        # Determine the pre-commit binary from the uv-managed venv
-        # Assuming the pre-commit binary is in the same bin directory as the current interpreter.
-        precommit_bin = os.path.join(os.path.dirname(python_path), "pre-commit")
-
-        # Add .exe extension on Windows
-        if platform.system() == "Windows" and not precommit_bin.endswith(".exe"):
-            precommit_bin += ".exe"
-
-        print("Installing pre-commit hooks...")
-        run_cmd(
-            [precommit_bin, "install"], error_msg="Failed to install pre-commit hooks"
-        )
-        print("Pre-commit hooks installed successfully.")
-    except RuntimeError as e:
-        print(f"Error setting up Git environment: {e}")
-        return False
-    return True
-
-
-def set_deployment_vars() -> tuple[str, str, str, str, str]:
-    """
-    Set deployment variables based on the environment and local context.
-    Reads 'ENV' and 'DEPLOY_DIR' from environment variables, then computes:
-      - deploy_dir: absolute path of DEPLOY_DIR
-      - venv_dir: deployment directory + ".venv"
-      - python_path: path to the Python executable in the virtual environment
-      - pip_path: path to the pip executable in the virtual environment
-    Also sets the VIRTUAL_ENV and PYTHONPATH environment variables.
-
-    Returns:
-        env, deploy_dir, venv_dir, python_path, pip_path
-    """
-    env = os.environ.get("ENV", "dev")
-    deploy_dir_env = os.environ.get("DEPLOY_DIR", os.environ.get("DAGSTER_HOME"))
-    if not deploy_dir_env:
-        raise ValueError("DEPLOY_DIR environment variable is not set.")
-    deploy_dir = os.path.abspath(deploy_dir_env)
-    venv_dir = os.path.join(deploy_dir, ".venv")
-    bin_dir = "Scripts" if platform.system() == "Windows" else "bin"
-    python_path = os.path.join(venv_dir, bin_dir, "python")
-    pip_path = os.path.join(venv_dir, bin_dir, "pip")
-
-    # Set environment variables for uv and module resolution
-    os.environ["VIRTUAL_ENV"] = venv_dir
-    os.environ["PYTHONPATH"] = python_path
-
-    print(f"Deploy dir: {deploy_dir}")
-    print(f"Venv dir: {venv_dir}")
-    print(f"Python bin: {python_path}")
-    print(f"Pip bin: {pip_path}")
-
-    return env, deploy_dir, venv_dir, python_path, pip_path
-
-
 def reload_code_locations():
     """
     Reload all Dagster code locations by sending the ReloadWorkspaceMutation GraphQL mutation.
     This is equivalent to pressing the "Reload all" button in the Dagster web UI.
     """
-    try:
-        import requests
-        import os
+    import warnings
 
-        graphql_mutation = """
-        mutation ReloadWorkspaceMutation {
-          reloadWorkspace {
-            ... on Workspace {
-              id
-              locationEntries {
-                name
-                id
-                loadStatus
-                locationOrLoadError {
-                  ... on RepositoryLocation {
-                    id
-                    repositories {
-                      id
-                      name
-                      pipelines {
-                        id
-                        name
-                        __typename
-                      }
-                      __typename
-                    }
-                    __typename
-                  }
-                  ...PythonErrorFragment
-                  __typename
-                }
-                __typename
-              }
-              __typename
-            }
-            ...UnauthorizedErrorFragment
-            ...PythonErrorFragment
-            __typename
-          }
-        }
+    warnings.filterwarnings("ignore")
+    from dagster_shared_gf.shared_dagster_api import reload_workspace
 
-        fragment UnauthorizedErrorFragment on UnauthorizedError {
-          message
-          __typename
-        }
-
-        fragment PythonErrorFragment on PythonError {
-          message
-          stack
-          errorChain {
-            ...PythonErrorChain
-            __typename
-          }
-          __typename
-        }
-
-        fragment PythonErrorChain on ErrorChainLink {
-          isExplicitLink
-          error {
-            message
-            stack
-            __typename
-          }
-          __typename
-        }
-        """
-
-        host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
-        port = int(
-            os.environ.get(
-                "DAGSTER_WEBSERVER_PORT", os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)
-            )
+    host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
+    port = int(
+        os.environ.get(
+            "DAGSTER_WEBSERVER_PORT", os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)
         )
-
-        url = f"http://{host}:{port}/graphql?op=ReloadWorkspaceMutation"
-        headers = {
-            "content-type": "application/json",
-            "accept": "*/*",
-        }
-        payload = {
-            "operationName": "ReloadWorkspaceMutation",
-            "variables": {},
-            "query": graphql_mutation,
-        }
-
-        response = requests.post(url, headers=headers, json=payload, verify=False)
-        response.raise_for_status()
-        result = response.json()
-        print("Reload Workspace Response:", result)
-        print("All code locations reloaded successfully.")
-        return True
-
-    except ImportError as e:
-        print(f"Error: Required package not found: {e}")
-        return False
-    except Exception as e:
-        print(f"Error reloading all code locations: {e}")
-        return False
-
-
-###############################################################################
-# Deployment Functions Using uv
-###############################################################################
-def run_dagster_instance_migrate(python_path: str, deploy_dir: str):
-    """
-    Run 'dagster instance migrate' using the specified Python interpreter.
-    """
-    print("Running 'dagster instance migrate'...")
-    run_cmd(
-        [python_path, "-m", "dagster", "instance", "migrate"],
-        error_msg="Failed to run 'dagster instance migrate'",
-        capture=False,
-        cwd=deploy_dir,
     )
 
+    if not reload_workspace(host, port):
+        print("Failed to reload code locations.")
+        return False
 
-def deploy_continuous():
-    """Perform continuous deployment (code changes only)."""
-    check_vars()
-    check_os()
-    env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
-    print("Performing continuous deployment (code changes only)...")
-    reload_code_locations()
-
-
-def deploy_fast():
-    """Perform fast deployment (dependencies only)."""
-    check_vars()
-    check_os()
-    env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
-    print("Performing fast deployment (dependencies only)...")
-    install_uv_standalone()
-    python_version = get_python_version_from_config(deploy_dir)
-    venv_dir, python_path = manage_python_and_venv(deploy_dir, venv_dir, python_version)
-    install_deps_uv(venv_dir, deploy_dir)
-    setup_deploy_keys()
-    install_deps_uv(venv_dir, deploy_dir, only_external=True)
-    run_dagster_instance_migrate(python_path, deploy_dir)
-    reload_code_locations()
-
-
-def deploy_partial():
-    """Perform partial deployment (update Python and all dependencies)."""
-    check_vars()
-    check_os()
-    env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
-    print("Performing partial deployment (Python + dependencies)...")
-    manage_services(env, action="stop")
-    python_version = get_python_version_from_config(deploy_dir)
-    install_uv_standalone(reinstall=True)
-    venv_dir, python_path = manage_python_and_venv(deploy_dir, venv_dir, python_version)
-    install_deps_uv(venv_dir, deploy_dir)
-    setup_deploy_keys()
-    install_deps_uv(venv_dir, deploy_dir, only_external=True)
-    run_dagster_instance_migrate(python_path, deploy_dir)
-    manage_services(env)
-
-
-def deploy_full():
-    """Perform full deployment (service template, Python, and dependencies)."""
-    check_vars()
-    check_os()
-    env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
-    print("Performing full deployment (service template, Python, and dependencies)...")
-    manage_services(env, action="stop")
-    install_uv_standalone(reinstall=True)
-    python_version = get_python_version_from_config(deploy_dir)
-    venv_dir, python_path = manage_python_and_venv(deploy_dir, venv_dir, python_version)
-    install_deps_uv(venv_dir, deploy_dir)
-    setup_deploy_keys()
-    install_deps_uv(venv_dir, deploy_dir, only_external=True)
-    generate_service(python_path, deploy_dir)
-    run_dagster_instance_migrate(python_path, deploy_dir)
-    manage_services(env)
+    return True
 
 
 ###############################################################################
@@ -798,16 +354,11 @@ def main():
     parser.add_argument(
         "command",
         choices=[
-            "deploy-full",
-            "deploy-partial",
-            "deploy-fast",
-            "deploy-continuous",
-            "install-deps",
-            "setup-git",
             "check-deploy-key",
             "setup-deploy-key",
             "test-deploy-key",
             "reload-code-locations",
+            "manage-services",
         ],
         help="Deployment command to run",
     )
@@ -818,18 +369,17 @@ def main():
     parser.add_argument(
         "--force", action="store_true", help="Force creation of new deploy key"
     )
-    parser.add_argument(
-        "--only-external",
-        action="store_true",
-        help="Only install external dependencies",
-    )
-    parser.add_argument(
-        "--dev", action="store_true", help="Install development dependencies"
-    )
     parser.add_argument("--test", action="store_true", help="Test the deploy key")
+    parser.add_argument("--env", help="Environment to manage")
+    parser.add_argument(
+        "--action",
+        default="start",
+        choices=["start", "stop", "restart", "status"],
+        help="Action to perform on services",
+    )
+    parser.add_argument("--dev", action="store_true", help="Development mode")
     args = parser.parse_args()
 
-    env, deploy_dir, venv_dir, python_path, pip_path = set_deployment_vars()
     if args.command == "check-deploy-key":
         key_exists, key_path, pub_key = check_deploy_key(args.repo)
         if key_exists:
@@ -847,23 +397,16 @@ def main():
             setup=True,
             test=args.test or False,
             force_new=args.force,
+            dev=args.dev,
         )
     elif args.command == "test-deploy-key":
         return setup_deploy_keys(
-            args.repo, args.org, setup=False, test=True, force_new=False
+            args.repo, args.org, setup=False, test=True, force_new=False, dev=args.dev
         )
-    elif args.command == "install-deps":
-        install_deps_uv(
-            venv_dir, deploy_dir, dev=args.dev, only_external=args.only_external
-        )
-    elif args.command == "setup-git":
-        setup_git(python_path)
+    elif args.command == "manage-services":
+        return manage_services(env=args.env, action=args.action)
     else:
         commands = {
-            "deploy-full": deploy_full,
-            "deploy-partial": deploy_partial,
-            "deploy-fast": deploy_fast,
-            "deploy-continuous": deploy_continuous,
             "reload-code-locations": reload_code_locations,
         }
         try:

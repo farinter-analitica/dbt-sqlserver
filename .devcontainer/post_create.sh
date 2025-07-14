@@ -34,8 +34,6 @@ fi
 
 echo "Permisos ajustados correctamente."
 
-
-
 # ——————————————————————————————
 # Inicio del setup de entorno de desarrollo
 # ——————————————————————————————
@@ -53,43 +51,14 @@ fi
 echo "🚀 Iniciando setup del entorno de desarrollo..."
 echo "DAGSTER_HOME = $DAGSTER_HOME"
 echo "VIRTUAL_ENV = $VIRTUAL_ENV"
+export DEPLOY_DIR="$DAGSTER_HOME"
 
-# Instalar uv si falta
-if ! command -v uv &> /dev/null; then
-  echo "Instalando uv standalone..."
-  mkdir -p ~/.local/bin
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  # Actualizar el PATH para la sesión actual
-  export PATH="$HOME/.local/bin:$PATH"
-else
-  echo "uv ya está instalado, omitiendo."
-fi
+. "./scripts/deployment.sh" install-deps --local
 
 echo 'eval "$(uv generate-shell-completion bash)"' >> ~/.bashrc
 echo 'eval "$(uvx --generate-shell-completion bash)"' >> ~/.bashrc
 echo 'eval "$(uv generate-shell-completion zsh)"' >> ~/.zshrc
 echo 'eval "$(uvx --generate-shell-completion zsh)"' >> ~/.zshrc
-
-# Instalar dependencias core
-echo "📥 Instalando dependencias core con uv..."
-uv sync
-echo "✅ Dependencias core instaladas."
-
-# Actualizar path de binarios python
-if [[ ":$PATH:" != *":$VIRTUAL_ENV/bin:"* ]]; then
-  export PATH="$VIRTUAL_ENV/bin:$PATH"
-fi
-
-# Activar el virtualenv
-source $VIRTUAL_ENV/bin/activate
-
-# Configurar claves SSH de deploy para repos privados
-uv run --frozen ./scripts/deployment.py setup-deploy-key --test
-
-# Instalar dependencias externas
-echo "📥 Instalando dependencias externas con uv..."
-uv sync --extra external --inexact --locked
-echo "✅ Dependencias externas instaladas."
 
 # Configurar Git (commit template + pre-commit)
 echo "⚙️ Configurando entorno Git y pre-commit..."
