@@ -145,10 +145,10 @@ export ENV=dev
 export DEPLOY_DIR=/path/to/deployment
 
 # Ejecutar el tipo de despliegue deseado
-python scripts/deployment.py deploy-full
-python scripts/deployment.py deploy-partial
-python scripts/deployment.py deploy-fast
-python scripts/deployment.py deploy-continuous
+bash scripts/deployment.sh deploy-full
+bash scripts/deployment.sh deploy-partial
+bash scripts/deployment.sh deploy-fast
+bash scripts/deployment.sh deploy-continuous
 ```
 
 El nuevo sistema utiliza `uv` para gestionar versiones de Python y dependencias, lo que proporciona instalaciones más rápidas y consistentes entre entornos.
