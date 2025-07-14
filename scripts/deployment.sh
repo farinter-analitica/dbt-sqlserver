@@ -96,7 +96,7 @@ manage_services() {
 
 generate_service() {
     echo "Generando template de servicio..."
-    uv run --frozen ./scripts/generate_dagster_service.py
+    sudo uv run --frozen ./scripts/generate_dagster_service.py
 }
 
 run_dagster_instance_migrate() {
