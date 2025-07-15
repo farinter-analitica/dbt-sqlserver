@@ -11,7 +11,7 @@ from dagster_shared_gf.resources.postgresql_resources import db_nocodb_data_gf
 from dagster_shared_gf.shared_functions import (
     get_for_current_env,
     calculate_file_checksum,
-    start_job_by_name,
+    get_current_location_name,
 )
 from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.sling_shared.sling_resources import (
@@ -44,7 +44,8 @@ PARENT_PATH = Path(__file__).parent
 REPLICATION_CONFIG_NAME = ".sling_nocodb_data_gf.yaml"
 
 REPLICATION_CONFIG_PATH = PARENT_PATH / REPLICATION_CONFIG_NAME
-SOURCE_SCHEMAS = ["kielsa", "grupo_farinter"]
+SOURCE_SCHEMAS = ["kielsa", "grupo_farinter", "kielsa_incentivo"]
+TARGET_SCHEMA = "nocodb_data_gf"
 
 
 def get_replication_config_dict(path: Path) -> dict:
@@ -89,7 +90,7 @@ def generate_nocodb_data_gf_sling_yaml():
                 source=source,
                 target=target,
                 defaults=defaults,
-                target_schema="nocodb_data_gf",
+                target_schema=TARGET_SCHEMA,
             )
     except Exception as e:
         logger.error(f"Error generating replication config: {e}")
@@ -104,10 +105,10 @@ def generate_nocodb_data_gf_sling_yaml():
     replication_config=get_replication_config_dict(REPLICATION_CONFIG_PATH),
     dagster_sling_translator=MyDagsterSlingTranslator(
         asset_database="DL_FARINTER",
-        schema_name="nocodb_data_gf",
+        schema_name=TARGET_SCHEMA,
         tags=tags_repo.AutomationDaily,
         automation_condition=automation_daily_delta_2_cron,
-        group_name="nocodb_data_gf",
+        group_name=TARGET_SCHEMA,
     ),
 )
 def nocodb_data_gf(
@@ -128,39 +129,33 @@ def nocodb_data_gf(
         stream=True,
         dagster_sling_translator=MyDagsterSlingTranslator(
             asset_database="DL_FARINTER",
-            schema_name="nocodb_data_gf",
+            schema_name=TARGET_SCHEMA,
         ),
     )
 
 
-nocodb_data_gf_job = dg.define_asset_job(
+@dg.job(
     name="nocodb_data_gf_job",
     tags=tags_repo.Daily | {"by_sensor_job": ""},
-    selection=dg.AssetSelection.groups("nocodb_data_gf"),
+    resource_defs={"sling": MySlingResource(default_mode="full-refresh")},
 )
-
-
-def get_location_name(
-    context: dg.HookContext | dg.OpExecutionContext | dg.AssetExecutionContext,
-) -> str:
-    run = context.instance.get_run_by_id(context.run_id)
-    if run is None:
-        raise ValueError("No se pudo obtener el run")
-    remote_job_origin = run.remote_job_origin
-    if remote_job_origin:
-        return remote_job_origin.repository_origin.code_location_origin.location_name
-    raise ValueError("No se pudo obtener el nombre de la ubicación remota")
+def nocodb_data_gf_job():
+    nocodb_data_gf()
 
 
 @dg.success_hook
 def lanzar_nocodb_data_gf(context: dg.HookContext):
-    start_job_by_name(
-        job_name=nocodb_data_gf_job.name,
-        location_name=get_location_name(context),
+    # start_job_by_name(
+    #     job_name=nocodb_data_gf_job.name,
+    #     location_name=get_location_name(context),
+    # )
+    nocodb_data_gf_job_recon = dg.reconstructable(
+        nocodb_data_gf_job,
     )
+    dg.execute_job(job=nocodb_data_gf_job_recon, instance=context.instance)
 
 
-@dg.op
+@dg.op(tags=tags_repo.Disparado)
 def nocodb_data_reload_op(context: dg.OpExecutionContext):
     if os.path.exists(REPLICATION_CONFIG_PATH):
         hash_actual = calculate_file_checksum(REPLICATION_CONFIG_PATH)
@@ -172,8 +167,8 @@ def nocodb_data_reload_op(context: dg.OpExecutionContext):
         context.log.info("Replication config changed, reloading code location")
         reload_code_location(
             host="localhost",
-            port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 9300)),
-            location_name=get_location_name(context),
+            port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)),
+            location_name=get_current_location_name(context),
         )
         context.log.info("Reloaded code location, checking nocodb schema triggers")
         for schema in SOURCE_SCHEMAS:
@@ -182,19 +177,17 @@ def nocodb_data_reload_op(context: dg.OpExecutionContext):
                 db_nocodb_data_gf=db_nocodb_data_gf,
                 schema_name=schema,
             )
+    context.log.info("Replication config is up to date, no reload needed")
 
 
-nocodb_data_reload_asset = dg.AssetsDefinition.from_op(
-    nocodb_data_reload_op,
-    key_prefix="mantenimiento",
-)
-
-nocodb_data_gf_reload_job = dg.define_asset_job(
+@dg.job(
     name="nocodb_data_gf_reload_job",
     tags=tags_repo.Daily | {"by_sensor_job": ""},
-    selection=dg.AssetSelection.assets(nocodb_data_reload_asset),
     hooks={lanzar_nocodb_data_gf},
+    resource_defs={"sling": MySlingResource(default_mode="full-refresh")},
 )
+def nocodb_data_gf_reload_job():
+    nocodb_data_reload_op()
 
 
 @dg.sensor(
@@ -274,8 +267,11 @@ if __name__ == "__main__":
 
     # Determine what to test based on command line argument
     test_mode = "asset"  # Default to testing the asset
-    if len(sys.argv) > 1 and sys.argv[1] == "sensor":
-        test_mode = "sensor"
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "sensor":
+            test_mode = "sensor"
+        elif sys.argv[1] == "job":
+            test_mode = "job"
 
     with instance_for_test() as instance:
         if test_mode == "asset":
@@ -293,6 +289,15 @@ if __name__ == "__main__":
                 resources={"sling": MySlingResource(default_mode="full-refresh")},
             )
             print(result.all_events)
+        elif test_mode == "job":
+            print("Testing nocodb_data_gf_reload_job execution...")
+
+            result = nocodb_data_gf_reload_job.execute_in_process(
+                instance=instance,
+                # resources={"sling": MySlingResource(default_mode="full-refresh")},
+            )
+            print(result.success)
+            print(result.events_for_node("nocodb_data_reload_op"))
         else:
             print("Testing sensor evaluation...")
             # Create a sensor context
