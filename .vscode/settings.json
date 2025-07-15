@@ -13,5 +13,10 @@
     },
     "[jinja-sql]": {
         "editor.defaultFormatter": "dorzey.vscode-sqlfluff"
-    }
+    },
+    "github.copilot.chat.commitMessageGeneration.instructions": [
+        {
+            "file": "templates/commit-template.git.txt",
+        }
+    ],
 }

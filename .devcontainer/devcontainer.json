@@ -24,7 +24,8 @@
 				"innoverio.vscode-dbt-power-user",
 				"vscode.git",
 				"ms-toolsai.jupyter",
-				"ms-toolsai.datawrangler"
+				"ms-toolsai.datawrangler",
+				"dorzey.vscode-sqlfluff"
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "./.venv/bin/python",
