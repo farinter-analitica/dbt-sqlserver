@@ -270,7 +270,7 @@ def obtener_efectividad_dotacion_planificada(
     key_prefix=("IA_FARINTER", "dbo"),
     description="Datos combinados de dotación de personal: empleados asignados vs marcaciones reales por hora y sucursal.",
     group_name="dotacion_personal",
-    tags=tags_repo.AutomationWeekly1,
+    tags=tags_repo.AutomationWeekly1 | tags_repo.AutomationOnly,
     deps=[
         dg.AssetKey(("BI_FARINTER", "dbo", "BI_Kielsa_Hecho_RelojMarcador")),
         dg.AssetKey(("BI_FARINTER", "dbo", "BI_Kielsa_Dim_Sucursal_Horario_DiaSemana")),

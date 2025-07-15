@@ -26,16 +26,16 @@ def test_all_assets_automated():
     # all_assets = list(asset_spec.key for asset_spec in defs.get_all_asset_specs())
     for asset_spec in defs.get_all_asset_specs():
         if (
-            defs.get_assets_def(asset_spec.key).execution_type
+            defs.resolve_assets_def(asset_spec.key).execution_type
             == AssetExecutionType.MATERIALIZATION
         ):
             all_assets_specs.add(asset_spec.key)
-            if (
-                asset_spec.automation_condition
-                or tags_repo.DetenerCarga.key in asset_spec.tags
+            if any(
+                tag_no_auto.key in asset_spec.tags
+                for tag_no_auto in tags_repo.get_unselected_for_jobs_tags()
             ):
                 all_auto_stop_assets_specs.add(asset_spec.key)
-        # print(defs.get_assets_def(asset_spec.key).execution_type)
+        # print(defs.resolve_assets_def(asset_spec.key).execution_type)
     print("All assets: ", str(len(all_assets_specs)))
 
     # print(all_assets)
@@ -54,7 +54,7 @@ def test_all_assets_automated():
                 materialized_assets = {
                     asset_key
                     for asset_key in job_def.asset_selection
-                    if defs.get_assets_def(asset_key).execution_type
+                    if defs.resolve_assets_def(asset_key).execution_type
                     == AssetExecutionType.MATERIALIZATION
                 }
                 job_auto_stop_assigned_assets.update(materialized_assets)
@@ -68,7 +68,7 @@ def test_all_assets_automated():
             materialized_assets = {
                 asset_key
                 for asset_key in resolved_assets
-                if defs.get_assets_def(asset_key).execution_type
+                if defs.resolve_assets_def(asset_key).execution_type
                 == AssetExecutionType.MATERIALIZATION
             }
             job_auto_stop_assigned_assets.update(materialized_assets)
@@ -84,12 +84,17 @@ def test_all_assets_automated():
         Job, auto or stopped assigned assets: {str(len(job_auto_stop_assigned_assets))}
         Non-job, auto or stopped assigned assets: {str(len(non_job_assigned_assets))}
         """
+    # for asset_key in non_job_assigned_assets:
+    #     asset_spec = next((a for a in defs.get_all_asset_specs() if a.key == asset_key), None)
+    #     print(f"Asset: {asset_key}, \
+    #           tags: {getattr(asset_spec, 'tags', None)}, \
+    #           execution type: {defs.resolve_assets_def(asset_key).execution_type}, \
+    #           atr status: {defs.resolve_assets_def(asset_key).automation_conditions_by_key.get(asset_key, '')[:50]}")
+
     assert len(non_job_assigned_assets) == 0, assert_message
 
     # Print non-job assigned assets
     # print("Non-job assigned assets:")
-    # for asset_key in non_job_assigned_assets:
-    #     print(asset_key)
 
     # print(asset_key.metadata for asset_key in defs.get_all_asset_specs() if asset_key in non_job_assigned_assets)
     # Optionally, define a job with the non-job assigned assets for testing purposes

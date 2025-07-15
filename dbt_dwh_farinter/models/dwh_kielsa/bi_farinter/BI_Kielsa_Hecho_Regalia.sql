@@ -12,7 +12,7 @@ regla_incentivo as (
     select * from (values
         (1, 1, '2020-01-01', '9999-12-31', 15, 0, 1),   -- Honduras
         (2, 5, '2020-01-01', '9999-12-31', 0.75, 1, 0)  -- El Salvador
-    ) as t(Regla_Id, Emp_Id, Fecha_Desde, Fecha_Hasta, Incentivo_Default, Aplica_Por_Rol, Aplica_Solo_No_Marca_Propia)
+    ) as t(Regla_Id, Emp_Id, Fecha_Desde, Fecha_Hasta, Valor_Predeterminado, Aplica_Por_Part, Excluir_Marca_Propia)
 ),
 -- Incentivo por casa
 regla_incentivo_casa as (
@@ -62,9 +62,9 @@ regalia_con_regla as (
         a.Casa_Id,
         v.Rol,
         ri.Regla_Id,
-        ri.Incentivo_Default,
-        ri.Aplica_Por_Rol,
-        ri.Aplica_Solo_No_Marca_Propia
+        ri.Valor_Predeterminado,
+        ri.Aplica_Por_Part,
+        ri.Excluir_Marca_Propia
     from regalia_detalle rd
     left join articulos a
         on rd.Emp_Id = a.Emp_Id and rd.Articulo_Padre_Id = a.Articulo_Id
@@ -91,6 +91,15 @@ regalia_con_rol as (
     from regalia_con_casa rcc
     left join regla_incentivo_rol rir
         on rcc.Regla_Id = rir.Regla_Id and rcc.Rol = rir.Rol
+),
+roles as (
+    select distinct
+        Rol_iD,
+        Emp_Id,
+        Rol_Nombre
+    from {{ source('DL_FARINTER', 'DL_Kielsa_Seg_Rol') }} rcr
+    inner join regla_incentivo_rol rir
+        on rcr.Rol_Nombre = rir.Rol
 )
 
 SELECT
@@ -136,23 +145,23 @@ SELECT
     
     -- Lógica de incentivo
     case
-        when Aplica_Solo_No_Marca_Propia = 1 and coalesce(Bit_Marca_Propia, 0) = 1 then 0
+        when Excluir_Marca_Propia = 1 and coalesce(Bit_Marca_Propia, 0) = 1 then 0
         else 1
     end as Regalia_Aplica_Incentivo,
     case
         -- Si no aplica incentivo, es 0
-        when (Aplica_Solo_No_Marca_Propia = 1 and coalesce(Bit_Marca_Propia, 0) = 1) then 0.0
+        when (Excluir_Marca_Propia = 1 and coalesce(Bit_Marca_Propia, 0) = 1) then 0.0
         -- Si aplica por rol, multiplica por Part_Rol
-        when Aplica_Por_Rol = 1
-            then coalesce(Incentivo_Casa, Incentivo_Default) * coalesce(Part_Rol, 0.0)
+        when Aplica_Por_Part = 1
+            then coalesce(Incentivo_Casa, Valor_Predeterminado) * coalesce(Part_Rol, 0.0)
         -- Si NO aplica por rol, solo el incentivo por casa o default
-        else coalesce(Incentivo_Casa, Incentivo_Default)
+        else coalesce(Incentivo_Casa, Valor_Predeterminado)
     end as Regalia_Valor_Incentivo_Unitario,
     case
-        when (Aplica_Solo_No_Marca_Propia = 1 and coalesce(Bit_Marca_Propia, 0) = 1) then 0.0
-        when Aplica_Por_Rol = 1
-            then Cantidad_Padre * (coalesce(Incentivo_Casa, Incentivo_Default) * coalesce(Part_Rol, 0.0))
-        else Cantidad_Padre * coalesce(Incentivo_Casa, Incentivo_Default)
+        when (Excluir_Marca_Propia = 1 and coalesce(Bit_Marca_Propia, 0) = 1) then 0.0
+        when Aplica_Por_Part = 1
+            then Cantidad_Padre * (coalesce(Incentivo_Casa, Valor_Predeterminado) * coalesce(Part_Rol, 0.0))
+        else Cantidad_Padre * coalesce(Incentivo_Casa, Valor_Predeterminado)
     end as Regalia_Valor_Incentivo_Total,
 
     -- Audit Fields

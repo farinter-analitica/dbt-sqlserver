@@ -26,7 +26,7 @@ def test_all_assets_assigned_to_a_job():
     # all_assets = list(asset_spec.key for asset_spec in defs.get_all_asset_specs())
     for asset_spec in defs.get_all_asset_specs():
         if (
-            defs.get_assets_def(asset_spec.key).execution_type
+            defs.resolve_assets_def(asset_spec.key).execution_type
             == AssetExecutionType.MATERIALIZATION
         ):
             all_assets_specs.add(asset_spec.key)
@@ -35,7 +35,7 @@ def test_all_assets_assigned_to_a_job():
                 or tags_repo.DetenerCarga.key in asset_spec.tags
             ):
                 all_auto_stop_assets_specs.add(asset_spec.key)
-        # print(defs.get_assets_def(asset_spec.key).execution_type)
+        # print(defs.resolve_assets_def(asset_spec.key).execution_type)
     print("All assets: ", str(len(all_assets_specs)))
 
     # print(all_assets)
@@ -54,7 +54,7 @@ def test_all_assets_assigned_to_a_job():
                 materialized_assets = {
                     asset_key
                     for asset_key in job_def.asset_selection
-                    if defs.get_assets_def(asset_key).execution_type
+                    if defs.resolve_assets_def(asset_key).execution_type
                     == AssetExecutionType.MATERIALIZATION
                 }
                 job_auto_stop_assigned_assets.update(materialized_assets)
@@ -68,7 +68,7 @@ def test_all_assets_assigned_to_a_job():
             materialized_assets = {
                 asset_key
                 for asset_key in resolved_assets
-                if defs.get_assets_def(asset_key).execution_type
+                if defs.resolve_assets_def(asset_key).execution_type
                 == AssetExecutionType.MATERIALIZATION
             }
             job_auto_stop_assigned_assets.update(materialized_assets)

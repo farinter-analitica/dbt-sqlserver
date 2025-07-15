@@ -88,6 +88,7 @@ class Tags(dict[str, str]):
         self._is_schedule = self._is_all_schedule or any(
             "periodo" in k for k in self.keys()
         )
+        self._is_multiple = len(self.keys()) > 1
         self._automation = automation_condition
         self._frozen = True
 
@@ -136,6 +137,13 @@ class Tags(dict[str, str]):
         Returns true if all tags contains schedule tags.
         """
         return self._is_all_schedule
+
+    @property
+    def is_multiple(self) -> bool:
+        """
+        Returns true if tags contains multiple items.
+        """
+        return self._is_multiple
 
 
 class TagsRepositoryGF(metaclass=SingletonMeta):
@@ -199,6 +207,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Automation: Tags = Tags(key="automation/si", value="")
     """{"automation/si": ""} Usar para definir que tiene automatizacion pero puede usarse en jobs."""
 
+    Disparado: Tags = Tags(key="disparado/si", value="")
+    """{"disparado/si": ""} Usar para definir que es disparado."""
+
     AutomationOnly: Tags = Tags(key="automation_only", value="")
     """{"automation_only": ""} Usar para definir solo por automatizacion no por jobs."""
 
@@ -258,14 +269,17 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
 
     def get_unselected_for_jobs_tags(self) -> tuple[Tags, ...]:
         """
-        Returns all tags that are not selected for jobs (start with 'detener_carga/si' or 'automation_only').
+        Returns all tags that are not selected for jobs.
         """
         return tuple(
             getattr(self, name)
             for name in dir(self)
             if isinstance(getattr(self, name), Tags)
+            and not getattr(self, name).is_multiple
             and any(
-                k.startswith("detener_carga/si") or k.startswith("automation_only")
+                k.startswith("detener_carga/si")
+                or k.startswith("automation_only")
+                or k.startswith("disparado")
                 for k in getattr(self, name).keys()
             )
         )
@@ -342,4 +356,13 @@ seleccion_no_programar: AssetSelection = (
         key=tags_repo.AutomationOnlyParticionado.key,
         value=tags_repo.AutomationOnlyParticionado.value,
     )
+    | AssetSelection.tag(key=tags_repo.Disparado.key, value=tags_repo.Disparado.value)
 )
+
+if __name__ == "__main__":
+    print("TagsRepositoryGF instance created.")
+    print(f"Hourly tag: {tags_repo.Hourly.key}")
+    print(f"Automation tag: {tags_repo.Automation.key}")
+    print(f"Is Automation Eager a schedule? {tags_repo.AutomationEager.is_schedule}")
+    print(f"Automation tags keys: {tags_repo.get_automation_tags_keys()}")
+    print(f"Unselected for jobs tags: {tags_repo.get_unselected_for_jobs_tags()}")

@@ -146,7 +146,7 @@ def check_max_value_difference(max_value_a: datetime, max_value_b: datetime) -> 
 
 
 @dg.sensor(minimum_interval_seconds=3600)
-def _example_for_tests(
+def example_for_tests(
     context: dg.SensorEvaluationContext,
     enviador_correo_e_analitica_farinter: EmailSenderResource,
 ):
@@ -169,6 +169,10 @@ def _example_for_tests(
         email_to = ["brian.padilla@farinter.com"]  # Replace with actual recipients
 
         email_sender.send_email(email_to, email_subject, email_body)
-        return dg.SensorResult(is_completed=True)
+        return dg.SensorResult()
 
-    return dg.SensorResult(is_completed=False)
+    return dg.SensorResult(
+        skip_reason=dg.SkipReason(
+            "No alert needed, values are within the expected range."
+        )
+    )

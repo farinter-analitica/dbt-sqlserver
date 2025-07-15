@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
-from dagster import build_sensor_context
-from dagster_shared_gf.resources.correo_e import EmailSenderResource, _example_for_tests
+import dagster as dg
+from dagster_shared_gf.resources.correo_e import EmailSenderResource, example_for_tests
 
 
 # Define a fixture for the EmailSenderResource with mock values
@@ -24,6 +24,7 @@ def mock_get_max_column_value(
         return datetime.now() - timedelta(days=2)
     elif server == "server_b":
         return datetime.now()
+    raise ValueError("Unknown server specified")
 
 
 def mock_get_max_column_value_no_alert(
@@ -33,6 +34,7 @@ def mock_get_max_column_value_no_alert(
         return datetime.now() - timedelta(days=1)
     elif server == "server_b":
         return datetime.now() - timedelta(hours=23)
+    raise ValueError("Unknown server specified")
 
 
 class TestReplicasLdcomStatus:
@@ -47,15 +49,16 @@ class TestReplicasLdcomStatus:
         )
 
     def test_replicas_ldcom_status(self, email_sender_resource):
-        context = build_sensor_context(
+        context = dg.build_sensor_context(
             resources={"enviador_correo_e_analitica_farinter": email_sender_resource}
         )
 
-        result = _example_for_tests(
+        result = example_for_tests(
             context, enviador_correo_e_analitica_farinter=email_sender_resource
         )
 
-        assert result == 1  # Ensure the sensor sends an email
+        assert isinstance(result, dg.SensorResult)
+        assert result.skip_reason is None  # Ensure the sensor sends an email
 
         # Verify get_max_column_value was called twice, once for each server
         assert self.mock_get_max_column_value.call_count == 2
@@ -82,15 +85,19 @@ class TestReplicasLdcomStatus:
     def test_replicas_ldcom_status_no_alert(
         self, email_sender_resource, setup_mocks_no_alert
     ):
-        context = build_sensor_context(
+        context = dg.build_sensor_context(
             resources={"enviador_correo_e_analitica_farinter": email_sender_resource}
         )
 
-        result = _example_for_tests(
+        result = example_for_tests(
             context, enviador_correo_e_analitica_farinter=email_sender_resource
         )
 
-        assert result == 0  # Ensure the sensor does not send an email
+        assert isinstance(result, dg.SensorResult)
+        assert result.skip_reason == dg.SkipReason(
+            "No alert needed, values are within the expected range."
+        )
+        # Ensure the sensor does not send an email
 
         # Verify get_max_column_value was called twice, once for each server
         assert self.mock_get_max_column_value.call_count == 2
