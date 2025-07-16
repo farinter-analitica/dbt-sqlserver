@@ -62,8 +62,10 @@ vendedores as (
     select
         Emp_Id,
         Vendedor_Id,
-        Rol_Id
+        Rol_Id,
+        Rol
     from {{ ref('BI_Kielsa_Dim_Empleado') }}
+    --where Rol_Id = 50
 ),
 
 regalia_detalle as (
@@ -99,7 +101,7 @@ regalia_con_regla as (
 regalia_con_casa as (
     select
         rcr.*,
-        rcasa.valor_regalia
+        rcasa.valor_regalia as valor_regalia_casa
     from regalia_con_regla as rcr
     left join regla_casa as rcasa
         on rcr.regla_id = rcasa.regla_id and rcr.Casa_Id = rcasa.casa_id
@@ -112,10 +114,10 @@ regalia_con_rol as (
     from regalia_con_casa as rcc
     left join regla_rol as rrol
         on rcc.regla_id = rrol.regla_id and rcc.Rol_Id = rrol.rol_id
-    --where regalia_id = 118 AND Detalle_Fecha >='20250701' and emp_id = 5
+--where regalia_id = 306 AND Detalle_Fecha >='20250701' and emp_id = 5
 )
 
-select
+select -- noqa: ST06
     -- Primary Keys and Foreign Keys
     RD.Regalia_Id,
     RD.Emp_Id,
@@ -172,15 +174,15 @@ select
         when (RD.excluir_marca_propia = 1 and coalesce(RD.Bit_Marca_Propia, 0) = 1) then 0.0
         -- Si aplica por rol, multiplica por Part_Rol
         when RD.aplica_por_part = 1
-            then coalesce(RD.valor_regalia, RD.valor_predeterminado) * coalesce(RD.part_regalia, 0.0)
+            then coalesce(RD.valor_regalia_casa, RD.valor_predeterminado) * coalesce(RD.part_regalia, 0.0)
         -- Si NO aplica por rol, solo el incentivo por casa o default
-        else coalesce(RD.valor_regalia, RD.valor_predeterminado)
+        else coalesce(RD.valor_regalia_casa, RD.valor_predeterminado)
     end as decimal(18, 6)) as Regalia_Valor_Incentivo_Unitario,
     cast(case
         when (RD.excluir_marca_propia = 1 and coalesce(RD.Bit_Marca_Propia, 0) = 1) then 0.0
         when RD.aplica_por_part = 1
-            then RD.Cantidad_Padre * (coalesce(RD.valor_regalia, RD.valor_predeterminado) * coalesce(RD.part_regalia, 0.0))
-        else RD.Cantidad_Padre * coalesce(RD.valor_regalia, RD.valor_predeterminado)
+            then RD.Cantidad_Padre * (coalesce(RD.valor_regalia_casa, RD.valor_predeterminado) * coalesce(RD.part_regalia, 0.0))
+        else RD.Cantidad_Padre * coalesce(RD.valor_regalia_casa, RD.valor_predeterminado)
     end as decimal(18, 6)) as Regalia_Valor_Incentivo_Total
 
 from regalia_con_rol as RD
