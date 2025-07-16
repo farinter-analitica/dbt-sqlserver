@@ -232,6 +232,12 @@ sources:
   - name: kielsa_sucursal
   - name: kielsa_tiempo_transaccion_coeficiente
   - name: kielsa_incentivo_rol
+    constraints:
+      - type: foreign_key
+        columns: [id_responsable]
+        to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol')
+        to_columns: [id]
+        name: incentivo_rol_id_responsable_fkey
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           name: unique_rol_id_emp_id
@@ -242,6 +248,17 @@ sources:
             severity: error
 
   - name: kielsa_incentivo_regla_rol
+    constraints:
+      - type: foreign_key
+        columns: [regla_id]
+        to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla')
+        to_columns: [id]
+        name: incentivo_regla_rol_regla_id_fkey
+      - type: foreign_key
+        columns: [rol_id]
+        to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol')
+        to_columns: [id]
+        name: incentivo_regla_rol_rol_id_fkey
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           name: unique_regla_id_rol_id
@@ -260,8 +277,36 @@ sources:
             - casa_id
           config:
             severity: error
+    constraints:
+      - type: foreign_key
+        columns: [regla_id]
+        to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla')
+        to_columns: [id]
+        name: incentivo_regla_casa_regla_id_fkey
   - name: kielsa_incentivo_regla_regalia
+    constraints:
+      - type: foreign_key
+        columns: [regla_id]
+        to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla')
+        to_columns: [id]
+        name: incentivo_regla_regalia_regla_id_fkey
   - name: kielsa_incentivo_regla
+    # Si hay llaves foráneas, agrégalas aquí
+  - name: kielsa_incentivo_regla_categoria_sucursal
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: unique_regla_id_emp_id
+          combination_of_columns:
+            - regla_id
+            - categoria
+          config:
+            severity: error
+    constraints:
+      - type: foreign_key
+        columns: [regla_id]
+        to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla')
+        to_columns: [id]
+        name: categoria_sucursal_regla_id_fkey
 
 
   config:
