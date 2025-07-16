@@ -112,7 +112,7 @@ regalia_con_rol as (
     from regalia_con_casa as rcc
     left join regla_rol as rrol
         on rcc.regla_id = rrol.regla_id and rcc.Rol_Id = rrol.rol_id
-    where regalia_id = 118 AND Detalle_Fecha >='20250701' and emp_id = 5
+    --where regalia_id = 118 AND Detalle_Fecha >='20250701' and emp_id = 5
 )
 
 select
