@@ -125,6 +125,7 @@ deploy_continuous() {
     echo "Performing continuous deployment (code changes only)..."
     check_vars
     check_os
+    install_uv_standalone
     procesar_archivos_dbt
     reload_code_locations
     echo "✅ Continuous deployment completed."
@@ -147,8 +148,8 @@ deploy_partial() {
     check_vars
     check_os
     
-    manage_services "$ENV" "stop"
     install_uv_standalone "true"  # reinstall=true
+    manage_services "$ENV" "stop"
     install_deps_uv "$IS_LOCAL"
     run_dagster_instance_migrate
     procesar_archivos_dbt
@@ -161,8 +162,8 @@ deploy_full() {
     check_vars
     check_os
     
-    manage_services "$ENV" "stop"
     install_uv_standalone "true"  # reinstall=true
+    manage_services "$ENV" "stop"
     install_deps_uv "$IS_LOCAL"
     generate_service
     run_dagster_instance_migrate
@@ -231,6 +232,7 @@ main() {
             deploy_continuous
             ;;
         check-deploy-key|setup-deploy-key|test-deploy-key|reload-code-locations)
+            install_uv_standalone
             uv run --frozen ./scripts/deployment.py "$command" "$@"
             ;;
         install-deps)
