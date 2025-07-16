@@ -39,12 +39,14 @@ regla_casa as (
 
 regla_rol as (
     select
-        id,
-        regla_id,
-        rol_id,
-        part_regalia,
-        aplicar_por_sucursal
-    from {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla_rol') }}
+        rr.id,
+        rr.regla_id,
+        r.rol_id,
+        rr.part_regalia,
+        rr.aplicar_por_sucursal
+    from {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla_rol') }} as rr
+    inner join {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} as r
+        on rr.rol_id = r.id
 ),
 
 articulos as (
@@ -60,7 +62,7 @@ vendedores as (
     select
         Emp_Id,
         Vendedor_Id,
-        Rol
+        Rol_Id
     from {{ ref('BI_Kielsa_Dim_Empleado') }}
 ),
 
@@ -75,7 +77,7 @@ regalia_con_regla as (
         rd.*,
         a.Bit_Marca_Propia,
         a.Casa_Id,
-        v.Rol,
+        v.Rol_Id,
         r.regla_id,
         r.emp_id as regla_emp_id,
         r.fecha_desde,
@@ -109,7 +111,8 @@ regalia_con_rol as (
         rrol.part_regalia
     from regalia_con_casa as rcc
     left join regla_rol as rrol
-        on rcc.regla_id = rrol.regla_id and rcc.Rol = rrol.rol_id
+        on rcc.regla_id = rrol.regla_id and rcc.Rol_Id = rrol.rol_id
+    where regalia_id = 118 AND Detalle_Fecha >='20250701' and emp_id = 5
 )
 
 select
@@ -164,7 +167,7 @@ select
         when RD.excluir_marca_propia = 1 and coalesce(RD.Bit_Marca_Propia, 0) = 1 then 0
         else 1
     end as Regalia_Aplica_Incentivo,
-    case
+    cast(case
         -- Si no aplica incentivo, es 0
         when (RD.excluir_marca_propia = 1 and coalesce(RD.Bit_Marca_Propia, 0) = 1) then 0.0
         -- Si aplica por rol, multiplica por Part_Rol
@@ -172,12 +175,13 @@ select
             then coalesce(RD.valor_regalia, RD.valor_predeterminado) * coalesce(RD.part_regalia, 0.0)
         -- Si NO aplica por rol, solo el incentivo por casa o default
         else coalesce(RD.valor_regalia, RD.valor_predeterminado)
-    end as Regalia_Valor_Incentivo_Unitario,
-    case
+    end as decimal(18, 6)) as Regalia_Valor_Incentivo_Unitario,
+    cast(case
         when (RD.excluir_marca_propia = 1 and coalesce(RD.Bit_Marca_Propia, 0) = 1) then 0.0
         when RD.aplica_por_part = 1
             then RD.Cantidad_Padre * (coalesce(RD.valor_regalia, RD.valor_predeterminado) * coalesce(RD.part_regalia, 0.0))
         else RD.Cantidad_Padre * coalesce(RD.valor_regalia, RD.valor_predeterminado)
-    end as Regalia_Valor_Incentivo_Total
+    end as decimal(18, 6)) as Regalia_Valor_Incentivo_Total
 
 from regalia_con_rol as RD
+--where regalia_id = 118 AND RD.Detalle_Fecha >='20250701'
