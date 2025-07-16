@@ -4,9 +4,12 @@ import ssl
 
 ##from dagster._utils.alert import send_email_via_ssl, send_email_via_starttls
 from datetime import datetime
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence, TypeVar
 
 import dagster as dg
+
+T = TypeVar("T")
+
 
 EMAIL_MESSAGE = """From: {email_from}
 To: {email_to}
@@ -124,18 +127,30 @@ class ValidatedEnvVar(str):
         return instance
 
 
-class LazyResource:
-    def __init__(self, factory):
-        self._factory = factory
-        self._instance = None
+class LazyEmailSenderResource(EmailSenderResource):
+    _factory: Callable[[], EmailSenderResource]
+    _instance: Optional[EmailSenderResource] = None
 
-    def __getattr__(self, name):
+    def __init__(self, factory: Callable[[], EmailSenderResource]):
+        object.__setattr__(self, "_factory", factory)
+        object.__setattr__(self, "_instance", None)
+
+    def _get_instance(self) -> EmailSenderResource:
         if self._instance is None:
-            self._instance = self._factory()
-        return getattr(self._instance, name)
+            object.__setattr__(self, "_instance", self._factory())
+        if self._instance is None:
+            raise ValueError("EmailSenderResource instance could not be created")
+        return self._instance
+
+    def __getattribute__(self, name):
+        if name in ("_factory", "_instance", "_get_instance", "__class__"):
+            return object.__getattribute__(self, name)
+        return getattr(self._get_instance(), name)
 
 
-enviador_correo_e_analitica_farinter = LazyResource(
+enviador_correo_e_analitica_farinter: EmailSenderResource = LazyEmailSenderResource[
+    EmailSenderResource
+](
     lambda: EmailSenderResource(
         email_from=ValidatedEnvVar("DAGSTER_EMAIL_ADDRESS"),
         email_password=dg.EnvVar("DAGSTER_SECRET_EMAIL_PASSWORD"),
