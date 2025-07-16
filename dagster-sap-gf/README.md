@@ -1,22 +1,29 @@
+pip install -e ".[dev]"
+dagster dev
+pytest dagster_sap_gf_tests
+
 # dagster_sap_gf
+
+## Descripción
+Este proyecto contiene recursos y pipelines para la integración con SAP usando Dagster.
 
 ## Primeros pasos
 
-Primero, instala tu ubicación de código Dagster como un paquete de Python. Al usar la bandera --editable, pip instalará tu paquete de Python en ["modo editable"](https://pip.pypa.io/en/latest/topics/local-project-installs/#editable-installs) para que mientras desarrollas, los cambios locales en el código se apliquen automáticamente.
+Instala el paquete en modo editable para desarrollo:
 
-
+```bash
 pip install -e ".[dev]"
+```
 
+Luego, inicia el servidor web de Dagster:
 
-Luego, inicia el servidor web de la interfaz de Dagster:
-
-
+```bash
 dagster dev
-
+```
 
 Abre http://localhost:3000 en tu navegador para ver el proyecto.
 
-Puedes comenzar a escribir assets en `dagster_sap_gf/assets.py`. Los assets se cargan automáticamente en la ubicación del código Dagster mientras los defines.
+Puedes comenzar a escribir assets en `dagster_sap_gf/assets.py`. Los assets se cargan automáticamente en la ubicación de código Dagster mientras los defines.
 
 ## Desarrollo
 
@@ -28,9 +35,9 @@ Puedes especificar nuevas dependencias de Python en `pyproject.toml`.
 
 Las pruebas están en el directorio `dagster_sap_gf_tests` y puedes ejecutar las pruebas usando `pytest`:
 
-
+```bash
 pytest dagster_sap_gf_tests
-
+```
 
 ### Programaciones y sensores
 
@@ -38,7 +45,7 @@ Si deseas habilitar [Programaciones](https://docs.dagster.io/concepts/partitions
 
 Una vez que tu Dagster Daemon esté ejecutándose, puedes comenzar a activar programaciones y sensores para tus trabajos.
 
-## Desplegar en Dagster Cloud
+## Despliegue en Dagster Cloud
 
 La forma más fácil de desplegar tu proyecto Dagster es usar Dagster Cloud.
 

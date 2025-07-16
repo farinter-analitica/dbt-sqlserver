@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv-build"]
+build-backend = "uv_build"
 
 # Main project configuration (dagster_shared_gf)
 [project]
 name = "dagster_shared_gf"
-version = "0.9.0"
+version = "1.0.1"
 description = "Dagster shared components for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
@@ -18,6 +18,7 @@ license = { text = "Proprietary" }
 # Development Status :: 5 - Production/Stable
 # Development Status :: 6 - Mature
 # Development Status :: 7 - Inactive
+
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3.12",
@@ -73,12 +74,6 @@ external = ["statstools_gf", "algoritmo_mddme_gf"]
 [project.urls]
 Repository = "https://github.com/farinter-analitica/main-dagster"
 
-[tool.setuptools]
-packages = ["dagster_shared_gf"]
-
-[tool.setuptools.exclude-package-data]
-dagster_shared_gf = ["dagster_shared_gf_tests"]
-
 [tool.dagster]
 module_name = "dagster_shared_gf"
 
@@ -87,6 +82,13 @@ dependency-metadata = [
     { name = "statstools_gf" },
     { name = "algoritmo_mddme_gf" },
 ]
+
+[tool.uv.build-backend]
+module-root = "."
+module-name = "dagster_shared_gf"
+
+[tool.setuptools]
+packages = ["dagster_shared_gf"]
 
 [tool.uv.sources.statstools_gf]
 git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git"

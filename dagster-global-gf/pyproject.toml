@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["uv-build"]
+build-backend = "uv_build"
 
 [tool.dagster]
 module_name = "dagster_global_gf"
@@ -8,7 +8,7 @@ module_name = "dagster_global_gf"
 # Main project configuration (dagster_global_gf)
 [project]
 name = "dagster_global_gf"
-version = "0.9.0"
+version = "1.0.1"
 description = "dagster_global_gf for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
@@ -42,6 +42,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-mock", "mypy", "ruff", "pre-commit"]
+
+[tool.uv.build-backend]
+module-root = "."
+module-name = "dagster_global_gf"
 
 [tool.setuptools]
 packages = ["dagster_global_gf"]
