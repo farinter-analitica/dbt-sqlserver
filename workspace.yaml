@@ -1,11 +1,11 @@
 load_from:
 - python_module:
     module_name: dagster_kielsa_gf
-    working_directory: dagster_kielsa_gf
+    working_directory: dagster-kielsa-gf
     location_name: dagster_kielsa_gf
 - python_module:
     module_name: dagster_sap_gf
-    working_directory: dagster_sap_gf
+    working_directory: dagster-sap-gf
     location_name: dagster_sap_gf
 - python_module:
     module_name: dagster_global_gf
