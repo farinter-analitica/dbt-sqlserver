@@ -8,6 +8,13 @@
 set -euo pipefail
 
 # -------------------- Variables y constantes --------------------
+if [ -f .env ]; then
+    echo "Loading environment variables from .env file..."
+    set -a
+    source .env
+    set +a
+fi
+
 IS_LOCAL="false"
 CARGO_BIN_DIR="$HOME/.local/bin"
 CARGO_UV_BIN="${CARGO_BIN_DIR}/uv"

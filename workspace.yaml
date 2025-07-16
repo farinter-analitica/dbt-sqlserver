@@ -8,6 +8,6 @@ load_from:
     working_directory: dagster_sap_gf
     location_name: dagster_sap_gf
 - python_module:
-    module_name: dagster_shared_gf
-    working_directory: dagster_shared_gf
-    location_name: dagster_shared_gf
+    module_name: dagster_global_gf
+    working_directory: dagster-global-gf
+    location_name: dagster_global_gf
