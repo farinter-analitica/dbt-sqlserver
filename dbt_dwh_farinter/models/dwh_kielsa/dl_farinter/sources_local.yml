@@ -231,6 +231,37 @@ sources:
   - name: kielsa_sucursal_horario_dia
   - name: kielsa_sucursal
   - name: kielsa_tiempo_transaccion_coeficiente
+  - name: kielsa_incentivo_rol
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: unique_rol_id_emp_id
+          combination_of_columns:
+            - rol_id
+            - emp_id
+          config:
+            severity: error
+
+  - name: kielsa_incentivo_regla_rol
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: unique_regla_id_rol_id
+          combination_of_columns:
+            - regla_id
+            - rol_id
+          config:
+            severity: error
+
+  - name: kielsa_incentivo_regla_casa
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: unique_regla_id_casa_id
+          combination_of_columns:
+            - regla_id
+            - casa_id
+          config:
+            severity: error
+  - name: kielsa_incentivo_regla_regalia
+  - name: kielsa_incentivo_regla
 
 
   config:
