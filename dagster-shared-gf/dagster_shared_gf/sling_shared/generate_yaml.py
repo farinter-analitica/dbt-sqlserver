@@ -170,6 +170,7 @@ def generate_sling_yaml_from_source(
     output_path = os.path.join(output_dir, output_filename)
 
     streams: Dict[str, Dict[str, Any]] = {}
+    manual_streams: Dict[str, Dict[str, Any]] = {}
     for schema in schemas:
         metadata = sql.MetaData()
         # Reflejar tablas del esquema especificado
@@ -200,25 +201,53 @@ def generate_sling_yaml_from_source(
             if not pk_columns and not has_update_key:
                 continue  # Omitir tablas sin claves primarias y fecha de actualización
 
-            # Obtener las columnas con índices únicos
+            # Buscar todas las unique constraints/indexes y separarlas
+            unique_fields_multi = []  # Lista de listas para múltiples unique compuestas
             unique_idx_columns = []
+
+            # Revisar indexes únicos
             for idx in table.indexes:
                 if idx.unique:
-                    unique_idx_columns.extend([str(col.name) for col in idx.columns])
-                    break
+                    if len(idx.columns) > 1:
+                        # Unique compuesta - agregar como lista
+                        unique_combo = [str(col.name) for col in idx.columns]
+                        if unique_combo not in unique_fields_multi:
+                            unique_fields_multi.append(unique_combo)
+                    elif len(idx.columns) == 1:
+                        # Unique simple - la agregamos a la lista
+                        col_name = str(list(idx.columns)[0].name)
+                        if col_name not in unique_idx_columns:
+                            unique_idx_columns.append(col_name)
 
-            if not unique_idx_columns:
-                for cst in table.constraints:
-                    if isinstance(cst, sql.UniqueConstraint):
-                        if cst.columns == pk_columns:
-                            continue
+            # Revisar constraints únicos
+            for cst in table.constraints:
+                if isinstance(cst, sql.UniqueConstraint):
+                    if cst.columns == pk_columns:
+                        continue  # Omitir si es igual a primary key
 
-                        unique_idx_columns.extend(
-                            [str(col.name) for col in cst.columns]
-                        )
-                        break
+                    if len(cst.columns) > 1:
+                        # Unique compuesta - agregar como lista
+                        unique_combo = [str(col.name) for col in cst.columns]
+                        if unique_combo not in unique_fields_multi:
+                            unique_fields_multi.append(unique_combo)
+                    elif len(cst.columns) == 1:
+                        # Unique simple - la agregamos a la lista
+                        col_name = str(list(cst.columns)[0].name)
+                        if col_name not in unique_idx_columns:
+                            unique_idx_columns.append(col_name)
 
-            # Convertir tipos problematicos, izquierda el nombre, derecha en la query
+            # Si hay unique compuesta, guardarla en manual_streams
+            if unique_fields_multi:
+                manual_streams[full_table_name] = {
+                    "object": f"{target_schema}.{normalize_table_identifier(schema)}_{normalize_table_identifier(table_name_only)}",
+                    "target_options": {
+                        "table_keys": {
+                            "unique": unique_fields_multi,
+                        },
+                    },
+                    "note": "Unique compuesta detectada. Generar manualmente.",
+                }
+
             types_mapping: Dict[str, tuple] = {
                 "TIME": ("VARCHAR(20)", "::varchar(20)"),
                 "BOOLEAN": ("INTEGER", "::integer"),
@@ -288,11 +317,25 @@ def generate_sling_yaml_from_source(
         "env": {"SLING_LOADED_AT_COLUMN": True},
     }
 
-    # Escribir la configuración YAML al archivo
+    # Escribir la configuración YAML al archivo principal
     with open(output_path, "w", encoding="utf-8") as f:
         yaml.dump(config, f, sort_keys=False)
 
-    # print(f"Archivo YAML creado en: {output_path}")
+    # Si hay streams manuales, escribirlos en un archivo aparte
+    if manual_streams:
+        manual_path = os.path.join(
+            output_dir, output_filename.replace(".yaml", "_manual.yaml")
+        )
+        manual_config = {
+            "source": source,
+            "target": target,
+            "defaults": defaults,
+            "streams": manual_streams,
+            "env": {"SLING_LOADED_AT_COLUMN": True},
+        }
+        with open(manual_path, "w", encoding="utf-8") as f:
+            yaml.dump(manual_config, f, sort_keys=False)
+
     return output_path
 
 
