@@ -175,8 +175,6 @@ def generate_sling_yaml_from_source(
         # Reflejar tablas del esquema especificado
         metadata.reflect(bind=engine, schema=schema)
 
-        streams: Dict[str, Dict[str, Any]] = {}
-
         # Iterar sobre cada tabla reflejada
         for table_name, table in metadata.tables.items():
             # Extraer solo el nombre de la tabla sin el esquema

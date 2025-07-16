@@ -12,6 +12,7 @@ from dagster_shared_gf.shared_functions import (
     get_for_current_env,
     calculate_file_checksum,
     get_current_location_name,
+    start_job_by_name,
 )
 from dagster_shared_gf.shared_variables import tags_repo
 from dagster_shared_gf.sling_shared.sling_resources import (
@@ -134,60 +135,87 @@ def nocodb_data_gf(
     )
 
 
-@dg.job(
+# Use define_asset_job for asset-backed jobs
+
+nocodb_data_gf_job = dg.define_asset_job(
     name="nocodb_data_gf_job",
+    selection=dg.AssetSelection.groups(TARGET_SCHEMA),  # no sabemos las llaves finales
     tags=tags_repo.Daily | {"by_sensor_job": ""},
-    resource_defs={"sling": MySlingResource(default_mode="full-refresh")},
 )
-def nocodb_data_gf_job():
-    nocodb_data_gf()
 
 
-@dg.success_hook
-def lanzar_nocodb_data_gf(context: dg.HookContext):
-    # start_job_by_name(
-    #     job_name=nocodb_data_gf_job.name,
-    #     location_name=get_location_name(context),
-    # )
-    nocodb_data_gf_job_recon = dg.reconstructable(
-        nocodb_data_gf_job,
+# Update hook to use assetbacked job
+@dg.op(
+    tags=tags_repo.Disparado,
+    ins={"Nothing": dg.In(dg.Nothing)},
+    out={"Nothing": dg.Out(dg.Nothing)},
+)
+def lanzar_nocodb_data_gf(context: dg.OpExecutionContext):
+    # Directly execute the asset job
+    current_location_name = get_current_location_name(context)
+    run_id = start_job_by_name(
+        job_name=nocodb_data_gf_job.name, location_name=current_location_name
     )
-    dg.execute_job(job=nocodb_data_gf_job_recon, instance=context.instance)
+    context.log.info(f"nocodb_data_gf_job ejecutado, éxito: {run_id}")
 
 
-@dg.op(tags=tags_repo.Disparado)
+@dg.op(tags=tags_repo.Disparado, out={"Nothing": dg.Out(dg.Nothing)})
 def nocodb_data_reload_op(context: dg.OpExecutionContext):
     if os.path.exists(REPLICATION_CONFIG_PATH):
         hash_actual = calculate_file_checksum(REPLICATION_CONFIG_PATH)
     else:
         hash_actual = ""
+    context.log.info("Verificando triggers de esquema nocodb")
+    for schema in SOURCE_SCHEMAS:
+        create_timestamp_triggers(
+            context=context,
+            db_nocodb_data_gf=db_nocodb_data_gf,
+            schema_name=schema,
+            # create_timestamp_if_not_exists=True,
+        )
     yaml_path = generate_nocodb_data_gf_sling_yaml()
 
     if calculate_file_checksum(yaml_path) != hash_actual:
-        context.log.info("Replication config changed, reloading code location")
-        reload_code_location(
-            host="localhost",
-            port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)),
-            location_name=get_current_location_name(context),
+        context.log.info(
+            "La configuración de replicación cambió, recargando ubicación de código"
         )
-        context.log.info("Reloaded code location, checking nocodb schema triggers")
-        for schema in SOURCE_SCHEMAS:
-            create_timestamp_triggers(
-                context=context,
-                db_nocodb_data_gf=db_nocodb_data_gf,
-                schema_name=schema,
+        current_location_name = get_current_location_name(context)
+        if current_location_name:
+            context.log.info(
+                f"Recargando ubicación de código '{current_location_name}' debido a cambios en la configuración de replicación"
             )
-    context.log.info("Replication config is up to date, no reload needed")
+            reload_code_location(
+                host="localhost",
+                port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)),
+                location_name=current_location_name,
+            )
+        else:
+            context.log.error(
+                "No se encontró el nombre de la ubicación actual, no se puede recargar"
+            )
+
+    else:
+        context.log.info(
+            "La configuración de replicación está actualizada, no es necesario recargar"
+        )
+
+
+@dg.graph(
+    name="nocodb_data_gf_reload_graph",
+    tags=tags_repo.Daily | {"by_sensor_job": ""},
+)
+def nocodb_data_gf_reload_graph():
+    recargado = nocodb_data_reload_op()
+    lanzar_nocodb_data_gf(recargado)
 
 
 @dg.job(
     name="nocodb_data_gf_reload_job",
     tags=tags_repo.Daily | {"by_sensor_job": ""},
-    hooks={lanzar_nocodb_data_gf},
-    resource_defs={"sling": MySlingResource(default_mode="full-refresh")},
+    resource_defs={"sling": MySlingResource()},
 )
 def nocodb_data_gf_reload_job():
-    nocodb_data_reload_op()
+    nocodb_data_gf_reload_graph()
 
 
 @dg.sensor(
@@ -272,59 +300,83 @@ if __name__ == "__main__":
             test_mode = "sensor"
         elif sys.argv[1] == "job":
             test_mode = "job"
+        elif sys.argv[1] == "yaml":
+            test_mode = "yaml"
 
-    with instance_for_test() as instance:
-        if test_mode == "asset":
-            print("Testing asset materialization...")
-            result = materialize(
-                assets=[nocodb_data_gf],
-                # run_config={
-                #     "ops": {
-                #         nocodb_data_gf.op.name: {
-                #             "config": {"default_mode": "full-refresh"}
-                #         }
-                #     }
-                # },
-                instance=instance,
-                resources={"sling": MySlingResource(default_mode="full-refresh")},
-            )
-            print(result.all_events)
-        elif test_mode == "job":
-            print("Testing nocodb_data_gf_reload_job execution...")
+    if test_mode == "yaml":
+        print("Verifying all SOURCE_SCHEMAS are present in the generated YAML...")
+        yaml_path = generate_nocodb_data_gf_sling_yaml()
+        try:
+            with open(yaml_path, "r") as f:
+                yaml_data = yaml.safe_load(f)
+            # Collect all schemas present in the YAML (assuming structure: streams -> schema.table)
+            found_schemas = set()
+            streams = yaml_data.get("streams", {})
+            for stream_key in streams.keys():
+                if "." in stream_key:
+                    schema = stream_key.split(".")[0]
+                    found_schemas.add(schema)
+            missing = [s for s in SOURCE_SCHEMAS if s not in found_schemas]
+            if not missing:
+                print(f"All schemas present in YAML: {SOURCE_SCHEMAS}")
+            else:
+                print(f"Missing schemas in YAML: {missing}")
+                print(f"Schemas found: {sorted(found_schemas)}")
+        except Exception as e:
+            print(f"Error reading or parsing YAML: {e}")
+    else:
+        with instance_for_test() as instance:
+            if test_mode == "asset":
+                print("Testing asset materialization...")
+                result = materialize(
+                    assets=[nocodb_data_gf],
+                    # run_config={
+                    #     "ops": {
+                    #         nocodb_data_gf.op.name: {
+                    #             "config": {"default_mode": "full-refresh"}
+                    #         }
+                    #     }
+                    # },
+                    instance=instance,
+                    resources={"sling": MySlingResource(default_mode="full-refresh")},
+                )
+                print(result.all_events)
+            elif test_mode == "job":
+                print("Testing nocodb_data_gf_reload_job execution...")
 
-            result = nocodb_data_gf_reload_job.execute_in_process(
-                instance=instance,
-                # resources={"sling": MySlingResource(default_mode="full-refresh")},
-            )
-            print(result.success)
-            print(result.events_for_node("nocodb_data_reload_op"))
-        else:
-            print("Testing sensor evaluation...")
-            # Create a sensor context
-            context = build_sensor_context(instance=instance)
+                result = nocodb_data_gf_reload_job.execute_in_process(
+                    instance=instance,
+                    # resources={"sling": MySlingResource(default_mode="full-refresh")},
+                )
+                print(result.success)
+                print(result.events_for_node("nocodb_data_reload_op"))
+            else:
+                print("Testing sensor evaluation...")
+                # Create a sensor context
+                context = build_sensor_context(instance=instance)
 
-            # Evaluate the sensor
-            sensor_result = nocodb_data_gf_change_sensor(context)
+                # Evaluate the sensor
+                sensor_result = nocodb_data_gf_change_sensor(context)
 
-            if isinstance(sensor_result, dg.SensorResult):
-                run_requests = sensor_result.run_requests or []
-                print(f"Sensor triggered with {len(run_requests)} run requests")
-                for request in run_requests:
-                    print(f"  Run key: {request.run_key}")
-                    print(f"  Tags: {request.tags}")
-                print(f"New cursor: {sensor_result.cursor}")
-            elif isinstance(sensor_result, dg.SkipReason):
-                print(f"Sensor skipped: {str(sensor_result)}")
+                if isinstance(sensor_result, dg.SensorResult):
+                    run_requests = sensor_result.run_requests or []
+                    print(f"Sensor triggered with {len(run_requests)} run requests")
+                    for request in run_requests:
+                        print(f"  Run key: {request.run_key}")
+                        print(f"  Tags: {request.tags}")
+                    print(f"New cursor: {sensor_result.cursor}")
+                elif isinstance(sensor_result, dg.SkipReason):
+                    print(f"Sensor skipped: {str(sensor_result)}")
 
-            # Re-evaluate the sensor
-            sensor_result = nocodb_data_gf_change_sensor(context)
+                # Re-evaluate the sensor
+                sensor_result = nocodb_data_gf_change_sensor(context)
 
-            if isinstance(sensor_result, dg.SensorResult):
-                run_requests = sensor_result.run_requests or []
-                print(f"Sensor triggered with {len(run_requests)} run requests")
-                for request in run_requests:
-                    print(f"  Run key: {request.run_key}")
-                    print(f"  Tags: {request.tags}")
-                print(f"New cursor: {sensor_result.cursor}")
-            elif isinstance(sensor_result, dg.SkipReason):
-                print(f"Sensor skipped: {str(sensor_result)}")
+                if isinstance(sensor_result, dg.SensorResult):
+                    run_requests = sensor_result.run_requests or []
+                    print(f"Sensor triggered with {len(run_requests)} run requests")
+                    for request in run_requests:
+                        print(f"  Run key: {request.run_key}")
+                        print(f"  Tags: {request.tags}")
+                    print(f"New cursor: {sensor_result.cursor}")
+                elif isinstance(sensor_result, dg.SkipReason):
+                    print(f"Sensor skipped: {str(sensor_result)}")

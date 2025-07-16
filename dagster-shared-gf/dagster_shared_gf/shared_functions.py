@@ -90,15 +90,41 @@ def get_job_status(job_name: str) -> str:
     return status
 
 
-def start_job_by_name(job_name: str, location_name: str) -> None:
-    client = DagsterGraphQLClient(
-        "localhost", port_number=int(os.getenv("DAGSTER_GRAPHQL_PORT", 3000))
-    )
-    client.submit_job_execution(
+def start_job_by_name(
+    job_name: str,
+    location_name: str | None,
+    client: DagsterGraphQLClient | None = None,
+    repository_name: str | None = None,
+    run_config: dict | None = None,
+    tags: dict | None = None,
+    op_selection: list[str] | None = None,
+) -> str:
+    """
+    Starts a Dagster job by name using the DagsterGraphQLClient.
+
+    Args:
+        job_name (str): The job's name.
+        location_name (Optional[str]): The repository location name.
+        client (Optional[DagsterGraphQLClient]): The Dagster GraphQL client to use. If None, a new client is created.
+        repository_name (Optional[str]): The repository name.
+        run_config (Optional[dict]): Run configuration for the job.
+        tags (Optional[dict]): Tags for the job run.
+        op_selection (Optional[list[str]]): List of ops to execute.
+
+    Returns:
+        str: The run id of the submitted pipeline run.
+    """
+    if client is None:
+        client = DagsterGraphQLClient(
+            "localhost", port_number=int(os.getenv("DAGSTER_GRAPHQL_PORT", 3000))
+        )
+    return client.submit_job_execution(
         job_name=job_name,
         repository_location_name=location_name,
-        run_config={},
-        tags={},
+        repository_name=repository_name,
+        run_config=run_config,
+        tags=tags,
+        op_selection=op_selection,
     )
 
 
@@ -631,7 +657,7 @@ calculate_file_hash = calculate_file_checksum
 
 def get_current_location_name(
     context: dg.HookContext | dg.OpExecutionContext | dg.AssetExecutionContext,
-) -> str:
+) -> str | None:
     """
     Retrieves the location name from the remote job origin associated with the current Dagster run.
     This only works if the run has a remote job origin (a dagster client is running).
@@ -652,4 +678,4 @@ def get_current_location_name(
     remote_job_origin = run.remote_job_origin
     if remote_job_origin:
         return remote_job_origin.repository_origin.code_location_origin.location_name
-    raise ValueError("No se pudo obtener el nombre de la ubicación remota")
+    return None

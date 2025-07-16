@@ -9,6 +9,7 @@ from dagster_shared_gf.resources.postgresql_resources import PostgreSQLResource
 TIMESTAMP_FIELDS = ["fecha_creado", "fecha_actualizado", "created_at", "updated_at"]
 CREATION_FIELDS = ["fecha_creado", "created_at"]
 UPDATE_FIELDS = ["fecha_actualizado", "updated_at"]
+DEFAULT_TIMESTAMP_FIELDS = ["fecha_creado", "fecha_actualizado"]
 CACHE_DIR = Path(".cache")
 
 
@@ -16,6 +17,7 @@ def create_timestamp_triggers(
     context: dg.OpExecutionContext,
     db_nocodb_data_gf: PostgreSQLResource,
     schema_name: str,
+    create_timestamp_if_not_exists: bool = False,
 ) -> dg.Output:
     """
     Creates timestamp triggers for PostgreSQL tables in the specified schema.
@@ -88,9 +90,26 @@ def create_timestamp_triggers(
         # Check which timestamp fields exist
         existing_timestamp_fields = [f for f in TIMESTAMP_FIELDS if f in columns]
 
-        if not existing_timestamp_fields:
+        if not existing_timestamp_fields and not create_timestamp_if_not_exists:
             context.log.info(f"Table '{table_name}' has no timestamp fields to manage")
             continue
+        elif create_timestamp_if_not_exists:
+            context.log.info(
+                f"Creating timestamp fields for table '{table_name}' as requested"
+            )
+            # Add missing timestamp fields
+            for field in DEFAULT_TIMESTAMP_FIELDS:
+                if field not in columns:
+                    add_column_query = f"""
+                    ALTER TABLE "{schema_name}"."{table_name}" 
+                    ADD COLUMN "{field}" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                    """
+                    context.log.info(f"Adding column '{field}' to '{table_name}'")
+                    db_nocodb_data_gf.execute_and_commit(add_column_query)
+                    columns[field] = {
+                        "type": "timestamp",
+                        "default": "CURRENT_TIMESTAMP",
+                    }
 
         # Set default values for creation timestamp fields
         for field in CREATION_FIELDS:
