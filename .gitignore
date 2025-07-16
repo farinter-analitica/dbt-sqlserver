@@ -138,7 +138,7 @@ logs/
 .nux/
 dbt_packages/
 
-dagster_sap_gf/dagster_sap_gf/dlt/.dlt/secrets.toml
+dagster-sap-gf/dagster_sap_gf/dlt/.dlt/secrets.toml
 
 # vscode
 #.vscode/
@@ -147,7 +147,6 @@ dagster_sap_gf/dagster_sap_gf/dlt/.dlt/secrets.toml
 secrets.toml
 **/schemas/export/*
 **/*_schemas/*/export/*
-#dagster_shared_gf/dagster_shared_gf/dlt_shared/mongodb/schemas/export/mongodb.schema.yaml
 
 #sling
 .slingdata/*
@@ -161,3 +160,6 @@ templates_render/
 
 # git
 !.gitkeep
+
+# logs
+.log*

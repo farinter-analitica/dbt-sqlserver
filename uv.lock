@@ -8,6 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "dagster-global-gf",
     "dagster-kielsa-gf",
     "dagster-sap-gf",
     "dagster-shared-gf",
@@ -674,6 +675,34 @@ wheels = [
 ]
 
 [[package]]
+name = "dagster-global-gf"
+version = "0.9.0"
+source = { editable = "dagster-global-gf" }
+dependencies = [
+    { name = "dagster-shared-gf" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-mock" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dagster-shared-gf", editable = "dagster-shared-gf" },
+    { name = "mypy", marker = "extra == 'dev'" },
+    { name = "pre-commit", marker = "extra == 'dev'" },
+    { name = "pytest", marker = "extra == 'dev'" },
+    { name = "pytest-mock", marker = "extra == 'dev'" },
+    { name = "ruff", marker = "extra == 'dev'" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "dagster-graphql"
 version = "1.10.20"
 source = { registry = "https://pypi.org/simple" }
@@ -692,7 +721,10 @@ wheels = [
 [[package]]
 name = "dagster-kielsa-gf"
 version = "0.9.0"
-source = { editable = "dagster_kielsa_gf" }
+source = { editable = "dagster-kielsa-gf" }
+dependencies = [
+    { name = "dagster-shared-gf" },
+]
 
 [package.optional-dependencies]
 dev = [
@@ -705,7 +737,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dagster-kielsa-gf", editable = "dagster_kielsa_gf" },
+    { name = "dagster-shared-gf", editable = "dagster-shared-gf" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
@@ -768,7 +800,10 @@ wheels = [
 [[package]]
 name = "dagster-sap-gf"
 version = "0.9.0"
-source = { editable = "dagster_sap_gf" }
+source = { editable = "dagster-sap-gf" }
+dependencies = [
+    { name = "dagster-shared-gf" },
+]
 
 [package.optional-dependencies]
 dev = [
@@ -781,7 +816,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dagster-sap-gf", editable = "dagster_sap_gf" },
+    { name = "dagster-shared-gf", editable = "dagster-shared-gf" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
@@ -809,7 +844,7 @@ wheels = [
 [[package]]
 name = "dagster-shared-gf"
 version = "0.9.0"
-source = { editable = "dagster_shared_gf" }
+source = { editable = "dagster-shared-gf" }
 dependencies = [
     { name = "arrow-odbc" },
     { name = "dagster" },
