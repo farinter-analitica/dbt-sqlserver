@@ -37,6 +37,8 @@ Incluir un signo de exclamación (por ejemplo, `<tipo>(<ámbito>)!:`) indica un 
 - Limita la línea a 72 caracteres (idealmente hasta 50 caracteres).
 - Empieza en minúscula y no uses puntuación final.
 
+**Tipos de Despliegue**: Controla la granularidad del despliegue de acuerdo a los tipos de cambios con palabras clave en el commit (ver README para opciones).
+
 Ejemplos:
 :sparkles: feat(auth): agregar soporte para inicio de sesión OAuth
 :bug: fix(ui)!: corregir desalineación de botón en móvil
