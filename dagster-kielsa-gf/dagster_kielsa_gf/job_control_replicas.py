@@ -1,17 +1,18 @@
-from dagster import (
-    op,
-    graph,
-    Out,
-    OpExecutionContext,
-    in_process_executor,
-)
-from datetime import datetime, timedelta
-from dateutil import parser
-from typing import Any, Dict, List, Tuple
-from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-from dagster_shared_gf.resources.correo_e import EmailSenderResource
-from dagster_shared_gf.shared_variables import env_str
 import json
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+from dagster import (
+    OpExecutionContext,
+    Out,
+    graph,
+    in_process_executor,
+    op,
+)
+from dagster_shared_gf.resources.correo_e import EmailSenderResource
+from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
+from dagster_shared_gf.shared_variables import env_str
+from dateutil import parser
 
 
 class ParServidoresReplicaSQLServer:
@@ -45,7 +46,10 @@ def obtener_max_datetime_val_replicas_sql_server(
 ) -> Tuple[Any, Any, Dict[str, Any]]:
     max_val_origen = None
     max_val_replica = None
-    logs = {"max_val_origen": "Consulta exitosa", "max_val_replica": "Consulta exitosa"}
+    logs: Dict[str, str] = {
+        "max_val_origen": "Consulta exitosa",
+        "max_val_replica": "Consulta exitosa",
+    }
     try:
         with sql_server_origen.get_connection() as conn_a:
             results_origen = sql_server_origen.query(
@@ -58,7 +62,7 @@ def obtener_max_datetime_val_replicas_sql_server(
                     max_val_origen = parser.parse(max_val_origen)
 
     except Exception as e:
-        logs["ocurrio_error"] = True
+        logs["ocurrio_error"] = "True"
         logs["max_val_origen"] = (
             f"Error en consulta, devolviendo null e incluido en alertas: {str(e)}"
         )
@@ -75,17 +79,17 @@ def obtener_max_datetime_val_replicas_sql_server(
                     max_val_replica = parser.parse(max_val_replica)
 
     except Exception as e:
-        logs["ocurrio_error"] = True
+        logs["ocurrio_error"] = "True"
         logs["max_val_replica"] = (
             f"Error en consulta, no se ha encontrado valor maximo: {str(e)}"
         )
 
     if max_val_origen is None and logs.get("max_val_origen") == "Consulta exitosa":
-        logs["ocurrio_error"] = True
+        logs["ocurrio_error"] = "True"
         logs["max_val_origen"] = "Error en consulta, no se ha encontrado valor maximo."
 
     if max_val_replica is None and logs.get("max_val_replica") == "Consulta exitosa":
-        logs["ocurrio_error"] = True
+        logs["ocurrio_error"] = "True"
         logs["max_val_replica"] = "Error en consulta, no se ha encontrado valor maximo."
 
     return max_val_origen, max_val_replica, logs
@@ -322,8 +326,9 @@ def obtener_servidores_de_replica_en_alerta(
     ]
 
     servidores_en_alerta: Dict[str, List[Dict[str, Any]]] = {}
-    max_val_origen: datetime = None
-    max_val_replica: datetime = None
+
+    max_val_origen: Optional[datetime] = None
+    max_val_replica: Optional[datetime] = None
     logs: Dict[str, str] = {}
     for par_servidores in lista_par_servidores:
         max_val_origen, max_val_replica, logs = (
@@ -360,7 +365,7 @@ def obtener_servidores_de_replica_en_alerta(
                 "delta_max": str(par_servidores.delta_max),
             }
             if logs.get("ocurrio_error", None) is not None:
-                meta_data["logs_consulta"] = (str(logs),)
+                meta_data["logs_consulta"] = str(logs)
             if par_servidores.sql_server_replica.server not in servidores_en_alerta:
                 servidores_en_alerta[par_servidores.sql_server_replica.server] = []
             servidores_en_alerta[par_servidores.sql_server_replica.server].append(
@@ -423,4 +428,12 @@ comprobar_sinc_replicas_job = comprobar_sinc_replicas_graph.to_job(
 
 all_jobs = [comprobar_sinc_replicas_job]
 
-__all__ = list(map(lambda x: x.name, all_jobs))
+__all__ = [
+    "comprobar_sinc_replicas_job",
+    "comprobar_sinc_replicas_graph",
+    "obtener_servidores_de_replica_en_alerta",
+    "enviar_alertas_si_aplica",
+    "ParServidoresReplicaSQLServer",
+    "obtener_max_datetime_val_replicas_sql_server",
+    "es_delta_max_datetime_superado",
+]

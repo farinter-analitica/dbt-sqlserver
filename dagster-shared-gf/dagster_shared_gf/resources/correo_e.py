@@ -69,6 +69,13 @@ class EmailSenderResource(dg.ConfigurableResource):
         # email_message['Subject'] = email_subject
         email_to = list(email_to)
 
+        if isinstance(self.email_password, dg.EnvVar):
+            email_password = self.email_password.get_value()
+        else:
+            email_password = self.email_password
+        if not email_password:
+            raise ValueError("Email_password is required but not set")
+
         email_message = EMAIL_MESSAGE.format(
             email_to=",".join(email_to),
             email_from=self.email_from,
@@ -81,7 +88,7 @@ class EmailSenderResource(dg.ConfigurableResource):
         if self.smtp_type == "SSL":
             send_email_via_ssl(
                 email_from=self.email_from,
-                email_password=self.email_password,
+                email_password=email_password,
                 email_to=email_to,
                 message=email_message,
                 smtp_host=self.smtp_host,
@@ -91,9 +98,9 @@ class EmailSenderResource(dg.ConfigurableResource):
         elif self.smtp_type == "STARTTLS":
             send_email_via_starttls(
                 email_from=self.email_from,
-                email_password=self.email_password,
+                email_password=email_password,
                 email_to=email_to,
-                message=email_body.replace("\n", "<br>").replace(" ", "&nbsp;"),
+                message=email_message,  # email_body.replace("\n", "<br>").replace(" ", "&nbsp;"),
                 smtp_host=self.smtp_host,
                 smtp_port=self.smtp_port,
                 smtp_user=self.smtp_user or self.email_from,
@@ -108,25 +115,34 @@ class ValidatedEnvVar(str):
     _env_var_name: str
 
     def __new__(cls, env_var_name: str):
-        instance = str.__new__(cls, "")
-        instance._env_var_name = env_var_name
-        return instance
-
-    def __str__(self) -> str:
-        value = os.getenv(self._env_var_name)
+        value = os.getenv(env_var_name)
         if not value:
             raise ValueError(
-                f"Environment variable '{self._env_var_name}' is required but not set"
+                f"Environment variable '{env_var_name}' is required but not set"
             )
-        return value
+        instance = str.__new__(cls, value)
+        return instance
 
 
-enviador_correo_e_analitica_farinter = EmailSenderResource(
-    email_from=ValidatedEnvVar("DAGSTER_EMAIL_ADDRESS"),
-    email_password=dg.EnvVar("DAGSTER_SECRET_EMAIL_PASSWORD"),
-    smtp_host="mail.farinter.hn",
-    smtp_port=465,
-    smtp_type="SSL",
+class LazyResource:
+    def __init__(self, factory):
+        self._factory = factory
+        self._instance = None
+
+    def __getattr__(self, name):
+        if self._instance is None:
+            self._instance = self._factory()
+        return getattr(self._instance, name)
+
+
+enviador_correo_e_analitica_farinter = LazyResource(
+    lambda: EmailSenderResource(
+        email_from=ValidatedEnvVar("DAGSTER_EMAIL_ADDRESS"),
+        email_password=dg.EnvVar("DAGSTER_SECRET_EMAIL_PASSWORD"),
+        smtp_host="mail.farinter.com",
+        smtp_port=26,
+        smtp_type="STARTTLS",
+    )
 )
 
 
@@ -176,3 +192,59 @@ def example_for_tests(
             "No alert needed, values are within the expected range."
         )
     )
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    os.environ["DAGSTER_TEST_MODE"] = "1"
+
+    print(os.getenv("DAGSTER_EMAIL_ADDRESS"))
+
+    # Simular contexto de sensor
+    # Usar un contexto real de Dagster o un mock mínimo
+    try:
+        from dagster import build_sensor_context
+
+        context = build_sensor_context()
+    except ImportError:
+        # Fallback mínimo si no está disponible
+        class DummyContext:
+            pass
+
+        context = DummyContext()
+
+    print("\n[TEST] --- Simulación: valores iguales, no debe enviar correo ---")
+    # Monkeypatch get_max_column_value para devolver el mismo valor
+    from datetime import datetime
+
+    def mock_get_max_column_value_same(server, database, table, column):
+        return datetime(2024, 1, 1, 0, 0, 0)
+
+    original_func = get_max_column_value
+    globals()["get_max_column_value"] = mock_get_max_column_value_same
+
+    result = example_for_tests(
+        context,
+        enviador_correo_e_analitica_farinter=enviador_correo_e_analitica_farinter,
+    )
+    print("[TEST] example_for_tests() returned:", result)
+
+    print("\n[TEST] --- Simulación: valores diferentes, debe enviar correo ---")
+
+    def mock_get_max_column_value_diff(server, database, table, column):
+        if server == "server_a":
+            return datetime(2024, 1, 1, 0, 0, 0)
+        else:
+            return datetime(2024, 1, 3, 0, 0, 0)
+
+    globals()["get_max_column_value"] = mock_get_max_column_value_diff
+    result = example_for_tests(
+        context,
+        enviador_correo_e_analitica_farinter=enviador_correo_e_analitica_farinter,
+    )
+    print("[TEST] example_for_tests() returned:", result)
+
+    # Restaurar función original
+    globals()["get_max_column_value"] = original_func

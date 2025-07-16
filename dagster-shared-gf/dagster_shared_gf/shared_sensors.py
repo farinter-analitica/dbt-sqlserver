@@ -1,22 +1,24 @@
 from dagster import (
     make_email_on_run_failure_sensor,
     DagsterInstance,
-    SensorEvaluationContext,
     SensorDefinition,
     JobDefinition,
     GraphDefinition,
-    UnresolvedAssetJobDefinition,
     RepositorySelector,
     JobSelector,
     DefaultSensorStatus,
 )
+from dagster._core.definitions.unresolved_asset_job_definition import (
+    UnresolvedAssetJobDefinition,
+)
+from dagster import RunFailureSensorContext
 from datetime import datetime
-from typing import List, Sequence
+from typing import Sequence
 import os
 
 
-def custom_email_body(context: SensorEvaluationContext):
-    dagster_run = context.run
+def custom_email_body(context: RunFailureSensorContext):
+    dagster_run = context.dagster_run
     failure_event = context.failure_event
 
     # Retrieve the stats snapshot for the current run_id
@@ -46,7 +48,6 @@ def custom_email_body(context: SensorEvaluationContext):
     email_body = f"""
     Job {dagster_run.job_name} failed!
     Run ID: {dagster_run.run_id}
-    Pipeline Snapshot ID: {dagster_run.pipeline_snapshot_id}
     Start Time: {start_time_str}
     End Time: {end_time_str}
     Run Tags: {dagster_run.tags}
@@ -55,16 +56,13 @@ def custom_email_body(context: SensorEvaluationContext):
 
     Error Message:
     {failure_event.message}
-
-    Stack Trace:
-    {failure_event.error.stack_trace if failure_event.error else "No stack trace available."}
     """
 
     return email_body
 
 
 def create_email_on_failure_sensor(
-    email_to: List[str] = ["brian.padilla@farinter.com"],
+    email_to: Sequence[str] = ("brian.padilla@farinter.com",),
     monitored_jobs: Sequence[
         JobDefinition
         | GraphDefinition
@@ -90,10 +88,8 @@ def create_email_on_failure_sensor(
     Examples:
     """
     return make_email_on_run_failure_sensor(
-        email_from=os.getenv("DAGSTER_EMAIL_ADDRESS"),
-        email_password=os.getenv(
-            "DAGSTER_SECRET_EMAIL_PASSWORD"
-        ),  # Use environment variables for sensitive information
+        email_from=os.getenv("DAGSTER_EMAIL_ADDRESS") or "",
+        email_password=os.getenv("DAGSTER_SECRET_EMAIL_PASSWORD") or "",
         email_to=email_to,
         email_subject_fn=lambda _: "Dagster Job Failure Alert",
         email_body_fn=custom_email_body,
@@ -107,7 +103,10 @@ def create_email_on_failure_sensor(
 
 
 if __name__ == "__main__":
-    from dagster import op, job
+    from dagster import op, job, DagsterInstance, build_run_status_sensor_context
+    from dotenv import load_dotenv
+
+    load_dotenv()
 
     @op
     def fails():
@@ -117,8 +116,6 @@ if __name__ == "__main__":
     def my_job_fails():
         fails()
 
-    from dagster import DagsterInstance, build_run_status_sensor_context
-
     # execute the job
     instance = DagsterInstance.ephemeral()
     result = my_job_fails.execute_in_process(instance=instance, raise_on_error=False)
@@ -127,15 +124,21 @@ if __name__ == "__main__":
     dagster_run = result.dagster_run
 
     # retrieve a failure event from the completed job execution
-    dagster_event = result.get_job_failure_event()
+    dagster_event = result.get_run_failure_event()
 
-    # create the context
-    run_failure_sensor_context = build_run_status_sensor_context(
-        sensor_name="create_email_on_failure_sensor",
-        dagster_instance=instance,
-        dagster_run=dagster_run,
-        dagster_event=dagster_event,
-    ).for_run_failure()
+    if dagster_event is None:
+        print("No failure event found.")
+    else:
+        # create the context
+        run_failure_sensor_context = build_run_status_sensor_context(
+            sensor_name="create_email_on_failure_sensor",
+            dagster_instance=instance,
+            dagster_run=dagster_run,
+            dagster_event=dagster_event,
+        ).for_run_failure()
 
-    # run the sensor
-    create_email_on_failure_sensor(run_failure_sensor_context)
+        # run the sensor (call the returned function with the context)
+        sensor_def = create_email_on_failure_sensor()
+        # For type correctness, call the function returned by make_email_on_run_failure_sensor directly
+        result = sensor_def(run_failure_sensor_context)
+        print("[TEST] Sensor result:", result)
