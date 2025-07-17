@@ -136,13 +136,13 @@ def create_timestamp_triggers(
         # Create or replace update trigger function if needed
         for field in UPDATE_FIELDS:
             if field in columns:
-                function_name = f"update_{table_name}_{field}_trigger"
-                trigger_name = f"trg_{table_name}_{field}_timestamp"
+                function_name = f"update_{table_name}_{field}_trigger"[:63]
+                trigger_name = f"trg_{table_name}_{field}_timestamp"[:63]
 
                 # Check if trigger already exists
                 trigger_query = f"""
                 SELECT 1 FROM pg_trigger 
-                WHERE tgname LIKE '%timestamp%' 
+                WHERE tgname LIKE '%timestamp%' or tgname LIKE '%{trigger_name}%'
                 AND tgrelid = '"{schema_name}"."{table_name}"'::regclass;
                 """
 
