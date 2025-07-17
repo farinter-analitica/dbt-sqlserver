@@ -111,8 +111,8 @@ def create_timestamp_triggers(
                         "default": "CURRENT_TIMESTAMP",
                     }
 
-        # Set default values for creation timestamp fields
-        for field in CREATION_FIELDS:
+        # Set default values for timestamp fields
+        for field in TIMESTAMP_FIELDS:
             if field in columns and not columns[field]["default"]:
                 set_default_query = f"""
                 ALTER TABLE "{schema_name}"."{table_name}" 
