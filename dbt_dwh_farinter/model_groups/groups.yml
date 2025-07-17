@@ -80,3 +80,6 @@ groups:
 - name: adm_dwh_kielsa
   owner:
     email: brian.padilla@farinter.com
+- name: dbt_kielsa_incentivo
+  owner:
+    email: brian.padilla@farinter.com

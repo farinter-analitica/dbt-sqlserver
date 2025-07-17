@@ -91,6 +91,9 @@ models:
       mart_ventas:
         +group: dbt_dwh_kielsa_mart_ventas
         +database: BI_FARINTER
+      mart_incentivo:
+        +group: dbt_kielsa_incentivo
+        +database: BI_FARINTER
       mart_compras:
         +group: dbt_dwh_kielsa_mart_compras
         +database: BI_FARINTER
