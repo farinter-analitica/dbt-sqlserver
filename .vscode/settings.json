@@ -19,4 +19,8 @@
             "file": "templates/commit-template.git.txt",
         }
     ],
+    "sqlfluff.linter.run": "onSave",
+    "sqlfluff.experimental.format.executeInTerminal": true,
+    "sqlfluff.executablePath": "${workspaceFolder}/scripts/sqlfluff.sh",
+    "editor.formatOnSave": false
 }
