@@ -53,6 +53,7 @@ dev = [
     "prettier>=0.0.7",
     "sqlfluff",
     #"shandy-sqlfmt", #No compatible debido que solo usa snake_case
+    
 ]
 
 helpers = ["jinja2"]

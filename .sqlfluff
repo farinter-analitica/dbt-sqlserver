@@ -1,4 +1,9 @@
 [sqlfluff]
+templater = dbt
 exclude_rules = capitalisation.identifiers
 max_line_length = 200
 dialect = tsql
+
+[sqlfluff:templater:dbt]
+project_dir = dbt_dwh_farinter
+profiles_dir = dbt_dwh_farinter
