@@ -10,6 +10,7 @@ with base as (
         rr.id,
         rr.regla_id,
         rr.rol_id,
+        rol.rol_id_ld,
         rr.part_regalia,
         rr.codigo_tipo,
         rr.tipo_aplicacion,

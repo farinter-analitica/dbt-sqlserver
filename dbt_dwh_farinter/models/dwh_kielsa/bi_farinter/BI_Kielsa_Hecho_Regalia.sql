@@ -32,7 +32,7 @@ regla_casa as (
     select
         id,
         regla_id,
-        casa_id,
+        casa_id_ld as casa_id,
         valor_regalia
     from {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla_casa') }}
 ),
@@ -41,9 +41,8 @@ regla_rol as (
     select
         rr.id,
         rr.regla_id,
-        r.rol_id,
-        rr.part_regalia,
-        rr.aplicar_por_sucursal
+        r.rol_id_ld,
+        rr.part_regalia
     from {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla_rol') }} as rr
     inner join {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} as r
         on rr.rol_id = r.id
@@ -113,7 +112,7 @@ regalia_con_rol as (
         rrol.part_regalia
     from regalia_con_casa as rcc
     left join regla_rol as rrol
-        on rcc.regla_id = rrol.regla_id and rcc.Rol_Id = rrol.rol_id
+        on rcc.regla_id = rrol.regla_id and rcc.Rol_Id = rrol.rol_id_ld
 --where regalia_id = 306 AND Detalle_Fecha >='20250701' and emp_id = 5
 )
 

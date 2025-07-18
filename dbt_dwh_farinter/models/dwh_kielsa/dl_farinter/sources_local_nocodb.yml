@@ -12,27 +12,35 @@ sources:
   - name: kielsa_incentivo_rol
     columns:
       - name: id
-      - name: rol_id
+      - name: rol_id_ld
+        description: ID de rol en la tabla ld
       - name: emp_id
       - name: nombre
       - name: id_responsable
+      - name: mapear_a_id
+        description: Mapeo a id de la tabla kielsa_incentivo_rol para usar en su lugar
       - name: fecha_creado
       - name: fecha_actualizado
     constraints:
       - type: primary_key
         columns: [id]
       - type: unique
-        columns: [rol_id, emp_id]
+        columns: [rol_id_ld, emp_id]
       - type: foreign_key
         columns: [id_responsable]
         to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol')
         to_columns: [id]
         name: incentivo_rol_id_responsable_fkey
+      - type: foreign_key
+        columns: [mapear_a_id]
+        to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol')
+        to_columns: [id]
+        name: incentivo_rol_mapear_a_id_fkey
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           name: unique_rol_id_emp_id
           combination_of_columns:
-            - rol_id
+            - rol_id_ld
             - emp_id
           config:
             severity: error
@@ -60,6 +68,8 @@ sources:
         description: Push money
       - name: valor_por_receta_seguro
         description: Valor por receta de seguro
+      - name: valor_por_regalia
+        description: Valor por regalía si no es aplica por part.
     constraints:
       - type: primary_key
         columns: [id]
@@ -88,7 +98,7 @@ sources:
     columns:
       - name: id
       - name: regla_id
-      - name: casa_id
+      - name: casa_id_ld
       - name: valor_regalia
       - name: notas
       - name: fecha_creado
@@ -97,7 +107,7 @@ sources:
       - type: primary_key
         columns: [id]
       - type: unique
-        columns: [regla_id, casa_id]
+        columns: [regla_id, casa_id_ld]
       - type: foreign_key
         columns: [regla_id]
         to: source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla')
@@ -108,7 +118,7 @@ sources:
           name: unique_regla_id_casa_id
           combination_of_columns:
             - regla_id
-            - casa_id
+            - casa_id_ld
           config:
             severity: error
   - name: kielsa_incentivo_regla_regalia

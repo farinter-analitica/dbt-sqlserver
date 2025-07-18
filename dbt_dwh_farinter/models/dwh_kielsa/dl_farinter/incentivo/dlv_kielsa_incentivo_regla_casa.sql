@@ -9,7 +9,7 @@ with base as (
     select
         rc.id,
         rc.regla_id,
-        rc.casa_id,
+        rc.casa_id_ld,
         rc.valor_regalia,
         r.emp_id,
         r.fecha_desde,

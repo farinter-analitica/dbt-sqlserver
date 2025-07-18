@@ -17,7 +17,7 @@ with reglas_rol as (
         coalesce(rr.part_regalia, 1.0) as part_regalia,
         coalesce(rr.part_comision, 1.0) as part_comision,
         coalesce(rr.valor_por_receta_seguro, 0.0) as valor_por_receta_seguro,
-        coalesce(rr.rol_id, kr.rol_id) as rol_id,
+        coalesce(rr.rol_id_ld, kr.rol_id_ld) as rol_id,
         coalesce(rr.rol_nombre, kr.nombre) as rol_nombre,
         coalesce(rr.codigo_tipo, 'vendedor_id') as codigo_tipo,
         coalesce(rr.tipo_aplicacion, 'individual_por_codigo') as tipo_aplicacion
@@ -25,7 +25,7 @@ with reglas_rol as (
     left join {{ ref('dlv_kielsa_incentivo_regla_rol') }} as rr
         on r.id = rr.regla_id
     left join {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} as kr
-        on rr.rol_id is null and r.emp_id = kr.emp_id
+        on rr.rol_id_ld is null and r.emp_id = kr.emp_id
     where
         r.fecha_desde <= getdate()
         and (r.fecha_hasta is null or r.fecha_hasta >= getdate())
