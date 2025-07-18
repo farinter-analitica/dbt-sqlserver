@@ -27,7 +27,7 @@
 {%- endif %}
 
 WITH ComisionBitacora AS (
-    SELECT 
+    SELECT
         CB.Emp_Id,
         CB.Suc_Id,
         CB.Comision_Fecha,
@@ -36,60 +36,74 @@ WITH ComisionBitacora AS (
         CB.Comision_CantArticulo,
         CB.Comision_Monto,
         CB.Fecha_Actualizado
-    FROM {{ ref('DL_Kielsa_Comision_Bitacora') }} CB
+    FROM {{ ref('DL_Kielsa_Comision_Bitacora') }} AS CB
     {% if is_incremental() %}
-    WHERE CB.Comision_Fecha >= '{{ last_date }}'
+        WHERE CB.Comision_Fecha >= '{{ last_date }}'
     {% endif %}
 ),
+
 Staging AS (
 -- Consulta principal que une las tres tablas
-SELECT 
+    SELECT
     -- Campos de identificación
-    CB.Emp_Id,
-    CB.Suc_Id,
-    CB.Comision_Fecha,
-    CB.Vendedor_Id,
-    CB.Articulo_Id,
-    
-    -- Campos de la bitácora de comisiones
-    CB.Comision_CantArticulo,
-    CB.Comision_Monto,
-    CB.Comision_CantArticulo * CB.Comision_Monto AS Comision_Total,
-    
-    -- Campos del encabezado de comisiones
-    CD.Comision_Id,
-    CD.Comision_Nombre,
-    CD.Comision_Fecha_Inicial,
-    CD.Comision_Fecha_Final,
-    --CD.Comision_Estado,
-    
-    -- Campos del detalle de comisiones
-    CD.Detalle_Comision_Monto,
-    CD.Detalle_Consecutivo,
-    
-    -- Campos de auditoría
-    ROW_NUMBER() OVER (PARTITION BY CB.Comision_Fecha, CB.Vendedor_Id, CB.Articulo_Id, CB.Suc_Id , CB.Emp_Id
-        ORDER BY CD.Comision_Fecha_Final DESC) AS rn,
-    CD.EmpSucArtCom_Id,
-    GETDATE() AS Fecha_Carga,
-    (SELECT MAX(fecha) FROM (VALUES 
-        (CB.Fecha_Actualizado),
-        (CD.Fecha_Actualizado)
-    ) AS MaxFecha(fecha)) AS Fecha_Actualizado
-FROM ComisionBitacora CB
-LEFT JOIN {{ ref('BI_Kielsa_Dim_Comision_Detalle') }} CD 
-    ON CB.Emp_Id = CD.Emp_Id 
-    AND CB.Comision_Fecha >= CD.Comision_Fecha_Inicial 
-    AND CB.Comision_Fecha <= CD.Comision_Fecha_Final
-    AND CB.Suc_Id = CD.Suc_Id 
-    AND CB.Articulo_Id = CD.Articulo_Id
-)
-SELECT *,
-    
-    -- Campos para concatenación de IDs
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=49, table_alias='')}} AS EmpSuc_Id,
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=49, table_alias='')}} AS EmpArt_Id,
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Vendedor_Id'], input_length=49, table_alias='')}} AS EmpVen_Id
+        CB.Emp_Id,
+        CB.Suc_Id,
+        CB.Comision_Fecha,
+        CB.Vendedor_Id,
+        CB.Articulo_Id,
 
-FROM Staging
-WHERE rn = 1
+        -- Campos de la bitácora de comisiones
+        CB.Comision_CantArticulo,
+        CB.Comision_Monto,
+        CD.Comision_Id,
+
+        -- Campos del encabezado de comisiones
+        CD.Comision_Nombre,
+        CD.Comision_Fecha_Inicial,
+        CD.Comision_Fecha_Final,
+        CD.Detalle_Comision_Monto,
+        --CD.Comision_Estado,
+
+        -- Campos del detalle de comisiones
+        CD.Detalle_Consecutivo,
+        CD.EmpSucArtCom_Id,
+
+        -- Campos de auditoría
+        CAST(CB.Comision_CantArticulo * CB.Comision_Monto AS DECIMAL(18, 6)) AS Comision_Total,
+        ROW_NUMBER() OVER (
+            PARTITION BY CB.Comision_Fecha, CB.Vendedor_Id, CB.Articulo_Id, CB.Suc_Id, CB.Emp_Id
+            ORDER BY CD.Comision_Fecha_Final DESC
+        ) AS rn,
+        GETDATE() AS Fecha_Carga,
+        (SELECT MAX(fecha) FROM ( -- noqa: RF02, RF03
+            VALUES
+            (CB.Fecha_Actualizado), -- noqa: RF03
+            (CD.Fecha_Actualizado) -- noqa: RF03
+        ) AS MaxFecha (fecha)) AS Fecha_Actualizado
+    FROM ComisionBitacora AS CB
+    LEFT JOIN {{ ref('BI_Kielsa_Dim_Comision_Detalle') }} AS CD
+        ON
+            CB.Emp_Id = CD.Emp_Id
+            AND CB.Comision_Fecha >= CD.Comision_Fecha_Inicial
+            AND CB.Comision_Fecha <= CD.Comision_Fecha_Final
+            AND CB.Suc_Id = CD.Suc_Id
+            AND CB.Articulo_Id = CD.Articulo_Id
+)
+
+SELECT
+    S.*,
+    ART.Articulo_Codigo_Padre AS Articulo_Padre_Id,
+    CAST(CASE
+        WHEN ART.Indicador_PadreHijo = 'H' THEN S.Comision_CantArticulo / ISNULL(ART.Factor_Denominador, 1.0)
+        ELSE
+            S.Comision_CantArticulo
+    END AS DECIMAL(18, 6)) AS Cantidad_Padre,
+    -- Campos para concatenación de IDs
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=49, table_alias='S') }} AS EmpSuc_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=49, table_alias='S') }} AS EmpArt_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Vendedor_Id'], input_length=49, table_alias='S') }} AS EmpVen_Id
+
+FROM Staging AS S
+LEFT JOIN {{ ref ('BI_Kielsa_Dim_Articulo') }} AS ART
+    ON S.Emp_Id = ART.Emp_Id AND S.Articulo_Id = ART.Articulo_Id
+WHERE S.rn = 1
