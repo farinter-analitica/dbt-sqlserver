@@ -9,7 +9,7 @@
 		tags=["periodo/diario","automation/periodo_por_hora"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
-		on_schema_change="fail",
+		on_schema_change="append_new_columns",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
 		unique_key=unique_key_list,
