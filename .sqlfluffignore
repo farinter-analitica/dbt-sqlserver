@@ -1,3 +1,6 @@
+*
+!dbt_dwh_farinter/
+!dbt_dwh_farinter/**
 target/
 # dbt <1.0.0
 dbt_modules/
