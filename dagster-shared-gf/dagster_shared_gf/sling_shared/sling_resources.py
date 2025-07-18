@@ -1,8 +1,26 @@
+import re
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Iterable, Optional
+from typing import Any, Iterable, Literal, Mapping, Optional, Union
+
 import dagster as dg
-from dagster_shared_gf.shared_variables import Tags
+from dagster import (
+    AssetExecutionContext,
+    OpExecutionContext,
+    get_dagster_logger,
+)
 from dagster_sling import DagsterSlingTranslator, SlingResource
+from dagster_sling.asset_decorator import (
+    METADATA_KEY_REPLICATION_CONFIG,
+    METADATA_KEY_TRANSLATOR,
+    get_streams_from_replication,
+    streams_with_default_dagster_meta,
+)
+
+from dagster_shared_gf.shared_variables import Tags
+
+logger = get_dagster_logger()
+
+ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 @dataclass
@@ -112,3 +130,38 @@ class MyDagsterSlingTranslator(DagsterSlingTranslator):
 
 class MySlingResource(SlingResource):
     default_mode: Literal["incremental", "full-refresh"] = "incremental"
+
+    @staticmethod
+    def _get_replication_streams_for_context(
+        context: Union[OpExecutionContext, AssetExecutionContext],
+    ) -> dict[str, Any]:
+        """Computes the sling replication streams config for a given execution context with an
+        assets def, possibly involving a subset selection of sling assets.
+        """
+        if not context.has_assets_def:
+            no_assets_def_message = """
+            The current execution context has no backing AssetsDefinition object. Therefore,  no
+            sling assets subsetting will be performed...
+            """
+            logger.warn(no_assets_def_message)
+            return {}
+
+        context_streams = {}
+        assets_def = context.assets_def
+        metadata_by_key = assets_def.metadata_by_key
+        first_asset_metadata = next(iter(metadata_by_key.values()))
+        replication_config: dict[str, Any] = first_asset_metadata.get(
+            METADATA_KEY_REPLICATION_CONFIG, {}
+        )
+        dagster_sling_translator: DagsterSlingTranslator = first_asset_metadata.get(
+            METADATA_KEY_TRANSLATOR, DagsterSlingTranslator()
+        )
+        raw_streams = get_streams_from_replication(replication_config)
+        streams = streams_with_default_dagster_meta(raw_streams, replication_config)
+        selected_asset_keys = context.selected_asset_keys
+        for stream in streams:
+            asset_key = dagster_sling_translator.get_asset_spec(stream).key
+            if asset_key in selected_asset_keys:
+                context_streams.update({stream["name"]: stream["config"]})
+
+        return context_streams
