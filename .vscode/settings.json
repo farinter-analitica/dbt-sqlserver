@@ -22,5 +22,6 @@
     "sqlfluff.linter.run": "onSave",
     "sqlfluff.experimental.format.executeInTerminal": true,
     "sqlfluff.executablePath": "${workspaceFolder}/scripts/sqlfluff.sh",
-    "editor.formatOnSave": false
+    "editor.formatOnSave": false,
+    "dbt.queryLimit": 1000
 }

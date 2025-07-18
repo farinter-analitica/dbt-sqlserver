@@ -1,4 +1,9 @@
-{{ config(materialized="view") }}
+{{ 
+    config(
+		tags=["automation/periodo_mensual_inicio", "automation_only"],
+        materialized="view",
+    )
+}}
 
 with base as (
     select

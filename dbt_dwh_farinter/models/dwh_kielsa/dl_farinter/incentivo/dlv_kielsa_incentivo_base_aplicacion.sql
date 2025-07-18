@@ -1,26 +1,34 @@
-{{ config(materialized="view") }}
-
+{{ 
+    config(
+		tags=["automation/periodo_mensual_inicio", "automation_only"],
+        materialized="view",
+    )
+}}
 -- Vista base para aplicación de incentivos
 -- Genera los registros base que permiten unir las métricas de incentivos
 -- con las reglas configuradas según rol, usuario/vendedor y sucursal(es)
 
 with reglas_rol as (
     select
-        regla_id,
-        rol_id,
-        emp_id,
-        fecha_desde,
-        fecha_hasta,
-        rol_nombre,
-        codigo_tipo,
-        tipo_aplicacion,
-        part_regalia,
-        part_comision,
-        valor_por_receta_seguro
-    from {{ ref('dlv_kielsa_incentivo_regla_rol') }}
+        r.id as regla_id,
+        r.emp_id,
+        r.fecha_desde,
+        r.fecha_hasta,
+        coalesce(rr.part_regalia, 1.0) as part_regalia,
+        coalesce(rr.part_comision, 1.0) as part_comision,
+        coalesce(rr.valor_por_receta_seguro, 0.0) as valor_por_receta_seguro,
+        coalesce(rr.rol_id, kr.rol_id) as rol_id,
+        coalesce(rr.rol_nombre, kr.nombre) as rol_nombre,
+        coalesce(rr.codigo_tipo, 'vendedor_id') as codigo_tipo,
+        coalesce(rr.tipo_aplicacion, 'individual_por_codigo') as tipo_aplicacion
+    from {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla') }} as r
+    left join {{ ref('dlv_kielsa_incentivo_regla_rol') }} as rr
+        on r.id = rr.regla_id
+    left join {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} as kr
+        on rr.rol_id is null and r.emp_id = kr.emp_id
     where
-        fecha_desde <= getdate()
-        and (fecha_hasta is null or fecha_hasta >= getdate())
+        r.fecha_desde <= getdate()
+        and (r.fecha_hasta is null or r.fecha_hasta >= getdate())
 ),
 
 aplicacion_base as (
