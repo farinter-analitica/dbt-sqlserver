@@ -48,8 +48,10 @@ sources:
         description: Participación en regalía
       - name: notas
         description: Notas
-      - name: aplicar_por_sucursal
-        description: Indicador si aplica por sucursal
+      - name: codigo_tipo
+        description: Tipo de código del rol a usar (vendedor_id o usuario_id por el momento)
+      - name: tipo_aplicacion
+        description: Tipo de aplicación del incentivo (unica_sucursal, multiple_sucursal, individual_por_codigo por el momento)
       - name: fecha_creado
         description: Fecha de creación
       - name: fecha_actualizado

@@ -151,6 +151,16 @@ sources:
   - name: DL_Kielsa_Orden_Exterior_Detalle
   - name: DL_Kielsa_Orden_Exterior_Encabezado
   - name: DL_Kielsa_VendedorSucursal
+    columns:
+    - name: Emp_Id
+    - name: Suc_Id
+    - name: Vendedor_Id
+    - name: Vendedor_Fec_Actualizacion
+    - name: Consecutivo
+    - name: Fecha_Ultima_Factura
+    - name: Sucursal_Id_Ultima_Factura
+    - name: Bit_Activo
+    - name: Hash_VendedorSucEmp
   - name: DL_Kielsa_Libros_Cliente
   - name: DL_Kielsa_Libros_Historico
   - name: DL_Kielsa_Libros_Tipo
