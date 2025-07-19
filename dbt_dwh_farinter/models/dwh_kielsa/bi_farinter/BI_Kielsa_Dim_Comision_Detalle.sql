@@ -13,6 +13,7 @@
         post_hook=[
             "{{ dwh_farinter_remove_incremental_temp_table() }}",
             "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+            "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Emp_Id', 'Suc_Id', 'Articulo_Id', 'Es_Ultimo_Rango']) }}",
             "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
         ]
     ) 
@@ -26,40 +27,180 @@
     {%- set last_date = '19000101' %}
 {%- endif %}
 
-WITH Comision_Atributos AS (
-    SELECT 
+WITH Comision_Nuevos_Actualizados AS (
+    -- 1. Obtener registros nuevos o modificados desde el origen
+    SELECT
         CD.Emp_Id,
         CD.Comision_Id,
         CD.Suc_Id,
         CD.Articulo_Id,
-        CD.Comision_Monto as Detalle_Comision_Monto,
-        CD.Consecutivo as Detalle_Consecutivo,
+        CD.Comision_Monto AS Detalle_Comision_Monto,
+        CD.Consecutivo AS Detalle_Consecutivo,
         CE.Comision_Fecha_Inicial,
         CE.Comision_Fecha_Final,
         CE.Comision_Nombre,
         CE.Comision_Estado,
-        (SELECT MAX(fecha) FROM (VALUES 
+        (SELECT MAX(fecha) FROM (
+            VALUES
             (ISNULL(CE.Fecha_Actualizado, '19000101')),
             (ISNULL(CD.Fecha_Actualizado, '19000101'))
-        ) AS MaxFecha(fecha)) AS Fecha_Actualizado
-    FROM {{ref('DL_Kielsa_Comision_Encabezado')}} CE 
-    INNER JOIN {{ref('DL_Kielsa_Comision_Detalle')}} CD 
-        ON CE.Emp_Id = CD.Emp_Id 
-        AND CE.Comision_Id = CD.Comision_Id
+        ) AS MaxFecha (fecha)) AS Fecha_Actualizado
+    FROM {{ ref('DL_Kielsa_Comision_Encabezado') }} AS CE
+    INNER JOIN {{ ref('DL_Kielsa_Comision_Detalle') }} AS CD
+        ON
+            CE.Emp_Id = CD.Emp_Id
+            AND CE.Comision_Id = CD.Comision_Id
     {% if is_incremental() %}
-    WHERE (SELECT MAX(fecha) FROM (VALUES 
+        WHERE (SELECT MAX(fecha) FROM (
+            VALUES
             (ISNULL(CE.Fecha_Actualizado, '19000101')),
             (ISNULL(CD.Fecha_Actualizado, '19000101'))
-        ) AS MaxFecha(fecha)) >= '{{ last_date }}'
+        ) AS MaxFecha (fecha)) >= '{{ last_date }}'
     {% endif %}
 )
-SELECT *,
-    
-    -- Campos para concatenación de IDs
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'Articulo_Id', 'Comision_Id'], input_length=49, table_alias='')}} AS EmpSucArtCom_Id,
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'Comision_Id'], input_length=49, table_alias='')}} AS EmpSucCom_Id,
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Comision_Id'], input_length=49, table_alias='')}} AS EmpCom_Id,
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=49, table_alias='')}} AS EmpSuc_Id,
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=49, table_alias='')}} AS EmpArt_Id
 
-FROM Comision_Atributos
+{% if is_incremental() %}
+    , Claves_Afectadas_Con_Fechas AS (
+    -- 2. Identificar las particiones que tienen cambios y sus rangos de fechas
+        SELECT
+            Emp_Id,
+            Suc_Id,
+            Articulo_Id,
+            MIN(Comision_Fecha_Inicial) AS Min_Fecha_Inicial,
+            MAX(Comision_Fecha_Final) AS Max_Fecha_Final
+        FROM Comision_Nuevos_Actualizados
+        GROUP BY Emp_Id, Suc_Id, Articulo_Id
+    ),
+
+    Datos_Para_Procesar AS (
+    -- 3. Traer datos nuevos + registros existentes de las particiones afectadas
+        SELECT *
+        FROM Comision_Nuevos_Actualizados
+
+        UNION ALL
+
+        SELECT
+            T.Emp_Id,
+            T.Comision_Id,
+            T.Suc_Id,
+            T.Articulo_Id,
+            T.Detalle_Comision_Monto,
+            T.Detalle_Consecutivo,
+            T.Comision_Fecha_Inicial,
+            T.Comision_Fecha_Final_Original AS Comision_Fecha_Final,
+            T.Comision_Nombre,
+            T.Comision_Estado,
+            T.Fecha_Actualizado
+        FROM {{ this }} AS T
+        INNER JOIN Claves_Afectadas_Con_Fechas AS CA
+            ON
+                T.Emp_Id = CA.Emp_Id
+                AND T.Suc_Id = CA.Suc_Id
+                AND T.Articulo_Id = CA.Articulo_Id
+        WHERE
+        -- Solo traer registros existentes que puedan solapar con los nuevos
+            (
+                T.Comision_Fecha_Inicial <= CA.Max_Fecha_Final
+                AND T.Comision_Fecha_Final_Original >= CA.Min_Fecha_Inicial
+            )
+            -- Evitar duplicados con los registros nuevos
+            AND NOT EXISTS (
+                SELECT 1
+                FROM Comision_Nuevos_Actualizados AS CNA
+                WHERE
+                    T.Emp_Id = CNA.Emp_Id
+                    AND T.Suc_Id = CNA.Suc_Id
+                    AND T.Articulo_Id = CNA.Articulo_Id
+                    AND T.Comision_Id = CNA.Comision_Id
+            )
+    )
+{% endif %}
+
+, Comision_Con_Rangos_Corregidos AS (
+    -- 4. Corregir rangos para evitar solapamientos y marcar el último
+    SELECT
+        *,
+        -- Corregir fecha final: si hay un siguiente rango, terminar un día antes de que inicie
+        CASE
+            WHEN
+                LEAD(Comision_Fecha_Inicial, 1) OVER (
+                    PARTITION BY Emp_Id, Suc_Id, Articulo_Id
+                    ORDER BY Comision_Fecha_Inicial ASC, Comision_Id ASC
+                ) IS NOT NULL
+                THEN DATEADD(DAY, -1, LEAD(Comision_Fecha_Inicial, 1) OVER (
+                    PARTITION BY Emp_Id, Suc_Id, Articulo_Id
+                    ORDER BY Comision_Fecha_Inicial ASC, Comision_Id ASC
+                ))
+            ELSE Comision_Fecha_Final  -- Mantener fecha final original si es el último
+        END AS Comision_Fecha_Final_Corregida,
+
+        -- Marcar si es el último rango (el de fecha final más tardía)
+        CASE
+            WHEN ROW_NUMBER() OVER (
+                PARTITION BY Emp_Id, Suc_Id, Articulo_Id
+                ORDER BY Comision_Fecha_Final DESC, Comision_Id DESC
+            ) = 1 THEN 1
+            ELSE 0
+        END AS Es_Ultimo_Rango,
+
+        GETDATE() AS Fecha_Carga
+    FROM {% if is_incremental() %} Datos_Para_Procesar {% else %} Comision_Nuevos_Actualizados {% endif %}
+),
+
+Comision_Con_Duplicados_Marcados AS (
+    -- 3. Marcar duplicados después de la corrección de fechas
+    SELECT
+        *,
+        -- Marcar duplicados: mismos rangos de fecha para la misma combinación
+        CASE
+            WHEN COUNT(*) OVER (
+                PARTITION BY Emp_Id, Suc_Id, Articulo_Id, Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
+            ) > 1 THEN 1
+            ELSE 0
+        END AS Es_Duplicado,
+
+        -- En caso de duplicados, marcar cuál mantener (el de mayor Comision_Id)
+        CASE
+            WHEN
+                COUNT(*) OVER (
+                    PARTITION BY Emp_Id, Suc_Id, Articulo_Id, Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
+                ) > 1
+                THEN
+                    CASE
+                        WHEN ROW_NUMBER() OVER (
+                            PARTITION BY Emp_Id, Suc_Id, Articulo_Id, Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
+                            ORDER BY Comision_Id DESC
+                        ) = 1 THEN 1
+                        ELSE 0
+                    END
+            ELSE 1  -- Si no hay duplicados, mantener el registro
+        END AS Mantener_Registro
+    FROM Comision_Con_Rangos_Corregidos
+)
+
+SELECT
+    C.Emp_Id,
+    C.Comision_Id,
+    C.Suc_Id,
+    C.Articulo_Id,
+    C.Detalle_Comision_Monto,
+    C.Detalle_Consecutivo,
+    C.Comision_Fecha_Inicial,
+    C.Comision_Fecha_Final AS Comision_Fecha_Final_Original,
+    C.Comision_Fecha_Final_Corregida AS Comision_Fecha_Final,
+    C.Comision_Nombre,
+    C.Comision_Estado,
+    C.Fecha_Actualizado,
+    C.Es_Ultimo_Rango,
+    C.Es_Duplicado,
+    C.Mantener_Registro,
+    C.Fecha_Carga,
+
+    -- Campos para concatenación de IDs
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'Articulo_Id', 'Comision_Id'], input_length=49, table_alias='C') }} AS EmpSucArtCom_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id', 'Comision_Id'], input_length=49, table_alias='C') }} AS EmpSucCom_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Comision_Id'], input_length=49, table_alias='C') }} AS EmpCom_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=49, table_alias='C') }} AS EmpSuc_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=49, table_alias='C') }} AS EmpArt_Id
+
+FROM Comision_Con_Duplicados_Marcados AS C
