@@ -117,65 +117,105 @@ WITH Comision_Nuevos_Actualizados AS (
 {% endif %}
 
 , Comision_Con_Rangos_Corregidos AS (
-    -- 4. Corregir rangos para evitar solapamientos y marcar el último
+    -- 4. Corregir rangos para evitar solapamientos de forma sistemática
     SELECT
         *,
-        -- Corregir fecha final: si hay un siguiente rango, terminar un día antes de que inicie
+        -- Paso 1: Ordenar por fecha inicial y luego por ID para tener secuencia determinista
+        ROW_NUMBER() OVER (
+            PARTITION BY Emp_Id, Suc_Id, Articulo_Id
+            ORDER BY Comision_Fecha_Inicial ASC, Comision_Id ASC
+        ) AS Orden_Secuencial,
+
+        -- Paso 2: Determinar la fecha final corregida considerando solapamientos múltiples
         CASE
+            -- Si hay un siguiente rango, la fecha final será el mínimo entre:
+            -- a) La fecha final original
+            -- b) Un día antes del siguiente inicio
             WHEN
                 LEAD(Comision_Fecha_Inicial, 1) OVER (
                     PARTITION BY Emp_Id, Suc_Id, Articulo_Id
                     ORDER BY Comision_Fecha_Inicial ASC, Comision_Id ASC
                 ) IS NOT NULL
-                THEN DATEADD(DAY, -1, LEAD(Comision_Fecha_Inicial, 1) OVER (
-                    PARTITION BY Emp_Id, Suc_Id, Articulo_Id
-                    ORDER BY Comision_Fecha_Inicial ASC, Comision_Id ASC
-                ))
-            ELSE Comision_Fecha_Final  -- Mantener fecha final original si es el último
-        END AS Comision_Fecha_Final_Corregida,
-
-        -- Marcar si es el último rango (el de fecha final más tardía)
-        CASE
-            WHEN ROW_NUMBER() OVER (
-                PARTITION BY Emp_Id, Suc_Id, Articulo_Id
-                ORDER BY Comision_Fecha_Final DESC, Comision_Id DESC
-            ) = 1 THEN 1
-            ELSE 0
-        END AS Es_Ultimo_Rango,
+                THEN
+                    CASE
+                        WHEN
+                            DATEADD(DAY, -1, LEAD(Comision_Fecha_Inicial, 1) OVER (
+                                PARTITION BY Emp_Id, Suc_Id, Articulo_Id
+                                ORDER BY Comision_Fecha_Inicial ASC, Comision_Id ASC
+                            )) < Comision_Fecha_Final
+                            THEN DATEADD(DAY, -1, LEAD(Comision_Fecha_Inicial, 1) OVER (
+                                PARTITION BY Emp_Id, Suc_Id, Articulo_Id
+                                ORDER BY Comision_Fecha_Inicial ASC, Comision_Id ASC
+                            ))
+                        ELSE Comision_Fecha_Final
+                    END
+            ELSE Comision_Fecha_Final  -- Es el último, mantener fecha final original
+        END AS Comision_Fecha_Final_Corregida_Temp,
 
         GETDATE() AS Fecha_Carga
     FROM {% if is_incremental() %} Datos_Para_Procesar {% else %} Comision_Nuevos_Actualizados {% endif %}
 ),
 
-Comision_Con_Duplicados_Marcados AS (
-    -- 3. Marcar duplicados después de la corrección de fechas
+Comision_Rangos_Validos AS (
+    -- 5. Validar rangos y eliminar los que quedan inválidos después de correcciones
     SELECT
         *,
-        -- Marcar duplicados: mismos rangos de fecha para la misma combinación
-        CASE
-            WHEN COUNT(*) OVER (
-                PARTITION BY Emp_Id, Suc_Id, Articulo_Id, Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
-            ) > 1 THEN 1
-            ELSE 0
-        END AS Es_Duplicado,
+        -- Marcar rangos válidos (fecha final >= fecha inicial)
+        Comision_Fecha_Final_Corregida_Temp AS Comision_Fecha_Final_Corregida,
 
-        -- En caso de duplicados, marcar cuál mantener (el de mayor Comision_Id)
+        -- Renombrar para claridad
+        CASE
+            WHEN Comision_Fecha_Final_Corregida_Temp >= Comision_Fecha_Inicial THEN 1
+            ELSE 0
+        END AS Es_Rango_Valido
+    FROM Comision_Con_Rangos_Corregidos
+),
+
+Comision_Sin_Duplicados AS (
+    -- 6. Procesar TODOS los registros para duplicados (válidos e inválidos)
+    SELECT
+        *,
+        -- Identificar duplicados exactos (misma fecha inicial y final corregida)
+        COUNT(*) OVER (
+            PARTITION BY Emp_Id, Suc_Id, Articulo_Id,
+            Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
+        ) AS Cant_Duplicados,
+
+        -- Marcar cuál registro mantener en caso de duplicados
+        ROW_NUMBER() OVER (
+            PARTITION BY Emp_Id, Suc_Id, Articulo_Id,
+            Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
+            ORDER BY Comision_Id DESC  -- Mantener el de mayor ID
+        ) AS Orden_Duplicado
+    FROM Comision_Rangos_Validos
+    -- NO filtrar aquí - procesamos todo para el merge incremental
+),
+
+Comision_Con_Indicadores_Finales AS (
+    -- 7. Calcular indicadores finales sobre datos limpios
+    SELECT
+        *,
+        -- Marcar duplicados
+        CASE WHEN Cant_Duplicados > 1 THEN 1 ELSE 0 END AS Es_Duplicado,
+
+        -- Marcar cuáles mantener: debe ser válido Y ser el elegido en caso de duplicados
+        CASE
+            WHEN Es_Rango_Valido = 1 AND Orden_Duplicado = 1 THEN 1
+            ELSE 0
+        END AS Mantener_Registro,
+
+        -- Recalcular Es_Ultimo_Rango solo sobre los datos finales válidos y únicos
         CASE
             WHEN
-                COUNT(*) OVER (
-                    PARTITION BY Emp_Id, Suc_Id, Articulo_Id, Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
-                ) > 1
-                THEN
-                    CASE
-                        WHEN ROW_NUMBER() OVER (
-                            PARTITION BY Emp_Id, Suc_Id, Articulo_Id, Comision_Fecha_Inicial, Comision_Fecha_Final_Corregida
-                            ORDER BY Comision_Id DESC
-                        ) = 1 THEN 1
-                        ELSE 0
-                    END
-            ELSE 1  -- Si no hay duplicados, mantener el registro
-        END AS Mantener_Registro
-    FROM Comision_Con_Rangos_Corregidos
+                Es_Rango_Valido = 1
+                AND Orden_Duplicado = 1
+                AND ROW_NUMBER() OVER (
+                    PARTITION BY Emp_Id, Suc_Id, Articulo_Id
+                    ORDER BY Comision_Fecha_Final_Corregida DESC, Comision_Id DESC
+                ) = 1 THEN 1
+            ELSE 0
+        END AS Es_Ultimo_Rango
+    FROM Comision_Sin_Duplicados
 )
 
 SELECT
@@ -203,4 +243,4 @@ SELECT
     {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=49, table_alias='C') }} AS EmpSuc_Id,
     {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=49, table_alias='C') }} AS EmpArt_Id
 
-FROM Comision_Con_Duplicados_Marcados AS C
+FROM Comision_Con_Indicadores_Finales AS C

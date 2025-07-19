@@ -28,17 +28,17 @@
 
 WITH ComisionBitacora AS (
     SELECT
-        CB.Emp_Id,
-        CB.Suc_Id,
-        CB.Comision_Fecha,
-        CB.Vendedor_Id,
-        CB.Articulo_Id,
-        CB.Comision_CantArticulo,
-        CB.Comision_Monto,
+        ISNULL(CB.Emp_Id, 0) AS Emp_Id,
+        ISNULL(CB.Suc_Id, 0) AS Suc_Id,
+        ISNULL(CB.Comision_Fecha, '19000101') AS Comision_Fecha,
+        ISNULL(CB.Vendedor_Id, 0) AS Vendedor_Id,
+        ISNULL(CB.Articulo_Id, 'X') AS Articulo_Id,
+        ISNULL(CB.Comision_CantArticulo, 0.0) AS Comision_CantArticulo,
+        ISNULL(CB.Comision_Monto, 0.0) AS Comision_Monto,
         CB.Fecha_Actualizado
     FROM {{ ref('DL_Kielsa_Comision_Bitacora') }} AS CB
     {% if is_incremental() %}
-        WHERE CB.Comision_Fecha >= '{{ last_date }}'
+        WHERE CB.Fecha_Actualizado >= '{{ last_date }}'
     {% endif %}
 ),
 
@@ -70,24 +70,20 @@ Staging AS (
 
         -- Campos de auditoría
         CAST(CB.Comision_CantArticulo * CB.Comision_Monto AS DECIMAL(18, 6)) AS Comision_Total,
-        ROW_NUMBER() OVER (
-            PARTITION BY CB.Comision_Fecha, CB.Vendedor_Id, CB.Articulo_Id, CB.Suc_Id, CB.Emp_Id
-            ORDER BY CD.Comision_Fecha_Final DESC
-        ) AS rn,
         GETDATE() AS Fecha_Carga,
-        (SELECT MAX(fecha) FROM ( -- noqa: RF02, RF03
-            VALUES
-            (CB.Fecha_Actualizado), -- noqa: RF03
-            (CD.Fecha_Actualizado) -- noqa: RF03
-        ) AS MaxFecha (fecha)) AS Fecha_Actualizado
+        CASE
+            WHEN CB.Fecha_Actualizado > CD.Fecha_Actualizado THEN CB.Fecha_Actualizado
+            ELSE CD.Fecha_Actualizado
+        END AS Fecha_Actualizado
     FROM ComisionBitacora AS CB
     LEFT JOIN {{ ref('BI_Kielsa_Dim_Comision_Detalle') }} AS CD
         ON
             CB.Emp_Id = CD.Emp_Id
-            AND CB.Comision_Fecha >= CD.Comision_Fecha_Inicial
-            AND CB.Comision_Fecha <= CD.Comision_Fecha_Final
             AND CB.Suc_Id = CD.Suc_Id
             AND CB.Articulo_Id = CD.Articulo_Id
+            AND CB.Comision_Fecha >= CD.Comision_Fecha_Inicial
+            AND CB.Comision_Fecha <= CD.Comision_Fecha_Final
+            AND CD.Mantener_Registro = 1  -- Solo registros válidos y únicos (sin duplicados)
 )
 
 SELECT
@@ -106,4 +102,4 @@ SELECT
 FROM Staging AS S
 LEFT JOIN {{ ref ('BI_Kielsa_Dim_Articulo') }} AS ART
     ON S.Emp_Id = ART.Emp_Id AND S.Articulo_Id = ART.Articulo_Id
-WHERE S.rn = 1
+-- Ya no necesitamos WHERE S.rn = 1 porque el join ya filtra por Es_Ultimo_Rango = 1

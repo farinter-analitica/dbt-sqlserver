@@ -17,3 +17,16 @@ models:
                 max_days: 7
                 severity: warn
 
+  - name: BI_Kielsa_Dim_Comision_Detalle
+    data_tests:
+      - mutually_exclusive_ranges_multi_column:
+            lower_bound_column: Comision_Fecha_Inicial
+            upper_bound_column: Comision_Fecha_Final
+            partition_by:
+              - Articulo_Id
+              - Suc_Id
+              - Emp_Id
+            gaps: 'allowed'  # o 'not_allowed' o 'required'
+            zero_length_range_allowed: true  # o true
+            where_clause: "Mantener_Registro = 1 AND Comision_Fecha_Final >= DATEADD(day, -30, GETDATE())"
+            severity: warn
