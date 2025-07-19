@@ -17,6 +17,14 @@ sources:
       - name: emp_id
       - name: nombre
       - name: id_responsable
+      - name: codigo_tipo
+        description:
+          Tipo de código del rol a usar (vendedor_id o usuario_id por el momento)
+          Valor por defecto cuando no hay en regla_rol
+      - name: tipo_aplicacion
+        description:
+          Tipo de aplicación del incentivo (unica_sucursal, multiple_sucursal, individual_por_codigo por el momento)
+          Valor por defecto cuando no hay en regla_rol
       - name: mapear_a_id
         description: Mapeo a id de la tabla kielsa_incentivo_rol para usar en su lugar
       - name: fecha_creado

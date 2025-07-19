@@ -19,16 +19,13 @@ with reglas_rol as (
         coalesce(rr.valor_por_receta_seguro, 0.0) as valor_por_receta_seguro,
         coalesce(rr.rol_id_ld, kr.rol_id_ld) as rol_id,
         coalesce(rr.rol_nombre, kr.nombre) as rol_nombre,
-        coalesce(rr.codigo_tipo, 'vendedor_id') as codigo_tipo,
-        coalesce(rr.tipo_aplicacion, 'individual_por_codigo') as tipo_aplicacion
+        coalesce(rr.codigo_tipo, kr.codigo_tipo) as codigo_tipo,
+        coalesce(rr.tipo_aplicacion, kr.tipo_aplicacion) as tipo_aplicacion
     from {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla') }} as r
     left join {{ ref('dlv_kielsa_incentivo_regla_rol') }} as rr
         on r.id = rr.regla_id
     left join {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} as kr
         on rr.rol_id_ld is null and r.emp_id = kr.emp_id
-    where
-        r.fecha_desde <= getdate()
-        and (r.fecha_hasta is null or r.fecha_hasta >= getdate())
 ),
 
 aplicacion_base as (
@@ -99,16 +96,16 @@ select
     -- Campos adicionales útiles para joins
     {{ dwh_farinter_concat_key_columns(columns=["emp_id","regla_id"], input_length=99) }} as EmpRegla_Id,
     {{ dwh_farinter_concat_key_columns(columns=["emp_id","rol_id"], input_length=99) }} as EmpRol_Id,
-    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Usuario_Id"], input_length=99) }} as EmpUsuario_Id,
-    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Vendedor_Id"], input_length=99) }} as EmpVendedor_Id,
+    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Usuario_Id"], input_length=99) }} as EmpUsu_Id,
+    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Vendedor_Id"], input_length=99) }} as EmpVen_Id,
     case
         when Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id"], input_length=99) }}
     end as EmpSuc_Id,
     case
         when Usuario_Id is not null and Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id","Usuario_Id"], input_length=99) }}
-    end as EmpSucUsuario_Id,
+    end as EmpSucUsu_Id,
     case
         when Vendedor_Id is not null and Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id","Vendedor_Id"], input_length=99) }}
-    end as EmpSucVendedor_Id
+    end as EmpSucVen_Id
 from aplicacion_base
 where (Usuario_Id is not null or Vendedor_Id is not null)
