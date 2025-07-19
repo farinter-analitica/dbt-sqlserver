@@ -1,4 +1,4 @@
-{%- set unique_key_list = ["Fecha_Id","Usuario_Id","Vendedor_Id","Articulo_Id","Suc_Id","Emp_Id"] -%}
+{%- set unique_key_list = ["Fecha_Id","Usuario_Id","Vendedor_Id","Suc_Id","Emp_Id"] -%}
 
 {{ 
     config(
@@ -26,24 +26,17 @@
     {%- set last_date = '20250101' %}
 {%- endif %}
 
-WITH ComisionAgrupadaVen AS (
-    SELECT * FROM {{ ref('dlv_kielsa_stg_comision_emp_suc_art_ven_fch') }}
+WITH FacturasAgrupadaVen AS (
+    SELECT * FROM {{ ref('dlv_kielsa_stg_factura_encabezado_emp_suc_ven_fch') }}
     WHERE Fecha_Id >= '{{ last_date }}'
 ),
 
-ComisionAgrupadaArt AS (
-    SELECT * FROM {{ ref('dlv_kielsa_stg_comision_emp_suc_art_fch') }}
+FacturasAgrupadaSuc AS (
+    SELECT * FROM {{ ref('dlv_kielsa_stg_factura_encabezado_emp_suc_fch') }}
     WHERE Fecha_Id >= '{{ last_date }}'
 )
 
 SELECT
-    ISNULL(CAL.Fecha_Id, '19000101') AS [Fecha_Id],
-    ISNULL(BI.emp_id, 0) AS [Emp_Id],
-    ISNULL(BI.suc_id, 0) AS [Suc_Id],
-    ISNULL(ART.Articulo_Id, 'X') AS [Articulo_Id],
-    ISNULL(ART.Casa_Id, 0) AS [Casa_Id],
-    ISNULL(BI.vendedor_id, 0) AS [Vendedor_Id],
-    ISNULL(BI.usuario_id, 0) AS [Usuario_Id],
     BI.regla_id AS [Regla_Id],
     BI.rol_id AS [Rol_Id],
     BI.rol_nombre AS [Rol_Nombre],
@@ -52,43 +45,43 @@ SELECT
     BI.part_comision AS [Part_Comision],
     BI.part_regalia AS [Part_Regalia],
     BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
-    COALESCE(CAV.Comision_Total, CAA.Comision_Total, 0) AS Comision_Base_Total,
-    CAST(CASE
-        WHEN BI.part_comision IS NOT NULL
-            THEN COALESCE(CAV.Comision_Total, CAA.Comision_Total, 0) * BI.part_comision
-        ELSE 0.0
-    END AS DECIMAL(18, 6)) AS Comision_Ajustada,
     BI.EmpSuc_Id,
-    {{ dwh_farinter_concat_key_columns(columns=['emp_id', 'articulo_id'], input_length=49, table_alias='ART') }} AS EmpArt_Id,
     BI.EmpVen_Id,
-    {% if is_incremental() -%} 
+    ISNULL(CAL.Fecha_Id, '19000101') AS [Fecha_Id],
+    ISNULL(BI.emp_id, 0) AS [Emp_Id],
+    ISNULL(BI.suc_id, 0) AS [Suc_Id],
+    ISNULL(BI.vendedor_id, 0) AS [Vendedor_Id],
+    ISNULL(BI.usuario_id, 0) AS [Usuario_Id],
+    COALESCE(FAV.Cantidad_Facturas_Aseguradas, FAS.Cantidad_Facturas_Aseguradas, 0) AS Cantidad_Facturas_Aseguradas,
+    COALESCE(FAV.Cantidad_Clientes_Asegurados, FAS.Cantidad_Clientes_Asegurados, 0) AS Cantidad_Clientes_Asegurados,
+    CAST(CASE
+        WHEN BI.valor_por_receta_seguro IS NOT NULL AND BI.valor_por_receta_seguro > 0
+            THEN COALESCE(FAV.Cantidad_Facturas_Aseguradas, FAS.Cantidad_Facturas_Aseguradas, 0) * BI.valor_por_receta_seguro
+        ELSE 0.0
+    END AS DECIMAL(18, 6)) AS Incentivo_Recetas_Seguro,
+    {% if is_incremental() -%}
         GETDATE()
-    {% else -%} 
-        CAST(CAL.Fecha_Id AS datetime)
+    {% else -%}
+        CAST(CAL.Fecha_Id AS DATETIME)
     {%- endif %} AS Fecha_Actualizado
 FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
 INNER JOIN {{ ref('BI_Dim_Calendario_Dinamico') }} AS CAL
     ON
         BI.fecha_desde <= CAL.Fecha_Id
         AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAL.Fecha_Id)
-
-INNER JOIN {{ ref("BI_Kielsa_Dim_Articulo") }} AS ART
-    ON BI.Emp_Id = ART.Emp_Id
-LEFT JOIN ComisionAgrupadaVen AS CAV
+LEFT JOIN FacturasAgrupadaVen AS FAV
     ON
-        BI.emp_id = CAV.Emp_Id
-        AND BI.suc_id = CAV.Suc_Id
-        AND ART.Articulo_Id = CAV.Articulo_Id
-        AND CAL.Fecha_Id = CAV.Fecha_Id
-        AND BI.vendedor_id = CAV.Vendedor_Id
-LEFT JOIN ComisionAgrupadaArt AS CAA
+        BI.emp_id = FAV.Emp_Id
+        AND BI.suc_id = FAV.Suc_Id
+        AND CAL.Fecha_Id = FAV.Fecha_Id
+        AND BI.vendedor_id = FAV.Vendedor_Id
+LEFT JOIN FacturasAgrupadaSuc AS FAS
     ON
-        BI.emp_id = CAA.Emp_Id
-        AND BI.suc_id = CAA.Suc_Id
-        AND ART.Articulo_Id = CAA.Articulo_Id
-        AND CAL.Fecha_Id = CAA.Fecha_Id
+        BI.emp_id = FAS.Emp_Id
+        AND BI.suc_id = FAS.Suc_Id
+        AND CAL.Fecha_Id = FAS.Fecha_Id
         AND BI.vendedor_id IS NULL
 WHERE
-    (CAV.Comision_Total IS NOT NULL OR CAA.Comision_Total IS NOT NULL)
+    (FAV.Cantidad_Facturas_Aseguradas IS NOT NULL OR FAS.Cantidad_Facturas_Aseguradas IS NOT NULL)
     AND CAL.Fecha_Id >= '{{ last_date }}'
     AND CAL.Fecha_Id <= CAST(GETDATE() AS DATE)
