@@ -1,8 +1,19 @@
+{% set unique_key_list = ["Usuario_Id", "Vendedor_Id", "Suc_Id", "Emp_Id", "regla_id"] %}
+
 {{ 
     config(
-		tags=["automation/periodo_mensual_inicio", "automation_only"],
-        materialized="view",
-    )
+		as_columnstore=true,
+		tags=["automation/periodo_diario"],
+		materialized="table",
+		incremental_strategy="farinter_merge",
+		unique_key=unique_key_list,
+		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
+		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
+		post_hook=[
+        "{{ dwh_farinter_remove_incremental_temp_table() }}",
+        "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+        ]
+	) 
 }}
 -- Vista base para aplicación de incentivos
 -- Genera los registros base que permiten unir las métricas de incentivos
@@ -10,10 +21,10 @@
 
 with reglas_rol as (
     select
-        r.id as regla_id,
-        r.emp_id,
         r.fecha_desde,
         r.fecha_hasta,
+        isnull(r.id, 0) as regla_id,
+        isnull(r.emp_id, 0) as emp_id,
         coalesce(rr.part_regalia, 1.0) as part_regalia,
         coalesce(rr.part_comision, 1.0) as part_comision,
         coalesce(rr.valor_por_receta_seguro, 0.0) as valor_por_receta_seguro,
@@ -44,42 +55,52 @@ aplicacion_base as (
         -- Usuario
         coalesce(usuc.Usuario_Nombre, u.Usuario_Nombre, vsuc.Vendedor_Nombre, vi.Vendedor_Nombre) as Usuario_Nombre,
         -- Sucursal
-        coalesce(usuc.Suc_Id, u.Sucursal_Id_Asignado, vsuc.Suc_Id, vi.Sucursal_Id_Asignado) as Suc_Id,
-        -- Usuario_Id
-        coalesce(usuc.Usuario_Id, u.Usuario_Id) as Usuario_Id,
-        -- Vendedor_Id
-        coalesce(vsuc.Vendedor_Id, vi.Vendedor_Id) as Vendedor_Id
+        coalesce(usuc.Suc_Id, u.Sucursal_Id_Asignado, vsuc.Suc_Id, vi.Sucursal_Id_Asignado, 0) as Suc_Id,
+        -- Usuario_Id siempre
+        coalesce(usuc.Usuario_Id, u.Usuario_Id, vi.Usuario_Id, vsuc.Usuario_Id, 0) as Usuario_Id,
+        -- Vendedor_Id solo cuando es necesario
+        coalesce(vsuc.Vendedor_Id, vi.Vendedor_Id, 0) as Vendedor_Id
     from reglas_rol as rr
     left join {{ ref('BI_Kielsa_Dim_UsuarioSucursal') }} as usuc
         on
             rr.emp_id = usuc.Emp_Id
-            and rr.rol_id = usuc.Rol_Id
+            and rr.rol_id = usuc.Rol_Id_Mapeado
             and usuc.Bit_Activo = 1
             and rr.codigo_tipo = 'usuario_id'
             and rr.tipo_aplicacion = 'multiple_sucursal'
+            and usuc.Usuario_Id > 0
     left join {{ ref('BI_Kielsa_Dim_Usuario') }} as u
         on
             rr.emp_id = u.Emp_Id
             and u.Bit_Activo = 1
             and rr.codigo_tipo = 'usuario_id'
-            and rr.rol_id = u.Rol_Id
+            and rr.rol_id = u.Rol_Id_Mapeado
             and rr.tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
+            and u.Usuario_Id > 0
     left join {{ ref('BI_Kielsa_Dim_Vendedor') }} as vi
         on
-            rr.emp_id = vi.Emp_Id and rr.rol_id = vi.Rol_Id
+            rr.emp_id = vi.Emp_Id
+            and rr.rol_id = vi.Rol_Id_Mapeado
             and vi.Bit_Activo = 1
             and rr.codigo_tipo = 'vendedor_id'
             and rr.tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
+            and vi.Vendedor_Id > 0
     left join {{ ref('BI_Kielsa_Dim_VendedorSucursal') }} as vsuc
         on
             rr.emp_id = vsuc.Emp_Id
             and rr.codigo_tipo = 'vendedor_id'
-            and vsuc.Bit_Activo = 1 and rr.rol_id = vsuc.rol_id and rr.tipo_aplicacion = 'multiple_sucursal'
+            and vsuc.Bit_Activo = 1
+            and rr.rol_id = vsuc.Rol_Id_Mapeado
+            and rr.tipo_aplicacion = 'multiple_sucursal'
+            and vsuc.Vendedor_Id > 0
+    where
+        coalesce(vsuc.Vendedor_Id, vi.Vendedor_Id) is not null
+        or coalesce(usuc.Usuario_Id, u.Usuario_Id) is not null
 )
 
 select
-    regla_id,
-    emp_id,
+    isnull(regla_id, 0) as regla_id,
+    isnull(emp_id, 0) as emp_id,
     rol_id,
     rol_nombre,
     codigo_tipo,
@@ -89,17 +110,17 @@ select
     part_comision,
     valor_por_receta_seguro,
     tipo_aplicacion,
-    Suc_Id,
-    Usuario_Id,
-    Vendedor_Id,
+    isnull(Suc_Id, 0) as Suc_Id,
+    isnull(Usuario_Id, 0) as Usuario_Id,
+    isnull(Vendedor_Id, 0) as Vendedor_Id,
     Usuario_Nombre,
-    -- Campos adicionales útiles para joins
-    {{ dwh_farinter_concat_key_columns(columns=["emp_id","regla_id"], input_length=99) }} as EmpRegla_Id,
-    {{ dwh_farinter_concat_key_columns(columns=["emp_id","rol_id"], input_length=99) }} as EmpRol_Id,
-    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Usuario_Id"], input_length=99) }} as EmpUsu_Id,
-    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Vendedor_Id"], input_length=99) }} as EmpVen_Id,
+    -- Campos adicionales útiles para modelos
+    {{ dwh_farinter_concat_key_columns(columns=["emp_id","regla_id"], input_length=40) }} as EmpRegla_Id,
+    {{ dwh_farinter_concat_key_columns(columns=["emp_id","rol_id"], input_length=40) }} as EmpRol_Id,
+    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Usuario_Id"], input_length=40) }} as EmpUsu_Id,
+    {{ dwh_farinter_concat_key_columns(columns=["emp_id","Vendedor_Id"], input_length=40) }} as EmpVen_Id,
     case
-        when Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id"], input_length=99) }}
+        when Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id"], input_length=40) }}
     end as EmpSuc_Id,
     case
         when Usuario_Id is not null and Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id","Usuario_Id"], input_length=99) }}
@@ -108,4 +129,3 @@ select
         when Vendedor_Id is not null and Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id","Vendedor_Id"], input_length=99) }}
     end as EmpSucVen_Id
 from aplicacion_base
-where (Usuario_Id is not null or Vendedor_Id is not null)

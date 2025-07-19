@@ -26,7 +26,7 @@
     {%- set last_date = '20250101' %}
 {%- endif %}
 
-WITH ComisionAgrupadaVen AS (
+WITH ComisionAgrupadaVenArt AS (
     SELECT * FROM {{ ref('dlv_kielsa_stg_comision_emp_suc_art_ven_fch') }}
     WHERE Fecha_Id >= '{{ last_date }}'
 ),
@@ -64,7 +64,7 @@ SELECT
     {% if is_incremental() -%} 
         GETDATE()
     {% else -%} 
-        CAST(CAL.Fecha_Id AS datetime)
+        CAST(CAL.Fecha_Id AS DATETIME)
     {%- endif %} AS Fecha_Actualizado
 FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
 INNER JOIN {{ ref('BI_Dim_Calendario_Dinamico') }} AS CAL
@@ -74,20 +74,21 @@ INNER JOIN {{ ref('BI_Dim_Calendario_Dinamico') }} AS CAL
 
 INNER JOIN {{ ref("BI_Kielsa_Dim_Articulo") }} AS ART
     ON BI.Emp_Id = ART.Emp_Id
-LEFT JOIN ComisionAgrupadaVen AS CAV
+LEFT JOIN ComisionAgrupadaVenArt AS CAV
     ON
         BI.emp_id = CAV.Emp_Id
         AND BI.suc_id = CAV.Suc_Id
         AND ART.Articulo_Id = CAV.Articulo_Id
         AND CAL.Fecha_Id = CAV.Fecha_Id
         AND BI.vendedor_id = CAV.Vendedor_Id
+        AND BI.tipo_aplicacion IN ('individual_por_codigo')
 LEFT JOIN ComisionAgrupadaArt AS CAA
     ON
         BI.emp_id = CAA.Emp_Id
         AND BI.suc_id = CAA.Suc_Id
         AND ART.Articulo_Id = CAA.Articulo_Id
         AND CAL.Fecha_Id = CAA.Fecha_Id
-        AND BI.vendedor_id IS NULL
+        AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
 WHERE
     (CAV.Comision_Total IS NOT NULL OR CAA.Comision_Total IS NOT NULL)
     AND CAL.Fecha_Id >= '{{ last_date }}'

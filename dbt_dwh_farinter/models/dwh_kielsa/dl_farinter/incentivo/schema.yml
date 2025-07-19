@@ -1,0 +1,9 @@
+---
+models:
+  - name: dlv_kielsa_incentivo_base_aplicacion
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          name: unique_ven_suc_emp_regl
+          combination_of_columns: [Usuario_Id, Suc_Id, Emp_Id, regla_id]
+          config:
+            severity: warn

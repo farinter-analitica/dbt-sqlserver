@@ -66,7 +66,7 @@ rol_icentivos AS (
         kr.emp_id,
         kr.rol_id_ld AS rol_id_original,
         kr.nombre AS rol_nombre_original,
-        COALESCE(krm.rol_id_ld, kr.rol_id_ld) AS rol_id_final,
+        COALESCE(krm.rol_id_ld, kr.rol_id_ld) AS Rol_Id_Mapeado,
         COALESCE(krm.nombre, kr.nombre) AS rol_nombre_final
     FROM {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} AS kr
     LEFT JOIN {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} AS krm
@@ -76,14 +76,14 @@ rol_icentivos AS (
 cte_vendedor_x_usuario AS (
     SELECT
         *,
-        COUNT(Usuario_Id) OVER (PARTITION BY Vendedor_Id) AS Cantidad_Usuarios
+        COUNT(Usuario_Id) OVER (PARTITION BY Vendedor_Id, Emp_Id) AS Cantidad_Usuarios
     FROM {{ ref('DL_Kielsa_Vendedor_x_Usuario') }}
 ),
 
 cte_usuario_x_rol AS (
     SELECT
         *,
-        COUNT(Rol_Id) OVER (PARTITION BY Usuario_Id) AS Cantidad_Roles
+        COUNT(Rol_Id) OVER (PARTITION BY Usuario_Id, Emp_Id) AS Cantidad_Roles
     FROM {{ ref('DL_Kielsa_Seg_Usuario_x_Rol') }}
 ),
 
@@ -96,8 +96,12 @@ usuario_rol AS (
         U.Usuario_Cuenta_Deshabilitada,
         UR.Cantidad_Roles,
         VU.Cantidad_Usuarios,
-        COALESCE(ri.rol_id_final, UR.Rol_Id) AS Rol_Id,
-        ROW_NUMBER() OVER (PARTITION BY VU.Emp_Id, VU.Vendedor_Id ORDER BY UR.Fec_Actualizacion DESC) AS Fila
+        UR.Rol_Id,
+        COALESCE(ri.Rol_Id_Mapeado, UR.Rol_Id) AS Rol_Id_Mapeado,
+        ROW_NUMBER() OVER (
+            PARTITION BY VU.Emp_Id, VU.Vendedor_Id
+            ORDER BY kr.profundidad ASC, UR.Fec_Actualizacion DESC
+        ) AS Fila
     FROM cte_vendedor_x_usuario AS VU
     INNER JOIN cte_usuario_x_rol AS UR ON VU.Usuario_Id = UR.Usuario_Id AND VU.Emp_Id = UR.Emp_Id
     INNER JOIN {{ ref('DL_Kielsa_Seg_Usuario') }} AS U
@@ -108,8 +112,14 @@ usuario_rol AS (
         ON
             UR.Rol_Id = ri.rol_id_original
             AND UR.Emp_Id = ri.emp_id
+    LEFT JOIN {{ ref('dlv_kielsa_incentivo_rol_jerarquia') }} AS kr
+        ON
+            UR.Rol_Id = kr.rol_id_ld
+            AND UR.Emp_Id = kr.emp_id
 
-    WHERE U.Usuario_Eliminado = 0 AND U.Usuario_Cuenta_Deshabilitada = 0
+    WHERE
+        U.Usuario_Eliminado = 0
+        AND U.Usuario_Cuenta_Deshabilitada = 0
 ),
 
 rol_nombre AS (
@@ -129,36 +139,62 @@ sucursal_factura AS (
         ROW_NUMBER() OVER (PARTITION BY Emp_Id, Vendedor_Id ORDER BY MAX(Factura_Fecha) DESC) AS fila
     FROM {{ source('DL_FARINTER', 'DL_Kielsa_FacturaEncabezado') }}
     GROUP BY Emp_Id, Vendedor_Id, Suc_Id
+),
+
+Final AS (
+    SELECT -- noqa: ST06
+        bv.Vendedor_Id,
+        bv.Emp_Id,
+        CAST(bv.Vendedor_Nombre AS VARCHAR(50)) AS [Vendedor_Nombre],
+        ur.Rol_Id,
+        rn.Rol_Nombre,
+        CASE
+            WHEN bv.Emp_Id = 5
+                THEN COALESCE(rn_meta.Rol_Id, ur.Rol_Id_Mapeado, 0)
+            ELSE COALESCE(ur.Rol_Id_Mapeado, rn_meta.Rol_Id, 0)
+        END
+            AS [Rol_Id_Mapeado],
+        ISNULL(ur.Usuario_Id, 0) AS [Usuario_Id],
+        CASE
+            WHEN bv.Emp_Id = 5
+                THEN COALESCE(rn_meta.Rol_Nombre, rn.Rol_Nombre, 'Sin_Rol')
+            ELSE COALESCE(rnm.Rol_Nombre, rn_meta.Rol_Nombre, 'Sin_Rol')
+        END
+            AS [Rol_Nombre_Mapeado],
+        ISNULL(ur.Cantidad_Roles, 0) AS [Cantidad_Roles],
+        ISNULL(ur.Cantidad_Usuarios, 0) AS [Cantidad_Usuarios],
+        ISNULL(mh.Sucursal_Id_Asignado_Meta, NULL) AS [Sucursal_Id_Asignado_Meta],
+        ISNULL(ur.Usuario_Eliminado, 0) AS [Bit_Borrado],
+        CASE WHEN ur.Usuario_Cuenta_Deshabilitada = 1 THEN 0 ELSE 1 END AS [Bit_Activo],
+        COALESCE(sv.Sucursal_Id_Vendedor, mh.Sucursal_Id_Asignado_Meta, sf.Sucursal_Id_Ultima_Factura) AS [Sucursal_Id_Asignado]
+    FROM base_vendedor AS bv
+    LEFT JOIN usuario_rol AS ur ON bv.Vendedor_Id = ur.Vendedor_Id AND bv.Emp_Id = ur.Emp_Id AND ur.Fila = 1
+    LEFT JOIN rol_nombre AS rn ON ur.Rol_Id = rn.Rol_Id AND bv.Emp_Id = rn.Emp_Id
+    LEFT JOIN rol_nombre AS rnm ON ur.Rol_Id_Mapeado = rnm.Rol_Id AND bv.Emp_Id = rnm.Emp_Id
+    LEFT JOIN meta_hist AS mh ON bv.Vendedor_Id = mh.Vendedor_Id AND bv.Emp_Id = mh.Emp_Id
+    LEFT JOIN sucursal_factura AS sf ON bv.Emp_Id = sf.Emp_Id AND bv.Vendedor_Id = sf.Vendedor_Id AND sf.fila = 1
+    LEFT JOIN sucursal_vendedor AS sv ON bv.Emp_Id = sv.Emp_Id AND bv.Vendedor_Id = sv.Vendedor_Id AND sv.fila = 1
+    LEFT JOIN rol_nombre AS rn_meta ON mh.Vendedor_Rol = rn_meta.Rol_Nombre AND bv.Emp_Id = rn_meta.Emp_Id
 )
 
 SELECT
-    bv.Vendedor_Id,
-    bv.Emp_Id,
-    CAST(bv.Vendedor_Nombre AS VARCHAR(50)) AS [Vendedor_Nombre],
-    CASE
-        WHEN bv.Emp_Id = 5
-            THEN COALESCE(rn_meta.Rol_Id, ur.Rol_Id, 0)
-        ELSE COALESCE(ur.Rol_Id, rn_meta.Rol_Id, 0)
-    END
-        AS [Rol_Id],
-    ISNULL(ur.Usuario_Id, 0) AS [Usuario_Id],
-    CASE
-        WHEN bv.Emp_Id = 5
-            THEN COALESCE(rn_meta.Rol_Nombre, rn.Rol_Nombre, 'Sin_Rol')
-        ELSE COALESCE(rn.Rol_Nombre, rn_meta.Rol_Nombre, 'Sin_Rol')
-    END
-        AS [Rol_Nombre],
-    ISNULL({{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Vendedor_Id'], input_length=30, table_alias='bv') }}, 0) AS [Hash_EmpVen],
-    ISNULL(ur.Cantidad_Roles, 0) AS [Cantidad_Roles],
-    ISNULL(ur.Cantidad_Usuarios, 0) AS [Cantidad_Usuarios],
-    ISNULL(mh.Sucursal_Id_Asignado_Meta, NULL) AS [Sucursal_Id_Asignado_Meta],
-    ISNULL(ur.Usuario_Eliminado, 0) AS [Bit_Borrado],
-    CASE WHEN ur.Usuario_Cuenta_Deshabilitada = 1 THEN 0 ELSE 1 END AS [Bit_Activo],
-    COALESCE(sv.Sucursal_Id_Vendedor, mh.Sucursal_Id_Asignado_Meta, sf.Sucursal_Id_Ultima_Factura) AS [Sucursal_Id_Asignado]
-FROM base_vendedor AS bv
-LEFT JOIN usuario_rol AS ur ON bv.Vendedor_Id = ur.Vendedor_Id AND bv.Emp_Id = ur.Emp_Id AND ur.Fila = 1
-LEFT JOIN rol_nombre AS rn ON ur.Rol_Id = rn.Rol_Id AND bv.Emp_Id = rn.Emp_Id
-LEFT JOIN meta_hist AS mh ON bv.Vendedor_Id = mh.Vendedor_Id AND bv.Emp_Id = mh.Emp_Id
-LEFT JOIN sucursal_factura AS sf ON bv.Emp_Id = sf.Emp_Id AND bv.Vendedor_Id = sf.Vendedor_Id AND sf.fila = 1
-LEFT JOIN sucursal_vendedor AS sv ON bv.Emp_Id = sv.Emp_Id AND bv.Vendedor_Id = sv.Vendedor_Id AND sv.fila = 1
-LEFT JOIN rol_nombre AS rn_meta ON mh.Vendedor_Rol = rn_meta.Rol_Nombre AND bv.Emp_Id = rn_meta.Emp_Id
+    Vendedor_Id,
+    Sucursal_Id_Asignado,
+    Emp_Id,
+    Usuario_Id,
+    ISNULL({{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Usuario_Id'], input_length=30, table_alias='') }}, 0) AS [EmpUsu_Id],
+    ISNULL({{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Vendedor_Id'], input_length=30, table_alias='') }}, 0) AS [EmpVen_Id],
+    {{ dwh_farinter_concat_key_columns(columns=["Emp_Id","Sucursal_Id_Asignado"], input_length=99) }} AS EmpSuc_Id,
+    {{ dwh_farinter_concat_key_columns(columns=["Emp_Id","Sucursal_Id_Asignado","Vendedor_Id"], input_length=99) }} AS EmpSucVen_Id,
+    {{ dwh_farinter_concat_key_columns(columns=["Emp_Id","Rol_Id"], input_length=99) }} AS EmpRol_Id,
+    Vendedor_Nombre,
+    Rol_Id,
+    Rol_Nombre,
+    Rol_Id_Mapeado,
+    Rol_Nombre_Mapeado,
+    Cantidad_Roles,
+    Cantidad_Usuarios,
+    Bit_Borrado,
+    Bit_Activo,
+    Fecha_Actualizado = GETDATE()
+FROM Final

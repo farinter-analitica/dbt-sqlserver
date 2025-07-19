@@ -75,12 +75,13 @@ LEFT JOIN FacturasAgrupadaVen AS FAV
         AND BI.suc_id = FAV.Suc_Id
         AND CAL.Fecha_Id = FAV.Fecha_Id
         AND BI.vendedor_id = FAV.Vendedor_Id
+        AND BI.tipo_aplicacion IN ('individual_por_codigo')
 LEFT JOIN FacturasAgrupadaSuc AS FAS
     ON
         BI.emp_id = FAS.Emp_Id
         AND BI.suc_id = FAS.Suc_Id
         AND CAL.Fecha_Id = FAS.Fecha_Id
-        AND BI.vendedor_id IS NULL
+        AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
 WHERE
     (FAV.Cantidad_Facturas_Aseguradas IS NOT NULL OR FAS.Cantidad_Facturas_Aseguradas IS NOT NULL)
     AND CAL.Fecha_Id >= '{{ last_date }}'

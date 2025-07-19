@@ -33,7 +33,11 @@ VendedorInfo AS (
         Emp_Id,
         Vendedor_Nombre,
         Rol_Id,
-        Bit_Activo
+        Bit_Activo,
+        Usuario_Id,
+        Rol_Id_Mapeado,
+        EmpVen_Id,
+        EmpUsu_Id
     FROM {{ ref('BI_Kielsa_Dim_Vendedor') }}
 ),
 
@@ -51,6 +55,10 @@ Final AS (
         VI.Vendedor_Nombre,
         VI.Rol_Id,
         VI.Bit_Activo,
+        VI.Usuario_Id,
+        VI.EmpVen_Id,
+        VI.EmpUsu_Id,
+        VI.Rol_Id_Mapeado,
         VS.Vendedor_Fec_Actualizacion,
         R.Rol_Jerarquia,
         ISNULL(VS.Vendedor_Id, 0) AS Vendedor_Id,
@@ -73,6 +81,10 @@ SELECT
     Vendedor_Id,
     Suc_Id,
     Emp_Id,
+    Usuario_Id,
+    EmpVen_Id,
+    EmpUsu_Id,
+    Rol_Id_Mapeado,
     {{ dwh_farinter_concat_key_columns(columns=["Emp_Id","Suc_Id"], input_length=99) }} AS EmpSuc_Id,
     {{ dwh_farinter_concat_key_columns(columns=["Emp_Id","Suc_Id","Vendedor_Id"], input_length=99) }} AS EmpSucVen_Id,
     {{ dwh_farinter_concat_key_columns(columns=["Emp_Id","Rol_Id"], input_length=99) }} AS EmpRol_Id,
