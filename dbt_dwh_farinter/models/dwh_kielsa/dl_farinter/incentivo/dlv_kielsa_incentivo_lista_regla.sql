@@ -1,4 +1,4 @@
-{% set unique_key_list = ["regla_id","rol_id","casa_id","categoria","condicion"] -%}
+{% set unique_key_list = ["regla_id","rol_id","casa_id_ld","categoria","condicion"] -%}
 
 {{ 
     config(
@@ -31,7 +31,7 @@ regla_casa as (
     select
         id,
         regla_id,
-        casa_id,
+        casa_id_ld,
         valor_regalia
     from {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_regla_casa') }}
 ),
@@ -41,8 +41,9 @@ regla_rol as (
         rr.id,
         rr.regla_id,
         rr.rol_id,
+        r.rol_id_ld,
         rr.part_regalia,
-        rr.aplicar_por_sucursal,
+        rr.tipo_aplicacion,
         rr.part_comision,
         rr.valor_por_receta_seguro,
         r.nombre as rol_nombre
@@ -106,15 +107,16 @@ configuracion_completa as (
         rreg.excluir_marca_propia,
         rreg.aplica_por_part,
         -- Configuración por casa
-        rcasa.casa_id,
+        rcasa.casa_id_ld,
         rcasa.valor_regalia as valor_regalia_casa,
         -- Configuración por rol
         rrol.rol_id,
+        rrol.rol_id_ld,
         rrol.rol_nombre,
         rrol.part_regalia,
         rrol.part_comision,
         rrol.valor_por_receta_seguro,
-        rrol.aplicar_por_sucursal,
+        rrol.tipo_aplicacion,
         -- Condiciones generales
         rcond.condicion,
         rcond.valor as valor_condicion,
