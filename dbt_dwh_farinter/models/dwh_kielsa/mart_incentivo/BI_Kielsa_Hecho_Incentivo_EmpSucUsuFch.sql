@@ -48,6 +48,7 @@ SELECT
     BI.EmpSuc_Id,
     BI.EmpVen_Id,
     BI.EmpUsu_Id,
+    BI.EmpRol_Id,
     ISNULL(CAL.Fecha_Calendario, '19000101') AS [Fecha_Id],
     ISNULL(BI.emp_id, 0) AS [Emp_Id],
     ISNULL(BI.suc_id, 0) AS [Suc_Id],
