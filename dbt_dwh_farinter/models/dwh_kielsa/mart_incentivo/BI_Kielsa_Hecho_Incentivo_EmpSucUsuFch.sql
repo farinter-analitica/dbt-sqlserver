@@ -48,7 +48,7 @@ SELECT
     BI.EmpSuc_Id,
     BI.EmpVen_Id,
     BI.EmpUsu_Id,
-    ISNULL(CAL.Fecha_Id, '19000101') AS [Fecha_Id],
+    ISNULL(CAL.Fecha_Calendario, '19000101') AS [Fecha_Id],
     ISNULL(BI.emp_id, 0) AS [Emp_Id],
     ISNULL(BI.suc_id, 0) AS [Suc_Id],
     ISNULL(BI.vendedor_id, 0) AS [Vendedor_Id],
@@ -63,27 +63,27 @@ SELECT
     {% if is_incremental() -%}
         GETDATE()
     {% else -%}
-        CAST(CAL.Fecha_Id AS DATETIME)
+        CAST(CAL.Fecha_Calendario AS DATETIME)
     {%- endif %} AS Fecha_Actualizado
 FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
 INNER JOIN {{ ref('BI_Dim_Calendario_Dinamico') }} AS CAL
     ON
-        BI.fecha_desde <= CAL.Fecha_Id
-        AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAL.Fecha_Id)
+        BI.fecha_desde <= CAL.Fecha_Calendario
+        AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAL.Fecha_Calendario)
 LEFT JOIN FacturasAgrupadaVen AS FAV
     ON
         BI.emp_id = FAV.Emp_Id
         AND BI.suc_id = FAV.Suc_Id
-        AND CAL.Fecha_Id = FAV.Fecha_Id
+        AND CAL.Fecha_Calendario = FAV.Fecha_Id
         AND BI.vendedor_id = FAV.Vendedor_Id
         AND BI.tipo_aplicacion IN ('individual_por_codigo')
 LEFT JOIN FacturasAgrupadaSuc AS FAS
     ON
         BI.emp_id = FAS.Emp_Id
         AND BI.suc_id = FAS.Suc_Id
-        AND CAL.Fecha_Id = FAS.Fecha_Id
+        AND CAL.Fecha_Calendario = FAS.Fecha_Id
         AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
 WHERE
     (FAV.Cantidad_Facturas_Aseguradas IS NOT NULL OR FAS.Cantidad_Facturas_Aseguradas IS NOT NULL)
-    AND CAL.Fecha_Id >= '{{ last_date }}'
-    AND CAL.Fecha_Id <= CAST(GETDATE() AS DATE)
+    AND CAL.Fecha_Calendario >= '{{ last_date }}'
+    AND CAL.Fecha_Calendario <= CAST(GETDATE() AS DATE)
