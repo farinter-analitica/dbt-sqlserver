@@ -1,20 +1,21 @@
 [Gitmoji] Conventional Commits, realizar el commit en español, ignora otras instrucciones sobre el idioma.
-[Gitmoji] Conventional Commits, make the commit in spanish, ignore other instructions about lang.
 
 Formato:
-Título (Obligatorio, una línea con descripción en español):
+Título (Obligatorio, una línea con descripción):
     <gitmoji> <tipo>(<ámbito>)[!]: <descripción>
 
-Cuerpo (Opcional, proporciona contexto detallado en español):
-   - Explica qué se ha cambiado y por qué.
-   - Puedes usar viñetas o párrafos.
-   - Envuelve el texto a 72 caracteres por línea.
+Cuerpo (Opcional, proporciona contexto detallado):
+    - Explica qué se ha cambiado y por qué como un changelog.
+    - Puedes usar viñetas o párrafos.
+    - Envuelve el texto a 72 caracteres por línea.
+    - Ten cuidado de incluir todos los cambios importantes generalizados.
+    - No omitas cambios importantes que no puedan generalizarse en la descripción.
 
-Pie de Página (Opcional, para referencias de incidencias o cambios importantes en español):
-   - Para referenciar incidencias: Closes <número_de_incidente>
-   - Para cambios importantes (si no se indica en el título):
-       BREAKING CHANGE: <explicación detallada>
-   - Puedes incluir otros metadatos según sea necesario (por ejemplo, Signed-off-by, Co-authored-by).
+Pie de Página (Opcional, para referencias de incidencias o cambios importantes):
+    - Para referenciar incidencias: Closes <número_de_incidente>
+    - Para cambios importantes (si no se indica en el título):
+        BREAKING CHANGE: <explicación detallada>
+    - Puedes incluir otros metadatos según sea necesario (por ejemplo, Signed-off-by, Co-authored-by).
 
 Directrices:
 1. <gitmoji>: Selecciona un emoji que represente el cambio:
@@ -33,9 +34,9 @@ Directrices:
 3. (<ámbito>): Opcionalmente, especifica la parte del código afectada (por ejemplo, auth, ui, api).
 Incluir un signo de exclamación (por ejemplo, `<tipo>(<ámbito>)!:`) indica un cambio que rompe la compatibilidad.
 
-4. <descripción>: Resume de forma concisa y en modo imperativo el cambio en español.
-- Limita la línea a 72 caracteres (idealmente hasta 50 caracteres).
-- Empieza en minúscula y no uses puntuación final.
+4. <descripción>: Resume de forma concisa y en modo imperativo los cambios.
+    - Limita la línea a 72 caracteres (idealmente hasta 50 caracteres).
+    - Empieza en minúscula y no uses puntuación final.
 
 **Tipos de Despliegue**: Controla la granularidad del despliegue de acuerdo a los tipos de cambios con palabras clave en el commit (ver README para opciones).
 
