@@ -17,7 +17,7 @@ WITH BaseComision AS (
         SUM(CB.Cantidad_Padre) AS Cantidad_Padre,
         MAX(CB.Fecha_Actualizado) AS Fecha_Actualizado
     FROM {{ ref('BI_Kielsa_Hecho_Comision') }} AS CB
-    GROUP BY CB.Emp_Id, CB.Suc_Id, CB.Articulo_Id, CAST(CB.Comision_Fecha AS DATE)
+    GROUP BY CAST(CB.Comision_Fecha AS DATE), CB.Articulo_Id, CB.Suc_Id, CB.Emp_Id
 )
 
 SELECT * FROM BaseComision

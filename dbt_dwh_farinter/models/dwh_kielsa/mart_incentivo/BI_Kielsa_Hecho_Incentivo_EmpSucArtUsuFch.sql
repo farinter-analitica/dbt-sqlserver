@@ -53,6 +53,8 @@ SELECT
     BI.part_regalia AS [Part_Regalia],
     BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
     COALESCE(CAV.Comision_Total, CAA.Comision_Total, 0) AS Comision_Base_Total,
+    COALESCE(CAV.Comision_CantArticulo, CAA.Comision_CantArticulo, 0) AS Comision_Cantidad_Articulo,
+    COALESCE(CAV.Cantidad_Padre, CAA.Cantidad_Padre, 0) AS Comision_Cantidad_Padre,
     CAST(CASE
         WHEN BI.part_comision IS NOT NULL
             THEN COALESCE(CAV.Comision_Total, CAA.Comision_Total, 0) * BI.part_comision
