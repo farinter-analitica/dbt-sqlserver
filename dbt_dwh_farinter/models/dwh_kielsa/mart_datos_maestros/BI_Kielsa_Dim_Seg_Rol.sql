@@ -31,9 +31,11 @@ select
     seg.Usuario_Id_Crea,
     seg.Usuario_Id_Actualiza,
     seg.Rol_Fec_Creacion,
+    seg.Hash_RolEmp,
+    seg.Rol_Jerarquia,
     jer.rol_id_ld_responsable as [Rol_Id_Responsable],
     seg_responsable.Rol_Nombre as [Rol_Nombre_Responsable],
-    jer.profundidad as [Rol_Jerarquia],
+    jer.profundidad as [Rol_Profundidad],
     {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Rol_Id'], input_length=29, table_alias='seg') }} as [EmpRol_Id]
 from {{ source('DL_FARINTER', 'DL_Kielsa_Seg_Rol') }} as seg
 left join {{ ref('dlv_kielsa_incentivo_rol_jerarquia') }} as jer
