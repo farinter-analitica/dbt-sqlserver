@@ -1,7 +1,7 @@
 {% set unique_key_list = ["id"] -%}
 {{ 
     config(
-		tags=["automation/periodo_mensual_inicio", "automation_only"],
+        tags=["automation/periodo_mensual_inicio", "automation_only"],
         materialized="view",
     )
 -}}
@@ -43,15 +43,18 @@ with rol_con_profundidad as (
 )
 
 select
-    id,
-    rol_id_ld,
-    emp_id,
-    nombre,
-    id_responsable,
-    codigo_tipo,
-    tipo_aplicacion,
-    mapear_a_id,
-    fecha_creado,
-    fecha_actualizado,
-    profundidad
-from rol_con_profundidad
+    rc.id,
+    rc.rol_id_ld,
+    rc.emp_id,
+    rc.nombre,
+    rc.id_responsable,
+    rc_responsable.rol_id_ld as rol_id_ld_responsable,
+    rc.codigo_tipo,
+    rc.tipo_aplicacion,
+    rc.mapear_a_id,
+    rc.fecha_creado,
+    rc.fecha_actualizado,
+    rc.profundidad
+from rol_con_profundidad as rc
+left join {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} as rc_responsable
+    on rc.id_responsable = rc_responsable.id
