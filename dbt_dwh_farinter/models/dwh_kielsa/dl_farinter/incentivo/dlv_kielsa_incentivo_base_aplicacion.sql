@@ -12,6 +12,7 @@
 		post_hook=[
         "{{ dwh_farinter_remove_incremental_temp_table() }}",
         "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
+        "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['fecha_hasta', 'fecha_desde', 'emp_id', 'suc_id', 'vendedor_id', 'usuario_id']) }}"
         ]
 	) 
 }}

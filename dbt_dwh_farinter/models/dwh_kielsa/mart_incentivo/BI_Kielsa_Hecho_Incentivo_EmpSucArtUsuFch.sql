@@ -61,6 +61,7 @@ SELECT
     BI.EmpSuc_Id,
     {{ dwh_farinter_concat_key_columns(columns=['emp_id', 'articulo_id'], input_length=49, table_alias='ART') }} AS EmpArt_Id,
     BI.EmpVen_Id,
+    BI.EmpUsu_Id,
     {% if is_incremental() -%} 
         GETDATE()
     {% else -%} 

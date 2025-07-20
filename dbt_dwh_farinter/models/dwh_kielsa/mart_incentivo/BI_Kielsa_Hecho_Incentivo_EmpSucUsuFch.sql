@@ -47,6 +47,7 @@ SELECT
     BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
     BI.EmpSuc_Id,
     BI.EmpVen_Id,
+    BI.EmpUsu_Id,
     ISNULL(CAL.Fecha_Id, '19000101') AS [Fecha_Id],
     ISNULL(BI.emp_id, 0) AS [Emp_Id],
     ISNULL(BI.suc_id, 0) AS [Suc_Id],
