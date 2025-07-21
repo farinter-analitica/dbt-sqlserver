@@ -46,12 +46,56 @@ RegaliaAgrupadaArt AS (
     WHERE Fecha_Id >= '{{ last_date }}'
 ),
 
+FacturasAgrupadaVenArt AS (
+    SELECT * FROM {{ ref('dlv_kielsa_stg_factura_articulo_emp_suc_ven_fch') }}
+    WHERE Fecha_Id >= '{{ last_date }}'
+),
+
+FacturasAgrupadaArt AS (
+    SELECT * FROM {{ ref('dlv_kielsa_stg_factura_articulo_emp_suc_fch') }}
+    WHERE Fecha_Id >= '{{ last_date }}'
+),
+
 ReglaRegalia AS (
     SELECT * FROM {{ ref('dlv_kielsa_incentivo_regla_regalia') }}
 ),
 
 ReglaCasa AS (
     SELECT * FROM {{ ref('dlv_kielsa_incentivo_regla_casa') }}
+),
+
+Vertebra AS (
+    SELECT DISTINCT
+        Emp_Id,
+        Articulo_Id,
+        Fecha_Id
+    FROM ComisionAgrupadaArt
+    UNION
+    SELECT DISTINCT
+        Emp_Id,
+        Articulo_Id,
+        Fecha_Id
+    FROM RegaliaAgrupadaArt
+    UNION
+    SELECT DISTINCT
+        Emp_Id,
+        Articulo_Id,
+        Fecha_Id
+    FROM FacturasAgrupadaArt
+),
+
+BaseIncentivos AS (
+    SELECT BI.*
+    FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
+    WHERE
+        BI.fecha_desde <= CAST(GETDATE() AS DATE)
+        AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= '{{ last_date }}')
+),
+
+Calendario AS (
+    SELECT Fecha_Calendario
+    FROM {{ ref('BI_Dim_Calendario_Dinamico') }}
+    WHERE Fecha_Calendario BETWEEN '{{ last_date }}' AND CAST(GETDATE() AS DATE)
 )
 
 SELECT
@@ -94,6 +138,9 @@ SELECT
         WHEN RR.aplica_por_part = 1 THEN COALESCE(RAV.Cantidad_Padre, RAA.Cantidad_Padre, 0) * (COALESCE(RC.valor_regalia, RR.valor_predeterminado, 0) * COALESCE(BI.part_regalia, 0.0))
         ELSE COALESCE(RAV.Cantidad_Padre, RAA.Cantidad_Padre, 0) * COALESCE(RC.valor_regalia, RR.valor_predeterminado, 0)
     END AS DECIMAL(18, 6)) AS Regalia_Valor_Incentivo_Total,
+    -- Lógica de incentivo por facturas
+    COALESCE(FAV.Cantidad_Padre, FAA.Cantidad_Padre, 0.0) AS Factura_Cantidad_Padre,
+    COALESCE(FAV.Valor_Venta_Neta, FAA.Valor_Venta_Neta, 0.0) AS Factura_Valor_Venta_Neta,
 
     BI.EmpSuc_Id,
     {{ dwh_farinter_concat_key_columns(columns=['emp_id', 'articulo_id'], input_length=49, table_alias='ART') }} AS EmpArt_Id,
@@ -105,15 +152,19 @@ SELECT
     {% else -%} 
         CAST(CAL.Fecha_Calendario AS DATETIME)
     {%- endif %} AS Fecha_Actualizado
-FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
-INNER JOIN {{ ref('BI_Dim_Calendario_Dinamico') }} AS CAL
+FROM BaseIncentivos AS BI
+INNER JOIN Calendario AS CAL
     ON
         BI.fecha_desde <= CAL.Fecha_Calendario
         AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAL.Fecha_Calendario)
-        AND CAL.Fecha_Calendario >= '{{ last_date }}'
-        AND CAL.Fecha_Calendario <= CAST(GETDATE() AS DATE)
+INNER JOIN Vertebra AS VERT
+    ON
+        BI.Emp_Id = VERT.Emp_Id
+        AND CAL.Fecha_Calendario = VERT.Fecha_Id
 INNER JOIN {{ ref("BI_Kielsa_Dim_Articulo") }} AS ART
-    ON BI.Emp_Id = ART.Emp_Id
+    ON
+        BI.Emp_Id = ART.Emp_Id
+        AND VERT.Articulo_Id = ART.Articulo_Id
 LEFT JOIN ComisionAgrupadaVenArt AS CAV
     ON
         BI.emp_id = CAV.Emp_Id
@@ -144,6 +195,21 @@ LEFT JOIN RegaliaAgrupadaArt AS RAA
         AND ART.Articulo_Id = RAA.Articulo_Id
         AND CAL.Fecha_Calendario = RAA.Fecha_Id
         AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
+LEFT JOIN FacturasAgrupadaVenArt AS FAV
+    ON
+        BI.emp_id = FAV.Emp_Id
+        AND BI.suc_id = FAV.Suc_Id
+        AND ART.Articulo_Id = FAV.Articulo_Id
+        AND CAL.Fecha_Calendario = FAV.Fecha_Id
+        AND BI.vendedor_id = FAV.Vendedor_Id
+        AND BI.tipo_aplicacion IN ('individual_por_codigo')
+LEFT JOIN FacturasAgrupadaArt AS FAA
+    ON
+        BI.emp_id = FAA.Emp_Id
+        AND BI.suc_id = FAA.Suc_Id
+        AND ART.Articulo_Id = FAA.Articulo_Id
+        AND CAL.Fecha_Calendario = FAA.Fecha_Id
+        AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
 LEFT JOIN ReglaRegalia AS RR
     ON BI.regla_id = RR.regla_id
 LEFT JOIN ReglaCasa AS RC
@@ -154,4 +220,5 @@ WHERE
     (
         CAV.Comision_Total IS NOT NULL OR CAA.Comision_Total IS NOT NULL
         OR RAV.Cantidad_Padre IS NOT NULL OR RAA.Cantidad_Padre IS NOT NULL
+        OR FAV.Cantidad_Padre IS NOT NULL OR FAA.Cantidad_Padre IS NOT NULL
     )
