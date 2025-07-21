@@ -1,4 +1,4 @@
-{%- set unique_key_list = ["Fecha_Id", "Vendedor_Id", "Articulo_Id", "Suc_Id", "Emp_Id"] -%}
+{%- set unique_key_list = ["Fecha_Id", "Articulo_Id", "Suc_Id", "Emp_Id"] -%}
 
 {{ 
     config(
@@ -26,21 +26,20 @@
     {%- set last_date = '20180101' %}
 {%- endif %}
 
--- Staging: Comisiones agrupadas por Emp, Suc, Art, Ven, Fecha
+-- Staging: Regalias agrupadas por Emp, Suc, Art, Fecha
 WITH BaseComision AS (
     SELECT
-        ISNULL(CB.Emp_Id, 0) AS Emp_Id,
-        ISNULL(CB.Suc_Id, 0) AS Suc_Id,
-        ISNULL(CB.Articulo_Id, 'X') AS Articulo_Id,
-        ISNULL(CB.Vendedor_Id, 0) AS Vendedor_Id,
-        ISNULL(CAST(CB.Comision_Fecha AS DATE), '19000101') AS Fecha_Id,
-        SUM(CB.Comision_Total) AS Comision_Total,
-        SUM(CB.Comision_CantArticulo) AS Comision_CantArticulo,
-        SUM(CB.Cantidad_Padre) AS Cantidad_Padre,
-        MAX(CB.Fecha_Actualizado) AS Fecha_Actualizado
-    FROM {{ ref('BI_Kielsa_Hecho_Comision') }} AS CB
-    WHERE CB.Comision_Fecha >= '{{ last_date }}'
-    GROUP BY CAST(CB.Comision_Fecha AS DATE), CB.Vendedor_Id, CB.Articulo_Id, CB.Suc_Id, CB.Emp_Id
+        ISNULL(RD.Emp_Id, 0) AS Emp_Id,
+        ISNULL(RD.Suc_Id, 0) AS Suc_Id,
+        ISNULL(RD.Articulo_Id, '') AS Articulo_Id,
+        COUNT(DISTINCT RD.Vendedor_Id) AS Cantidad_Vendedores,
+        ISNULL(CAST(RD.Detalle_Fecha AS DATE), '19000101') AS Fecha_Id,
+        SUM(RD.Cantidad_Original) AS Cantidad_Original,
+        SUM(RD.Cantidad_Padre) AS Cantidad_Padre,
+        MAX(RD.Fecha_Actualizado) AS Fecha_Actualizado
+    FROM {{ ref('BI_Kielsa_Hecho_Regalia_Detalle') }} AS RD
+    WHERE RD.Detalle_Fecha >= '{{ last_date }}'
+    GROUP BY CAST(RD.Detalle_Fecha AS DATE), RD.Articulo_Id, RD.Suc_Id, RD.Emp_Id
 )
 
 SELECT * FROM BaseComision
