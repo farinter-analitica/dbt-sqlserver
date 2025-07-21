@@ -34,6 +34,24 @@ WITH ComisionAgrupadaVenArt AS (
 ComisionAgrupadaArt AS (
     SELECT * FROM {{ ref('dlv_kielsa_stg_comision_emp_suc_art_fch') }}
     WHERE Fecha_Id >= '{{ last_date }}'
+),
+
+RegaliaAgrupadaVenArt AS (
+    SELECT * FROM {{ ref('dlv_kielsa_stg_regalia_emp_suc_art_ven_fch') }}
+    WHERE Fecha_Id >= '{{ last_date }}'
+),
+
+RegaliaAgrupadaArt AS (
+    SELECT * FROM {{ ref('dlv_kielsa_stg_regalia_emp_suc_art_fch') }}
+    WHERE Fecha_Id >= '{{ last_date }}'
+),
+
+ReglaRegalia AS (
+    SELECT * FROM {{ ref('dlv_kielsa_incentivo_regla_regalia') }}
+),
+
+ReglaCasa AS (
+    SELECT * FROM {{ ref('dlv_kielsa_incentivo_regla_casa') }}
 )
 
 SELECT
@@ -52,6 +70,7 @@ SELECT
     BI.part_comision AS [Part_Comision],
     BI.part_regalia AS [Part_Regalia],
     BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
+    -- Incentivos por comisiones directas
     COALESCE(CAV.Comision_Total, CAA.Comision_Total, 0) AS Comision_Base_Total,
     COALESCE(CAV.Comision_CantArticulo, CAA.Comision_CantArticulo, 0) AS Comision_Cantidad_Articulo,
     COALESCE(CAV.Cantidad_Padre, CAA.Cantidad_Padre, 0) AS Comision_Cantidad_Padre,
@@ -60,6 +79,22 @@ SELECT
             THEN COALESCE(CAV.Comision_Total, CAA.Comision_Total, 0) * BI.part_comision
         ELSE 0.0
     END AS DECIMAL(18, 6)) AS Comision_Ajustada,
+    COALESCE(RAV.Cantidad_Padre, RAA.Cantidad_Padre, 0) AS Regalia_Cantidad_Padre,
+    -- Lógica de incentivo de regalia
+    CAST(CASE
+        -- Si hay exclusión de marca propia y es marca propia, no aplica incentivo
+        WHEN RR.excluir_marca_propia = 1 AND COALESCE(ART.Bit_Marca_Propia, 0) = 1 THEN 0.0
+        -- Si aplica por part_regalia, multiplica por part_regalia
+        WHEN RR.aplica_por_part = 1 THEN COALESCE(RC.valor_regalia, RR.valor_predeterminado, 0) * COALESCE(BI.part_regalia, 0.0)
+        -- Si no aplica por part, solo el incentivo por casa o default
+        ELSE COALESCE(RC.valor_regalia, RR.valor_predeterminado, 0)
+    END AS DECIMAL(18, 6)) AS Regalia_Valor_Incentivo_Unitario,
+    CAST(CASE
+        WHEN RR.excluir_marca_propia = 1 AND COALESCE(ART.Bit_Marca_Propia, 0) = 1 THEN 0.0
+        WHEN RR.aplica_por_part = 1 THEN COALESCE(RAV.Cantidad_Padre, RAA.Cantidad_Padre, 0) * (COALESCE(RC.valor_regalia, RR.valor_predeterminado, 0) * COALESCE(BI.part_regalia, 0.0))
+        ELSE COALESCE(RAV.Cantidad_Padre, RAA.Cantidad_Padre, 0) * COALESCE(RC.valor_regalia, RR.valor_predeterminado, 0)
+    END AS DECIMAL(18, 6)) AS Regalia_Valor_Incentivo_Total,
+
     BI.EmpSuc_Id,
     {{ dwh_farinter_concat_key_columns(columns=['emp_id', 'articulo_id'], input_length=49, table_alias='ART') }} AS EmpArt_Id,
     BI.EmpVen_Id,
@@ -75,7 +110,8 @@ INNER JOIN {{ ref('BI_Dim_Calendario_Dinamico') }} AS CAL
     ON
         BI.fecha_desde <= CAL.Fecha_Calendario
         AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAL.Fecha_Calendario)
-
+        AND CAL.Fecha_Calendario >= '{{ last_date }}'
+        AND CAL.Fecha_Calendario <= CAST(GETDATE() AS DATE)
 INNER JOIN {{ ref("BI_Kielsa_Dim_Articulo") }} AS ART
     ON BI.Emp_Id = ART.Emp_Id
 LEFT JOIN ComisionAgrupadaVenArt AS CAV
@@ -93,7 +129,29 @@ LEFT JOIN ComisionAgrupadaArt AS CAA
         AND ART.Articulo_Id = CAA.Articulo_Id
         AND CAL.Fecha_Calendario = CAA.Fecha_Id
         AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
+LEFT JOIN RegaliaAgrupadaVenArt AS RAV
+    ON
+        BI.emp_id = RAV.Emp_Id
+        AND BI.suc_id = RAV.Suc_Id
+        AND ART.Articulo_Id = RAV.Articulo_Id
+        AND CAL.Fecha_Calendario = RAV.Fecha_Id
+        AND BI.vendedor_id = RAV.Vendedor_Id
+        AND BI.tipo_aplicacion IN ('individual_por_codigo')
+LEFT JOIN RegaliaAgrupadaArt AS RAA
+    ON
+        BI.emp_id = RAA.Emp_Id
+        AND BI.suc_id = RAA.Suc_Id
+        AND ART.Articulo_Id = RAA.Articulo_Id
+        AND CAL.Fecha_Calendario = RAA.Fecha_Id
+        AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
+LEFT JOIN ReglaRegalia AS RR
+    ON BI.regla_id = RR.regla_id
+LEFT JOIN ReglaCasa AS RC
+    ON
+        BI.regla_id = RC.regla_id
+        AND ART.Casa_Id = RC.casa_id_ld
 WHERE
-    (CAV.Comision_Total IS NOT NULL OR CAA.Comision_Total IS NOT NULL)
-    AND CAL.Fecha_Calendario >= '{{ last_date }}'
-    AND CAL.Fecha_Calendario <= CAST(GETDATE() AS DATE)
+    (
+        CAV.Comision_Total IS NOT NULL OR CAA.Comision_Total IS NOT NULL
+        OR RAV.Cantidad_Padre IS NOT NULL OR RAA.Cantidad_Padre IS NOT NULL
+    )
