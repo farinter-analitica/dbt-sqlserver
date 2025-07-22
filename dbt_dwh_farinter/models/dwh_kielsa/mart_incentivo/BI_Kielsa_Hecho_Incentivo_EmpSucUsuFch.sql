@@ -26,65 +26,153 @@
     {%- set last_date = '20250101' %}
 {%- endif %}
 
-WITH FacturasAgrupadaVen AS (
+WITH Vertebra AS (
+    --Incluye todas las claves necesarias reales (con ventas)
+    --individual_por_codigo
+    SELECT
+        Emp_Id,
+        Suc_Id,
+        Vendedor_Id,
+        Fecha_Id
+    FROM {{ ref('dlv_kielsa_incentivo_base_emp_suc_ven_fch') }}
+    WHERE Fecha_Id >= CAST('{{ last_date }}' AS DATE)
+    UNION ALL
+    --unica_sucursal y multiple_sucursal
+    SELECT
+        Emp_Id,
+        Suc_Id,
+        NULL AS Vendedor_Id,
+        Fecha_Id
+    FROM {{ ref('dlv_kielsa_incentivo_base_emp_suc_fch') }}
+    WHERE Fecha_Id >= CAST('{{ last_date }}' AS DATE)
+),
+
+FacturasAgrupadaVen AS (
     SELECT * FROM {{ ref('dlv_kielsa_stg_factura_encabezado_emp_suc_ven_fch') }}
-    WHERE Fecha_Id >= '{{ last_date }}'
+    WHERE Fecha_Id >= CAST('{{ last_date }}' AS DATE)
 ),
 
 FacturasAgrupadaSuc AS (
     SELECT * FROM {{ ref('dlv_kielsa_stg_factura_encabezado_emp_suc_fch') }}
-    WHERE Fecha_Id >= '{{ last_date }}'
+    WHERE Fecha_Id >= CAST('{{ last_date }}' AS DATE)
+),
+
+BaseIncentivos AS (
+    SELECT BI.*
+    FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
+    WHERE
+        BI.fecha_desde <= CAST('{{ last_date }}' AS DATE)
+        AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAST('{{ last_date }}' AS DATE))
+),
+
+Calendario AS (
+    SELECT Fecha_Calendario
+    FROM {{ ref('BI_Dim_Calendario_Dinamico') }}
+    WHERE Fecha_Calendario BETWEEN CAST('{{ last_date }}' AS DATE) AND CAST(GETDATE() AS DATE)
+),
+
+Calculos AS (
+    SELECT
+        ISNULL(CAL.Fecha_Calendario, '19000101') AS [Fecha_Id],
+        ISNULL(VERT.Emp_Id, 0) AS [Emp_Id],
+        ISNULL(VERT.Suc_Id, 0) AS [Suc_Id],
+        COALESCE(VERT.Vendedor_Id, BI.vendedor_id, 0) AS [Vendedor_Id],
+        COALESCE(BI.usuario_id, VEN.Usuario_Id, 0) AS [Usuario_Id],
+        BI.regla_id AS [Regla_Id],
+        BI.rol_id AS [Rol_Id],
+        BI.rol_nombre AS [Rol_Nombre],
+        BI.codigo_tipo AS [Codigo_Tipo],
+        BI.tipo_aplicacion AS [Tipo_Aplicacion],
+        BI.part_comision AS [Part_Comision],
+        BI.part_regalia AS [Part_Regalia],
+        BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
+        -- Indicador de validez rezagada
+        CASE
+            WHEN BI.Tipo_Aplicacion IN ('individual_por_codigo') THEN 1
+            WHEN CAL.Fecha_Calendario < BI.Fecha_Validado THEN 1
+            ELSE 0
+        END AS Es_Valido,
+
+        -- Incentivos por aseguradoras
+        COALESCE(FAV.Cantidad_Facturas_Aseguradas, FAS.Cantidad_Facturas_Aseguradas, 0) AS Cantidad_Facturas_Aseguradas,
+        COALESCE(FAV.Cantidad_Clientes_Asegurados, FAS.Cantidad_Clientes_Asegurados, 0) AS Cantidad_Clientes_Asegurados,
+        CAST(CASE
+            WHEN BI.valor_por_receta_seguro IS NOT NULL AND BI.valor_por_receta_seguro > 0
+                THEN COALESCE(FAV.Cantidad_Facturas_Aseguradas, FAS.Cantidad_Facturas_Aseguradas, 0) * BI.valor_por_receta_seguro
+            ELSE 0.0
+        END AS DECIMAL(18, 6)) AS Incentivo_Recetas_Seguro,
+        BI.EmpSuc_Id,
+        BI.EmpVen_Id,
+        BI.EmpUsu_Id,
+        BI.EmpRol_Id,
+        {% if is_incremental() -%}
+            GETDATE()
+        {% else -%}
+            CAST(CAL.Fecha_Calendario AS DATETIME)
+        {%- endif %} AS Fecha_Actualizado
+    FROM Vertebra AS VERT
+    INNER JOIN Calendario AS CAL
+        ON VERT.Fecha_Id = CAL.Fecha_Calendario
+    INNER JOIN BaseIncentivos AS BI
+        ON
+            VERT.Emp_Id = BI.Emp_Id
+            AND CAL.Fecha_Calendario >= BI.fecha_desde
+            AND (BI.fecha_hasta IS NULL OR CAL.Fecha_Calendario <= BI.fecha_hasta)
+            AND (
+                (
+                    BI.tipo_aplicacion = 'individual_por_codigo'
+                    AND BI.Fecha_Validado = CAST(GETDATE() AS DATE)
+                    AND VERT.Vendedor_Id = BI.Vendedor_Id
+                )
+                OR
+                (
+                    BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
+                    AND VERT.Vendedor_Id IS NULL
+                    AND VERT.Suc_Id = BI.Suc_Id
+                )
+            )
+    LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS VEN
+        ON
+            VERT.Emp_Id = VEN.Emp_Id
+            AND COALESCE(VERT.Vendedor_Id, BI.vendedor_id, 0) = VEN.Vendedor_Id
+    LEFT JOIN FacturasAgrupadaVen AS FAV
+        ON
+            VERT.Emp_Id = FAV.Emp_Id
+            AND VERT.Suc_Id = FAV.Suc_Id
+            AND VERT.Fecha_Id = FAV.Fecha_Id
+            AND VERT.Vendedor_Id = FAV.Vendedor_Id
+    LEFT JOIN FacturasAgrupadaSuc AS FAS
+        ON
+            VERT.Emp_Id = FAS.Emp_Id
+            AND VERT.Suc_Id = FAS.Suc_Id
+            AND VERT.Fecha_Id = FAS.Fecha_Id
+            AND VERT.Vendedor_Id IS NULL
+    WHERE
+        (FAV.Cantidad_Facturas_Aseguradas IS NOT NULL OR FAS.Cantidad_Facturas_Aseguradas IS NOT NULL)
 )
 
-SELECT
-    BI.regla_id AS [Regla_Id],
-    BI.rol_id AS [Rol_Id],
-    BI.rol_nombre AS [Rol_Nombre],
-    BI.codigo_tipo AS [Codigo_Tipo],
-    BI.tipo_aplicacion AS [Tipo_Aplicacion],
-    BI.part_comision AS [Part_Comision],
-    BI.part_regalia AS [Part_Regalia],
-    BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
-    BI.EmpSuc_Id,
-    BI.EmpVen_Id,
-    BI.EmpUsu_Id,
-    BI.EmpRol_Id,
-    ISNULL(CAL.Fecha_Calendario, '19000101') AS [Fecha_Id],
-    ISNULL(BI.emp_id, 0) AS [Emp_Id],
-    ISNULL(BI.suc_id, 0) AS [Suc_Id],
-    ISNULL(BI.vendedor_id, 0) AS [Vendedor_Id],
-    ISNULL(BI.usuario_id, 0) AS [Usuario_Id],
-    COALESCE(FAV.Cantidad_Facturas_Aseguradas, FAS.Cantidad_Facturas_Aseguradas, 0) AS Cantidad_Facturas_Aseguradas,
-    COALESCE(FAV.Cantidad_Clientes_Asegurados, FAS.Cantidad_Clientes_Asegurados, 0) AS Cantidad_Clientes_Asegurados,
-    CAST(CASE
-        WHEN BI.valor_por_receta_seguro IS NOT NULL AND BI.valor_por_receta_seguro > 0
-            THEN COALESCE(FAV.Cantidad_Facturas_Aseguradas, FAS.Cantidad_Facturas_Aseguradas, 0) * BI.valor_por_receta_seguro
-        ELSE 0.0
-    END AS DECIMAL(18, 6)) AS Incentivo_Recetas_Seguro,
-    {% if is_incremental() -%}
-        GETDATE()
-    {% else -%}
-        CAST(CAL.Fecha_Calendario AS DATETIME)
-    {%- endif %} AS Fecha_Actualizado
-FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
-INNER JOIN {{ ref('BI_Dim_Calendario_Dinamico') }} AS CAL
-    ON
-        BI.fecha_desde <= CAL.Fecha_Calendario
-        AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAL.Fecha_Calendario)
-LEFT JOIN FacturasAgrupadaVen AS FAV
-    ON
-        BI.emp_id = FAV.Emp_Id
-        AND BI.suc_id = FAV.Suc_Id
-        AND CAL.Fecha_Calendario = FAV.Fecha_Id
-        AND BI.vendedor_id = FAV.Vendedor_Id
-        AND BI.tipo_aplicacion IN ('individual_por_codigo')
-LEFT JOIN FacturasAgrupadaSuc AS FAS
-    ON
-        BI.emp_id = FAS.Emp_Id
-        AND BI.suc_id = FAS.Suc_Id
-        AND CAL.Fecha_Calendario = FAS.Fecha_Id
-        AND BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
-WHERE
-    (FAV.Cantidad_Facturas_Aseguradas IS NOT NULL OR FAS.Cantidad_Facturas_Aseguradas IS NOT NULL)
-    AND CAL.Fecha_Calendario >= '{{ last_date }}'
-    AND CAL.Fecha_Calendario <= CAST(GETDATE() AS DATE)
+SELECT --noqa: ST06
+    ISNULL(Fecha_Id, '19000101') AS [Fecha_Id],
+    ISNULL(Emp_Id, 0) AS [Emp_Id],
+    ISNULL(Suc_Id, 0) AS [Suc_Id],
+    ISNULL(Vendedor_Id, 0) AS [Vendedor_Id],
+    ISNULL(Usuario_Id, 0) AS [Usuario_Id],
+    Regla_Id,
+    Rol_Id,
+    Rol_Nombre,
+    Codigo_Tipo,
+    Tipo_Aplicacion,
+    Part_Comision,
+    Part_Regalia,
+    Valor_Por_Receta_Seguro,
+    Es_Valido,
+    EmpSuc_Id,
+    EmpVen_Id,
+    EmpUsu_Id,
+    EmpRol_Id,
+    Fecha_Actualizado,
+    -- Volvemos incentivo cero para sucursales ya no asignadas en el periodo incremental
+    Cantidad_Facturas_Aseguradas,
+    Cantidad_Clientes_Asegurados,
+    Incentivo_Recetas_Seguro * Es_Valido AS Incentivo_Recetas_Seguro
+FROM Calculos

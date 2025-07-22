@@ -7,3 +7,11 @@ models:
           combination_of_columns: [Usuario_Id, Suc_Id, Emp_Id, regla_id]
           config:
             severity: warn
+      - unique_combination_of_columns:
+          name: unique_ven_emp_regl
+          combination_of_columns: [Usuario_Id, Vendedor_Id, Emp_Id, regla_id]
+          where_clause: |
+            tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
+            and fecha_valido = cast(getdate() as date)
+          config:
+            severity: error

@@ -4,8 +4,9 @@
     config(
 		as_columnstore=true,
 		tags=["automation/periodo_diario"],
-		materialized="table",
+		materialized="incremental",
 		incremental_strategy="farinter_merge",
+        full_refresh = false,
 		unique_key=unique_key_list,
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
@@ -16,10 +17,17 @@
         ]
 	) 
 }}
--- Vista base para aplicación de incentivos
+
+/*
+-- Base para aplicación de incentivos
+NO realizar full refresh, fecha_valido indica la validez actual de registros por asignación de sucursal.
+En el caso hipotetico de que cambie la asignación, se sabrá por la fecha de validez cual es la actual,
+sin embargo, si se realiza un full refresh, se perderán las asignaciones pasadas y su fecha final,
+claro, esto solo funciona para una asignación y se sobreescribirá la fecha anterior si se vuelve a asignar la misma,
+esto significa que es importante tampoco hacer full refresh en el modelo siguiente que controla los incentivos.
 -- Genera los registros base que permiten unir las métricas de incentivos
 -- con las reglas configuradas según rol, usuario/vendedor y sucursal(es)
-
+*/
 with reglas_rol as (
     select
         r.fecha_desde,
@@ -69,7 +77,7 @@ aplicacion_base as (
             and usuc.Bit_Activo = 1
             and rr.codigo_tipo = 'usuario_id'
             and rr.tipo_aplicacion = 'multiple_sucursal'
-            and usuc.Usuario_Id > 0
+            --and usuc.Usuario_Id > 0
     left join {{ ref('BI_Kielsa_Dim_Usuario') }} as u
         on
             rr.emp_id = u.Emp_Id
@@ -77,7 +85,7 @@ aplicacion_base as (
             and rr.codigo_tipo = 'usuario_id'
             and rr.rol_id = u.Rol_Id_Mapeado
             and rr.tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
-            and u.Usuario_Id > 0
+            --and u.Usuario_Id > 0
     left join {{ ref('BI_Kielsa_Dim_Vendedor') }} as vi
         on
             rr.emp_id = vi.Emp_Id
@@ -85,7 +93,7 @@ aplicacion_base as (
             and vi.Bit_Activo = 1
             and rr.codigo_tipo = 'vendedor_id'
             and rr.tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
-            and vi.Vendedor_Id > 0
+            --and vi.Vendedor_Id > 0
     left join {{ ref('BI_Kielsa_Dim_VendedorSucursal') }} as vsuc
         on
             rr.emp_id = vsuc.Emp_Id
@@ -93,7 +101,7 @@ aplicacion_base as (
             and vsuc.Bit_Activo = 1
             and rr.rol_id = vsuc.Rol_Id_Mapeado
             and rr.tipo_aplicacion = 'multiple_sucursal'
-            and vsuc.Vendedor_Id > 0
+            --and vsuc.Vendedor_Id > 0
     where
         coalesce(vsuc.Vendedor_Id, vi.Vendedor_Id) is not null
         or coalesce(usuc.Usuario_Id, u.Usuario_Id) is not null
@@ -115,6 +123,7 @@ select
     isnull(Usuario_Id, 0) as Usuario_Id,
     isnull(Vendedor_Id, 0) as Vendedor_Id,
     Usuario_Nombre,
+    cast(getdate() as date) as Fecha_Validado, --Esta fecha indica el registro es válido hasta esta fecha
     -- Campos adicionales útiles para modelos
     {{ dwh_farinter_concat_key_columns(columns=["emp_id","regla_id"], input_length=40) }} as EmpRegla_Id,
     {{ dwh_farinter_concat_key_columns(columns=["emp_id","rol_id"], input_length=40) }} as EmpRol_Id,

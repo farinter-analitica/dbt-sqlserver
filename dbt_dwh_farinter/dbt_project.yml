@@ -109,6 +109,8 @@ models:
       dl_farinter:
         +group: ldcom_etl_dwh
         +database: DL_FARINTER
+        incentivo:
+          +group: dbt_kielsa_incentivo
       crm_farinter:
         +group: crm_dwh_kielsa
         +database: CRM_FARINTER
