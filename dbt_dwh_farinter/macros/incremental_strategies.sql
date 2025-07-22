@@ -1,3 +1,5 @@
+{# https://docs.getdbt.com/docs/build/incremental-strategy #}
+
 {% macro get_incremental_farinter_merge_sql(arg_dict) %}
   {% do return(custom_get_farinter_merge_sql(arg_dict["target_relation"], arg_dict["temp_relation"], arg_dict["unique_key"], arg_dict["dest_columns"], arg_dict["incremental_predicates"])) %}
 {% endmacro %}
@@ -10,9 +12,10 @@
     {%- set merge_check_diff_exclude_columns = config.get('merge_check_diff_exclude_columns',[]) -%}
     {%- set update_columns = get_merge_update_columns(merge_update_columns, merge_exclude_columns, dest_columns) -%}
     {%- set if_exists_diff_columns = get_merge_update_columns(merge_update_columns, merge_check_diff_exclude_columns, dest_columns) -%}
+    {%- set merge_insert_only = config.get('merge_insert_only', false) -%}
     {%- set sql_header = config.get('sql_header', none) -%}
-    {% if update_columns | length == 0 or if_exists_diff_columns | length == 0 %}
-        {%- do exceptions.raise_compiler_error("incremental mode: No columns to update, check merge config and columns excluded, at least one needed.") -%}
+    {% if not merge_insert_only and (update_columns | length == 0 or if_exists_diff_columns | length == 0) %}
+        {%- do exceptions.raise_compiler_error("incremental mode: No hay columnas para update (todas estan excluidas o son llaves), verifica o especifica merge_insert_only = true.") -%}
     {% endif %}
 
     {% if unique_key %}
@@ -39,7 +42,7 @@
         using {{ source }} as DBT_INTERNAL_SOURCE
         on {{"(" ~ predicates | join(") and (") ~ ")"}}
 
-    {% if unique_key %}
+    {% if unique_key and not merge_insert_only %}
     when matched 
       and exists (SELECT {% for column_name in if_exists_diff_columns -%}
             DBT_INTERNAL_DEST.{{ column_name }} 
@@ -65,4 +68,3 @@
     ;
 
 {% endmacro %}
-
