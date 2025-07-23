@@ -1,12 +1,11 @@
 {% set unique_key_list = ["Usuario_Id", "Vendedor_Id", "Suc_Id", "Emp_Id", "regla_id"] %}
 
-{{ 
+{{-
     config(
 		as_columnstore=true,
 		tags=["automation/periodo_diario"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
-        full_refresh = false,
 		unique_key=unique_key_list,
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
 		merge_check_diff_exclude_columns=unique_key_list + ["Fecha_Carga","Fecha_Actualizado"],
@@ -18,6 +17,14 @@
 	) 
 }}
 
+{%- if execute %}
+    {%- if flags.FULL_REFRESH and var('allow_full_refresh', False) != True %}
+        {{-- exceptions.raise_compiler_error(
+        "Full refresh no esta permitido a menos se pase \"--vars '{\"allow_full_refresh\": true}'\" en el comando de ejecución de dbt."
+        ) }}
+    {%- endif %}
+{%- endif %}
+
 /*
 -- Base para aplicación de incentivos
 NO realizar full refresh, fecha_valido indica la validez actual de registros por asignación de sucursal.
@@ -28,6 +35,8 @@ esto significa que es importante tampoco hacer full refresh en el modelo siguien
 -- Genera los registros base que permiten unir las métricas de incentivos
 -- con las reglas configuradas según rol, usuario/vendedor y sucursal(es)
 */
+
+
 with reglas_rol as (
     select
         r.fecha_desde,
@@ -65,9 +74,9 @@ aplicacion_base as (
         coalesce(usuc.Usuario_Nombre, u.Usuario_Nombre, vsuc.Vendedor_Nombre, vi.Vendedor_Nombre) as Usuario_Nombre,
         -- Sucursal
         coalesce(usuc.Suc_Id, u.Sucursal_Id_Asignado, vsuc.Suc_Id, vi.Sucursal_Id_Asignado, 0) as Suc_Id,
-        -- Usuario_Id para el caso
+        -- Usuario_Id para el caso, no es conveniente el codigo por si cambia
         coalesce(usuc.Usuario_Id, u.Usuario_Id, 0) as Usuario_Id,
-        -- Vendedor_Id para el caso
+        -- Vendedor_Id para el caso, no es conveniente el codigo por si cambia
         coalesce(vsuc.Vendedor_Id, vi.Vendedor_Id, 0) as Vendedor_Id
     from reglas_rol as rr
     left join {{ ref('BI_Kielsa_Dim_UsuarioSucursal') }} as usuc

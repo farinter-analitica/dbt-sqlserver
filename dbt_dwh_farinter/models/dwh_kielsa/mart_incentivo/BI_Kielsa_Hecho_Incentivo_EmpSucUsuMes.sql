@@ -3,7 +3,7 @@
 {{ 
     config(
         as_columnstore=true,
-        tags=["periodo/diario", "automation/periodo_por_hora"],
+        tags=["periodo/diario", "automation/periodo_por_hora", "detener_carga/si"],
         materialized="incremental",
         incremental_strategy="farinter_merge",
         unique_key=unique_key_list,
