@@ -193,7 +193,7 @@ CalculoInicial AS (
     FROM Vertebra AS VERT
     INNER JOIN Calendario AS CAL
         ON VERT.Fecha_Id = CAL.Fecha_Calendario
-    LEFT JOIN BaseIncentivos AS BI
+    INNER JOIN BaseIncentivos AS BI
         ON
             VERT.Emp_Id = BI.Emp_Id
             AND CAL.Fecha_Calendario >= BI.fecha_desde
@@ -206,6 +206,7 @@ CalculoInicial AS (
                     BI.tipo_aplicacion = 'individual_por_codigo'
                     AND BI.Fecha_Validado = CAST(GETDATE() AS DATE)
                     AND VERT.Vendedor_Id = BI.Vendedor_Id
+                    AND BI.codigo_tipo = 'vendedor_id'
                 )
                 OR
                 -- Para unica_sucursal y multiple sucursal: debe coincidir empresa y sucursal, vendedor null.
@@ -214,6 +215,7 @@ CalculoInicial AS (
                     BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
                     AND VERT.Vendedor_Id IS NULL
                     AND VERT.Suc_Id = BI.Suc_Id
+                    AND BI.codigo_tipo = 'usuario_id'
                 )
             )
     INNER JOIN {{ ref("BI_Kielsa_Dim_Articulo") }} AS ART

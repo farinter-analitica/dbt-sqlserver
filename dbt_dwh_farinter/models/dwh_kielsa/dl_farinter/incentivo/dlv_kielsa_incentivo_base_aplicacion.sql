@@ -86,7 +86,7 @@ aplicacion_base as (
             and usuc.Bit_Activo = 1
             and rr.codigo_tipo = 'usuario_id'
             and rr.tipo_aplicacion = 'multiple_sucursal'
-            --and usuc.Usuario_Id > 0
+            and usuc.Usuario_Id > 0
     left join {{ ref('BI_Kielsa_Dim_Usuario') }} as u
         on
             rr.emp_id = u.Emp_Id
@@ -94,7 +94,7 @@ aplicacion_base as (
             and rr.codigo_tipo = 'usuario_id'
             and rr.rol_id = u.Rol_Id_Mapeado
             and rr.tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
-            --and u.Usuario_Id > 0
+            and u.Usuario_Id > 0
     left join {{ ref('BI_Kielsa_Dim_Vendedor') }} as vi
         on
             rr.emp_id = vi.Emp_Id
@@ -102,7 +102,7 @@ aplicacion_base as (
             and vi.Bit_Activo = 1
             and rr.codigo_tipo = 'vendedor_id'
             and rr.tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
-            --and vi.Vendedor_Id > 0
+            --and vi.Vendedor_Id > 0 --para tener todas las ventas
     left join {{ ref('BI_Kielsa_Dim_VendedorSucursal') }} as vsuc
         on
             rr.emp_id = vsuc.Emp_Id
@@ -110,7 +110,7 @@ aplicacion_base as (
             and vsuc.Bit_Activo = 1
             and rr.rol_id = vsuc.Rol_Id_Mapeado
             and rr.tipo_aplicacion = 'multiple_sucursal'
-            --and vsuc.Vendedor_Id > 0
+            --and vsuc.Vendedor_Id > 0 --para tener todas las ventas
     where
         coalesce(vsuc.Vendedor_Id, vi.Vendedor_Id) is not null
         or coalesce(usuc.Usuario_Id, u.Usuario_Id) is not null

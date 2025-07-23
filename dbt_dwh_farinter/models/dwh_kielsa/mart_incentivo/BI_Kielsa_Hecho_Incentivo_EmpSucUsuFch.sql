@@ -96,7 +96,7 @@ Calculos AS (
         BI.rol_id AS [Rol_Id],
         BI.rol_nombre AS [Rol_Nombre],
         BI.codigo_tipo AS [Codigo_Tipo],
-        BI.tipo_aplicacion AS [Tipo_Aplicacion],
+        ISNULL(BI.tipo_aplicacion, 'individual_por_codigo') AS [Tipo_Aplicacion],
         BI.part_comision AS [Part_Comision],
         BI.part_regalia AS [Part_Regalia],
         BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
@@ -124,23 +124,24 @@ Calculos AS (
     FROM Vertebra AS VERT
     INNER JOIN Calendario AS CAL
         ON VERT.Fecha_Id = CAL.Fecha_Calendario
-    LEFT JOIN BaseIncentivos AS BI
+    INNER JOIN BaseIncentivos AS BI
         ON
             VERT.Emp_Id = BI.Emp_Id
             AND CAL.Fecha_Calendario >= BI.fecha_desde
             AND (BI.fecha_hasta IS NULL OR CAL.Fecha_Calendario <= BI.fecha_hasta)
             AND (
                 (
-                    TRIM(BI.tipo_aplicacion) = 'individual_por_codigo'
+                    BI.tipo_aplicacion = 'individual_por_codigo'
                     AND BI.Fecha_Validado = CAST(GETDATE() AS DATE)
                     AND VERT.Vendedor_Id = BI.Vendedor_Id
-                    AND TRIM(BI.codigo_tipo) = 'vendedor_id'
+                    AND BI.codigo_tipo = 'vendedor_id'
                 )
                 OR
                 (
                     BI.tipo_aplicacion IN ('unica_sucursal', 'multiple_sucursal')
                     AND VERT.Vendedor_Id IS NULL
                     AND VERT.Suc_Id = BI.Suc_Id
+                    AND BI.codigo_tipo = 'usuario_id'
                 )
             )
     LEFT JOIN FacturasAgrupadaVen AS FAV
@@ -200,3 +201,5 @@ SELECT --noqa: ST06
     C.Cantidad_Clientes_Asegurados,
     C.Incentivo_Recetas_Seguro * C.Es_Valido AS Incentivo_Recetas_Seguro
 FROM CalculosFinales AS C
+--WHERE (ISNULL(C.Usuario_Id_Final, 0) > 0 OR C.Regla_Id IS NOT NULL)
+--WHERE C.Fecha_Id = '20250601' and ISNULL(C.Usuario_Id_Final, 0)=0 --and c.suc_id=1 and c.emp_id=2
