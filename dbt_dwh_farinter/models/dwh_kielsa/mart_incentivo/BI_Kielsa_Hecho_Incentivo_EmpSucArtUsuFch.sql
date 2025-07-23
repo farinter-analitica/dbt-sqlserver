@@ -14,6 +14,18 @@
             "{{ dwh_farinter_remove_incremental_temp_table() }}",
             "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
             "{{ dwh_farinter_create_index(is_incremental=is_incremental(), columns=['Fecha_Actualizado']) }}",
+        ],
+        pre_hook=[
+            "
+            IF NOT EXISTS (
+                SELECT 1
+                FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }}
+                WHERE Fecha_Validado = CAST(GETDATE() AS DATE)
+            )
+            BEGIN
+                THROW 50000, 'No hay incentivos válidos para el día de hoy en dlv_kielsa_incentivo_base_aplicacion', 1;
+            END
+            "
         ]
     ) 
 }}
@@ -91,8 +103,10 @@ BaseIncentivos AS (
     SELECT BI.*
     FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
     WHERE
-        (BI.fecha_hasta >= CAST('{{ last_date }}' AS DATE) 
-         OR BI.fecha_hasta IS NULL)
+        (
+            BI.fecha_hasta >= CAST('{{ last_date }}' AS DATE)
+            OR BI.fecha_hasta IS NULL
+        )
         AND BI.fecha_desde <= CAST(GETDATE() AS DATE)
 ),
 
