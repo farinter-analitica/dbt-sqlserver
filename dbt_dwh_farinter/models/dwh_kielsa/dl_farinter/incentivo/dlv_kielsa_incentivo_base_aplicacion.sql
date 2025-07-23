@@ -65,9 +65,9 @@ aplicacion_base as (
         coalesce(usuc.Usuario_Nombre, u.Usuario_Nombre, vsuc.Vendedor_Nombre, vi.Vendedor_Nombre) as Usuario_Nombre,
         -- Sucursal
         coalesce(usuc.Suc_Id, u.Sucursal_Id_Asignado, vsuc.Suc_Id, vi.Sucursal_Id_Asignado, 0) as Suc_Id,
-        -- Usuario_Id siempre
-        coalesce(usuc.Usuario_Id, u.Usuario_Id, vi.Usuario_Id, vsuc.Usuario_Id, 0) as Usuario_Id,
-        -- Vendedor_Id solo cuando es necesario
+        -- Usuario_Id para el caso
+        coalesce(usuc.Usuario_Id, u.Usuario_Id, 0) as Usuario_Id,
+        -- Vendedor_Id para el caso
         coalesce(vsuc.Vendedor_Id, vi.Vendedor_Id, 0) as Vendedor_Id
     from reglas_rol as rr
     left join {{ ref('BI_Kielsa_Dim_UsuarioSucursal') }} as usuc

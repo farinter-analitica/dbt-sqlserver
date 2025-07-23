@@ -31,95 +31,38 @@ WITH base_vendedor AS (
     FROM {{ ref('DL_Kielsa_Vendedor') }}
 ),
 
-meta_hist_ult AS (
-    SELECT
-        Emp_Id,
-        MAX(AnioMes_Id) AS AnioMes_Id
-    FROM {{ source('DL_FARINTER', 'DL_Kielsa_MetaHist') }}
-    GROUP BY Emp_Id
-),
-
-meta_hist AS (
-    SELECT
-        MH.Emp_Id,
-        MH.Empleado_Id AS Vendedor_Id,
-        MAX(MH.Empleado_Rol) AS Vendedor_Rol,
-        MAX(MH.Sucursal_Id) AS Sucursal_Id_Asignado_Meta
-    FROM {{ source('DL_FARINTER', 'DL_Kielsa_MetaHist') }} AS MH
-    INNER JOIN meta_hist_ult AS Ult ON MH.AnioMes_Id = Ult.AnioMes_Id AND MH.Emp_Id = Ult.Emp_Id
-    WHERE MH.Empleado_Rol IS NOT NULL
-    GROUP BY MH.Emp_Id, MH.Empleado_Id
-),
-
 sucursal_vendedor AS (
     SELECT
         Emp_Id,
         Vendedor_Id,
         Suc_Id AS Sucursal_Id_Vendedor,
+        COUNT(*) OVER (
+            PARTITION BY Emp_Id, Vendedor_Id
+        ) AS Cantidad_Sucursales,
         ROW_NUMBER() OVER (PARTITION BY Emp_Id, Vendedor_Id ORDER BY Vendedor_Fec_Actualizacion DESC) AS fila
     FROM {{ source('DL_FARINTER', 'DL_Kielsa_VendedorSucursal') }}
 ),
 
-rol_icentivos AS (
-    SELECT
-        kr.id,
-        kr.emp_id,
-        kr.rol_id_ld AS rol_id_original,
-        kr.nombre AS rol_nombre_original,
-        COALESCE(krm.rol_id_ld, kr.rol_id_ld) AS Rol_Id_Mapeado,
-        COALESCE(krm.nombre, kr.nombre) AS rol_nombre_final
-    FROM {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} AS kr
-    LEFT JOIN {{ source('DL_FARINTER_nocodb_data_gf', 'kielsa_incentivo_rol') }} AS krm
-        ON kr.mapear_a_id = krm.id AND kr.emp_id = krm.emp_id
-),
-
-cte_vendedor_x_usuario AS (
-    SELECT
-        *,
-        COUNT(Usuario_Id) OVER (PARTITION BY Vendedor_Id, Emp_Id) AS Cantidad_Usuarios
-    FROM {{ ref('DL_Kielsa_Vendedor_x_Usuario') }}
-),
-
-cte_usuario_x_rol AS (
-    SELECT
-        *,
-        COUNT(Rol_Id) OVER (PARTITION BY Usuario_Id, Emp_Id) AS Cantidad_Roles
-    FROM {{ ref('DL_Kielsa_Seg_Usuario_x_Rol') }}
-),
-
 usuario_rol AS (
     SELECT
-        VU.Emp_Id,
-        VU.Vendedor_Id,
-        UR.Usuario_Id,
-        U.Usuario_Eliminado,
-        U.Usuario_Cuenta_Deshabilitada,
-        UR.Cantidad_Roles,
-        VU.Cantidad_Usuarios,
-        UR.Rol_Id,
-        COALESCE(ri.Rol_Id_Mapeado, UR.Rol_Id) AS Rol_Id_Mapeado,
+        U.Emp_Id,
+        U.Vendedor_Id,
+        U.Usuario_Id,
+        U.Bit_Borrado,
+        U.Bit_Activo,
+        U.Cantidad_Roles,
+        U.Rol_Id,
+        U.Rol_Id_Mapeado,
+        U.Rol_Nombre_Mapeado,
+        U.Sucursal_Id_Asignado_Meta,
+        COUNT(*) OVER (
+            PARTITION BY U.Emp_Id, U.Vendedor_Id
+        ) AS Cantidad_Usuarios,
         ROW_NUMBER() OVER (
-            PARTITION BY VU.Emp_Id, VU.Vendedor_Id
-            ORDER BY kr.profundidad ASC, UR.Fec_Actualizacion DESC
+            PARTITION BY U.Emp_Id, U.Vendedor_Id
+            ORDER BY U.Bit_Activo DESC, U.Fecha_Actualizado DESC
         ) AS Fila
-    FROM cte_vendedor_x_usuario AS VU
-    INNER JOIN cte_usuario_x_rol AS UR ON VU.Usuario_Id = UR.Usuario_Id AND VU.Emp_Id = UR.Emp_Id
-    INNER JOIN {{ ref('DL_Kielsa_Seg_Usuario') }} AS U
-        ON
-            UR.Usuario_Id = U.Usuario_Id
-            AND UR.Emp_Id = U.Emp_Id
-    LEFT JOIN rol_icentivos AS ri
-        ON
-            UR.Rol_Id = ri.rol_id_original
-            AND UR.Emp_Id = ri.emp_id
-    LEFT JOIN {{ ref('dlv_kielsa_incentivo_rol_jerarquia') }} AS kr
-        ON
-            UR.Rol_Id = kr.rol_id_ld
-            AND UR.Emp_Id = kr.emp_id
-
-    WHERE
-        U.Usuario_Eliminado = 0
-        AND U.Usuario_Cuenta_Deshabilitada = 0
+    FROM {{ ref('BI_Kielsa_Dim_Usuario') }} AS U
 ),
 
 rol_nombre AS (
@@ -148,33 +91,21 @@ Final AS (
         CAST(bv.Vendedor_Nombre AS VARCHAR(50)) AS [Vendedor_Nombre],
         ur.Rol_Id,
         rn.Rol_Nombre,
-        CASE
-            WHEN bv.Emp_Id = 5
-                THEN COALESCE(rn_meta.Rol_Id, ur.Rol_Id_Mapeado, 0)
-            ELSE COALESCE(ur.Rol_Id_Mapeado, rn_meta.Rol_Id, 0)
-        END
-            AS [Rol_Id_Mapeado],
+        ur.[Rol_Id_Mapeado],
         ISNULL(ur.Usuario_Id, 0) AS [Usuario_Id],
-        CASE
-            WHEN bv.Emp_Id = 5
-                THEN COALESCE(rn_meta.Rol_Nombre, rn.Rol_Nombre, 'Sin_Rol')
-            ELSE COALESCE(rnm.Rol_Nombre, rn_meta.Rol_Nombre, 'Sin_Rol')
-        END
-            AS [Rol_Nombre_Mapeado],
+        ur.[Rol_Nombre_Mapeado],
         ISNULL(ur.Cantidad_Roles, 0) AS [Cantidad_Roles],
         ISNULL(ur.Cantidad_Usuarios, 0) AS [Cantidad_Usuarios],
-        ISNULL(mh.Sucursal_Id_Asignado_Meta, NULL) AS [Sucursal_Id_Asignado_Meta],
-        ISNULL(ur.Usuario_Eliminado, 0) AS [Bit_Borrado],
-        CASE WHEN ur.Usuario_Cuenta_Deshabilitada = 1 THEN 0 ELSE 1 END AS [Bit_Activo],
-        COALESCE(sv.Sucursal_Id_Vendedor, mh.Sucursal_Id_Asignado_Meta, sf.Sucursal_Id_Ultima_Factura) AS [Sucursal_Id_Asignado]
+        ISNULL(ur.Sucursal_Id_Asignado_Meta, NULL) AS [Sucursal_Id_Asignado_Meta],
+        ISNULL(ur.Bit_Borrado, 0) AS [Bit_Borrado],
+        ISNULL(ur.Bit_Activo, 0) AS [Bit_Activo],
+        COALESCE(sv.Sucursal_Id_Vendedor, ur.Sucursal_Id_Asignado_Meta, sf.Sucursal_Id_Ultima_Factura) AS [Sucursal_Id_Asignado],
+        sv.Cantidad_Sucursales AS [Cantidad_Sucursales_Asignadas_LD]
     FROM base_vendedor AS bv
     LEFT JOIN usuario_rol AS ur ON bv.Vendedor_Id = ur.Vendedor_Id AND bv.Emp_Id = ur.Emp_Id AND ur.Fila = 1
     LEFT JOIN rol_nombre AS rn ON ur.Rol_Id = rn.Rol_Id AND bv.Emp_Id = rn.Emp_Id
-    LEFT JOIN rol_nombre AS rnm ON ur.Rol_Id_Mapeado = rnm.Rol_Id AND bv.Emp_Id = rnm.Emp_Id
-    LEFT JOIN meta_hist AS mh ON bv.Vendedor_Id = mh.Vendedor_Id AND bv.Emp_Id = mh.Emp_Id
     LEFT JOIN sucursal_factura AS sf ON bv.Emp_Id = sf.Emp_Id AND bv.Vendedor_Id = sf.Vendedor_Id AND sf.fila = 1
     LEFT JOIN sucursal_vendedor AS sv ON bv.Emp_Id = sv.Emp_Id AND bv.Vendedor_Id = sv.Vendedor_Id AND sv.fila = 1
-    LEFT JOIN rol_nombre AS rn_meta ON mh.Vendedor_Rol = rn_meta.Rol_Nombre AND bv.Emp_Id = rn_meta.Emp_Id
 )
 
 SELECT

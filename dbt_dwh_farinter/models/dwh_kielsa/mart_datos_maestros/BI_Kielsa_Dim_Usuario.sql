@@ -37,6 +37,7 @@ Usuario_Sucursal AS (
         V.Emp_Id,
         V.Usuario_Id,
         V.Suc_Id,
+        COUNT(*) OVER (PARTITION BY V.Emp_Id, V.Usuario_Id) AS Cantidad_Sucursales,
         ROW_NUMBER() OVER (PARTITION BY V.Emp_Id, V.Usuario_Id ORDER BY V.SxU_Fec_Actualizacion DESC) AS Fila
     FROM {{ ref("DL_Kielsa_Seg_Sucursal_x_Usuario") }} AS V
 ),
@@ -79,18 +80,13 @@ Roles AS (
         UR.Usuario_Id,
         UR.Rol_Id,
         UR.Cantidad_Roles,
-        U.Usuario_Eliminado,
-        U.Usuario_Cuenta_Deshabilitada,
+        UR.Fec_Actualizacion,
         COALESCE(ri.Rol_Id_Mapeado, UR.Rol_Id) AS Rol_Id_Mapeado,
         ROW_NUMBER() OVER (
             PARTITION BY UR.Emp_Id, UR.Usuario_Id
             ORDER BY kr.profundidad ASC, UR.Fec_Actualizacion DESC
         ) AS Fila
     FROM cte_usuario_x_rol AS UR
-    INNER JOIN {{ ref('DL_Kielsa_Seg_Usuario') }} AS U
-        ON
-            UR.Usuario_Id = U.Usuario_Id
-            AND UR.Emp_Id = U.Emp_Id
     LEFT JOIN rol_icentivos AS ri
         ON
             UR.Rol_Id = ri.rol_id_original
@@ -99,9 +95,6 @@ Roles AS (
         ON
             UR.Rol_Id = kr.rol_id_ld
             AND UR.Emp_Id = kr.emp_id
-    WHERE
-        U.Usuario_Eliminado = 0
-        AND U.Usuario_Cuenta_Deshabilitada = 0
 ),
 
 Metas AS (
@@ -112,7 +105,7 @@ Metas AS (
         MAX(MH.Sucursal_Id) AS Sucursal_Id_Asignado_Meta
     FROM {{ source('DL_FARINTER', 'DL_Kielsa_MetaHist') }} AS MH
     --Ultimo aniomes_id de la empresa
-    INNER JOIN (
+    INNER JOIN ( --noqa: ST05
         SELECT
             Emp_id,
             MAX(AnioMes_Id) AS AnioMes_Id
@@ -149,11 +142,13 @@ SELECT --noqa: ST06
     END
         AS [Rol_Nombre_Mapeado],
     R.Cantidad_Roles,
+    LVA.Vendedor_Id,
     LVA.Vendedor_Id AS Ultimo_Vendedor_Id_Asignado,
     LVA.Cantidad_Vendedores,
     FES.Suc_Id AS Sucursal_Id_Ultima_Factura,
     M.Sucursal_Id_Asignado_Meta,
     US.Suc_Id AS Sucursal_Id_Ultimo_Asignado_LD,
+    US.Cantidad_Sucursales AS Cantidad_Sucursales_Asignadas_LD,
     CONCAT(U.Emp_Id, '-', U.Usuario_Id) AS EmpUsu_Id,
     ROW_NUMBER() OVER (
         PARTITION BY U.Usuario_Nombre,
@@ -161,7 +156,7 @@ SELECT --noqa: ST06
         ORDER BY U.Usuario_Id DESC
     ) AS Numero_Por_Nombre,
     CONCAT(U.Emp_Id, '-', U.Usuario_Login) AS EmpLogin_Id,
-    COALESCE(M.Sucursal_Id_Asignado_Meta, FES.Suc_Id, US.Suc_Id) AS Sucursal_Id_Asignado,
+    COALESCE(US.Suc_Id, M.Sucursal_Id_Asignado_Meta, FES.Suc_Id) AS Sucursal_Id_Asignado,
     CAST(CASE
         WHEN
             U.Usuario_Eliminado = 1
@@ -170,6 +165,7 @@ SELECT --noqa: ST06
             THEN 0
         ELSE 1
     END AS BIT) AS Bit_Activo,
+    U.Usuario_Eliminado AS Bit_Borrado,
     COALESCE(
         LVA.Ult_Fec_Actualizacion,
         U.Usuario_Fec_Actualizacion
