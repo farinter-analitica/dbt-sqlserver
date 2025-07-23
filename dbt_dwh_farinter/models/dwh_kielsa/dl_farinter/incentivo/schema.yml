@@ -12,6 +12,6 @@ models:
           combination_of_columns: [Usuario_Id, Vendedor_Id, Emp_Id, regla_id]
           where_clause: |
             tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
-            and fecha_valido = cast(getdate() as date)
+            and fecha_validado = cast(getdate() as date)
           config:
             severity: error
