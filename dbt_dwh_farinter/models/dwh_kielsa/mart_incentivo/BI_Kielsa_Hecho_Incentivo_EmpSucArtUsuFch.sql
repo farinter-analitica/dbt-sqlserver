@@ -91,7 +91,8 @@ BaseIncentivos AS (
     SELECT BI.*
     FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
     WHERE
-        BI.fecha_hasta >= CAST('{{ last_date }}' AS DATE)
+        (BI.fecha_hasta >= CAST('{{ last_date }}' AS DATE) 
+         OR BI.fecha_hasta IS NULL)
         AND BI.fecha_desde <= CAST(GETDATE() AS DATE)
 ),
 
