@@ -109,6 +109,7 @@ sources:
       - name: casa_id_ld
       - name: valor_regalia
       - name: notas
+      - name: margen_gestion_minimo
       - name: fecha_creado
       - name: fecha_actualizado
     constraints:

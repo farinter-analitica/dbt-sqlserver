@@ -11,6 +11,7 @@ with base as (
         rc.regla_id,
         rc.casa_id_ld,
         rc.valor_regalia,
+        rc.margen_gestion_minimo,
         r.emp_id,
         r.fecha_desde,
         r.fecha_hasta
