@@ -95,6 +95,7 @@ Roles AS (
         ON
             UR.Rol_Id = kr.rol_id_ld
             AND UR.Emp_Id = kr.emp_id
+    --where ur.usuario_id = 709
 ),
 
 Metas AS (
@@ -127,7 +128,7 @@ SELECT --noqa: ST06
     U.Usuario_Email,
     U.Usuario_Huella1,
     U.Usuario_Huella2,
-    U.Rol_Id,
+    ISNULL(R.Rol_Id, 0) AS [Rol_Id],
     ROL.Rol_Nombre,
     CASE
         WHEN U.Emp_Id = 5
