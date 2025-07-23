@@ -91,8 +91,8 @@ BaseIncentivos AS (
     SELECT BI.*
     FROM {{ ref('dlv_kielsa_incentivo_base_aplicacion') }} AS BI
     WHERE
-        BI.fecha_desde <= CAST(GETDATE() AS DATE)
-        AND (BI.fecha_hasta IS NULL OR BI.fecha_hasta >= CAST('{{ last_date }}' AS DATE))
+        BI.fecha_hasta >= CAST('{{ last_date }}' AS DATE)
+        AND BI.fecha_desde <= CAST(GETDATE() AS DATE)
 ),
 
 Calendario AS (
@@ -164,7 +164,7 @@ CalculoInicial AS (
             FAA.Valor_Venta_Neta + FAA.Valor_Descuento_Proveedor, 0.0
         )
         / COALESCE(FAV.Valor_Venta_Neta, FAA.Valor_Venta_Neta, NULL), 0.0) AS Factura_Margen_Gestion_Inicial,
-        RC.margen_gestion_minimo AS Margen_Gestion_Minimo,
+        RC.margen_gestion_minimo AS [Margen_Gestion_Minimo],
         BI.EmpSuc_Id,
         {{ dwh_farinter_concat_key_columns(columns=['emp_id', 'articulo_id'], input_length=49, table_alias='ART') }} AS EmpArt_Id,
         BI.EmpVen_Id,
@@ -178,7 +178,7 @@ CalculoInicial AS (
     FROM Vertebra AS VERT
     INNER JOIN Calendario AS CAL
         ON VERT.Fecha_Id = CAL.Fecha_Calendario
-    INNER JOIN BaseIncentivos AS BI
+    LEFT JOIN BaseIncentivos AS BI
         ON
             VERT.Emp_Id = BI.Emp_Id
             AND CAL.Fecha_Calendario >= BI.fecha_desde
@@ -281,34 +281,45 @@ CalculoIntermedio AS (
     FROM CalculoInicial
 ),
 
-CalculosAdicionales AS (
-    SELECT *
-    FROM CalculoIntermedio
+CalculosFinales AS (
+    SELECT
+        C.*,
+        ISNULL(CASE WHEN C.Vendedor_Id = 0 THEN U.Vendedor_Id ELSE C.Vendedor_Id END, 0) AS [Vendedor_Id_Final],
+        ISNULL(CASE WHEN C.Usuario_Id = 0 THEN V.Usuario_Id ELSE C.Usuario_Id END, 0) AS [Usuario_Id_Final],
+        ISNULL(CASE WHEN C.Rol_Id = 0 THEN V.Rol_Id_Mapeado ELSE C.Rol_Id END, 0) AS [Rol_Id_Final]
+    FROM CalculoIntermedio AS C
     --LEFT JOIN {{ ref('dlv_kielsa_incentivo_regla_categoria_sucursal_rol_escala') }}
+    LEFT JOIN {{ ref('BI_Kielsa_Dim_Usuario') }} AS U
+        ON
+            C.Emp_Id = U.Emp_Id
+            AND C.Usuario_Id = U.Usuario_Id
+    LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS V
+        ON
+            C.Emp_Id = V.Emp_Id
+            AND C.Vendedor_Id = V.Vendedor_Id
 )
 
 SELECT --noqa: ST06
     ISNULL(C.Fecha_Id, '19000101') AS [Fecha_Id],
     ISNULL(C.Emp_Id, 0) AS [Emp_Id],
     ISNULL(C.Suc_Id, 0) AS [Suc_Id],
-    ISNULL(CASE WHEN C.Vendedor_Id = 0 THEN U.Vendedor_Id ELSE C.Vendedor_Id END, 0) AS [Vendedor_Id],
-    ISNULL(CASE WHEN C.Usuario_Id = 0 THEN V.Usuario_Id ELSE C.Usuario_Id END, 0) AS [Usuario_Id],
+    ISNULL(C.Vendedor_Id_Final, 0) AS [Vendedor_Id],
+    ISNULL(C.Usuario_Id_Final, 0) AS [Usuario_Id],
     ISNULL(C.Articulo_Id, 'X') AS [Articulo_Id],
     C.Casa_Id,
     C.Regla_Id,
-    C.Rol_Id,
-    C.Rol_Nombre,
+    C.Rol_Id_Final AS Rol_Id,
     C.Codigo_Tipo,
     C.Tipo_Aplicacion,
     C.Part_Comision,
     C.Part_Regalia,
     C.Valor_Por_Receta_Seguro,
     C.Es_Valido,
-    C.EmpSuc_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=29, table_alias='C') }} AS EmpSuc_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Vendedor_Id_Final'], input_length=29, table_alias='C') }} AS EmpVen_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Usuario_Id_Final'], input_length=29, table_alias='C') }} AS EmpUsu_Id,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Rol_Id_Final'], input_length=29, table_alias='C') }} AS EmpRol_Id,
     C.EmpArt_Id,
-    C.EmpVen_Id,
-    C.EmpUsu_Id,
-    C.EmpRol_Id,
     C.Fecha_Actualizado,
     -- Volvemos incentivo cero para sucursales ya no asignadas en el periodo incremental
     C.Comision_Base_Total,
@@ -320,12 +331,4 @@ SELECT --noqa: ST06
     C.Regalia_Valor_Incentivo_Total * C.Es_Valido AS Regalia_Valor_Incentivo_Total,
     C.Factura_Cantidad_Padre,
     C.Factura_Valor_Venta_Neta
-FROM CalculosAdicionales AS C
-LEFT JOIN {{ ref('BI_Kielsa_Dim_Usuario') }} AS U
-    ON
-        C.Emp_Id = U.Emp_Id
-        AND C.Usuario_Id = U.Usuario_Id
-LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS V
-    ON
-        C.Emp_Id = V.Emp_Id
-        AND C.Vendedor_Id = V.Vendedor_Id
+FROM CalculosFinales AS C
