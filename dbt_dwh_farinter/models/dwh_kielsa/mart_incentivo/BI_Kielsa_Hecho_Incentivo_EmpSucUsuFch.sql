@@ -1,4 +1,4 @@
-{%- set unique_key_list = ["Fecha_Id","Usuario_Id","Vendedor_Id","Suc_Id","Emp_Id"] -%}
+{%- set unique_key_list = ["Fecha_Id", "Usuario_Id", "Suc_Id", "Emp_Id"] -%}
 
 {{ 
     config(
@@ -23,7 +23,7 @@
         query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, 
         relation_not_found_value='19000101'|string)|string %}
 {%- else %}
-    {%- set last_date = '20250101' %}
+    {%- set last_date = '20250601' %}
 {%- endif %}
 
 WITH Vertebra AS (
@@ -72,12 +72,11 @@ Calendario AS (
 ),
 
 Calculos AS (
-    SELECT
-        ISNULL(CAL.Fecha_Calendario, '19000101') AS [Fecha_Id],
+    SELECT --noqa: ST06
         ISNULL(VERT.Emp_Id, 0) AS [Emp_Id],
         ISNULL(VERT.Suc_Id, 0) AS [Suc_Id],
         COALESCE(VERT.Vendedor_Id, BI.vendedor_id, 0) AS [Vendedor_Id],
-        COALESCE(BI.usuario_id, VEN.Usuario_Id, 0) AS [Usuario_Id],
+        COALESCE(BI.usuario_id, 0) AS [Usuario_Id],
         BI.regla_id AS [Regla_Id],
         BI.rol_id AS [Rol_Id],
         BI.rol_nombre AS [Rol_Nombre],
@@ -86,6 +85,11 @@ Calculos AS (
         BI.part_comision AS [Part_Comision],
         BI.part_regalia AS [Part_Regalia],
         BI.valor_por_receta_seguro AS [Valor_Por_Receta_Seguro],
+        BI.EmpSuc_Id,
+        BI.EmpVen_Id,
+        BI.EmpUsu_Id,
+        BI.EmpRol_Id,
+        ISNULL(CAL.Fecha_Calendario, '19000101') AS [Fecha_Id],
         -- Indicador de validez rezagada
         CASE
             WHEN BI.Tipo_Aplicacion IN ('individual_por_codigo') THEN 1
@@ -101,10 +105,6 @@ Calculos AS (
                 THEN COALESCE(FAV.Cantidad_Facturas_Aseguradas, FAS.Cantidad_Facturas_Aseguradas, 0) * BI.valor_por_receta_seguro
             ELSE 0.0
         END AS DECIMAL(18, 6)) AS Incentivo_Recetas_Seguro,
-        BI.EmpSuc_Id,
-        BI.EmpVen_Id,
-        BI.EmpUsu_Id,
-        BI.EmpRol_Id,
         {% if is_incremental() -%}
             GETDATE()
         {% else -%}
@@ -123,6 +123,7 @@ Calculos AS (
                     BI.tipo_aplicacion = 'individual_por_codigo'
                     AND BI.Fecha_Validado = CAST(GETDATE() AS DATE)
                     AND VERT.Vendedor_Id = BI.Vendedor_Id
+                    AND BI.codigo_tipo = 'vendedor_id'
                 )
                 OR
                 (
@@ -131,10 +132,6 @@ Calculos AS (
                     AND VERT.Suc_Id = BI.Suc_Id
                 )
             )
-    LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS VEN
-        ON
-            VERT.Emp_Id = VEN.Emp_Id
-            AND COALESCE(VERT.Vendedor_Id, BI.vendedor_id, 0) = VEN.Vendedor_Id
     LEFT JOIN FacturasAgrupadaVen AS FAV
         ON
             VERT.Emp_Id = FAV.Emp_Id
@@ -152,27 +149,35 @@ Calculos AS (
 )
 
 SELECT --noqa: ST06
-    ISNULL(Fecha_Id, '19000101') AS [Fecha_Id],
-    ISNULL(Emp_Id, 0) AS [Emp_Id],
-    ISNULL(Suc_Id, 0) AS [Suc_Id],
-    ISNULL(Vendedor_Id, 0) AS [Vendedor_Id],
-    ISNULL(Usuario_Id, 0) AS [Usuario_Id],
-    Regla_Id,
-    Rol_Id,
-    Rol_Nombre,
-    Codigo_Tipo,
-    Tipo_Aplicacion,
-    Part_Comision,
-    Part_Regalia,
-    Valor_Por_Receta_Seguro,
-    Es_Valido,
-    EmpSuc_Id,
-    EmpVen_Id,
-    EmpUsu_Id,
-    EmpRol_Id,
-    Fecha_Actualizado,
+    ISNULL(C.Fecha_Id, '19000101') AS [Fecha_Id],
+    ISNULL(C.Emp_Id, 0) AS [Emp_Id],
+    ISNULL(C.Suc_Id, 0) AS [Suc_Id],
+    ISNULL(CASE WHEN C.Vendedor_Id = 0 THEN U.Vendedor_Id ELSE C.Vendedor_Id END, 0) AS [Vendedor_Id],
+    ISNULL(CASE WHEN C.Usuario_Id = 0 THEN V.Usuario_Id ELSE C.Usuario_Id END, 0) AS [Usuario_Id],
+    C.Regla_Id,
+    C.Rol_Id,
+    C.Rol_Nombre,
+    C.Codigo_Tipo,
+    C.Tipo_Aplicacion,
+    C.Part_Comision,
+    C.Part_Regalia,
+    C.Valor_Por_Receta_Seguro,
+    C.Es_Valido,
+    C.EmpSuc_Id,
+    C.EmpVen_Id,
+    C.EmpUsu_Id,
+    C.EmpRol_Id,
+    C.Fecha_Actualizado,
     -- Volvemos incentivo cero para sucursales ya no asignadas en el periodo incremental
-    Cantidad_Facturas_Aseguradas,
-    Cantidad_Clientes_Asegurados,
-    Incentivo_Recetas_Seguro * Es_Valido AS Incentivo_Recetas_Seguro
-FROM Calculos
+    C.Cantidad_Facturas_Aseguradas,
+    C.Cantidad_Clientes_Asegurados,
+    C.Incentivo_Recetas_Seguro * C.Es_Valido AS Incentivo_Recetas_Seguro
+FROM Calculos AS C
+LEFT JOIN {{ ref('BI_Kielsa_Dim_Usuario') }} AS U
+    ON
+        C.Emp_Id = U.Emp_Id
+        AND C.Usuario_Id = U.Usuario_Id
+LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS V
+    ON
+        C.Emp_Id = V.Emp_Id
+        AND C.Vendedor_Id = V.Vendedor_Id

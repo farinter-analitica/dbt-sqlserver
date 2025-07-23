@@ -1,4 +1,4 @@
-{%- set unique_key_list = ["Fecha_Id","Usuario_Id","Vendedor_Id","Articulo_Id","Suc_Id","Emp_Id"] -%}
+{%- set unique_key_list = ["Fecha_Id", "Usuario_Id", "Vendedor_Id", "Articulo_Id", "Suc_Id", "Emp_Id"] -%}
 
 {{ 
     config(
@@ -23,7 +23,7 @@
         query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, 
         relation_not_found_value='19000101'|string)|string %}
 {%- else %}
-    {%- set last_date = '20250101' %}
+    {%- set last_date = '20250601' %}
 {%- endif %}
 
 WITH Vertebra AS (
@@ -101,7 +101,7 @@ Calendario AS (
     WHERE Fecha_Calendario BETWEEN CAST('{{ last_date }}' AS DATE) AND CAST(GETDATE() AS DATE)
 ),
 
-Calculos AS (
+CalculoInicial AS (
     SELECT
         ISNULL(CAL.Fecha_Calendario, '19000101') AS [Fecha_Id],
         ISNULL(VERT.Emp_Id, 0) AS [Emp_Id],
@@ -109,7 +109,8 @@ Calculos AS (
         ISNULL(ART.Articulo_Id, 'X') AS [Articulo_Id],
         ISNULL(ART.Casa_Id, 0) AS [Casa_Id],
         COALESCE(VERT.Vendedor_Id, BI.vendedor_id, 0) AS [Vendedor_Id],
-        COALESCE(BI.usuario_id, VEN.Usuario_Id, 0) AS [Usuario_Id],
+        COALESCE(BI.usuario_id, 0) AS [Usuario_Id],
+        SUC.Categoria_Final AS [Categoria_Sucursal],
         BI.regla_id AS [Regla_Id],
         BI.rol_id AS [Rol_Id],
         BI.rol_nombre AS [Rol_Nombre],
@@ -154,7 +155,16 @@ Calculos AS (
         -- Lógica de incentivo por facturas
         COALESCE(FAV.Cantidad_Padre, FAA.Cantidad_Padre, 0.0) AS Factura_Cantidad_Padre,
         COALESCE(FAV.Valor_Venta_Neta, FAA.Valor_Venta_Neta, 0.0) AS Factura_Valor_Venta_Neta,
-
+        COALESCE(
+            FAV.Valor_Utilidad + FAV.Valor_Descuento_Proveedor,
+            FAA.Valor_Venta_Neta + FAA.Valor_Descuento_Proveedor, 0.0
+        ) AS Factura_Valor_Utilidad_Gestion_Inicial,
+        ISNULL(COALESCE(
+            FAV.Valor_Utilidad + FAV.Valor_Descuento_Proveedor,
+            FAA.Valor_Venta_Neta + FAA.Valor_Descuento_Proveedor, 0.0
+        )
+        / COALESCE(FAV.Valor_Venta_Neta, FAA.Valor_Venta_Neta, NULL), 0.0) AS Factura_Margen_Gestion_Inicial,
+        RC.margen_gestion_minimo AS Margen_Gestion_Minimo,
         BI.EmpSuc_Id,
         {{ dwh_farinter_concat_key_columns(columns=['emp_id', 'articulo_id'], input_length=49, table_alias='ART') }} AS EmpArt_Id,
         BI.EmpVen_Id,
@@ -195,10 +205,10 @@ Calculos AS (
         ON
             VERT.Emp_Id = ART.Emp_Id
             AND VERT.Articulo_Id = ART.Articulo_Id
-    LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS VEN
+    INNER JOIN {{ ref('BI_Kielsa_Agr_Sucursal') }} AS SUC
         ON
-            VERT.Emp_Id = VEN.Emp_Id
-            AND COALESCE(VERT.Vendedor_Id, BI.vendedor_id, 0) = VEN.Vendedor_Id
+            VERT.Emp_Id = SUC.Emp_Id
+            AND VERT.Suc_Id = SUC.Suc_Id
     LEFT JOIN ComisionAgrupadaVenArt AS CAV
         ON
             VERT.Emp_Id = CAV.Emp_Id
@@ -227,6 +237,8 @@ Calculos AS (
             AND VERT.Articulo_Id = RAA.Articulo_Id
             AND VERT.Fecha_Id = RAA.Fecha_Id
             AND VERT.Vendedor_Id IS NULL
+    LEFT JOIN ReglaRegalia AS RR
+        ON BI.regla_id = RR.regla_id
     LEFT JOIN FacturasAgrupadaVenArt AS FAV
         ON
             VERT.Emp_Id = FAV.Emp_Id
@@ -241,8 +253,6 @@ Calculos AS (
             AND VERT.Articulo_Id = FAA.Articulo_Id
             AND VERT.Fecha_Id = FAA.Fecha_Id
             AND VERT.Vendedor_Id IS NULL
-    LEFT JOIN ReglaRegalia AS RR
-        ON BI.regla_id = RR.regla_id
     LEFT JOIN ReglaCasa AS RC
         ON
             BI.regla_id = RC.regla_id
@@ -253,39 +263,69 @@ Calculos AS (
             OR RAV.Cantidad_Padre IS NOT NULL OR RAA.Cantidad_Padre IS NOT NULL
             OR FAV.Cantidad_Padre IS NOT NULL OR FAA.Cantidad_Padre IS NOT NULL
         )
+),
+
+CalculoIntermedio AS (
+    SELECT
+        *,
+        CASE
+            WHEN Margen_Gestion_Minimo IS NOT NULL AND Factura_Margen_Gestion_Inicial < Margen_Gestion_Minimo
+                THEN Margen_Gestion_Minimo * Factura_Valor_Venta_Neta
+            ELSE Factura_Valor_Utilidad_Gestion_Inicial
+        END AS Factura_Valor_Utilidad_Gestion,
+        CASE
+            WHEN Margen_Gestion_Minimo IS NOT NULL AND Factura_Margen_Gestion_Inicial < Margen_Gestion_Minimo
+                THEN Margen_Gestion_Minimo
+            ELSE Factura_Margen_Gestion_Inicial
+        END AS Factura_Margen_Gestion
+    FROM CalculoInicial
+),
+
+CalculosAdicionales AS (
+    SELECT *
+    FROM CalculoIntermedio
+    --LEFT JOIN {{ ref('dlv_kielsa_incentivo_regla_categoria_sucursal_rol_escala') }}
 )
 
 SELECT --noqa: ST06
-    ISNULL(Fecha_Id, '19000101') AS [Fecha_Id],
-    ISNULL(Emp_Id, 0) AS [Emp_Id],
-    ISNULL(Suc_Id, 0) AS [Suc_Id],
-    ISNULL(Vendedor_Id, 0) AS [Vendedor_Id],
-    ISNULL(Usuario_Id, 0) AS [Usuario_Id],
-    ISNULL(Articulo_Id, 'X') AS [Articulo_Id],
-    Casa_Id,
-    Regla_Id,
-    Rol_Id,
-    Rol_Nombre,
-    Codigo_Tipo,
-    Tipo_Aplicacion,
-    Part_Comision,
-    Part_Regalia,
-    Valor_Por_Receta_Seguro,
-    Es_Valido,
-    EmpSuc_Id,
-    EmpArt_Id,
-    EmpVen_Id,
-    EmpUsu_Id,
-    EmpRol_Id,
-    Fecha_Actualizado,
+    ISNULL(C.Fecha_Id, '19000101') AS [Fecha_Id],
+    ISNULL(C.Emp_Id, 0) AS [Emp_Id],
+    ISNULL(C.Suc_Id, 0) AS [Suc_Id],
+    ISNULL(CASE WHEN C.Vendedor_Id = 0 THEN U.Vendedor_Id ELSE C.Vendedor_Id END, 0) AS [Vendedor_Id],
+    ISNULL(CASE WHEN C.Usuario_Id = 0 THEN V.Usuario_Id ELSE C.Usuario_Id END, 0) AS [Usuario_Id],
+    ISNULL(C.Articulo_Id, 'X') AS [Articulo_Id],
+    C.Casa_Id,
+    C.Regla_Id,
+    C.Rol_Id,
+    C.Rol_Nombre,
+    C.Codigo_Tipo,
+    C.Tipo_Aplicacion,
+    C.Part_Comision,
+    C.Part_Regalia,
+    C.Valor_Por_Receta_Seguro,
+    C.Es_Valido,
+    C.EmpSuc_Id,
+    C.EmpArt_Id,
+    C.EmpVen_Id,
+    C.EmpUsu_Id,
+    C.EmpRol_Id,
+    C.Fecha_Actualizado,
     -- Volvemos incentivo cero para sucursales ya no asignadas en el periodo incremental
-    Comision_Base_Total,
-    Comision_Cantidad_Articulo,
-    Comision_Cantidad_Padre,
-    Comision_Ajustada * Es_Valido AS Comision_Ajustada,
-    Regalia_Cantidad_Padre,
-    Regalia_Valor_Incentivo_Unitario * Es_Valido AS Regalia_Valor_Incentivo_Unitario,
-    Regalia_Valor_Incentivo_Total * Es_Valido AS Regalia_Valor_Incentivo_Total,
-    Factura_Cantidad_Padre,
-    Factura_Valor_Venta_Neta
-FROM Calculos
+    C.Comision_Base_Total,
+    C.Comision_Cantidad_Articulo,
+    C.Comision_Cantidad_Padre,
+    C.Comision_Ajustada * C.Es_Valido AS Comision_Ajustada,
+    C.Regalia_Cantidad_Padre,
+    C.Regalia_Valor_Incentivo_Unitario * C.Es_Valido AS Regalia_Valor_Incentivo_Unitario,
+    C.Regalia_Valor_Incentivo_Total * C.Es_Valido AS Regalia_Valor_Incentivo_Total,
+    C.Factura_Cantidad_Padre,
+    C.Factura_Valor_Venta_Neta
+FROM CalculosAdicionales AS C
+LEFT JOIN {{ ref('BI_Kielsa_Dim_Usuario') }} AS U
+    ON
+        C.Emp_Id = U.Emp_Id
+        AND C.Usuario_Id = U.Usuario_Id
+LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS V
+    ON
+        C.Emp_Id = V.Emp_Id
+        AND C.Vendedor_Id = V.Vendedor_Id
