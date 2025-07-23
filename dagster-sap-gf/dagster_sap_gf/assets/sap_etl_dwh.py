@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, List, Mapping, NamedTuple, Sequence
+from typing import Any, List, NamedTuple, Sequence
 
 from dagster import (
     AssetChecksDefinition,
@@ -17,10 +17,12 @@ from dagster import (
 
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import env_str, tags_repo
-from dagster_shared_gf.automation import automation_hourly_delta_12_cron
+from dagster_shared_gf import automation
 
 # vars
 file_path = Path(__file__).parent.resolve()
+tags_rep_dai_hour = tags_repo.Replicas | tags_repo.Daily | tags_repo.AutomationHourly
+tags_rep_dai_unique = tags_repo.Replicas | tags_repo.Daily | tags_repo.UniquePeriod
 
 
 # Helper function to execute stored procedures with parameters
@@ -56,7 +58,7 @@ def execute_sp_with_params(
 
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Replicas.tag | tags_repo.Daily.tag,
+    tags=tags_repo.Replicas | tags_repo.Daily,
     compute_kind="sqlserver",
 )
 def DL_SAP_T001(
@@ -104,8 +106,8 @@ def DL_SAP_T001(
 # DL_paCargarSAP_Replica_BSEG
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Replicas.tag
-    | tags_repo.Daily.tag
+    tags=tags_repo.Replicas
+    | tags_repo.Daily
     | {
         "dagster/max_runtime": str(
             50 * 60
@@ -173,11 +175,6 @@ def DL_SAP_BSEG(
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
 
 
-tags_rep_dai_hour = (
-    tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.AutomationHourly.tag
-)
-
-
 # Multi-asset for DL_paCargarSAP_REPLICA_DatosMaestros
 @multi_asset(
     name="DL_paCargarSAP_REPLICA_DatosMaestros",
@@ -185,92 +182,92 @@ tags_rep_dai_hour = (
         "DL_SAP_CSKA": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_CSKS": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_CSKU": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011PC": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011QT": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011SC": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_FAGL_011ZC": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_KNVV": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_SKA1": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_SKAT": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_SKB1": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T004": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T011": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T024B": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_T156": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_TVAG": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_TVST": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_TVSTT": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour,
-            automation_condition=automation_hourly_delta_12_cron,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
     },
     compute_kind="sqlserver",
@@ -327,54 +324,67 @@ def cargar_sap_replica_datos_maestros(
         "DL_SAP_LIKP": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_LIPS": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBAK": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBAP": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBBE": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBKD": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBRK": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBRP": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBUK": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_ZDT_ESTADO_T_NC": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_ZDT_ZCPV_LOG": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_ZFAR_SDT_0001": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_ZFAR_SDT_0002": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
             tags=tags_rep_dai_hour | tags_repo.Weekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
     },
     compute_kind="sqlserver",
@@ -403,13 +413,8 @@ def cargar_sap_replica_sd(
     This includes data from tables like LIKP, LIPS, VBAK, VBAP, etc.
     """
     # Check if this is a daily run by examining the tags
-    is_daily_run = False
-    is_weekly_run = False
-    for tag_key, tag_value in context.run_tags.items():
-        if tag_key == tags_repo.Daily.key:
-            is_daily_run = True
-        if tag_key == tags_repo.Weekly7.key:
-            is_weekly_run = True
+    is_daily_run = tags_repo.Daily.key in context.run_tags
+    is_weekly_run = tags_repo.Weekly.key in context.run_tags
 
     if is_daily_run and env_str == "prd" or is_weekly_run and env_str == "dev":
         # For daily runs, use specific parameters
@@ -434,31 +439,49 @@ def cargar_sap_replica_sd(
     name="DL_paCargarSAP_REPLICA_MM",
     outs={
         "DL_SAP_EBAN": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_EKBE": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_EKBE_Entregas": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_EKET": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_EKKN": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_EKKO": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_EKPO": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_MKPF": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
         "DL_SAP_MSEG": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_hour
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_hour,
+            automation_condition=automation.automation_hourly_delta_12_cron,
         ),
     },
     compute_kind="sqlserver",
@@ -518,30 +541,29 @@ def cargar_sap_replica_wm(
     return tuple(None for _ in cargar_sap_replica_wm.keys_by_output_name.keys())
 
 
-tags_rep_dai_unique = (
-    tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod.tag
-)
-
-
 # Multi-asset for DL_paCargarSAP_REPLICA_VBFA
 @multi_asset(
     name="DL_paCargarSAP_REPLICA_VBFA",
     outs={
         "DL_SAP_VBFA": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
-            tags=tags_rep_dai_unique | tags_repo.Weekly7,
+            tags=tags_rep_dai_unique | tags_repo.AutomationWeekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBFA_OrigenFactura": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
-            tags=tags_rep_dai_unique | tags_repo.Weekly7,
+            tags=tags_rep_dai_unique | tags_repo.AutomationWeekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBFA_OrigenPedido": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
-            tags=tags_rep_dai_unique | tags_repo.Weekly7,
+            tags=tags_rep_dai_unique | tags_repo.AutomationWeekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
         "DL_SAP_VBFA_SiguienteFactura": AssetOut(
             key_prefix=["DL_FARINTER", "dbo"],
-            tags=tags_rep_dai_unique | tags_repo.Weekly7,
+            tags=tags_rep_dai_unique | tags_repo.AutomationWeekly7,
+            automation_condition=automation.automation_weekly_7_delta_1_cron,
         ),
     },
     compute_kind="sqlserver",
@@ -562,13 +584,8 @@ def cargar_sap_replica_vbfa(
     This includes relationships between sales documents, deliveries, and invoices.
     """
     # Check if this is a daily run by examining the tags
-    is_daily_run = False
-    is_weekly_run = False
-    for tag_key, tag_value in context.run_tags.items():
-        if tag_key == tags_repo.Daily.key:
-            is_daily_run = True
-        if tag_key == tags_repo.Weekly7.key:
-            is_weekly_run = True
+    is_daily_run = tags_repo.Daily.key in context.run_tags
+    is_weekly_run = tags_repo.Weekly.key in context.run_tags
 
     if is_daily_run and env_str == "prd" or is_weekly_run and env_str == "dev":
         # For daily runs in prd environment, use specific parameters
@@ -591,26 +608,58 @@ def cargar_sap_replica_vbfa(
     name="DL_paCargarSAP_REPLICA_FI",
     outs={
         "DL_SAP_BKPF": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique
+            | tags_repo.AutomationWeekly7
+            | tags_repo.AutomationMonthlyStart,
+            automation_condition=automation.automation_weekly_7_delta_1_cron
+            | automation.automation_monthly_start_delta_1_cron,
         ),
         "DL_SAP_BSAD": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique
+            | tags_repo.AutomationWeekly7
+            | tags_repo.AutomationMonthlyStart,
+            automation_condition=automation.automation_weekly_7_delta_1_cron
+            | automation.automation_monthly_start_delta_1_cron,
         ),
         "DL_SAP_BSID": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique
+            | tags_repo.AutomationWeekly7
+            | tags_repo.AutomationMonthlyStart,
+            automation_condition=automation.automation_weekly_7_delta_1_cron
+            | automation.automation_monthly_start_delta_1_cron,
         ),
         "DL_SAP_COBK": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique
+            | tags_repo.AutomationWeekly7
+            | tags_repo.AutomationMonthlyStart,
+            automation_condition=automation.automation_weekly_7_delta_1_cron
+            | automation.automation_monthly_start_delta_1_cron,
         ),
         "DL_SAP_COEP": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique
+            | tags_repo.AutomationWeekly7
+            | tags_repo.AutomationMonthlyStart,
+            automation_condition=automation.automation_weekly_7_delta_1_cron
+            | automation.automation_monthly_start_delta_1_cron,
         ),
         "DL_SAP_FAGLFLEXA": AssetOut(
-            key_prefix=["DL_FARINTER", "dbo"], tags=tags_rep_dai_unique
+            key_prefix=["DL_FARINTER", "dbo"],
+            tags=tags_rep_dai_unique
+            | tags_repo.AutomationWeekly7
+            | tags_repo.AutomationMonthlyStart,
+            automation_condition=automation.automation_weekly_7_delta_1_cron
+            | automation.automation_monthly_start_delta_1_cron,
         ),
     },
     compute_kind="sqlserver",
-    op_tags=tags_rep_dai_unique,
+    op_tags=tags_rep_dai_unique
+    | tags_repo.AutomationWeekly7
+    | tags_repo.AutomationMonthlyStart,
     deps=[
         AssetKey(["SAPPRD", "dbo", "DL_SAP_BKPF"]),
         AssetKey(["SAPPRD", "dbo", "DL_SAP_BSAD"]),
@@ -630,36 +679,30 @@ def cargar_sap_replica_fi(
     Loads Financial Accounting (FI) data from SAP into the data warehouse.
     This includes data from tables like BKPF, BSAD, BSID, COBK, COEP, etc.
     """
+    # Lógica semanal y diaria
+    is_weekly_run = tags_repo.Weekly.key in context.run_tags
+    is_monthly_run = tags_repo.Monthly.key in context.run_tags
+
+    if is_weekly_run and env_str == "prd" or is_monthly_run and env_str == "dev":
+        context.log.info(
+            "Running FI replication with specific parameters (weekly/daily)"
+        )
+        execute_sp_with_params(
+            context,
+            dwh_farinter_dl,
+            "DL_paCargarSAP_REPLICA_FI",
+            params={"ListaActualizar": "FI", "ForzarMeses": 3},
+        )
+    # Ejecución estándar
     execute_sp_with_params(context, dwh_farinter_dl, "DL_paCargarSAP_REPLICA_FI")
 
     # Return None for each output
     return tuple(None for _ in cargar_sap_replica_fi.keys_by_output_name.keys())
 
 
-def create_store_procedure_asset(
-    procedure_name: str, tags: Mapping[str, str]
-) -> AssetsDefinition:
-    @asset(
-        key_prefix=["DL_FARINTER", "dbo"],
-        name=(procedure_name),
-        tags=tags,
-        compute_kind="sqlserver",
-    )
-    def store_procedure_execution(
-        context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-    ) -> None:
-        procedure = procedure_name
-        database = "DL_FARINTER"
-        schema = "dbo"
-        final_query = f"EXEC [{database}].[{schema}].[{procedure}];"
-        dwh_farinter_dl.execute_and_commit(final_query)
-
-    return store_procedure_execution
-
-
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
-    tags=tags_repo.Replicas.tag | tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_rep_dai_unique,
     deps=(
         DL_SAP_T001,
         AssetKey(
@@ -712,7 +755,7 @@ def get_date_params():
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
     name="DL_ClientesTiemposFechaFacturas_SAP",
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_Hecho_Ventas_SAP"]),
@@ -731,7 +774,7 @@ def actualizar_clientes_tiempos_fecha_facturas(
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
     name="DL_SAP_Atributos_Cliente",
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Dim_Facturas"]),
@@ -754,7 +797,7 @@ def cargar_sap_atributos_cliente(
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
     name="DL_SAP_Atributos_Cliente_CategoriasDistribucion",
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_SAP_Mixto_Facturas"]),
@@ -778,7 +821,7 @@ def cargar_sap_atributos_cliente_categorias(
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
     name="DL_SAP_Atributos_Cliente_Actualizado",
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Cliente_SAP"]),
@@ -807,7 +850,7 @@ def actualizar_sap_atributos_cliente(
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
     name="DL_SAP_Atributos_Cliente_Estadisticas",
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["DL_FARINTER", "dbo", "DL_SAP_Atributos_Cliente"]),
@@ -830,7 +873,7 @@ def actualizar_sap_atributos_cliente_estadisticas(
 @asset(
     key_prefix=["DL_FARINTER", "dbo"],
     name="DL_SAP_UltimosDatos_Cliente",
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["BI_FARINTER", "dbo", "BI_Dim_Factura_SAP"]),
@@ -849,7 +892,7 @@ def cargar_sap_ultimos_datos_cliente(
 @asset(
     key_prefix=["AN_FARINTER", "dbo"],
     name="AN_Cal_AtributosCliente_SAP",
-    tags=tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
+    tags=tags_repo.Daily | tags_repo.UniquePeriod.tag,
     compute_kind="sqlserver",
     deps=[
         AssetKey(["DL_FARINTER", "dbo", "DL_SAP_UltimosDatos_Cliente"]),
