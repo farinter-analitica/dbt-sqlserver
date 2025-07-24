@@ -5,11 +5,11 @@
     {'tipo_id': 0, 'nombre': 'No Definido', 'descripcion': 'Forma de pago no definida', 'es_principal': 0},
     {'tipo_id': 1, 'nombre': 'Efectivo', 'descripcion': 'Pago en efectivo', 'es_principal': 1},
     {'tipo_id': 2, 'nombre': 'Tarjeta', 'descripcion': 'Pago con tarjeta de crédito/debito', 'es_principal': 1},
-    {'tipo_id': 3, 'nombre': 'Cupon', 'descripcion': 'Pago con cupón', 'es_principal': 1},
-    {'tipo_id': 4, 'nombre': 'Otros', 'descripcion': 'Otras formas de pago', 'es_principal': 0},
+    {'tipo_id': 3, 'nombre': 'Cupon', 'descripcion': 'Pago con cupón', 'es_principal': 0},
+    {'tipo_id': 4, 'nombre': 'Transferencia', 'descripcion': 'Pago por transferencia bancaria/app', 'es_principal': 0},
     {'tipo_id': 5, 'nombre': 'Otros', 'descripcion': 'Otras formas de pago', 'es_principal': 0},
     {'tipo_id': 6, 'nombre': 'Otros', 'descripcion': 'Otras formas de pago', 'es_principal': 0},
-    {'tipo_id': 7, 'nombre': 'Otros', 'descripcion': 'Otras formas de pago', 'es_principal': 0}
+    {'tipo_id': 7, 'nombre': 'Kielsa Cash', 'descripcion': 'Pago con puntos de monedero Kielsa Cash', 'es_principal': 0}
 ] -%}
 
 {{ 
