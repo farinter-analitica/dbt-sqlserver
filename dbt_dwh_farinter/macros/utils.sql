@@ -218,7 +218,7 @@ UNION ALL
     {%- endif %}
     {%- set query_check %}
             USE [{{ relation.database }}];
-            SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
+            SELECT TOP 1 1 as a FROM sys.tables WHERE name = '{{ relation.identifier }}';
     {%- endset %}	
     {%- if execute  %}
         {% do log("Running query: "  ~ query_check, info=show_info)         %}
@@ -272,7 +272,7 @@ UNION ALL
     {%- endif %}
     {%- set query_check %}
         USE [{{ relation.database }}];
-        SELECT TOP 1 1 FROM sys.tables WHERE name = '{{ relation.identifier }}';
+        SELECT TOP 1 1 as a FROM sys.tables WHERE name = '{{ relation.identifier }}';
     {%- endset %}	
     {% do log("Running query: "  ~ query_check, info=show_info)         %}
     {%- if execute  %}

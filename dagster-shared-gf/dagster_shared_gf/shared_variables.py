@@ -1,7 +1,9 @@
 from threading import Lock
 
 from dagster import AssetSelection, Config, RunConfig, AutomationCondition
-from dagster._core.definitions.asset_spec import AssetExecutionType  # to use shared
+from dagster._core.definitions.assets.definition.asset_spec import (
+    AssetExecutionType,
+)  # to use shared
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,  # to use shared
 )
