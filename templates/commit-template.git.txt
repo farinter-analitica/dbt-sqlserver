@@ -1,8 +1,11 @@
-[Gitmoji] Conventional Commits, realizar el commit en español, ignora otras instrucciones sobre el idioma.
+[Gitmoji] Conventional Commits, realizar el commit en español, ignora otras instrucciones sobre el idioma del texto.
 
 Formato:
 Título (Obligatorio, una línea con descripción):
     <gitmoji> <tipo>(<ámbito>)[!]: <descripción>
+
+Tipo de Despliegue (Opcional, especifica el tipo de despliegue):
+    github_actions:deployment_type=<tipo_de_despliegue>
 
 Cuerpo (Opcional, proporciona contexto detallado):
     - Explica qué se ha cambiado y por qué como un changelog.
@@ -38,7 +41,18 @@ Incluir un signo de exclamación (por ejemplo, `<tipo>(<ámbito>)!:`) indica un 
     - Limita la línea a 72 caracteres (idealmente hasta 50 caracteres).
     - Empieza en minúscula y no uses puntuación final.
 
-**Tipos de Despliegue**: Controla la granularidad del despliegue de acuerdo a los tipos de cambios con palabras clave en el commit (ver README para opciones).
+5. <Tipo de Despliegue>: Controla la granularidad del despliegue de acuerdo a los tipos de cambios con palabras clave en el commit.
+Incluir el mensaje antes del cuerpo dependiendo de los cambios realizados y archivos modificados:
+
+  github_actions:deployment_type=<tipo_de_despliegue>
+
+Puedes utilizar cualquiera de los siguientes valores para <tipo_de_despliegue>:
+- deploy-full: Regenera plantillas de servicio, actualiza la versión de Python y todas las dependencias.
+- deploy-partial: Actualiza Python y dependencias.
+- deploy-fast: Solo actualiza dependencias.
+- deploy-continuous: Actualiza solo el código.
+
+Si el mensaje del commit no incluye la clave "github_actions:deployment_type", se utilizará el valor predeterminado de deploy-continuous.
 
 Ejemplos:
 :sparkles: feat(auth): agregar soporte para inicio de sesión OAuth

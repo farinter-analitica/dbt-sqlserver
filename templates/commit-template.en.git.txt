@@ -1,8 +1,11 @@
-[Gitmoji] Conventional Commits, make the commit in English, ignore any other instructions about language.
+[Gitmoji] Conventional Commits, make the commit in English, ignore any other instructions about text language.
 
 Format:
 Title (Required, one line with a description):
     <gitmoji> <type>(<scope>)[!]: <description>
+
+Type of Deployment (Optional, specifies the type of deployment):
+    github_actions:deployment_type=<deployment_type>
 
 Body (Optional, provide detailed context):
     - Explain what has changed and why as a changelog.
@@ -38,6 +41,19 @@ Including an exclamation mark (for example, `<type>(<scope>)!:`) indicates a bre
     - Limit the line to 72 characters (ideally up to 50 characters).
     - Start with a lowercase letter and do not use trailing punctuation.
 
+5. <Type of Deployment>: Control the deployment granularity according to the types of changes using keywords in the commit message.
+Include the message before the body depending on the changes made and files modified:
+
+    github_actions:deployment_type=<deployment_type>
+
+You can use any of the following values for <deployment_type>:
+- deploy-full: Regenerates service templates, updates Python version and all dependencies.
+- deploy-partial: Updates Python and dependencies.
+- deploy-fast: Only updates dependencies.
+- deploy-continuous: Updates only the code.
+
+If the commit message does not include the "github_actions:deployment_type" key, the default value deploy-continuous will be used.
+
 Examples:
-:sparkles: feat(auth): agregar soporte para inicio de sesión OAuth
-:bug: fix(ui)!: corregir desalineación de botón en móvil
+:sparkles: feat(auth): add support for OAuth login
+:bug: fix(ui)!: fix button alignment on mobile
