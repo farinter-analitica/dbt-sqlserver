@@ -9,7 +9,7 @@ version = "1.0.1"
 description = "Dagster shared components for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
-requires-python = ">=3.12.10"
+requires-python = ">=3.12.10, <3.13"
 license = { text = "Proprietary" }
 # Development Status :: 1 - Planning
 # Development Status :: 2 - Pre-Alpha
