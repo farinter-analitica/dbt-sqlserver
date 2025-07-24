@@ -73,7 +73,8 @@ aplicacion_base as (
         -- Usuario
         coalesce(usuc.Usuario_Nombre, u.Usuario_Nombre, vsuc.Vendedor_Nombre, vi.Vendedor_Nombre) as Usuario_Nombre,
         -- Sucursal
-        coalesce(usuc.Suc_Id, u.Sucursal_Id_Asignado, vsuc.Suc_Id, vi.Sucursal_Id_Asignado, 0) as Suc_Id,
+        coalesce(usuc.Suc_Id, u.Sucursal_Id_Asignado_Meta, u.Sucursal_Id_Asignado,
+            vsuc.Suc_Id, vi.Sucursal_Id_Asignado_Meta, vi.Sucursal_Id_Asignado, 0) as Suc_Id,
         -- Usuario_Id para el caso, no es conveniente el codigo por si cambia
         coalesce(usuc.Usuario_Id, u.Usuario_Id, 0) as Usuario_Id,
         -- Vendedor_Id para el caso, no es conveniente el codigo por si cambia
@@ -146,5 +147,6 @@ select
     end as EmpSucUsu_Id,
     case
         when Vendedor_Id is not null and Suc_Id is not null then {{ dwh_farinter_concat_key_columns(columns=["emp_id","Suc_Id","Vendedor_Id"], input_length=99) }}
-    end as EmpSucVen_Id
+    end as EmpSucVen_Id,
+    getdate() as Fecha_Actualizado
 from aplicacion_base

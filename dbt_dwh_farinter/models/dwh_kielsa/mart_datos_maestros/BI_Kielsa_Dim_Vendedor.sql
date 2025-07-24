@@ -110,9 +110,10 @@ Final AS (
 
 SELECT
     Vendedor_Id,
-    Sucursal_Id_Asignado,
     Emp_Id,
     Usuario_Id,
+    Sucursal_Id_Asignado_Meta,
+    Sucursal_Id_Asignado,
     ISNULL({{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Usuario_Id'], input_length=30, table_alias='') }}, 0) AS [EmpUsu_Id],
     ISNULL({{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Vendedor_Id'], input_length=30, table_alias='') }}, 0) AS [EmpVen_Id],
     {{ dwh_farinter_concat_key_columns(columns=["Emp_Id","Sucursal_Id_Asignado"], input_length=99) }} AS EmpSuc_Id,
