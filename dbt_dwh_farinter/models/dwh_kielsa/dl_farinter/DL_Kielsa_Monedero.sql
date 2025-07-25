@@ -241,9 +241,13 @@ final_source AS (
         ABS(CAST(HASHBYTES('SHA1', CONCAT(m.Monedero_Id, m.Emp_Id, m.Version_Id)) AS BIGINT)) AS Hash_MonederoEmpVersion,
         ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(m.Monedero_Id, '-', m.Emp_Id) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmp,
         ISNULL(
-            CONVERT(VARCHAR(32),
-                HASHBYTES('SHA2_256', CAST(CONCAT(m.Monedero_Id, '-', m.Emp_Id, '-', m.Version_Id) AS VARCHAR(8000))), 2),
-        '') AS HashStr_MonEmpVer,
+            CONVERT(
+                VARCHAR(32),
+                HASHBYTES('SHA2_256', CAST(CONCAT(m.Monedero_Id, '-', m.Emp_Id, '-', m.Version_Id) AS VARCHAR(8000))),
+                2
+            ),
+            ''
+        ) AS HashStr_MonEmpVer,
         CAST(GETDATE() AS DATETIME) AS Fecha_Actualizado
     FROM merged_records AS m
 
@@ -264,6 +268,7 @@ SELECT --noqa: ST06
     fs.Barrio_Id, fs.Consecutivo,
     ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(fs.Monedero_Id, '-', fs.Emp_Id) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmp,
     ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(fs.Monedero_Id, '-', fs.Emp_Id, '-', 1) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmpVer,
+    CAST([DL_fnc_Verificacion_Id](fs.Monedero_Id, fs.Emp_Id) AS BIT) AS Bit_Verifica_Monedero_Id,
     CAST(GETDATE() AS DATETIME) AS Fecha_Carga,
     CAST(GETDATE() AS DATETIME) AS Fecha_Actualizado
 FROM final_source fs

@@ -81,7 +81,7 @@ LEFT JOIN DL_fARINTER.dbo.DL_Kielsa_Empleado V --{{ source('DL_FARINTER', 'DL_Ki
 	ON LB.Vendedor_Id = V.Empleado_Id AND LB.Emp_Id = V.Emp_Id
 LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Sucursal S --{{ source('DL_FARINTER', 'DL_Kielsa_Sucursal') }}
 	ON LB.Sucursal_Id = S.Sucursal_Id AND LB.Emp_Id = S.Emp_Id
-LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Monedero M --{{ source('DL_FARINTER', 'DL_Kielsa_Monedero') }}
+LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Monedero M --{{ ref('DL_Kielsa_Monedero') }}
 	ON LB.Identidad = M.Monedero_Id  AND LB.Emp_Id = M.Emp_Id
 LEFT JOIN DL_FARINTER.dbo.DL_Kielsa_Articulo A --{{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }}
 	ON LB.Articulo_Id = A.Articulo_Id AND LB.Emp_Id = A.Emp_Id

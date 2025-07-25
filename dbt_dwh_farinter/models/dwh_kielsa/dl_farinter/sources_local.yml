@@ -120,7 +120,6 @@ sources:
       config:
         meta:
           type: int
-  - name: DL_Kielsa_Monedero
   - name: DL_Kielsa_Cliente
   - name: DL_Kielsa_Bodega
   - name: DL_Kielsa_Empleado

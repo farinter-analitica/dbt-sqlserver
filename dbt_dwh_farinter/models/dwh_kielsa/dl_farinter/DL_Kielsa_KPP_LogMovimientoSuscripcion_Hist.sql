@@ -31,7 +31,7 @@ Datos1 AS
 			, 'Nuevo' AS Tipo_Registro
 			, 1 AS Transac_No
 		FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_Suscripcion] AS A -- {{ source ("DL_FARINTER","DL_Kielsa_KPP_Suscripcion") }}
-		INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS C -- {{ source ("DL_FARINTER","DL_Kielsa_Monedero") }}
+		INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS C -- {{ ref('DL_Kielsa_Monedero') }}
 			ON A.Identidad_Limpia = C.Monedero_Id COLLATE DATABASE_DEFAULT
 		WHERE C.Emp_Id = 1 and A.Suscripcion_Id < 26173	--- '26173' es el id de suscripción del primer monedero registrado en la tbl LogMovimientoSuscripcion
 											--ORDER BY A.FRegistro ASC
@@ -66,7 +66,7 @@ Datos1 AS
 				FROM	[DL_FARINTER].[dbo].[DL_Kielsa_KPP_Transacciones_Validas] A -- {{ ref('DL_Kielsa_KPP_Transacciones_Validas') }}
 				INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_KPP_Suscripcion] AS S -- {{ source ("DL_FARINTER","DL_Kielsa_KPP_Suscripcion") }}
 					ON A.TarjetaKC_Id = S.TarjetaKC_Id COLLATE DATABASE_DEFAULT
-				INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS B -- {{ source ("DL_FARINTER","DL_Kielsa_Monedero") }}
+				INNER JOIN [DL_FARINTER].[dbo].[DL_Kielsa_Monedero] AS B -- {{ ref('DL_Kielsa_Monedero') }}
 					ON S.Identidad_Limpia = B.Monedero_Id COLLATE DATABASE_DEFAULT
 				WHERE B.Emp_Id = 1 and A.Es_Transaccion_Valida=1 AND A.Es_Transaccion_Sospechosa = 0 AND A.Transaccion_Id < 30350 	--- '30350' es el id de transacción del primer monedero registrado en la tbl LogMovimientoSuscripcion
 													--ORDER BY Fecha ASC
