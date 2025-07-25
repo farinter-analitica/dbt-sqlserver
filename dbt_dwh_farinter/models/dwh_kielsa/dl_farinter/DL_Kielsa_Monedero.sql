@@ -93,9 +93,8 @@ WITH monedero_source AS (
         {% if is_incremental() %}
         -- Lógica de fecha incremental del SP
             AND A.Fecha_Actualizado >= (
-                SELECT DATEADD(DAY, -1, COALESCE(MAX(BRA.Bitacora_Fecha), '1900-01-01'))
-                FROM DL_FARINTER.dbo.DL_CnfBitacora AS BRA
-                WHERE BRA.Bitacora_Tabla = 'DL_Kielsa_Monedero' AND BRA.Bitacora_Tipo = 'Finalizado'
+                SELECT DATEADD(DAY, -1, COALESCE(MAX(BRA.Fecha_Actualizado), '1900-01-01'))
+                FROM {{ this }} AS BRA
             )
         {% endif %}
 ),
@@ -241,7 +240,11 @@ final_source AS (
         ABS(CAST(HASHBYTES('SHA1', CONCAT(m.Monedero_Id, m.Emp_Id)) AS BIGINT)) AS Hash_MonederoEmp,
         ABS(CAST(HASHBYTES('SHA1', CONCAT(m.Monedero_Id, m.Emp_Id, m.Version_Id)) AS BIGINT)) AS Hash_MonederoEmpVersion,
         ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(m.Monedero_Id, '-', m.Emp_Id) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmp,
-        ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(m.Monedero_Id, '-', m.Emp_Id, '-', m.Version_Id) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmpVer
+        ISNULL(
+            CONVERT(VARCHAR(32),
+                HASHBYTES('SHA2_256', CAST(CONCAT(m.Monedero_Id, '-', m.Emp_Id, '-', m.Version_Id) AS VARCHAR(8000))), 2),
+        '') AS HashStr_MonEmpVer,
+        CAST(GETDATE() AS DATETIME) AS Fecha_Actualizado
     FROM merged_records AS m
 
 {% else %}
@@ -250,7 +253,7 @@ SELECT --noqa: ST06
     ISNULL(fs.Monedero_Id, '') AS Monedero_Id,
     ISNULL(fs.Emp_Id, 0) AS Emp_Id,
     1 AS Version_Id,
-    GETDATE() AS Version_Fecha,
+    CAST(GETDATE() AS DATE) AS Version_Fecha,
     fs.Monedero_Nombre, fs.Tipo_Plan, fs.Identificacion, fs.Identificacion_Formato, fs.Telefono,
     fs.Celular, fs.Nacimiento, fs.Edad, fs.RangoEdad, fs.Correo, fs.Activo_Indicador,
     fs.Acumula_Indicador, fs.Principal_Indicador, fs.Genero, fs.Saldo_Puntos, fs.Ingreso,
@@ -261,6 +264,7 @@ SELECT --noqa: ST06
     fs.Barrio_Id, fs.Consecutivo,
     ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(fs.Monedero_Id, '-', fs.Emp_Id) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmp,
     ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(fs.Monedero_Id, '-', fs.Emp_Id, '-', 1) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmpVer,
-    CAST(GETDATE() AS DATETIME) AS Fecha_Carga
+    CAST(GETDATE() AS DATETIME) AS Fecha_Carga,
+    CAST(GETDATE() AS DATETIME) AS Fecha_Actualizado
 FROM final_source fs
 {% endif %}

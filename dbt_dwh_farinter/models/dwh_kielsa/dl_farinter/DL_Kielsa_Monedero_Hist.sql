@@ -33,7 +33,7 @@
     WITH current_records AS (
         SELECT M.*
         FROM {{ ref('DL_Kielsa_Monedero') }} AS M
-        WHERE M.Fecha_Modificado >= DATEADD(DAY, -1, (
+        WHERE M.Fecha_Actualizado >= DATEADD(DAY, -1, (
             SELECT COALESCE(MAX(T.Fecha_Modificado), '19000101')
             FROM {{ this }} AS T
         ))
@@ -68,7 +68,7 @@
             ON
                 cr.Monedero_Id = eh.Monedero_Id
                 AND cr.Emp_Id = eh.Emp_Id
-                AND eh.Version_Hasta = '99991231'  -- Solo la versión activa
+                AND eh.Version_Hasta = CAST('99991231' AS DATE)  -- Solo la versión activa
     ),
 
     records_to_close AS (
@@ -84,7 +84,7 @@
                 AND eh.Version_Id = vc.existing_version_id
         WHERE
             vc.change_type = 'VERSION_CHANGE'
-            AND eh.Version_Hasta = '99991231'
+            AND eh.Version_Hasta = CAST('99991231' AS DATE)
     ),
 
     new_historical_records AS (
