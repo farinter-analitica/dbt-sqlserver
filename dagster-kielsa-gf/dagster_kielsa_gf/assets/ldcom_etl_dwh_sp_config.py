@@ -787,15 +787,15 @@ store_procedures: dict[str, StoreProcedureConfig] = {
             AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesosDesc_Kielsa"]),
         ],
     },
-    "DL_paCargarKielsa_Monedero": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Monedero",
-        "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
-        "deps": [
-            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Tarjetas_Replica"]),
-            AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Plan"]),
-        ],
-    },
+    # "DL_paCargarKielsa_Monedero": {
+    #     "key_prefix": ["DL_FARINTER", "dbo"],
+    #     "name": "DL_Kielsa_Monedero",
+    #     "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
+    #     "deps": [
+    #         AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Tarjetas_Replica"]),
+    #         AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_Monedero_Plan"]),
+    #     ],
+    # },
     "BI_paCargarHecho_DescuentoCuponHist_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_DescuentoCuponHist_Kielsa",
