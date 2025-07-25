@@ -52,8 +52,8 @@ dev = [
     "pre-commit",
     "prettier>=0.0.7",
     "sqlfluff",
+    "sqlfluff-templater-dbt"
     #"shandy-sqlfmt", #No compatible debido que solo usa snake_case
-    
 ]
 
 helpers = ["jinja2"]
