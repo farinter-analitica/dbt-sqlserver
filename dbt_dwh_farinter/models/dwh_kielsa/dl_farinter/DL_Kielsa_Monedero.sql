@@ -86,7 +86,7 @@ WITH monedero_source AS (
             ORDER BY A.MonederoTarj_UltCompra DESC, A.Monedero_Tarj_Fec_Actualizacion DESC, A.Consecutivo DESC
         ) AS FilaMonedero
     FROM {{ source('DL_FARINTER', 'DL_Kielsa_Monedero_Tarjetas_Replica') }} AS A
-    INNER JOIN {{ source('DL_FARINTER', 'DL_Kielsa_Monedero_Plan') }} AS B
+    INNER JOIN {{ ref('DL_Kielsa_Monedero_Plan') }} AS B
         ON A.Monedero_Id = B.Monedero_Id AND A.Emp_Id = B.Emp_Id
     WHERE
         A.MonederoTarj_Id <> 'x'

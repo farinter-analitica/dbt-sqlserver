@@ -174,7 +174,6 @@ sources:
   - name: DL_Kielsa_Regalia_Encabezado
   - name: DL_Kielsa_Regalia_Detalle
   - name: DL_Kielsa_Monedero_Tarjetas_Replica
-  - name: DL_Kielsa_Monedero_Plan
     description: >
       "Contiene la información de los planes de monedero de Kielsa"
     columns:
