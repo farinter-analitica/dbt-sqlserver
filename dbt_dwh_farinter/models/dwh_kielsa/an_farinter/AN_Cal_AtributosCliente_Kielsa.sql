@@ -24,6 +24,7 @@
 WITH agr_monedero AS (
     SELECT
         M.Monedero_Id,
+        M.EmpMon_Id,
         M.Emp_Id,
         M.Celular,
         M.Telefono,
@@ -46,6 +47,7 @@ WITH agr_monedero AS (
             M.Monedero_Id = MAGR.Monedero_Id
             AND M.Emp_Id = MAGR.Emp_Id
     WHERE M.Emp_Id = 1 AND (M.Activo_Indicador = 1 OR MAGR.Monedero_Id IS NOT NULL)
+        AND M.Bit_Verifica_Monedero_Id = 1
 ),
 
 base AS (
@@ -53,6 +55,7 @@ base AS (
     SELECT
         B.Emp_Id AS Pais_Id,
         B.Monedero_Id AS Cliente_Id,
+        B.EmpMon_Id,
         B.Monedero_Nombre AS Nombre,
         B.Celular,
         B.Telefono,
@@ -97,7 +100,6 @@ base AS (
         ON
             B.Monedero_Id = A.Monedero_Id
             AND B.Emp_Id = A.Pais_Id
-    WHERE [AN_FARINTER].[dbo].[AN_fnc_Verificacion Id](B.Emp_Id, B.Monedero_Id) = 1 -- noqa: 
 ),
 
 seguimiento_carrito AS (
