@@ -31,6 +31,7 @@ SELECT
     [Apellido],
     [UltimaCompra],
     [Fecha_Modificado],
+    [Bit_Verifica_Monedero_Id],
     [Hash_MonederoEmp],
     [Hash_MonederoEmpVersion],
     [HashStr_MonEmp],

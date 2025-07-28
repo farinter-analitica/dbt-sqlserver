@@ -203,7 +203,7 @@ final_source AS (
         LEFT JOIN existing_records AS er ON fs.Monedero_Id = er.Monedero_Id AND fs.Emp_Id = er.Emp_Id
     )
 
-    SELECT
+    SELECT --noqa: ST06
         m.Version_Id,
         m.Version_Fecha,
         m.Monedero_Nombre,
@@ -234,6 +234,7 @@ final_source AS (
         m.Ciudad_Id,
         m.Barrio_Id,
         m.Consecutivo,
+        CAST(DL_FARINTER.dbo.[DL_fnc_Verificacion_Id](m.Emp_Id, m.Monedero_Id) AS BIT) AS Bit_Verifica_Monedero_Id,
         m.Fecha_Carga,
         ISNULL(m.Monedero_Id, '') AS Monedero_Id,
         ISNULL(m.Emp_Id, 0) AS Emp_Id,
@@ -268,7 +269,7 @@ SELECT --noqa: ST06
     fs.Barrio_Id, fs.Consecutivo,
     ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(fs.Monedero_Id, '-', fs.Emp_Id) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmp,
     ISNULL(CONVERT(VARCHAR(32), HASHBYTES('SHA2_256', CAST(CONCAT(fs.Monedero_Id, '-', fs.Emp_Id, '-', 1) AS VARCHAR(8000))), 2), '') AS HashStr_MonEmpVer,
-    CAST([DL_fnc_Verificacion_Id](fs.Monedero_Id, fs.Emp_Id) AS BIT) AS Bit_Verifica_Monedero_Id,
+    CAST(DL_FARINTER.dbo.[DL_fnc_Verificacion_Id](fs.Emp_Id, fs.Monedero_Id) AS BIT) AS Bit_Verifica_Monedero_Id,
     CAST(GETDATE() AS DATETIME) AS Fecha_Carga,
     CAST(GETDATE() AS DATETIME) AS Fecha_Actualizado
 FROM final_source fs
