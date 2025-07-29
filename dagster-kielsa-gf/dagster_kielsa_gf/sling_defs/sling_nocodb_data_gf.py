@@ -293,6 +293,15 @@ if __name__ == "__main__":
     from dagster import instance_for_test, materialize, build_sensor_context
     import sys
 
+    # Mock para reload_code_location en modo test
+    if "pytest" in sys.modules or "unittest" in sys.modules or __debug__:
+
+        def _mock_reload_code_location(*args, **kwargs):
+            print("[MOCK] reload_code_location called with:", args, kwargs)
+
+        # Sobrescribe en el módulo actual
+        globals()["reload_code_location"] = _mock_reload_code_location
+
     # Determine what to test based on command line argument
     test_mode = "asset"  # Default to testing the asset
     if len(sys.argv) > 1:

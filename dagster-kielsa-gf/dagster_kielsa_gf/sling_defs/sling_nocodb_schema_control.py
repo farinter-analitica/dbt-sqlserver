@@ -20,19 +20,19 @@ def create_timestamp_triggers(
     create_timestamp_if_not_exists: bool = False,
 ) -> dg.Output:
     """
-    Creates timestamp triggers for PostgreSQL tables in the specified schema.
+    Crea triggers de timestamp para las tablas PostgreSQL en el esquema especificado.
 
-    This op:
-    1. Identifies tables that need timestamp triggers
-    2. Creates functions and triggers for timestamp management
-    3. Caches processed tables to avoid redundant operations
+    Este op:
+    1. Identifica tablas que requieren triggers de timestamp
+    2. Crea funciones y triggers para el manejo de timestamps
+    3. Cachea las tablas procesadas para evitar operaciones redundantes
     """
 
-    # Ensure cache directory exists
+    # Asegura que el directorio de cache exista
     CACHE_DIR.mkdir(exist_ok=True)
     cache_file = CACHE_DIR / f"timestamp_triggers_{schema_name}.json"
 
-    # Load cached tables if available
+    # Carga las tablas cacheadas si existen
     cached_tables = set()
     if cache_file.exists():
         try:
@@ -43,7 +43,7 @@ def create_timestamp_triggers(
         except Exception as e:
             context.log.error(f"Error loading cache: {e}")
 
-    # Get all tables in the schema
+    # Obtiene todas las tablas del esquema
     query = f"""
     SELECT table_name 
     FROM information_schema.tables 
@@ -59,18 +59,18 @@ def create_timestamp_triggers(
     tables = [row[0] for row in tables_result]
     context.log.info(f"Found {len(tables)} tables in schema '{schema_name}'")
 
-    # Filter out already processed tables
+    # Filtra las tablas ya procesadas
     tables_to_process = [t for t in tables if t not in cached_tables]
     context.log.info(f"{len(tables_to_process)} tables need processing")
 
     processed_tables = list(cached_tables)
 
-    # Process each table
+    # Procesa cada tabla
     for table_name in tables_to_process:
         context.log.info(f"Processing table: {table_name}")
         is_processed = False
 
-        # Check table columns
+        # Consulta las columnas de la tabla
         columns_query = f"""
         SELECT column_name, data_type, column_default
         FROM information_schema.columns
@@ -87,7 +87,7 @@ def create_timestamp_triggers(
             row[0]: {"type": row[1], "default": row[2]} for row in columns_result
         }
 
-        # Check which timestamp fields exist
+        # Verifica qué campos de timestamp existen
         existing_timestamp_fields = [f for f in TIMESTAMP_FIELDS if f in columns]
 
         if not existing_timestamp_fields and not create_timestamp_if_not_exists:
@@ -97,7 +97,7 @@ def create_timestamp_triggers(
             context.log.info(
                 f"Creating timestamp fields for table '{table_name}' as requested"
             )
-            # Add missing timestamp fields
+            # Agrega los campos de timestamp faltantes
             for field in DEFAULT_TIMESTAMP_FIELDS:
                 if field not in columns:
                     add_column_query = f"""
@@ -106,23 +106,37 @@ def create_timestamp_triggers(
                     """
                     context.log.info(f"Adding column '{field}' to '{table_name}'")
                     db_nocodb_data_gf.execute_and_commit(add_column_query)
-                    columns[field] = {
-                        "type": "timestamp",
-                        "default": "CURRENT_TIMESTAMP",
-                    }
+            # Refresca las columnas después de agregar
+            columns_query_refresh = f"""
+            SELECT column_name, data_type, column_default
+            FROM information_schema.columns
+            WHERE table_schema = '{schema_name}'
+            AND table_name = '{table_name}';
+            """
+            columns_result_refresh = db_nocodb_data_gf.query(columns_query_refresh)
+            if columns_result_refresh:
+                columns = {
+                    row[0]: {"type": row[1], "default": row[2]}
+                    for row in columns_result_refresh
+                }
+            else:
+                columns = {}
+            existing_timestamp_fields = [f for f in TIMESTAMP_FIELDS if f in columns]
 
-        # Set default values for timestamp fields
+        # Asigna valores por defecto a los campos de timestamp
         for field in TIMESTAMP_FIELDS:
-            if field in columns and not columns[field]["default"]:
-                set_default_query = f"""
-                ALTER TABLE "{schema_name}"."{table_name}" 
-                ALTER COLUMN "{field}" SET DEFAULT CURRENT_TIMESTAMP;
-                """
-                context.log.info(
-                    f"Setting default value for '{field}' in '{table_name}'"
-                )
-                db_nocodb_data_gf.execute_and_commit(set_default_query)
-
+            if field in columns:
+                # Si no tiene default, lo asigna
+                if not columns[field]["default"]:
+                    set_default_query = f"""
+                    ALTER TABLE "{schema_name}"."{table_name}" 
+                    ALTER COLUMN "{field}" SET DEFAULT CURRENT_TIMESTAMP;
+                    """
+                    context.log.info(
+                        f"Setting default value for '{field}' in '{table_name}'"
+                    )
+                    db_nocodb_data_gf.execute_and_commit(set_default_query)
+                # Siempre rellena los nulos
                 set_fill_query = f"""
                 UPDATE "{schema_name}"."{table_name}" 
                 SET "{field}" = CURRENT_TIMESTAMP 
@@ -133,7 +147,7 @@ def create_timestamp_triggers(
                 )
                 db_nocodb_data_gf.execute_and_commit(set_fill_query)
 
-        # Create or replace update trigger function if needed
+        # Crea o reemplaza el trigger de actualización si el campo existe (siempre intenta crear el trigger si no existe)
         for field in UPDATE_FIELDS:
             if field in columns:
                 function_name = f"update_{table_name}_{field}_trigger"[:63]
@@ -142,7 +156,7 @@ def create_timestamp_triggers(
                 # Check if trigger already exists
                 trigger_query = f"""
                 SELECT 1 FROM pg_trigger 
-                WHERE tgname LIKE '%timestamp%' or tgname LIKE '%{trigger_name}%'
+                WHERE (tgname= '{trigger_name}' OR tgname LIKE '%timestamp%' OR tgname LIKE '%{trigger_name}%')
                 AND tgrelid = '"{schema_name}"."{table_name}"'::regclass;
                 """
 
@@ -171,7 +185,7 @@ def create_timestamp_triggers(
                     db_nocodb_data_gf.execute_and_commit(function_query)
 
                     # Create trigger
-                    trigger_query = f"""
+                    trigger_query_create = f"""
                     CREATE TRIGGER "{trigger_name}"
                     BEFORE UPDATE 
                     ON "{schema_name}"."{table_name}"
@@ -182,7 +196,7 @@ def create_timestamp_triggers(
                     context.log.info(
                         f"Creating trigger for '{field}' in '{table_name}'"
                     )
-                    db_nocodb_data_gf.execute_and_commit(trigger_query)
+                    db_nocodb_data_gf.execute_and_commit(trigger_query_create)
                 else:
                     context.log.info(
                         f"Trigger for '{field}' already exists on '{table_name}'"
@@ -191,7 +205,7 @@ def create_timestamp_triggers(
 
         processed_tables.append(table_name) if is_processed else None
 
-    # Update cache with processed tables
+    # Actualiza el cache con las tablas procesadas
     try:
         with open(cache_file, "w") as f:
             json.dump({"processed_tables": processed_tables}, f)
