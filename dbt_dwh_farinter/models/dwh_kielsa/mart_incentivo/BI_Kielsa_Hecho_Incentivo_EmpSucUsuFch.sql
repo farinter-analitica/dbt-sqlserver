@@ -31,9 +31,19 @@
 }}
 
 {%- if is_incremental() %}
-    {%- set last_date = run_single_value_query_on_relation_and_return(
-        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, 
-        relation_not_found_value='19000101'|string)|string %}
+    {# Actualizamos el mes completo una vez al día para corregir re-asignaciones de sucursal mensuales #}
+    {%- set fecha_actualizado = (run_single_value_query_on_relation_and_return(
+        query="""select ISNULL(CONVERT(VARCHAR, max(Fecha_Actualizado), 112), NULL) from """ ~ this,
+        relation_not_found_value=None)|string)[:8] %}
+    {%- set hoy = modules.datetime.datetime.now().date() %}
+    {%- if fecha_actualizado is not none and fecha_actualizado == hoy.strftime('%Y%m%d') %}
+        {%- set last_date = hoy.strftime('%Y%m%d') %}
+    {%- else %}
+        {# Si no es hoy, obtener el mes de la fecha_actualizado #}
+        {%- set fecha_base = modules.datetime.datetime.strptime(fecha_actualizado, '%Y%m%d') if fecha_actualizado is not none else hoy %}
+        {%- set primer_dia_mes = fecha_base.replace(day=1) %}
+        {%- set last_date = primer_dia_mes.strftime('%Y%m%d') %}
+    {%- endif %}
 {%- else %}
     {%- set last_date = '20250601' %}
 {%- endif %}
