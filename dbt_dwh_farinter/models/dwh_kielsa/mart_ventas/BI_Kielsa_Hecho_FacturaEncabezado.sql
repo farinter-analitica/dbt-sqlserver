@@ -100,6 +100,7 @@ WITH Facturas AS (
         ISNULL(FE.Factura_Descuento, 0) AS Valor_Descuento,
         ISNULL(FE.Factura_Impuesto, 0) AS Valor_Impuesto,
         ISNULL(FE.Factura_Total, 0) AS Valor_Total,
+        ISNULL(FE.Factura_Total - FE.Factura_Impuesto, 0.0) AS Valor_Neto_Total,
         ISNULL(FE.Factura_Articulos, 0) AS Cantidad_Articulos,
         ISNULL(FE.Factura_AcumMonedero, 0) AS Valor_Acum_Monedero,
         SUC.HashStr_SucEmp,
@@ -152,7 +153,7 @@ WITH Facturas AS (
             FE.Bodega_Id = BOD.Bodega_Id
             AND FE.Suc_Id = BOD.Sucursal_Id
             AND FE.Emp_Id = BOD.Emp_Id
-    LEFT JOIN (
+    LEFT JOIN ( --noqa: ST05
         SELECT DISTINCT
             A.Emp_Id,
             A.TipoDoc_Id,
@@ -225,6 +226,7 @@ WITH Facturas AS (
             ISNULL(FE.Factura_Descuento, 0) AS Valor_Descuento,
             ISNULL(FE.Factura_Impuesto, 0) AS Valor_Impuesto,
             ISNULL(FE.Factura_Total, 0) AS Valor_Total,
+			ISNULL(FE.Factura_Total - FE.Factura_Impuesto, 0.0) AS Valor_Neto_Total,
             ISNULL(FE.Factura_Articulos, 0) AS Cantidad_Articulos,
             ISNULL(FE.Factura_AcumMonedero, 0) AS Valor_Acum_Monedero,
             SUC.HashStr_SucEmp,
@@ -273,7 +275,7 @@ WITH Facturas AS (
                 FE.Bodega_Id = BOD.Bodega_Id
                 AND FE.Suc_Id = BOD.Sucursal_Id
                 AND FE.Emp_Id = BOD.Emp_Id
-        LEFT JOIN (
+        LEFT JOIN ( --noqa: ST05
             SELECT DISTINCT
                 A.Emp_Id,
                 A.TipoDoc_Id,
