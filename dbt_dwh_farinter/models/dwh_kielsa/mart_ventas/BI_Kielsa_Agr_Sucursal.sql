@@ -44,8 +44,21 @@ ResumenFacturas as (
         max(Factura_Fecha) as Fecha_Id
     from {{ ref('BI_Kielsa_Agr_Sucursal_FechaHora') }}
     where
-        Factura_Fecha < cast(getdate() as date)
-        and Factura_Fecha >= dateadd(day, 1, eomonth(getdate(), -1))
+    -- Para los primeros 10 días del mes, tomamos las facturas del mes anterior
+        Factura_Fecha < (
+            case
+                when datepart(day, getdate()) < 10
+                    then dateadd(day, 1, eomonth(getdate(), -1))
+                else cast(getdate() as date)
+            end
+        )
+        and Factura_Fecha >= (
+            case
+                when datepart(day, getdate()) < 10
+                    then dateadd(day, 1, eomonth(getdate(), -2))
+                else dateadd(day, 1, eomonth(getdate(), -1))
+            end
+        )
     group by Emp_Id, Suc_Id
 ),
 
@@ -60,7 +73,10 @@ Proyeccion as (
             P.Emp_Id = R.Emp_Id
             and P.Suc_Id = R.Suc_Id
             and P.Fecha_Id >= R.Fecha_Id
-    where P.Fecha_Id < eomonth(getdate())
+    where
+    -- Para los primeros 10 días del mes, descartamos las proyecciones del mes actual
+        datepart(day, getdate()) >= 10
+        and P.Fecha_Id < eomonth(getdate())
     group by P.Emp_Id, P.Suc_Id
 ),
 
