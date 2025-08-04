@@ -61,10 +61,16 @@
         {%- endfor %}
     {% endif %}
 
-    when not matched then insert
+    when not matched by target then insert
         ({{ dest_cols_csv }})
     values
         ({{ dest_cols_csv }})
+
+    {% set merge_soft_delete_column = config.get('merge_soft_delete_column', none) %}
+    {% if merge_soft_delete_column is not none %}
+    when not matched by source then update
+        set {{ merge_soft_delete_column }} = 1
+    {% endif %}
     ;
 
 {% endmacro %}
