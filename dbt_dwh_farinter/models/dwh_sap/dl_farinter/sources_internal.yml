@@ -38,6 +38,11 @@ sources:
   - name: DL_SAP_Personal_PlanHorarios
   - name: DL_SAP_Personal_DatosPersonales
   - name: DL_SAP_Personal_Organizacional
+  - name: DL_SAP_ZFAR_SDT_0001
+  - name: DL_SAP_VBAK
+  - name: DL_SAP_VBAP
+  - name: DL_SAP_TVAG
+  - name: DL_SAP_VBRK
   config:
     freshness:   # default freshness
       warn_after: {count: 28, period: hour}

@@ -28,6 +28,7 @@ sources:
   - name: BI_Dim_TipoFactura_SAP
   - name: BI_Dim_ArticuloPadre_Kielsa
   - name: BI_Hecho_RegaliasHist_Kielsa
+  - name: BI_SAP_Hecho_FlujoFacturacion
   config:
     freshness:   # default freshness
       warn_after: {count: 28, period: hour}
