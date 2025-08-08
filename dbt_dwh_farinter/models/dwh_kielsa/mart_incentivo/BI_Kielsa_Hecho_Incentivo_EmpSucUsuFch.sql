@@ -182,9 +182,21 @@ CalculosFinales AS (
             C.Emp_Id = U.Emp_Id
             AND C.Usuario_Id = U.Usuario_Id
     LEFT JOIN {{ ref('BI_Kielsa_Dim_Vendedor') }} AS V
-        ON
-            C.Emp_Id = V.Emp_Id
-            AND C.Vendedor_Id = V.Vendedor_Id
+        ON C.Emp_Id = V.Emp_Id AND C.Vendedor_Id = V.Vendedor_Id
+),
+
+UnicosPorClave AS (
+    SELECT *
+    FROM (
+        SELECT
+            *,
+            ROW_NUMBER() OVER (
+                PARTITION BY Fecha_Id, Usuario_Id_Final, Suc_Id, Emp_Id, Vendedor_Id_Final
+                ORDER BY Es_Valido DESC, Fecha_Actualizado DESC
+            ) AS rn
+        FROM CalculosFinales
+    ) AS t
+    WHERE rn = 1
 )
 
 SELECT --noqa: ST06
@@ -210,6 +222,6 @@ SELECT --noqa: ST06
     C.Cantidad_Facturas_Aseguradas,
     C.Cantidad_Clientes_Asegurados,
     C.Incentivo_Recetas_Seguro * C.Es_Valido AS Incentivo_Recetas_Seguro
-FROM CalculosFinales AS C
+FROM UnicosPorClave AS C
 --WHERE (ISNULL(C.Usuario_Id_Final, 0) > 0 OR C.Regla_Id IS NOT NULL)
 --WHERE C.Fecha_Id = '20250601' and ISNULL(C.Usuario_Id_Final, 0)=0 --and c.suc_id=1 and c.emp_id=2

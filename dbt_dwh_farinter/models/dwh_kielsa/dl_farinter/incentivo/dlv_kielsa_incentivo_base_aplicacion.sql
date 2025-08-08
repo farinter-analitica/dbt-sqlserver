@@ -135,6 +135,7 @@ select
     Usuario_Nombre,
     cast(getdate() as date) as Fecha_Validado, --Esta fecha indica el registro es válido hasta esta fecha
     -- Campos adicionales útiles para modelos
+    cast(getdate() as date) as Fecha_Carga, --Esta fecha indica el registro es válido desde esta fecha
     {{ dwh_farinter_concat_key_columns(columns=["emp_id","regla_id"], input_length=40) }} as EmpRegla_Id,
     {{ dwh_farinter_concat_key_columns(columns=["emp_id","rol_id"], input_length=40) }} as EmpRol_Id,
     {{ dwh_farinter_concat_key_columns(columns=["emp_id","Usuario_Id"], input_length=40) }} as EmpUsu_Id,
