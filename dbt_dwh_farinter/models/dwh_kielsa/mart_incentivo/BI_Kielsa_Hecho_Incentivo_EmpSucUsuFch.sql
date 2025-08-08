@@ -192,7 +192,7 @@ UnicosPorClave AS (
         SELECT
             *,
             ROW_NUMBER() OVER (
-                PARTITION BY Fecha_Id, Usuario_Id_Final, Suc_Id, Emp_Id, Vendedor_Id
+                PARTITION BY Fecha_Id, Usuario_Id_Final, Suc_Id, Emp_Id, Vendedor_Id_Final
                 ORDER BY Es_Valido DESC, Fecha_Actualizado_BI DESC
             ) AS rn
         FROM CalculosFinales
