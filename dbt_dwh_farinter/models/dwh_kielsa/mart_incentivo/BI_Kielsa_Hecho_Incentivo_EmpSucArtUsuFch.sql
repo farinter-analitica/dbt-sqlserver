@@ -199,7 +199,8 @@ CalculoInicial AS (
             GETDATE()
         {% else -%} 
             CAST(CAL.Fecha_Calendario AS DATETIME)
-        {%- endif %} AS Fecha_Actualizado
+        {%- endif %} AS Fecha_Actualizado,
+        BI.Fecha_Actualizado AS Fecha_Actualizado_BI
     FROM Vertebra AS VERT
     INNER JOIN Calendario AS CAL
         ON VERT.Fecha_Id = CAL.Fecha_Calendario
@@ -324,6 +325,20 @@ CalculosFinales AS (
         ON
             C.Emp_Id = V.Emp_Id
             AND C.Vendedor_Id = V.Vendedor_Id
+),
+
+UnicosPorClave AS (
+    SELECT *
+    FROM (
+        SELECT
+            *,
+            ROW_NUMBER() OVER (
+                PARTITION BY Fecha_Id, Usuario_Id_Final, Vendedor_Id_Final, Articulo_Id, Suc_Id, Emp_Id
+                ORDER BY Es_Valido DESC, Fecha_Actualizado_BI DESC
+            ) AS rn
+        FROM CalculosFinales
+    ) AS t
+    WHERE rn = 1
 )
 
 SELECT --noqa: ST06
@@ -358,4 +373,4 @@ SELECT --noqa: ST06
     C.Regalia_Valor_Incentivo_Total * C.Es_Valido AS Regalia_Valor_Incentivo_Total,
     C.Factura_Cantidad_Padre,
     C.Factura_Valor_Venta_Neta
-FROM CalculosFinales AS C
+FROM UnicosPorClave AS C

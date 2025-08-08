@@ -130,7 +130,8 @@ Calculos AS (
             GETDATE()
         {% else -%}
             CAST(CAL.Fecha_Calendario AS DATETIME)
-        {%- endif %} AS Fecha_Actualizado
+        {%- endif %} AS Fecha_Actualizado,
+        BI.Fecha_Actualizado AS Fecha_Actualizado_BI
     FROM Vertebra AS VERT
     INNER JOIN Calendario AS CAL
         ON VERT.Fecha_Id = CAL.Fecha_Calendario
@@ -191,8 +192,8 @@ UnicosPorClave AS (
         SELECT
             *,
             ROW_NUMBER() OVER (
-                PARTITION BY Fecha_Id, Usuario_Id_Final, Suc_Id, Emp_Id, Vendedor_Id_Final
-                ORDER BY Es_Valido DESC, Fecha_Actualizado DESC
+                PARTITION BY Fecha_Id, Usuario_Id_Final, Suc_Id, Emp_Id, Vendedor_Id
+                ORDER BY Es_Valido DESC, Fecha_Actualizado_BI DESC
             ) AS rn
         FROM CalculosFinales
     ) AS t
