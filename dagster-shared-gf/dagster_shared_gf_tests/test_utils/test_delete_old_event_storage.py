@@ -10,50 +10,56 @@ from dagster_shared_gf.utils.clean_storage import SETTINGS, delete_old_event_sto
 
 
 def test_delete_old_event_storage():
-    # Create a temporary directory structure to simulate storage
+    # Crear estructura temporal que simula el storage
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create mock storage structure
         storage_dir = Path(temp_dir) / "storage"
         storage_dir.mkdir()
 
-        # Set up timestamps based on retention periods
+        # Timestamps basados en períodos de retención
         retention_days = float(SETTINGS["local_storage"]["retention_period"])
         old_time = (datetime.now() - timedelta(days=retention_days + 10)).timestamp()
-        protected_time = (
+        extended_time = (
             datetime.now() - timedelta(days=retention_days + 6)
-        ).timestamp()  # Beyond extended cutoff
-        beyond_protected_time = (
-            datetime.now() - timedelta(days=retention_days * 3 + 10)
-        ).timestamp()  # Beyond protected cutoff
+        ).timestamp()
+        protected_old_time = (
+            datetime.now() - timedelta(days=retention_days + 11)
+        ).timestamp()
+        protected_recent_time = (
+            datetime.now() - timedelta(days=retention_days + 2)
+        ).timestamp()
+        old_unrelated_time = (
+            datetime.now() - timedelta(days=retention_days + 2)
+        ).timestamp()
         recent_time = datetime.now().timestamp()
 
-        # Recent run directory that should be kept (treated as run storage)
+        # Run reciente que debe mantenerse
         recent_run_dir = storage_dir / "recent_run"
         recent_run_dir.mkdir()
         (recent_run_dir / "compute_logs").mkdir()
         os.utime(recent_run_dir, (recent_time, recent_time))
         os.utime(recent_run_dir / "compute_logs", (recent_time, recent_time))
 
-        # Old run directory that should be deleted (treated as run storage)
+        # Run antiguo que debe eliminarse
         old_run_dir = storage_dir / "old_run"
         old_run_dir.mkdir()
         (old_run_dir / "compute_logs").mkdir()
         os.utime(old_run_dir, (old_time, old_time))
         os.utime(old_run_dir / "compute_logs", (old_time, old_time))
 
-        # Nested very old directory (not a run, should be deleted in one go)
-        # Must be very old (beyond extended cutoff) since it's not a run directory
+        # Directorio anidado muy viejo (no es run, se elimina completo)
         nested_old_dir = storage_dir / "nested_old"
         nested_old_dir.mkdir()
         deep_old = nested_old_dir / "deep" / "deeper"
         deep_old.mkdir(parents=True)
+        deep_parent = nested_old_dir / "deep"
         old_file = deep_old / "file.txt"
         old_file.touch()
-        os.utime(nested_old_dir, (protected_time, protected_time))
-        os.utime(deep_old, (protected_time, protected_time))
-        os.utime(old_file, (protected_time, protected_time))
+        os.utime(nested_old_dir, (extended_time, extended_time))
+        os.utime(deep_parent, (extended_time, extended_time))
+        os.utime(deep_old, (extended_time, extended_time))
+        os.utime(old_file, (extended_time, extended_time))
 
-        # Mixed directory (should only delete very old file, keep new)
+        # Directorio mixto
         mixed_dir = storage_dir / "mixed"
         mixed_dir.mkdir()
         old_mixed_file = mixed_dir / "old.txt"
@@ -63,35 +69,38 @@ def test_delete_old_event_storage():
         new_mixed_file.touch()
         very_old_mixed_file.touch()
         os.utime(mixed_dir, (recent_time, recent_time))
-        os.utime(old_mixed_file, (old_time, old_time))
+        os.utime(old_mixed_file, (old_unrelated_time, old_unrelated_time))
         os.utime(new_mixed_file, (recent_time, recent_time))
-        os.utime(very_old_mixed_file, (protected_time, protected_time))
+        os.utime(very_old_mixed_file, (extended_time, extended_time))
 
-        # Protected directory and file (should be deleted only after cutoff)
+        # Directorio/archivo protegido
         protected_dir = storage_dir / "__protected_dir"
         protected_dir.mkdir()
-        # Add an inner file that does not start with __ to prevent empty dir deletion
-        protected_inner_file = protected_dir / "not_protected.txt"
-        protected_inner_file.touch()
-        os.utime(protected_inner_file, (beyond_protected_time, beyond_protected_time))
+        protected_inner_old = protected_dir / "old.txt"
+        protected_inner_old.touch()
+        os.utime(protected_inner_old, (protected_old_time, protected_old_time))
+        protected_inner_recent = protected_dir / "recent.txt"
+        protected_inner_recent.touch()
+        os.utime(protected_inner_recent, (protected_recent_time, protected_recent_time))
         protected_file = storage_dir / "__protected_file.txt"
         protected_file.touch()
-        os.utime(protected_dir, (beyond_protected_time, beyond_protected_time))
-        os.utime(protected_file, (beyond_protected_time, beyond_protected_time))
+        os.utime(protected_dir, (protected_old_time, protected_old_time))
+        os.utime(protected_file, (protected_old_time, protected_old_time))
 
-        # Protected directory and file that are not yet old enough (should be preserved)
+        # Protected reciente
         protected_dir_recent = storage_dir / "__protected_dir_recent"
         protected_dir_recent.mkdir()
-        # Add an inner file that does not start with __ to prevent empty dir deletion
         protected_inner_file_recent = protected_dir_recent / "not_protected.txt"
         protected_inner_file_recent.touch()
-        os.utime(protected_inner_file_recent, (protected_time, protected_time))
-        protected_file_recent = storage_dir / "__protected_file_recent.txt"
+        os.utime(
+            protected_inner_file_recent, (protected_recent_time, protected_recent_time)
+        )
+        protected_file_recent = protected_dir_recent / "__protected_file_recent.txt"
         protected_file_recent.touch()
-        os.utime(protected_dir_recent, (protected_time, protected_time))
-        os.utime(protected_file_recent, (protected_time, protected_time))
+        os.utime(protected_dir_recent, (protected_recent_time, protected_recent_time))
+        os.utime(protected_file_recent, (protected_recent_time, protected_recent_time))
 
-        # Capture the existence of directories BEFORE running the function
+        # Estado antes
         before_state = {
             "recent_run_exists": recent_run_dir.exists(),
             "old_run_exists": old_run_dir.exists(),
@@ -105,104 +114,75 @@ def test_delete_old_event_storage():
             "protected_file_recent_exists": protected_file_recent.exists(),
         }
 
-        # Create mock context with our test storage
+        # Contexto y mocks
         context = build_op_context()
-
-        # Mock the storage_dir property
         mock_storage = Mock()
         type(mock_storage).storage_dir = PropertyMock(return_value=str(storage_dir))
         context.instance._local_artifact_storage = mock_storage
-
-        # Mock get_run_by_id to identify run directories
-        # Only recent_run_dir and old_run_dir are treated as run storage
         context.instance.get_run_by_id = Mock(
             side_effect=lambda run_id: object()
             if run_id in ["recent_run", "old_run"]
             else None
         )
 
-        # Execute storage cleanup
+        # Ejecutar limpieza
         delete_old_event_storage(context)
 
-        # --- Assertions ---
-        # Check that directories existed before the test
-        assert before_state["recent_run_exists"], (
-            "Recent run directory should exist before test"
-        )
-        assert before_state["old_run_exists"], (
-            "Old run directory should exist before test"
-        )
+        # DEBUG: listar contenido
+        print("CONTENIDO_STORAGE:", sorted(p.name for p in storage_dir.iterdir()))
+
+        # --- Asserts ---
+        assert before_state["recent_run_exists"], "Run reciente debe existir antes"
+        assert before_state["old_run_exists"], "Run antiguo debe existir antes"
         assert before_state["nested_old_exists"], (
-            "Nested old directory should exist before test"
+            "Directorio anidado viejo debe existir antes"
         )
-        assert before_state["mixed_dir_exists"], (
-            "Mixed directory should exist before test"
-        )
+        assert before_state["mixed_dir_exists"], "Directorio mixto debe existir antes"
         assert before_state["very_old_mixed_file_exists"], (
-            "Very old mixed file should exist before test"
+            "Archivo muy viejo mixto debe existir antes"
         )
         assert before_state["new_mixed_file_exists"], (
-            "New mixed file should exist before test"
+            "Archivo nuevo mixto debe existir antes"
         )
-        assert before_state["protected_dir_exists"], (
-            "Protected directory should exist before test"
-        )
+        assert before_state["protected_dir_exists"], "Dir protegido debe existir antes"
         assert before_state["protected_file_exists"], (
-            "Protected file should exist before test"
+            "Archivo protegido debe existir antes"
         )
         assert before_state["protected_dir_recent_exists"], (
-            "Protected recent directory should exist before test"
+            "Dir protegido reciente debe existir antes"
         )
         assert before_state["protected_file_recent_exists"], (
-            "Protected recent file should exist before test"
+            "Archivo protegido reciente debe existir antes"
         )
 
-        # Check the expected state after running the function
-        # Recent run directory should be preserved
-        assert recent_run_dir.exists(), "Recent run directory should be preserved"
+        # Post-exec checks
+        assert recent_run_dir.exists(), "Run reciente debe preservarse"
         assert (recent_run_dir / "compute_logs").exists(), (
-            "Recent compute_logs should be preserved"
+            "compute_logs reciente debe preservarse"
         )
-
-        # Old run directory should be deleted
-        assert not old_run_dir.exists(), "Old run directory should be deleted"
-
-        # For non-run directories, we need to check if they're still accessible
-        # If they're not, we can assume they were deleted as expected
-        try:
-            nested_old_exists = nested_old_dir.exists()
-            # If we get here, the directory still exists
-            assert not nested_old_exists, "Very old nested directory should be deleted"
-        except FileNotFoundError:
-            # If we get a FileNotFoundError, the directory was deleted as expected
-            pass
-
-        # Mixed directory should exist, very old file deleted, new file preserved
-        assert mixed_dir.exists(), "Mixed directory should be preserved"
+        assert not old_run_dir.exists(), "Run antiguo debe eliminarse"
+        assert not nested_old_dir.exists(), (
+            "Directorio anidado muy viejo debe eliminarse"
+        )
+        assert mixed_dir.exists(), "Directorio mixto debe preservarse"
         try:
             very_old_mixed_file_exists = very_old_mixed_file.exists()
             assert not very_old_mixed_file_exists, (
-                "Very old file in mixed directory should be deleted"
+                "Archivo muy viejo en mixto debe borrarse"
             )
         except FileNotFoundError:
-            # File was deleted, which is expected
             pass
-        assert new_mixed_file.exists(), (
-            "New file in mixed directory should be preserved"
+        assert old_mixed_file.exists(), "Archivo viejo mixto no debe borrarse aún"
+        assert new_mixed_file.exists(), "Archivo nuevo mixto debe preservarse"
+        assert not protected_file.exists(), "Archivo protegido viejo debe borrarse"
+        assert protected_dir.exists(), "Dir protegido debe permanecer (hijo reciente)"
+        assert not (protected_dir / "old.txt").exists(), (
+            "Archivo viejo en dir protegido debe borrarse"
         )
-
-        # Protected directory and file should be deleted (since they're older than 3x cutoff)
-        assert not protected_dir.exists(), (
-            "Protected directory should be deleted after triple cutoff"
+        assert (protected_dir / "recent.txt").exists(), (
+            "Archivo reciente en dir protegido debe preservarse"
         )
-        assert not protected_file.exists(), (
-            "Protected file should be deleted after triple cutoff"
-        )
-
-        # Protected directory and file that are not yet old enough should be preserved
-        assert protected_dir_recent.exists(), (
-            "Protected recent directory should be preserved"
-        )
+        assert protected_dir_recent.exists(), "Dir protegido reciente debe preservarse"
         assert protected_file_recent.exists(), (
-            "Protected recent file should be preserved"
+            "Archivo protegido reciente debe preservarse"
         )

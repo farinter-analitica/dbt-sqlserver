@@ -1,8 +1,10 @@
 import shutil
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 import yaml
 import os
+from typing import Callable
 
 from dagster import OpExecutionContext, RunsFilter, graph, op
 from dagster_shared_gf.shared_functions import get_for_current_env
@@ -13,71 +15,207 @@ SETTINGS = {
 DAGSTER_HOME = os.environ.get("DAGSTER_HOME") or "."
 
 
+@dataclass
+class RetentionPolicy:
+    base_now: datetime
+    run_cutoff: datetime
+    extended_cutoff: datetime
+    protected_cutoff: datetime
+
+
+def build_retention_policy(retention_days: float) -> RetentionPolicy:
+    now = datetime.now()
+    return RetentionPolicy(
+        base_now=now,
+        run_cutoff=now - timedelta(days=retention_days),
+        extended_cutoff=now - timedelta(days=retention_days + 5),
+        protected_cutoff=now - timedelta(days=retention_days + 10),
+    )
+
+
+def classify_basic(path: Path) -> str:
+    """Clasificación básica de un path.
+
+    Devuelve:
+        - "protected" si el nombre empieza por '__'
+        - "unrelated" en caso contrario
+    """
+    if path.name.startswith("__"):
+        return "protected"
+    return "unrelated"
+
+
+@dataclass
+class CleanupStats:
+    normal_deleted: int = 0  # Archivos normales eliminados
+    protected_deleted: int = 0  # Archivos/árboles protegidos eliminados
+    run_dirs_deleted: int = 0  # Directorios de run eliminados (conteo por directorio)
+    empty_dirs_removed: int = 0  # Directorios vacíos eliminados
+
+
+def generic_cleanup(
+    root: Path,
+    context: OpExecutionContext,
+    policy: RetentionPolicy,
+    classify: Callable[[Path], str],
+    remove_root_if_empty: bool,
+) -> CleanupStats:
+    """Limpieza genérica basada en una política de retención.
+
+    Recorre el árbol desde 'root', determina qué archivos/directorios exceden sus umbrales
+    de tiempo (según la clasificación) y los elimina. Permite eliminaciones parciales en
+    directorios que mezclan contenido viejo y reciente, y luego elimina directorios vacíos.
+    """
+    stats = CleanupStats()
+    deletable_dirs: list[tuple[Path, str, int]] = []
+    files_to_delete: list[tuple[Path, str]] = []
+    all_dirs: list[Path] = []
+
+    def threshold_for(klass: str) -> datetime:
+        if klass == "run":
+            return policy.run_cutoff
+        if klass == "protected":
+            return policy.protected_cutoff
+        return policy.extended_cutoff
+
+    def scan(path: Path, inherited_protected: bool) -> tuple[bool, int]:
+        """Escaneo recursivo.
+
+        Retorna:
+          (subarbol_totalmente_eliminable, numero_total_de_archivos_hoja)
+        """
+        try:
+            mtime = datetime.fromtimestamp(path.stat().st_mtime)
+        except FileNotFoundError:
+            return True, 0
+        klass = classify(path)
+        effective_klass = (
+            "protected" if inherited_protected or klass == "protected" else klass
+        )
+        thr = threshold_for(effective_klass)
+        if path.is_file():
+            if effective_klass == "run":
+                eff_thr = threshold_for("unrelated")
+                if mtime < eff_thr:
+                    files_to_delete.append((path, "unrelated"))
+                    return True, 1
+                return False, 1
+            if mtime < thr:
+                files_to_delete.append((path, effective_klass))
+                return True, 1
+            return False, 1
+        # Directorio
+        all_dirs.append(path)
+        if effective_klass == "run":
+            if mtime < thr:
+                file_count = _count_files(path)
+                deletable_dirs.append((path, "run", file_count))
+                return True, file_count
+            total_files = 0
+            for child in path.iterdir():
+                if child.is_file():
+                    total_files += 1
+                else:
+                    total_files += _count_files(child)
+            return False, total_files
+        all_children_deletable = True
+        total_files = 0
+        for child in list(path.iterdir()):
+            child_all, child_files = scan(
+                child, inherited_protected or klass == "protected"
+            )
+            total_files += child_files
+            if not child_all:
+                all_children_deletable = False
+        if all_children_deletable and mtime < thr:
+            deletable_dirs.append((path, effective_klass, total_files))
+            return True, total_files
+        return False, total_files
+
+    scan(root, inherited_protected=False)
+
+    for dir_path, klass, file_count in sorted(
+        deletable_dirs, key=lambda x: len(x[0].parts), reverse=True
+    ):
+        if not dir_path.exists():
+            continue
+        try:
+            shutil.rmtree(dir_path)
+            if klass == "protected":
+                stats.protected_deleted += file_count
+            elif klass == "run":
+                stats.run_dirs_deleted += 1
+            else:
+                stats.normal_deleted += file_count
+                context.log.debug(
+                    f"Eliminado directorio: {dir_path} (tipo={klass}, archivos={file_count})"
+                )
+        except Exception as e:
+            context.log.error(f"Error al eliminar directorio {dir_path}: {e}")
+
+    deleted_dirs = {d[0] for d in deletable_dirs}
+    for file_path, klass in files_to_delete:
+        if any(parent in deleted_dirs for parent in file_path.parents):
+            continue
+        if not file_path.exists():
+            continue
+        try:
+            file_path.unlink()
+            if klass == "protected":
+                stats.protected_deleted += 1
+            else:
+                stats.normal_deleted += 1
+            context.log.debug(f"Eliminado archivo: {file_path} (tipo={klass})")
+        except Exception as e:
+            context.log.error(f"Error al eliminar archivo {file_path}: {e}")
+
+    for d in sorted(all_dirs, key=lambda p: len(p.parts), reverse=True):
+        if not d.exists():
+            continue
+        if is_directory_empty(d) and (d != root or remove_root_if_empty):
+            try:
+                d.rmdir()
+                stats.empty_dirs_removed += 1
+            except Exception:
+                pass
+    return stats
+
+
 @op
 def clean_dbt_targets_old_files(context: OpExecutionContext) -> None:
-    """
-    Cleans old files inside dbt clean-targets directories as defined in dbt_project.yml,
-    using the same retention logic as delete_old_event_storage.
-    """
     dbt_project_path = Path(DAGSTER_HOME) / "dbt_dwh_farinter" / "dbt_project.yml"
     if not dbt_project_path.exists():
-        raise FileNotFoundError(f"dbt_project.yml not found at {dbt_project_path}")
-
+        raise FileNotFoundError(f"No se encontró dbt_project.yml en {dbt_project_path}")
     with dbt_project_path.open("r", encoding="utf-8") as f:
         dbt_config = yaml.safe_load(f)
-
     clean_targets = dbt_config.get("clean-targets", [])
+    policy = build_retention_policy(
+        float(SETTINGS["local_storage"]["retention_period"])
+    )
     project_dir = dbt_project_path.parent
-
-    retention_days = float(SETTINGS["local_storage"]["retention_period"])
-    cutoff_date = datetime.now() - timedelta(days=retention_days)
-    protected_cutoff_date = datetime.now() - timedelta(days=retention_days + 10)
-
-    total_files_deleted = 0
-    total_protected_skipped = 0
-    total_empty_dirs_deleted = 0
-
-    for rel_path in clean_targets:
-        abs_path = project_dir / rel_path
-        if abs_path.exists() and abs_path.is_dir():
-            context.log.info(
-                f"Cleaning old files in dbt clean-target directory: {abs_path}"
-            )
-            files_deleted, protected_skipped = delete_old_files_in_directory(
-                abs_path, cutoff_date, context, protected_cutoff_date
-            )
-            total_files_deleted += files_deleted
-            total_protected_skipped += protected_skipped
-
-            # Optionally, remove empty directories after cleaning
-            if is_directory_empty(abs_path):
-                try:
-                    abs_path.rmdir()
-                    total_empty_dirs_deleted += 1
-                    context.log.info(
-                        f"Deleted empty clean-target directory: {abs_path}"
-                    )
-                except Exception as e:
-                    context.log.error(
-                        f"Failed to delete empty directory {abs_path}: {e}"
-                    )
-        else:
-            context.log.debug(
-                f"dbt clean-target does not exist or is not a directory: {abs_path}"
-            )
-
+    total_stats = CleanupStats()
+    for rel in clean_targets:
+        root = project_dir / rel
+        if not (root.exists() and root.is_dir()):
+            continue
+        stats = generic_cleanup(
+            root=root,
+            context=context,
+            policy=policy,
+            classify=lambda p: classify_basic(p),
+            remove_root_if_empty=True,
+        )
+        total_stats.normal_deleted += stats.normal_deleted
+        total_stats.protected_deleted += stats.protected_deleted
+        total_stats.empty_dirs_removed += stats.empty_dirs_removed
     context.log.info(
-        f"Deleted {total_files_deleted} old files in dbt clean-targets, "
-        f"skipped {total_protected_skipped} protected items, "
-        f"deleted {total_empty_dirs_deleted} empty clean-target directories."
+        f"Limpieza DBT clean-targets: normales={total_stats.normal_deleted} protegidos={total_stats.protected_deleted} directorios_vacios={total_stats.empty_dirs_removed}"
     )
 
 
 @op
 def delete_old_event_logs(context: OpExecutionContext) -> None:
-    """
-    Deletes event logs from logs and storage that are older than retention_period
-    """
+    """Elimina logs de eventos (runs) más antiguos que el período de retención."""
     instance = context.instance
     retention_days = float(SETTINGS["local_storage"]["retention_period"])
     date_from = datetime.now() - timedelta(days=retention_days)
@@ -106,240 +244,64 @@ def delete_old_event_logs(context: OpExecutionContext) -> None:
 
         runs_deleted += len(old_run_records)
 
-    context.log.info(f"Deleted {runs_deleted} runs")
+    context.log.info(f"Eliminados {runs_deleted} runs")
 
 
 @op
 def delete_old_event_storage(context: OpExecutionContext) -> None:
-    """
-    Deletes storage files older than retention period by checking file creation dates.
-    For Dagster run storage: deletes if older than retention_period.
-    For unrelated files/folders: deletes individual files older than twice the retention_period,
-    and only removes directories when they become empty.
-    Files or directories starting with '__' are deleted if older than triple the retention period.
+    """Limpieza unificada del storage usando generic_cleanup.
+
+    Política aditiva (NO multiplicativa):
+      - run (directorio cuyo nombre corresponde a un run id válido): borrar directorio completo si mtime < cutoff de retention_days.
+      - normal (no relacionado, no protegido, no run): borrar si mtime < retention_days+5.
+      - protected (nombre empieza por '__'): borrar si mtime < retention_days+10.
+
+    Detalles:
+      - Un directorio se borra entero sólo si todo el subárbol es eliminable o el propio directorio supera el umbral; en caso contrario se eliminan hijos viejos individualmente y luego se podan directorios vacíos.
+      - Se usa mtime (st_mtime) intencionalmente; tocar un archivo/directorio lo rejuvenece.
+      - Se agregan conteos en CleanupStats para observabilidad.
     """
     instance = context.instance
     retention_days = float(SETTINGS["local_storage"]["retention_period"])
-    cutoff_date = datetime.now() - timedelta(days=retention_days)
-    extended_cutoff_date = datetime.now() - timedelta(
-        days=retention_days + 5
-    )  # for unrelated files
-    protected_cutoff_date = datetime.now() - timedelta(
-        days=retention_days + 10
-    )  # Tfor protected items
-
-    storage_dirs_deleted = 0
-    unrelated_files_deleted = 0
-    unrelated_empty_dirs_deleted = 0
-    protected_items_deleted = 0
-
+    policy = build_retention_policy(retention_days)
     storage_base_path = Path(instance._local_artifact_storage.storage_dir)
+    context.log.info(f"Iniciando limpieza de storage en: {storage_base_path}")
 
-    context.log.info(f"Starting to clean storage at path: {storage_base_path}")
-
-    # Collect all paths first to avoid modification during iteration
-    paths_to_process = list(storage_base_path.iterdir())
-
-    # Scan all directories in storage
-    for path in paths_to_process:
-        # Skip if path no longer exists (might have been deleted as part of another directory)
-        if not path.exists():
-            continue
-
-        creation_time = datetime.fromtimestamp(path.stat().st_mtime)
-        if path.is_dir():
-            # Verify this is a run storage directory by checking:
-            # 1. If directory name exists as a run ID
-            is_run_storage = instance.get_run_by_id(path.name) is not None
-
-            if is_run_storage:
-                # For run storage, use standard retention period and delete entire directory
-                if creation_time < cutoff_date:
-                    shutil.rmtree(path)
-                    storage_dirs_deleted += 1
-            else:
-                # For unrelated storage, delete old files first
-                files_deleted, protected_deleted = delete_old_files_in_directory(
-                    path, extended_cutoff_date, context, protected_cutoff_date
-                )
-                unrelated_files_deleted += files_deleted
-                protected_items_deleted += protected_deleted
-
-                # Check if directory is now empty and can be deleted
-                # Only check if the directory still exists
-                if path.exists() and is_directory_empty(path):
-                    try:
-                        path.rmdir()
-                        unrelated_empty_dirs_deleted += 1
-                        context.log.debug(f"Deleted empty directory: {path}")
-                    except (FileNotFoundError, OSError) as e:
-                        context.log.debug(f"Could not delete directory {path}: {e}")
-        elif path.is_file():
-            # Handle files with extended retention period
-            if path.name.startswith("__"):
-                if creation_time < protected_cutoff_date:
-                    try:
-                        path.unlink()
-                        protected_items_deleted += 1
-                        context.log.debug(f"Deleted protected file: {path}")
-                    except FileNotFoundError:
-                        pass
-                continue
-
-            if creation_time < extended_cutoff_date:
-                try:
-                    path.unlink()
-                    unrelated_files_deleted += 1
-                except FileNotFoundError:
-                    # File might have been deleted already
-                    pass
-
-    context.log.info(
-        f"Deleted {storage_dirs_deleted} storage directories older than {retention_days} days"
-    )
-    context.log.info(
-        f"Deleted {unrelated_files_deleted} unrelated files older than {extended_cutoff_date}"
-    )
-    context.log.info(
-        f"Deleted {unrelated_empty_dirs_deleted} empty unrelated directories"
-    )
-    context.log.info(
-        f"Deleted {protected_items_deleted} protected items (starting with '__') older than {protected_cutoff_date}"
-    )
-
-
-def delete_old_files_in_directory(
-    directory_path: Path,
-    cutoff_date: datetime,
-    context: OpExecutionContext,
-    protected_cutoff_date: datetime,
-) -> tuple[int, int]:
-    """
-    Efficiently deletes files older than the cutoff date in the given directory.
-    If all files and subdirectories are eligible for deletion, deletes the whole directory tree at once.
-    Files or directories starting with '__' are deleted if older than protected_cutoff_date.
-
-    Returns:
-        Tuple of (number of files deleted, number of protected items deleted)
-    """
-    files_to_delete: list[Path] = []
-    fully_deletable_dirs: list[Path] = []
-    protected_items_to_delete: list[Path] = []
-
-    def mark_for_deletion(path: Path) -> bool:
-        nonlocal protected_items_to_delete
-
-        if path.name.startswith("__"):
-            if protected_cutoff_date is not None:
-                creation_time = datetime.fromtimestamp(path.stat().st_mtime)
-                if creation_time < protected_cutoff_date:
-                    if path.is_file():
-                        protected_items_to_delete.append(path)
-                        return True
-                    elif path.is_dir():
-                        # Recursively mark all children for deletion
-                        all_deletable = True
-                        for item in path.iterdir():
-                            if not mark_for_deletion(item):
-                                all_deletable = False
-                        if all_deletable:
-                            protected_items_to_delete.append(path)
-                            return True
-                        return False
-            return False
-
-        if path.is_file():
-            creation_time = datetime.fromtimestamp(path.stat().st_mtime)
-            if creation_time < cutoff_date:
-                files_to_delete.append(path)
-                return True
-            else:
-                return False
-
-        # Directory
-        all_deletable = True
-        for item in path.iterdir():
-            if not mark_for_deletion(item):
-                all_deletable = False
-
-        if all_deletable:
-            fully_deletable_dirs.append(path)
-            return True
-        return False
-
-    # First pass: mark files and dirs
-    mark_for_deletion(directory_path)
-
-    # Second pass: delete fully deletable dirs (deepest first)
-    files_deleted = 0
-    for dir_path in sorted(
-        fully_deletable_dirs, key=lambda p: len(p.parts), reverse=True
-    ):
+    def classifier(path: Path) -> str:
         try:
-            num_files = _count_files(dir_path)
-            shutil.rmtree(dir_path)
-            files_deleted += num_files
-            context.log.debug(
-                f"Deleted entire directory tree: {dir_path} ({num_files} files)"
-            )
-        except Exception as e:
-            context.log.error(f"Failed to delete directory tree {dir_path}: {str(e)}")
+            mtime = datetime.fromtimestamp(path.stat().st_mtime)
+        except Exception:
+            mtime = None
+        is_run = path.is_dir() and instance.get_run_by_id(path.name) is not None
+        klass = "run" if is_run else classify_basic(path)
+        context.log.debug(f"Clasificando {path}: tipo={klass} mtime={mtime}")
+        return klass
 
-    # Delete individual files not part of a fully deletable dir
-    # (skip files inside dirs already deleted)
-    deleted_dirs_set = set(fully_deletable_dirs)
-    for file_path in files_to_delete:
-        # If file is inside a dir already deleted, skip
-        if any(parent in deleted_dirs_set for parent in file_path.parents):
-            continue
-        try:
-            file_path.unlink()
-            files_deleted += 1
-            context.log.debug(f"Deleted old file: {file_path}")
-        except Exception as e:
-            context.log.error(f"Failed to delete file {file_path}: {str(e)}")
+    stats = generic_cleanup(
+        root=storage_base_path,
+        context=context,
+        policy=policy,
+        classify=classifier,
+        remove_root_if_empty=False,
+    )
+    context.log.info(
+        "Resumen limpieza storage: "
+        f"runs_eliminados={stats.run_dirs_deleted} normales_eliminados={stats.normal_deleted} "
+        f"protegidos_eliminados={stats.protected_deleted} dirs_vacios={stats.empty_dirs_removed}"
+    )
 
-    # Delete protected items
-    protected_deleted = 0
-    for protected_path in sorted(
-        protected_items_to_delete, key=lambda p: len(p.parts), reverse=True
-    ):
-        try:
-            if protected_path.is_file():
-                protected_path.unlink()
-                protected_deleted += 1
-                context.log.debug(f"Deleted protected file: {protected_path}")
-            elif protected_path.is_dir():
-                num_files = _count_files(protected_path)
-                shutil.rmtree(protected_path)
-                protected_deleted += num_files
-                context.log.debug(
-                    f"Deleted protected directory tree: {protected_path} ({num_files} files)"
-                )
-        except Exception as e:
-            context.log.error(
-                f"Failed to delete protected item {protected_path}: {str(e)}"
-            )
 
-    return files_deleted, protected_deleted
+## Función antigua delete_old_files_in_directory eliminada en favor de generic_cleanup
 
 
 def _count_files(directory_path: Path) -> int:
-    """Helper to count all files in a directory tree."""
+    """Cuenta todos los archivos dentro de un árbol de directorios."""
     return sum(1 for _ in directory_path.rglob("*") if _.is_file())
 
 
 def is_directory_empty(directory_path: Path) -> bool:
-    """
-    Checks if a directory is empty.
-
-    Args:
-        directory_path: Path to the directory to check
-
-    Returns:
-        True if the directory is empty, False otherwise
-    """
-    # Check if any items exist in the directory
+    """Determina si un directorio está vacío."""
+    # Retorna True si no hay elementos
     return not any(directory_path.iterdir())
 
 
@@ -358,21 +320,21 @@ if __name__ == "__main__":
     import warnings
     import os
 
-    # Determine environment
+    # Determinar entorno
     env_str = os.environ.get("ENV", "local")
 
     start_time = datetime.now()
 
     with instance_for_test() as instance:
         if env_str == "local":
-            warnings.warn("Running in local mode with test database connection")
+            warnings.warn(
+                "Ejecutando en modo local con conexión de base de datos de prueba"
+            )
 
-        # Run the job
-        result = clean_storage_job.execute_in_process(
-            instance=instance,
-        )
+        # Ejecutar el job
+        result = clean_storage_job.execute_in_process(instance=instance)
 
-        # Print the output of the operation
+        # Imprimir la salida de la operación
         print(result.output_for_node("delete_old_event_storage", output_name="result"))
 
     end_time = datetime.now()
