@@ -10,7 +10,7 @@ from dagster import OpExecutionContext, RunsFilter, graph, op
 from dagster_shared_gf.shared_functions import get_for_current_env
 
 SETTINGS = {
-    "local_storage": {"retention_period": get_for_current_env({"dev": 40, "prd": 31})}
+    "local_storage": {"retention_period": get_for_current_env({"dev": 21, "prd": 21})}
 }
 DAGSTER_HOME = os.environ.get("DAGSTER_HOME") or "."
 
@@ -51,6 +51,7 @@ class CleanupStats:
     protected_deleted: int = 0  # Archivos/árboles protegidos eliminados
     run_dirs_deleted: int = 0  # Directorios de run eliminados (conteo por directorio)
     empty_dirs_removed: int = 0  # Directorios vacíos eliminados
+    items_scanned: int = 0  # Número de paths (archivos o directorios) revisados
 
 
 def generic_cleanup(
@@ -88,6 +89,8 @@ def generic_cleanup(
             mtime = datetime.fromtimestamp(path.stat().st_mtime)
         except FileNotFoundError:
             return True, 0
+        # Contamos cada path visitado como "revisado" (incluye archivos y directorios)
+        stats.items_scanned += 1
         klass = classify(path)
         effective_klass = (
             "protected" if inherited_protected or klass == "protected" else klass
@@ -147,9 +150,9 @@ def generic_cleanup(
                 stats.run_dirs_deleted += 1
             else:
                 stats.normal_deleted += file_count
-                context.log.debug(
-                    f"Eliminado directorio: {dir_path} (tipo={klass}, archivos={file_count})"
-                )
+                # context.log.debug(
+                #     f"Eliminado directorio: {dir_path} (tipo={klass}, archivos={file_count})"
+                # )
         except Exception as e:
             context.log.error(f"Error al eliminar directorio {dir_path}: {e}")
 
@@ -165,7 +168,7 @@ def generic_cleanup(
                 stats.protected_deleted += 1
             else:
                 stats.normal_deleted += 1
-            context.log.debug(f"Eliminado archivo: {file_path} (tipo={klass})")
+            # context.log.debug(f"Eliminado archivo: {file_path} (tipo={klass})")
         except Exception as e:
             context.log.error(f"Error al eliminar archivo {file_path}: {e}")
 
@@ -208,8 +211,9 @@ def clean_dbt_targets_old_files(context: OpExecutionContext) -> None:
         total_stats.normal_deleted += stats.normal_deleted
         total_stats.protected_deleted += stats.protected_deleted
         total_stats.empty_dirs_removed += stats.empty_dirs_removed
+        total_stats.items_scanned += stats.items_scanned
     context.log.info(
-        f"Limpieza DBT clean-targets: normales={total_stats.normal_deleted} protegidos={total_stats.protected_deleted} directorios_vacios={total_stats.empty_dirs_removed}"
+        f"Limpieza DBT clean-targets: revisados={total_stats.items_scanned} normales={total_stats.normal_deleted} protegidos={total_stats.protected_deleted} directorios_vacios={total_stats.empty_dirs_removed}"
     )
 
 
@@ -258,7 +262,7 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
 
     Detalles:
       - Un directorio se borra entero sólo si todo el subárbol es eliminable o el propio directorio supera el umbral; en caso contrario se eliminan hijos viejos individualmente y luego se podan directorios vacíos.
-      - Se usa mtime (st_mtime) intencionalmente; tocar un archivo/directorio lo rejuvenece.
+      - Se usa mtime (st_mtime) para determinar la antigüedad; solo las operaciones de escritura/modificación actualizan este timestamp.
       - Se agregan conteos en CleanupStats para observabilidad.
     """
     instance = context.instance
@@ -268,13 +272,13 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
     context.log.info(f"Iniciando limpieza de storage en: {storage_base_path}")
 
     def classifier(path: Path) -> str:
-        try:
-            mtime = datetime.fromtimestamp(path.stat().st_mtime)
-        except Exception:
-            mtime = None
+        # try:
+        #     mtime = datetime.fromtimestamp(path.stat().st_mtime)
+        # except Exception:
+        #     mtime = None
         is_run = path.is_dir() and instance.get_run_by_id(path.name) is not None
         klass = "run" if is_run else classify_basic(path)
-        context.log.debug(f"Clasificando {path}: tipo={klass} mtime={mtime}")
+        # context.log.debug(f"Clasificando {path}: tipo={klass} mtime={mtime}")
         return klass
 
     stats = generic_cleanup(
@@ -286,7 +290,7 @@ def delete_old_event_storage(context: OpExecutionContext) -> None:
     )
     context.log.info(
         "Resumen limpieza storage: "
-        f"runs_eliminados={stats.run_dirs_deleted} normales_eliminados={stats.normal_deleted} "
+        f"revisados={stats.items_scanned} runs_eliminados={stats.run_dirs_deleted} normales_eliminados={stats.normal_deleted} "
         f"protegidos_eliminados={stats.protected_deleted} dirs_vacios={stats.empty_dirs_removed}"
     )
 

@@ -6,7 +6,11 @@ from unittest.mock import Mock, PropertyMock
 
 from dagster import build_op_context
 
-from dagster_shared_gf.utils.clean_storage import SETTINGS, delete_old_event_storage
+from dagster_shared_gf.utils.clean_storage import (
+    SETTINGS,
+    delete_old_event_storage,
+    build_retention_policy,
+)
 
 
 def test_delete_old_event_storage():
@@ -15,21 +19,26 @@ def test_delete_old_event_storage():
         storage_dir = Path(temp_dir) / "storage"
         storage_dir.mkdir()
 
-        # Timestamps basados en períodos de retención
+        # Timestamps basados en la política de retención por defecto
         retention_days = float(SETTINGS["local_storage"]["retention_period"])
-        old_time = (datetime.now() - timedelta(days=retention_days + 10)).timestamp()
+        policy = build_retention_policy(retention_days)
+
+        # Timestamps usando los cutoffs de la política
+        old_time = (
+            policy.run_cutoff - timedelta(days=1)
+        ).timestamp()  # Más viejo que run_cutoff
         extended_time = (
-            datetime.now() - timedelta(days=retention_days + 6)
-        ).timestamp()
+            policy.extended_cutoff - timedelta(days=1)
+        ).timestamp()  # Más viejo que extended_cutoff
         protected_old_time = (
-            datetime.now() - timedelta(days=retention_days + 11)
-        ).timestamp()
+            policy.protected_cutoff - timedelta(days=1)
+        ).timestamp()  # Más viejo que protected_cutoff
         protected_recent_time = (
-            datetime.now() - timedelta(days=retention_days + 2)
-        ).timestamp()
+            policy.protected_cutoff + timedelta(days=1)
+        ).timestamp()  # Más nuevo que protected_cutoff
         old_unrelated_time = (
-            datetime.now() - timedelta(days=retention_days + 2)
-        ).timestamp()
+            policy.extended_cutoff + timedelta(days=1)
+        ).timestamp()  # Más nuevo que extended pero viejo para unrelated
         recent_time = datetime.now().timestamp()
 
         # Run reciente que debe mantenerse
@@ -185,4 +194,55 @@ def test_delete_old_event_storage():
         assert protected_dir_recent.exists(), "Dir protegido reciente debe preservarse"
         assert protected_file_recent.exists(), (
             "Archivo protegido reciente debe preservarse"
+        )
+
+
+def test_mtime_not_updated_by_stat():
+    """Test para verificar que stat() NO actualiza mtime (el comentario está equivocado)."""
+    import time
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        storage_dir = Path(temp_dir) / "storage"
+        storage_dir.mkdir()
+
+        # Crear archivo viejo
+        old_file = storage_dir / "old_file.txt"
+        old_file.touch()
+
+        # Establecer mtime antiguo
+        old_timestamp = (datetime.now() - timedelta(days=50)).timestamp()
+        os.utime(old_file, (old_timestamp, old_timestamp))
+
+        # Verificar mtime inicial
+        initial_stat = old_file.stat()
+        initial_mtime = initial_stat.st_mtime
+
+        # Esperar un poco para asegurar que el tiempo avance
+        time.sleep(0.1)
+
+        # Leer stat múltiples veces (simulando lo que hace el código)
+        for i in range(10):
+            current_stat = old_file.stat()
+            current_mtime = current_stat.st_mtime
+            # El mtime NO debe cambiar por leer stat()
+            assert current_mtime == initial_mtime, (
+                f"stat() modificó mtime en iteración {i}"
+            )
+
+        # Ahora ejecutar la función de limpieza que lee stat()
+        context = build_op_context()
+        mock_storage = Mock()
+        type(mock_storage).storage_dir = PropertyMock(return_value=str(storage_dir))
+        context.instance._local_artifact_storage = mock_storage
+        context.instance.get_run_by_id = Mock(return_value=None)  # No es un run
+
+        # El archivo debe existir antes
+        assert old_file.exists(), "Archivo debe existir antes de la limpieza"
+
+        # Ejecutar limpieza
+        delete_old_event_storage(context)
+
+        # El archivo viejo debe haber sido eliminado
+        assert not old_file.exists(), (
+            "Archivo viejo debe haber sido eliminado después de la limpieza"
         )
