@@ -123,7 +123,7 @@ class Tags(dict[str, str]):
         Returns the tag dictionary if there's only one item.
         """
         if len(self) == 1:
-            return dict(self)
+            return {self.key: self.value}
         raise ValueError("Tag contains more than one item.")
 
     @property
