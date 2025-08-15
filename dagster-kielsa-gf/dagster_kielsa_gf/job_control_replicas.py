@@ -401,7 +401,7 @@ def enviar_alertas_si_aplica(
                 "brian.padilla@farinter.com",
                 "edwin.martinez@farinter.com",
                 "Wilson.zavala@farinter.com",
-                "david.saravia@grupobrasilsv.com",
+                "david.saravia@farinter.com",
             ]
             if env_str == "prd"
             else ["brian.padilla@farinter.com"]

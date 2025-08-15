@@ -1,9 +1,8 @@
-from typing import Sequence
+from typing import Sequence, Set, Dict, List, Optional, Tuple
+import json
 import dagster as dg
 from dagster_shared_gf.resources.correo_e import EmailSenderResource
-from dagster_shared_gf.shared_functions import (
-    get_for_current_env,
-)
+from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.shared_variables import env_str
 from datetime import datetime, timedelta, timezone
 
@@ -37,21 +36,59 @@ only_dev_default_schedule_status: dg.DefaultSensorStatus = get_for_current_env(
     }
 )
 
-# Default email if asset owner is not provided
-# DEFAULT_EMAILS = get_for_current_env({"local": ["brian.padilla@farinter.com"], "dev": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"], "prd": ["brian.padilla@farinter.com","edwin.martinez@farinter.com", "david.saravia@grupobrasilsv.com"]})
 DEFAULT_EMAILS = ["brian.padilla@farinter.com"]
+DEFAULT_RUN_FAILURE_EMAILS = [
+    "brian.padilla@farinter.com",
+    "edwin.martinez@farinter.com",
+    "david.saravia@farinter.com",
+]  # lista para fallos de run sin asset
+
+
+# ----------------- Helpers reutilizables -----------------
+
+
+def _filter_failed_runs_since(
+    context: dg.SensorEvaluationContext, since: datetime
+) -> List[object]:
+    """Obtiene runs que han fallado (status=FAILURE) actualizados después de 'since'.
+
+    NOTA: aún no se usa en el flujo principal; se integrará en refactor posterior.
+    """
+    from dagster._core.storage.dagster_run import RunsFilter  # type: ignore
+
+    records = context.instance.get_run_records(
+        filters=RunsFilter(statuses=[dg.DagsterRunStatus.FAILURE], updated_after=since)
+    )
+    return list(records)
+
+
+def _format_run_failure_email_simple(
+    run_id: str,
+    job_name: Optional[str],
+    run_start_iso: Optional[str],
+    run_end_iso: Optional[str],
+) -> tuple[str, str]:
+    """Formato simple para fallos de run sin asset identificado."""
+    subject = (
+        f"[analiticastetl][Run Failure][{env_str}] Run {run_id} - {job_name or 'N/A'}"
+    )
+    body_parts = [
+        f"Run id: {run_id}",
+        f"Job: {job_name or 'N/A'}",
+        f"Hora inicio (UTC): {run_start_iso or 'N/A'}",
+        f"Hora fin (UTC): {run_end_iso or 'N/A'}",
+        "No se identificó un asset específico asociado al fallo (RUN_FAILURE).",
+    ]
+    return subject, "\n".join(body_parts)
 
 
 def get_asset_owners(
     asset_key: dg.AssetKey, context: dg.SensorEvaluationContext
 ) -> Sequence[str]:
-    """
-    Fetch asset owners from context. This simulates looking up asset metadata.
-    Uses context to fetch dynamic data for owners.
-    """
+    """Obtener dueños de un activo desde la definición del repositorio (si existe)."""
     repo_ref = context.repository_def
     if not repo_ref:
-        raise ValueError("Repository definition not available")
+        return []
     asset_metadata = repo_ref.assets_defs_by_key.get(asset_key)
     if not asset_metadata:
         return []
@@ -59,600 +96,376 @@ def get_asset_owners(
     return owners if owners else []
 
 
-def get_downstream_lineage_with_owners(
-    asset_key: dg.AssetKey, job: dg.JobDefinition, context: dg.SensorEvaluationContext
-) -> dict[dg.AssetKey, Sequence[str]]:
-    """
-    Retrieve downstream lineage and their owners from the asset graph.
-    Returns a dictionary with downstream assets as keys and their respective owners as values.
-    """
-
-    selection: dg.AssetSelection = dg.AssetSelection.assets(asset_key).downstream()
-    repo_ref = context.repository_def
-    if not repo_ref:
-        raise ValueError("Repository definition not available")
-    downstream_assets = selection.resolve(repo_ref.asset_graph)
-    downstream_owners: dict[dg.AssetKey, Sequence[str]] = {}
-
-    for downstream_asset in downstream_assets:
-        downstream_owners[downstream_asset] = get_asset_owners(
-            downstream_asset, context
+def _group_by_run(
+    events: Sequence[dg.EventLogRecord],
+) -> Dict[str, List[dg.EventLogRecord]]:
+    groups: Dict[str, List[dg.EventLogRecord]] = {}
+    for e in events:
+        run_id = getattr(e, "run_id", None) or getattr(
+            e.event_log_entry, "run_id", None
         )
+        if not run_id:
+            run_id = f"no-run-{e.storage_id}"
+        groups.setdefault(run_id, []).append(e)
+    return groups
 
-    return downstream_owners
+
+def _extract_failed_asset_keys(
+    event: dg.EventLogRecord,
+    repo_ref: dg.RepositoryDefinition,
+    job_def: Optional[dg.JobDefinition],
+) -> Set[dg.AssetKey]:
+    # Preferir asset_key explícito del evento y normalizar a AssetKey
+    if getattr(event, "asset_key", None):
+        ak = event.asset_key
+        underlying = getattr(ak, "asset_key", None)
+        if underlying:
+            ak = underlying
+        if isinstance(ak, dg.AssetKey):
+            return {ak}
+        try:
+            return {dg.AssetKey(str(ak))}
+        except Exception:
+            return set()
+
+    # Fallback: intentar resolver desde node_handle cuando esté disponible
+    try:
+        dag_event = event.event_log_entry.dagster_event
+        node_handle = getattr(dag_event, "node_handle", None) if dag_event else None
+        if node_handle and job_def:
+            keys = job_def.asset_layer.get_selected_entity_keys_for_node(node_handle)
+            result: Set[dg.AssetKey] = set()
+            for k in keys or []:
+                try:
+                    base = getattr(k, "asset_key", None) or k
+                    if isinstance(base, dg.AssetKey):
+                        result.add(base)
+                    else:
+                        result.add(dg.AssetKey(str(base)))
+                except Exception:
+                    continue
+            return result
+    except Exception:
+        return set()
+    return set()
 
 
-def create_email_body(
-    asset_key: dg.AssetKey, downstream_owners: dict[dg.AssetKey, Sequence[str]]
-):
-    """
-    Create the email body to be sent when an asset fails.
+def _resolve_downstream_top_k(
+    repo_ref: dg.RepositoryDefinition, asset_keys: Set[dg.AssetKey], k: int = 10
+) -> Tuple[List[dg.AssetKey], int]:
+    seen: List[dg.AssetKey] = []
+    seen_set: Set[dg.AssetKey] = set()
+    for ak in asset_keys:
+        sel = dg.AssetSelection.assets(ak).downstream()
+        for d in sel.resolve(repo_ref.asset_graph):
+            if d not in seen_set:
+                seen_set.add(d)
+                seen.append(d)
+    more = max(0, len(seen) - k)
+    return seen[:k], more
 
-    Args:
-        asset_key (dg.AssetKey): The key of the asset that failed.
-        downstream_owners (dict[dg.AssetKey, list[str]]): A dictionary with downstream assets as keys and their respective owners as values.
 
-    Returns:
-        str: The email body to be sent.
-    """
-    downstream_message = ""
-    for downstream_asset, owners in downstream_owners.items():
-        downstream_message += f"- {downstream_asset.to_user_string()}: {', '.join(owners if owners else 'Sin dueño definido.')}\n"
+def _collect_owners_map(
+    asset_keys: Sequence[dg.AssetKey], context: dg.SensorEvaluationContext
+) -> Dict[dg.AssetKey, List[str]]:
+    owners_map: Dict[dg.AssetKey, List[str]] = {}
+    for ak in asset_keys:
+        owners = get_asset_owners(ak, context) or []
+        owners_map[ak] = list(owners)
+    return owners_map
 
-    email_body = (
-        f"Se ha producido un fallo en la materialización del activo: {asset_key}.\n"
-        f"Debido a este fallo, los siguientes activos descendentes no se ejecutarán:\n"
-        f"{downstream_message}\n"
-        f"Por favor, revise el error y tome las medidas necesarias.\n"
+
+def _format_email_spanish(
+    run_id: str,
+    job_names: Set[str],
+    failed_assets: Set[dg.AssetKey],
+    downstream_list: List[dg.AssetKey],
+    more_count: int,
+    owners_map: Dict[dg.AssetKey, List[str]],
+    run_start_iso: Optional[str] = None,
+    run_end_iso: Optional[str] = None,
+) -> Tuple[str, str]:
+    jobs = ", ".join(sorted(job_names)) if job_names else "N/A"
+    failed_lines = "\n".join(
+        f"- {ak.to_user_string()}"
+        for ak in sorted(failed_assets, key=lambda x: x.to_user_string())
     )
-    return email_body
+    downstream_lines = []
+    for da in downstream_list:
+        owners = owners_map.get(da) or []
+        owners_str = ", ".join(owners) if owners else "Sin dueño definido."
+        downstream_lines.append(f"- {da.to_user_string()}: {owners_str}")
+    more_line = (
+        f"\nAdemás hay {more_count} activos descendentes adicionales no listados."
+        if more_count
+        else ""
+    )
+    # Incluir fecha/hora de inicio y fin del run en el cuerpo
+    run_start_line = (
+        f"Hora inicio run (UTC): {run_start_iso}\n" if run_start_iso else ""
+    )
+    run_end_line = f"Hora fin run (UTC): {run_end_iso}\n\n" if run_end_iso else ""
+
+    body = (
+        f"Se ha producido un fallo en la(s) materialización(es) del/los activo(s):\n"
+        f"{failed_lines}\n\n"
+        f"Run id: {run_id}\n"
+        f"Job(s): {jobs}\n"
+        f"{run_start_line}{run_end_line}"
+        f"Los siguientes activos descendentes no se ejecutarán (top {len(downstream_list)}):\n"
+        f"{chr(10).join(downstream_lines)}{more_line}\n\n"
+        f"Por favor, revise el error y tome las medidas necesarias."
+    )
+    subject = f"[analiticastetl][Error][{env_str}] Run {run_id} - {jobs}"
+    return subject, body
 
 
 @dg.sensor(
     default_status=running_default_schedule_status,
     minimum_interval_seconds=get_for_current_env(
         {"local": 60 * 5, "dev": 60 * 5, "prd": 60 * 5}
-    ),  # Adjust based on your frequency needs
+    ),
 )
 def failed_asset_notification_sensor(
     context: dg.SensorEvaluationContext,
     enviador_correo_e_analitica_farinter: EmailSenderResource,
 ):
-    # Get the failed events since the last cursor (or from the beginning)
-    int_cursor: int = 0
-    event_datetime = datetime.now(tz=timezone.utc) - timedelta(hours=1)
-    if context.cursor:
-        int_cursor = int(context.cursor)
-        event_datetime_float = context.instance.get_event_records(
-            event_records_filter=dg.EventRecordsFilter(
-                event_type=dg.DagsterEventType.STEP_FAILURE, storage_ids=[int_cursor]
-            ),
-            limit=1,
-        )[0].timestamp
-        event_datetime = (
-            datetime.fromtimestamp(event_datetime_float, tz=timezone.utc)
-            if event_datetime_float
-            else event_datetime
+    # Tiempo y cursor
+    now_dt = datetime.now(tz=timezone.utc)
+    now_ts = now_dt.isoformat()
+    try:
+        cursor_data = json.loads(context.cursor) if context.cursor else {}
+        last_query_ts = cursor_data.get("last_query_ts")
+        last_query_dt = (
+            datetime.fromisoformat(last_query_ts)
+            if last_query_ts
+            else now_dt - timedelta(hours=1)
         )
-
-    current_sharded_events_cursor = dg.RunShardedEventsCursor(
-        id=int_cursor,
-        run_updated_after=event_datetime,
-    )
-
-    event_timestamp = event_datetime.timestamp() if event_datetime else None
-
-    context.log.debug(f"Cursor: {context.cursor}")
-    events: Sequence[dg.EventLogRecord] = context.instance.get_event_records(
-        event_records_filter=dg.EventRecordsFilter(
-            event_type=dg.DagsterEventType.STEP_FAILURE,
-            after_cursor=current_sharded_events_cursor,
-            after_timestamp=event_timestamp,
-        ),
-        limit=10,
-    )
-    # context.instance.
-
-    if not events:
-        return dg.SensorResult(
-            skip_reason="no new failed events", cursor=context.cursor
-        )
+        notified_runs = set(cursor_data.get("run_failure_notified", []))
+        # mantener compatibilidad con campo legacy last_storage_id
+        last_storage_id = int(cursor_data.get("last_storage_id", -1))
+    except Exception:
+        last_query_dt = now_dt - timedelta(hours=1)
+        notified_runs = set()
+        last_storage_id = -1
 
     repo_ref = context.repository_def
-    notified: set[dg.AssetKey] = set()
-
     if not repo_ref:
-        raise ValueError("No repository definition found")
-    for event in events:
-        log_entry = event.event_log_entry
-        job_name = log_entry.job_name
-        if not job_name:
-            continue
-        # Check for failed asset materializations
-        job_failed = repo_ref.get_job(job_name)
-        if not event.asset_key:
-            dagster_event = log_entry.dagster_event
-            if not dagster_event:
-                continue
-            node_handle = dagster_event.node_handle
-            if not node_handle:
-                continue
-            failed_asset_key_list = job_failed.asset_layer.asset_keys_for_node(
-                node_handle
-            )
-            failed_asset_key = (
-                list(failed_asset_key_list).pop() if failed_asset_key_list else None
-            )
-            if not failed_asset_key:
-                input_node_handles = (
-                    job_failed.asset_layer.asset_keys_by_node_input_handle
-                )
-                failed_asset_key_list = [
-                    dg.AssetKey
-                    for handle, dg.AssetKey in input_node_handles.items()
-                    if handle.node_handle == node_handle
-                ]
-                failed_asset_key = (
-                    failed_asset_key_list[0] if failed_asset_key_list else None
-                )
-            if not failed_asset_key:
-                output_node_handles = (
-                    job_failed.asset_layer.asset_keys_by_node_output_handle
-                )
-                failed_asset_key_list = [
-                    dg.AssetKey
-                    for handle, dg.AssetKey in output_node_handles.items()
-                    if handle.node_handle == node_handle
-                ]
-                failed_asset_key = (
-                    failed_asset_key_list[0] if failed_asset_key_list else None
-                )
-        else:
-            failed_asset_key = event.asset_key
-
-        if failed_asset_key:
-            asset_key = failed_asset_key
-            if asset_key in notified:
-                continue
-
-            # Fetch the owners of the failed asset
-            asset_owners = get_asset_owners(asset_key, context)
-
-            # Get downstream assets and their respective owners
-            downstream_owners = get_downstream_lineage_with_owners(
-                asset_key, job_failed, context
-            )
-
-            all_asset_keys = set(downstream_owners.keys())
-            all_asset_keys.add(asset_key)
-
-            # Create the email subject and body
-            email_subject = f"[analiticastetl][Error][{env_str}] Activo {asset_key.to_user_string()}, job {job_failed.name}"
-            email_body = create_email_body(asset_key, downstream_owners)
-
-            # Collect all unique owners from the failed asset and downstream assets
-            all_owners = set(asset_owners)  # Use a set to avoid duplicate emails
-            all_owners.update(DEFAULT_EMAILS)
-            for owners in downstream_owners.values():
-                all_owners.update(owners)
-
-            if all_owners:
-                # Send a single email to all owners in Spanish
-                enviador_correo_e_analitica_farinter.send_email(
-                    email_to=all_owners,  # All owners in the 'To' list
-                    email_subject=email_subject,
-                    email_body=email_body,
-                )
-                notified.update(all_asset_keys)
-                # Log the notification
-                context.log.info(
-                    f"Notificación enviada a los siguientes correos: {', '.join(all_owners)} con el evento id {event.storage_id}"
-                )
-
-        if int_cursor < event.storage_id:
-            int_cursor = event.storage_id
-
-    return dg.SensorResult(
-        cursor=str(int_cursor),
+        raise ValueError("Definición del repositorio no disponible")
+    current_repo_name = getattr(repo_ref, "name", None) or getattr(
+        repo_ref, "repository_name", None
     )
+
+    # Unica llamada: obtener todos los runs fallidos desde last_query_dt
+    try:
+        failed_run_records = _filter_failed_runs_since(context, last_query_dt)
+    except Exception as exc:  # pragma: no cover
+        context.log.error(f"Error obteniendo runs fallidos: {exc}")
+        failed_run_records = []
+
+    newly_notified: List[str] = []
+    any_email_sent = False
+
+    for rr in failed_run_records:
+        run = getattr(rr, "dagster_run", None)
+        if not run:
+            continue
+        run_id = run.run_id
+        if run_id in notified_runs:
+            continue
+
+        # Filtro de repo
+        run_repo_name = None
+        try:
+            ext = getattr(run, "external_job_origin", None) or getattr(
+                run, "external_pipeline_origin", None
+            )
+            if ext:
+                repo_origin = getattr(ext, "external_repository_origin", None)
+                if repo_origin:
+                    run_repo_name = getattr(repo_origin, "repository_name", None)
+        except Exception:
+            run_repo_name = None
+        if not run_repo_name:
+            try:
+                run_repo_name = (
+                    run.tags.get("dagster/repository")
+                    if getattr(run, "tags", None)
+                    else None
+                )
+            except Exception:
+                run_repo_name = None
+        if run_repo_name and current_repo_name and run_repo_name != current_repo_name:
+            continue
+
+        # Recopilar eventos relevantes del run para detectar assets fallidos
+        # Obtener solamente los STEP_FAILURE de ese run (directo y simple)
+        try:
+            step_fail_conn = context.instance.event_log_storage.get_records_for_run(
+                run_id, of_type=dg.DagsterEventType.STEP_FAILURE
+            )
+            step_fail_events: Sequence[dg.EventLogRecord] = getattr(
+                step_fail_conn, "records", []
+            )
+        except Exception:
+            step_fail_events = []
+        failed_asset_keys: Set[dg.AssetKey] = set()
+        # Primero intento directo desde STEP_FAILURE
+        job_names: Set[str] = set()
+        job_name_primary = getattr(run, "job_name", None) or getattr(
+            run, "pipeline_name", None
+        )
+        if job_name_primary:
+            job_names.add(job_name_primary)
+        job_def = None
+        try:
+            if job_name_primary:
+                job_def = repo_ref.get_job(job_name_primary)
+        except Exception:
+            job_def = None
+
+        for ev in step_fail_events:
+            try:
+                log_entry = getattr(ev, "event_log_entry", ev)
+            except Exception:
+                log_entry = ev
+            ev_job_name = getattr(log_entry, "job_name", None)
+            if ev_job_name:
+                job_names.add(ev_job_name)
+                if not job_def:
+                    try:
+                        job_def = repo_ref.get_job(ev_job_name)
+                    except Exception:
+                        pass
+            keys = _extract_failed_asset_keys(ev, repo_ref, job_def)
+            failed_asset_keys.update(keys)
+
+        # Fallback ligero: si hubo STEP_FAILURE pero no derivamos asset keys, mirar último ASSET_CHECK_EVALUATION
+        if step_fail_events and not failed_asset_keys:
+            try:
+                check_conn = context.instance.event_log_storage.get_records_for_run(  # type: ignore
+                    run_id, of_type=dg.DagsterEventType.ASSET_CHECK_EVALUATION
+                )
+                check_records = getattr(check_conn, "records", [])
+                for rec in reversed(check_records):  # del más reciente hacia atrás
+                    try:
+                        dag_ev = rec.event_log_entry.dagster_event  # type: ignore
+                        ak = getattr(dag_ev, "asset_key", None)
+                        if ak:
+                            base = getattr(ak, "asset_key", None) or ak
+                            if isinstance(base, dg.AssetKey):
+                                failed_asset_keys.add(base)
+                            else:
+                                failed_asset_keys.add(dg.AssetKey(str(base)))
+                            break
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # Tiempos run
+        rr_start_time = getattr(rr, "start_time", None)
+        rr_end_time = getattr(rr, "end_time", None)
+        run_start_iso = (
+            datetime.fromtimestamp(rr_start_time, tz=timezone.utc).isoformat()
+            if rr_start_time
+            else None
+        )
+        run_end_iso = (
+            datetime.fromtimestamp(rr_end_time, tz=timezone.utc).isoformat()
+            if rr_end_time
+            else None
+        )
+
+        if failed_asset_keys:
+            downstream_top, more_count = _resolve_downstream_top_k(
+                repo_ref, failed_asset_keys, k=10
+            )
+            owners_map = _collect_owners_map(
+                list(downstream_top) + list(failed_asset_keys), context
+            )
+            recipients: Set[str] = set(DEFAULT_EMAILS)
+            for ak in failed_asset_keys:
+                recipients.update(owners_map.get(ak, []))
+            for da in downstream_top:
+                recipients.update(owners_map.get(da, []))
+            subject, body = _format_email_spanish(
+                run_id,
+                job_names,
+                failed_asset_keys,
+                downstream_top,
+                more_count,
+                owners_map,
+                run_start_iso,
+                run_end_iso,
+            )
+            enviador_correo_e_analitica_farinter.send_email(
+                email_to=sorted(recipients), email_subject=subject, email_body=body
+            )
+            context.log.info(
+                f"Notificación (assets) enviada a: {', '.join(sorted(recipients))} para run {run_id}"
+            )
+        else:
+            # Email simple de run
+            subject, body = _format_run_failure_email_simple(
+                run_id=run_id,
+                job_name=job_name_primary,
+                run_start_iso=run_start_iso,
+                run_end_iso=run_end_iso,
+            )
+            enviador_correo_e_analitica_farinter.send_email(
+                email_to=sorted(DEFAULT_RUN_FAILURE_EMAILS),
+                email_subject=subject,
+                email_body=body,
+            )
+            context.log.info(
+                f"Notificación (run simple) enviada a lista run-failure para run {run_id}"
+            )
+
+        any_email_sent = True
+        newly_notified.append(run_id)
+
+    updated_notified = list(notified_runs.union(newly_notified))
+    cursor_payload = {
+        "last_storage_id": last_storage_id,
+        "last_query_ts": now_ts,
+        "run_failure_notified": updated_notified,
+    }
+    if not any_email_sent:
+        return dg.SensorResult(
+            skip_reason="sin nuevos fallos de asset o run",
+            cursor=json.dumps(cursor_payload),
+        )
+    return dg.SensorResult(cursor=json.dumps(cursor_payload))
 
 
 if __name__ == "__main__":
-    # Mocked test environment for running the sensor
-    from unittest.mock import MagicMock
-    from typing import Any
+    # Ejecutar pytest en un proceso hijo y mostrar logs de Dagster
+    import os
+    import sys
+    import subprocess
 
-    # Configure logging
-    logger = dg.get_dagster_logger(__name__)
+    os.environ.setdefault("DAGSTER_LOG_LEVEL", "DEBUG")
+    env = os.environ.copy()
+    env.setdefault("DAGSTER_LOG_LEVEL", "DEBUG")
+    env.setdefault("JUPYTER_PLATFORM_DIRS", "1")
 
-    def run_isolated_test(test_name: str, test_func):
-        """Run each test in isolation with a fresh instance."""
-        logger.info(f"🧪 {test_name}")
+    pytest_args = [
+        "-q",
+        "-k",
+        "shared_failed_sensors",
+        "dagster-shared-gf/dagster_shared_gf_tests/test_shared_failed_sensors.py",
+        "-ra",
+        "-s",
+    ]
 
-        with dg.instance_for_test() as test_instance:
-            # Example assets: Mock asset owners for testing
-            @dg.asset(
-                owners=["owner1@example.com", "owner2@example.com"],
-                config_schema={
-                    "fail": dg.Field(bool, is_required=False, default_value=False),
-                },
-                key=["prefix", "can_fail_asset"],
-            )
-            def can_fail_asset(context: dg.AssetExecutionContext) -> None:
-                """Asset 1 represents the root asset with two owners."""
-                if context.op_config.get("fail"):
-                    context.log.error(
-                        "Asset processing failed, but no exception is raised."
-                    )
-                    context.add_output_metadata({"status": "failed"})
-                return None
+    cmd = [sys.executable, "-m", "pytest"] + pytest_args
 
-            @dg.asset_check(asset=can_fail_asset, blocking=True)
-            def can_fail_asset_check(
-                context: dg.AssetCheckExecutionContext,
-            ) -> dg.AssetCheckResult:
-                """Fail check if the asset reports a failure status in its metadata."""
-                asset_key = context.check_specs[0].asset_key
-                materialization_records = (
-                    context.instance.get_latest_materialization_events([asset_key])
-                )
-                latest_materialization = (
-                    materialization_records.get(asset_key)
-                    if materialization_records
-                    else None
-                )
-
-                if (
-                    not latest_materialization
-                    or not latest_materialization.dagster_event
-                ):
-                    return dg.AssetCheckResult(
-                        passed=True,
-                        metadata={"reason": "No materialization found for the asset."},
-                    )
-
-                event_data = latest_materialization.dagster_event.event_specific_data
-                from dagster._core.events import StepMaterializationData
-
-                if not isinstance(event_data, StepMaterializationData):
-                    return dg.AssetCheckResult(
-                        passed=True,
-                        metadata={"reason": "Invalid materialization data."},
-                    )
-
-                status = event_data.materialization.metadata.get("status")
-                if not status:
-                    return dg.AssetCheckResult(
-                        passed=True,
-                        metadata={"reason": "No status found in asset metadata."},
-                    )
-
-                return dg.AssetCheckResult(
-                    passed=status.value != "failed",
-                    metadata={"reason": "Asset reported failure status in metadata."}
-                    if status.value == "failed"
-                    else {},
-                )
-
-            @dg.asset(
-                owners=["owner3@example.com"],
-                deps=[can_fail_asset],
-                config_schema={
-                    "fail": dg.Field(bool, is_required=False, default_value=False),
-                },
-            )
-            def can_fail_asset_child_1(context: dg.AssetExecutionContext) -> None:
-                """Asset 2 depends on asset 1 and has one owner. Can also fail for mid-asset testing."""
-                if context.op_config.get("fail"):
-                    context.log.error("Child asset processing failed.")
-                    context.add_output_metadata({"status": "failed"})
-                return None
-
-            @dg.asset_check(asset=can_fail_asset_child_1, blocking=True)
-            def can_fail_asset_child_1_check(
-                context: dg.AssetCheckExecutionContext,
-            ) -> dg.AssetCheckResult:
-                """Fail check if the child asset reports a failure status in its metadata."""
-                asset_key = context.check_specs[0].asset_key
-                materialization_records = (
-                    context.instance.get_latest_materialization_events([asset_key])
-                )
-                latest_materialization = (
-                    materialization_records.get(asset_key)
-                    if materialization_records
-                    else None
-                )
-
-                if (
-                    not latest_materialization
-                    or not latest_materialization.dagster_event
-                ):
-                    return dg.AssetCheckResult(
-                        passed=True, metadata={"reason": "No materialization found."}
-                    )
-
-                event_data = latest_materialization.dagster_event.event_specific_data
-                from dagster._core.events import StepMaterializationData
-
-                if not isinstance(event_data, StepMaterializationData):
-                    return dg.AssetCheckResult(
-                        passed=True,
-                        metadata={"reason": "Invalid materialization data."},
-                    )
-
-                status = event_data.materialization.metadata.get("status")
-                if not status:
-                    return dg.AssetCheckResult(
-                        passed=True, metadata={"reason": "No status found."}
-                    )
-
-                return dg.AssetCheckResult(
-                    passed=status.value != "failed",
-                    metadata={"reason": "Child asset reported failure status."}
-                    if status.value == "failed"
-                    else {},
-                )
-
-            @dg.asset(owners=["owner4@example.com"], deps=[can_fail_asset_child_1])
-            def can_fail_asset_child_2() -> None:
-                """Asset 3 depends on asset 2 and has one owner."""
-                return None
-
-            @dg.asset(deps=[can_fail_asset_child_1])
-            def can_fail_asset_child_3() -> None:
-                """Asset 4 depends on asset 2 and has no owner, defaults to fallback email."""
-                return None
-
-            can_fail_job = dg.define_asset_job(
-                name="can_fail_job",
-                selection=dg.AssetSelection.assets(can_fail_asset).downstream(),
-            )
-
-            # Test infrastructure
-            send_email_mock = MagicMock()
-            sent_emails: list[dict[str, Any]] = []
-
-            class EmailResource:
-                @staticmethod
-                def send_email(
-                    email_to: Sequence[str],
-                    email_subject: str,
-                    email_body: str,
-                ) -> None:
-                    email_data = {
-                        "to": list(email_to),
-                        "subject": email_subject,
-                        "body": email_body,
-                    }
-                    sent_emails.append(email_data)
-                    logger.info(f"📧 Email sent to: {', '.join(email_to)}")
-                    logger.info(f"📧 Subject: {email_subject}")
-                    logger.debug(f"📧 Body:\n{email_body}")
-                    send_email_mock(email_to, email_subject, email_body)
-
-            # Load assets into the definitions object
-            defs = dg.Definitions(
-                assets=[
-                    can_fail_asset,
-                    can_fail_asset_child_1,
-                    can_fail_asset_child_2,
-                    can_fail_asset_child_3,
-                ],
-                asset_checks=[can_fail_asset_check, can_fail_asset_child_1_check],
-                jobs=[can_fail_job],
-                sensors=[failed_asset_notification_sensor],
-                resources={"enviador_correo_e_analitica_farinter": EmailResource()},
-            )
-
-            # Mock context object
-            test_context = dg.build_sensor_context(
-                instance=test_instance, definitions=defs
-            )
-
-            def execute_job_with_config(fail_configs: dict[dg.AssetKey, bool]) -> None:
-                """Execute job with specific failure configurations."""
-                run_config = {
-                    "ops": {
-                        asset_key.to_python_identifier(): {
-                            "config": {"fail": should_fail}
-                        }
-                        for asset_key, should_fail in fail_configs.items()
-                        if should_fail
-                    }
-                }
-                try:
-                    test_context.repository_def.get_job(
-                        "can_fail_job"
-                    ).execute_in_process(
-                        instance=test_instance,
-                        run_config=run_config if run_config["ops"] else None,
-                    ) if test_context.repository_def else None
-                except Exception:
-                    pass  # Expected for failing assets
-
-            def run_sensor_and_update_cursor() -> dg.SensorResult:
-                """Run sensor and update cursor, returning the result."""
-                sensor_result = failed_asset_notification_sensor(
-                    test_context, enviador_correo_e_analitica_farinter=EmailResource()
-                )
-                if isinstance(sensor_result, dg.SensorResult):
-                    if sensor_result.cursor:
-                        test_context.update_cursor(sensor_result.cursor)
-                    return sensor_result
-
-                raise TypeError(
-                    f"Sensor result is not of type SensorResult: {sensor_result}"
-                )
-
-            def assert_email_count(expected: int, message: str) -> None:
-                """Assert email count with descriptive message."""
-                actual = send_email_mock.call_count
-                assert actual == expected, (
-                    f"{message}: expected {expected}, got {actual}"
-                )
-
-            # Run the specific test function with the isolated context
-            test_func(
-                execute_job_with_config,
-                run_sensor_and_update_cursor,
-                assert_email_count,
-                send_email_mock,
-                sent_emails,
-                can_fail_asset,
-                can_fail_asset_child_1,
-            )
-
-    # Test implementations
-    def test_no_failures(
-        execute_job,
-        run_sensor,
-        assert_email_count,
-        send_email_mock,
-        sent_emails,
-        *assets,
-    ):
-        execute_job({})
-        run_sensor()
-        assert_email_count(0, "No failures should not trigger emails")
-        logger.info("✅ Test 1 passed")
-
-    def test_root_asset_failure(
-        execute_job,
-        run_sensor,
-        assert_email_count,
-        send_email_mock,
-        sent_emails,
-        can_fail_asset,
-        *others,
-    ):
-        execute_job({can_fail_asset.key: True})
-        run_sensor()
-        assert_email_count(1, "Root asset failure should trigger one email")
-
-        # Verify email recipients include all affected owners
-        if sent_emails:
-            recipients = set(sent_emails[0]["to"])
-            expected_recipients = {
-                "owner1@example.com",
-                "owner2@example.com",  # Root asset owners
-                "owner3@example.com",
-                "owner4@example.com",  # Downstream owners
-                "brian.padilla@farinter.com",  # Default email
-            }
-            assert recipients == expected_recipients, (
-                f"Expected {expected_recipients}, got {recipients}"
-            )
-
-        logger.info("✅ Test 2 passed")
-
-    def test_mid_asset_failure_with_two_downstream(
-        execute_job,
-        run_sensor,
-        assert_email_count,
-        send_email_mock,
-        sent_emails,
-        can_fail_asset,
-        can_fail_asset_child_1,
-    ):
-        # First run root asset successfully
-        execute_job({})
-        run_sensor()
-
-        # Then fail the mid asset
-        execute_job({can_fail_asset_child_1.key: True})
-        run_sensor()
-        assert_email_count(1, "Mid-asset failure should trigger one email")
-
-        # Verify email recipients include mid-asset owner and downstream owners
-        if sent_emails:
-            recipients = set(sent_emails[0]["to"])
-            expected_recipients = {
-                "owner3@example.com",  # Mid-asset owner
-                "owner4@example.com",  # Downstream child_2 owner
-                "brian.padilla@farinter.com",  # Default email (for child_3 with no owner)
-            }
-            assert recipients == expected_recipients, (
-                f"Expected {expected_recipients}, got {recipients}"
-            )
-
-            # Verify email mentions both downstream assets
-            email_body = sent_emails[0]["body"]
-            assert "can_fail_asset_child_2" in email_body, (
-                "Email should mention downstream asset child_2"
-            )
-            assert "can_fail_asset_child_3" in email_body, (
-                "Email should mention downstream asset child_3"
-            )
-
-        logger.info("✅ Test 3 passed")
-
-    def test_cursor_prevents_reprocessing(
-        execute_job,
-        run_sensor,
-        assert_email_count,
-        send_email_mock,
-        sent_emails,
-        can_fail_asset,
-        *others,
-    ):
-        # Create a failure event and process it
-        execute_job({can_fail_asset.key: True})
-        result1 = run_sensor()
-
-        # Verify first run sent an email
-        assert_email_count(1, "First run should send one email")
-        assert result1.cursor is not None, "Cursor should be set after processing"
-
-        # Run sensor again - should skip with no new events
-        result2 = run_sensor()
-
-        # Verify no additional emails were sent
-        assert_email_count(1, "Second run should not send additional emails")
-        assert result2.skip_reason is not None, "Second run should have a skip reason"
-
-        logger.info("✅ Test 4 passed")
-
-    def test_multiple_different_failures(
-        execute_job,
-        run_sensor,
-        assert_email_count,
-        send_email_mock,
-        sent_emails,
-        can_fail_asset,
-        can_fail_asset_child_1,
-    ):
-        # First failure
-        execute_job({can_fail_asset.key: True})
-        run_sensor()
-        first_count = send_email_mock.call_count
-
-        # Second different failure (this should send another email)
-        execute_job({can_fail_asset_child_1.key: True})
-        run_sensor()
-        second_count = send_email_mock.call_count
-
-        assert second_count == first_count + 1, (
-            f"Different failures should send separate emails: expected {first_count + 1}, got {second_count}"
-        )
-        logger.info("✅ Test 5 passed")
-
-    # Run all tests in isolation
     try:
-        run_isolated_test("Test 1: No failures", test_no_failures)
-        run_isolated_test("Test 2: Root asset failure", test_root_asset_failure)
-        run_isolated_test(
-            "Test 3: Mid-asset failure with two downstream",
-            test_mid_asset_failure_with_two_downstream,
-        )
-        run_isolated_test(
-            "Test 4: Cursor prevents reprocessing", test_cursor_prevents_reprocessing
-        )
-        run_isolated_test(
-            "Test 5: Multiple different failures", test_multiple_different_failures
-        )
+        proc = subprocess.run(cmd, env=env)
+        rc = proc.returncode
+    except Exception as exc:  # pragma: no cover - tooling/runtime
+        print("Failed to spawn pytest process:", exc, file=sys.stderr)
+        rc = 2
 
-        logger.info("🎉 All tests passed successfully!")
-
-    except Exception as e:
-        logger.error(f"❌ Test failed: {e}")
-        raise
+    sys.exit(rc)
