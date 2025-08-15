@@ -36,7 +36,7 @@ only_dev_default_schedule_status: dg.DefaultSensorStatus = get_for_current_env(
     }
 )
 
-DEFAULT_EMAILS = ["brian.padilla@farinter.com"]
+DEFAULT_EMAILS = ["brian.padilla@farinter.com", "david.saravia@farinter.com"]
 DEFAULT_RUN_FAILURE_EMAILS = [
     "brian.padilla@farinter.com",
     "edwin.martinez@farinter.com",
