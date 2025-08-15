@@ -429,10 +429,7 @@ def test_on_cron_allowed_deps_selection_only_requires_allowed_updated() -> None:
     cursor = result.cursor
 
     # Siguiente tick pasado (06:05)
-    current_time += datetime.timedelta(
-        minutes=53
-    )  # 06:00 -> +53 = 06:00? 05:07 +53 = 06:00; añadimos 5 más para 06:05
-    current_time += datetime.timedelta(minutes=5)  # 06:05
+    current_time += datetime.timedelta(minutes=58)  # 06:05
     result = evaluate_automation_conditions(
         defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
     )
@@ -488,7 +485,7 @@ def test_deps_updated_cron_requires_update_after_each_tick() -> None:
     cursor = result.cursor
 
     # Avanzamos al primer tick pasado (05:05)
-    current_time += datetime.timedelta(days=1, minutes=30)  # 05:05
+    current_time += datetime.timedelta(days=1, minutes=30)  # 05:05 next day
     result = evaluate_automation_conditions(
         defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
     )

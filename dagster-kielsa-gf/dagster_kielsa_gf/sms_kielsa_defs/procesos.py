@@ -21,7 +21,7 @@ automation_sms_kielsa = (
         | dg.AssetSelection.tag(
             key=tags_repo.AutomationHourly.key, value=tags_repo.AutomationHourly.value
         ),  # Permite solo estos assets dependientes en la verificacion de si ya actualizó o no
-        deps_updated_cron=get_for_current_env({"prd": "@Hourly", "dev": "@Daily"}),
+        deps_updated_cron=get_for_current_env({"prd": "@hourly", "dev": "@daily"}),
     )
     if env_str == "prd"
     else dg.AutomationCondition.code_version_changed()
