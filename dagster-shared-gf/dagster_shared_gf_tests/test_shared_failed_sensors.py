@@ -8,6 +8,14 @@ def make_defs_and_email_resource():
     """Create assets, checks, job, and an email resource that records sends."""
     sent_emails: list[dict] = []
     send_email_mock = MagicMock()
+    # Ensure tests use controlled default email lists to avoid depending on
+    # repository-wide globals which may change or be overridden externally.
+    sfs.DEFAULT_EMAILS = ["default.email1@farinter.com", "default.email2@farinter.com"]
+    sfs.DEFAULT_RUN_FAILURE_EMAILS = [
+        "default.email_rf1@farinter.com",
+        "default.email_rf2@farinter.com",
+        "default.email_rf3@farinter.com",
+    ]
 
     @dg.asset(
         owners=["owner1@example.com", "owner2@example.com"],
@@ -236,7 +244,7 @@ def test_root_asset_failure():
             "owner2@example.com",
             "owner3@example.com",
             "owner4@example.com",
-            sfs.DEFAULT_EMAILS[0],
+            *set(sfs.DEFAULT_EMAILS),
         }
         assert recipients == expected
 
@@ -263,7 +271,11 @@ def test_mid_asset_failure_with_two_downstream():
         run_sensor_and_update_cursor(test_context, EmailResource)
         assert send_email_mock.call_count == 1
         recipients = set(sent_emails[0]["to"]) if sent_emails else set()
-        expected = {"owner3@example.com", "owner4@example.com", sfs.DEFAULT_EMAILS[0]}
+        expected = {
+            "owner3@example.com",
+            "owner4@example.com",
+            *set(sfs.DEFAULT_EMAILS),
+        }
         assert recipients == expected
         body = sent_emails[0]["body"]
         assert "can_fail_asset_child_2" in body
@@ -376,6 +388,6 @@ def test_mixed_asset_and_run_only_failures():
             "owner2@example.com",
             "owner3@example.com",
             "owner4@example.com",
-            sfs.DEFAULT_EMAILS[0],
+            *set(sfs.DEFAULT_EMAILS),
         }
         assert second_recipients == expected_asset_fail

@@ -3,8 +3,9 @@ import json
 import dagster as dg
 from dagster_shared_gf.resources.correo_e import EmailSenderResource
 from dagster_shared_gf.shared_functions import get_for_current_env
-from dagster_shared_gf.shared_variables import env_str
+from dagster_shared_gf.shared_variables import env_str, default_timezone_teg
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 
 running_default_schedule_status: dg.DefaultSensorStatus = get_for_current_env(
@@ -230,9 +231,15 @@ def _format_email_spanish(
     )
     # Incluir fecha/hora de inicio y fin del run en el cuerpo
     run_start_line = (
-        f"Hora inicio run (UTC): {run_start_iso}\n" if run_start_iso else ""
+        f"Hora inicio run ({default_timezone_teg}): {run_start_iso}\n"
+        if run_start_iso
+        else ""
     )
-    run_end_line = f"Hora fin run (UTC): {run_end_iso}\n\n" if run_end_iso else ""
+    run_end_line = (
+        f"Hora fin run ({default_timezone_teg}): {run_end_iso}\n\n"
+        if run_end_iso
+        else ""
+    )
 
     # Si se proporcionó iniciador, incluirlo al inicio del cuerpo
     initiator_line = f"Iniciador: {initiator}\n\n" if initiator else ""
@@ -393,17 +400,29 @@ def failed_asset_notification_sensor(
                         continue
             except Exception:
                 pass
-
         # Tiempos run
         rr_start_time = getattr(rr, "start_time", None)
         rr_end_time = getattr(rr, "end_time", None)
+        # Normalizar default_timezone_teg a un tzinfo (acepta ya sea un objeto tzinfo o un string tipo "UTC")
+        tzinfo_obj = default_timezone_teg
+        # si viene como string, crear ZoneInfo; si ya es tzinfo (tiene utcoffset), usarlo
+        if isinstance(tzinfo_obj, str):
+            tzinfo_obj = ZoneInfo(tzinfo_obj)
+        elif not hasattr(tzinfo_obj, "utcoffset"):
+            # desconocido, intentar crear ZoneInfo desde su representación string
+            tzinfo_obj = ZoneInfo(str(tzinfo_obj))
+
         run_start_iso = (
-            datetime.fromtimestamp(rr_start_time, tz=timezone.utc).isoformat()
+            datetime.fromtimestamp(rr_start_time, tz=timezone.utc)
+            .astimezone(tzinfo_obj)
+            .isoformat()
             if rr_start_time
             else None
         )
         run_end_iso = (
-            datetime.fromtimestamp(rr_end_time, tz=timezone.utc).isoformat()
+            datetime.fromtimestamp(rr_end_time, tz=timezone.utc)
+            .astimezone(tzinfo_obj)
+            .isoformat()
             if rr_end_time
             else None
         )
