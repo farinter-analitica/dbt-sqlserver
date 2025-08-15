@@ -53,6 +53,7 @@ def my_cron_automation_condition(
     ignored_deps_updated_selection: AssetSelection | None = None,
     allowed_deps_updated_selection: AssetSelection | None = None,
     lookback_delta: timedelta | None = None,
+    deps_updated_cron: str | None = None,
 ) -> AutomationCondition:
     """
     Creates an automation condition that combines cron scheduling with dependency state checks.
@@ -76,6 +77,8 @@ def my_cron_automation_condition(
             dependency update checks. Use this to target specific assets or asset groups.
         lookback_delta (timedelta | None): Maximum time window to look back for updates.
             Helps prevent stale executions by limiting how far back to check.
+        deps_updated_cron (str | None): Cron expression defining the schedule for dependency checks.
+            If selected dependencies are not updated since the last cron, this would not execute.
 
     Returns:
         AutomationCondition: A composite condition that enforces both timing and dependency rules.
@@ -98,12 +101,17 @@ def my_cron_automation_condition(
         .with_label(f"cron_tick_passed: {cron_schedule_label}")
         | AutomationCondition.newly_missing().since_last_handled()
     )
-    deps_updated_since_cron = AutomationCondition.all_deps_match(
-        AutomationCondition.newly_updated().since(
-            AutomationCondition.cron_tick_passed(cron_schedule, cron_timezone)
+    deps_since = AutomationCondition.cron_tick_passed(cron_schedule, cron_timezone)
+    if deps_updated_cron:
+        deps_since = deps_since & AutomationCondition.cron_tick_passed(
+            deps_updated_cron, cron_timezone
         )
+
+    deps_updated_since_cron = AutomationCondition.all_deps_match(
+        AutomationCondition.newly_updated().since(deps_since)
         | AutomationCondition.will_be_requested()
     )
+
     if ignored_deps_updated_selection:
         deps_updated_since_cron = deps_updated_since_cron.ignore(
             ignored_deps_updated_selection

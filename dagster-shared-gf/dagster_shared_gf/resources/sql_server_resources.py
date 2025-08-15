@@ -550,6 +550,17 @@ dwh_farinter_ia = SQLServerResource(
     default_database="IA_FARINTER",
 )
 
+dwh_farinter_sms_kielsa = SQLServerResource(
+    server=dwh_farinter.server,
+    databases=[
+        "SMS_KIELSA",
+    ],
+    username=dwh_farinter.username,
+    password=dwh_farinter.password,
+    trust_server_certificate="yes",
+    default_database="SMS_KIELSA",
+)
+
 dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server=p_server,
     databases=["no_database_specified"],
@@ -594,6 +605,7 @@ LDCOM_SQLSERVER_HOSTS = {
     "CR_ARB": r"172.16.2.37",
     "SQLLDSUBS": r"172.16.2.125\SQLLDSUBS",
 }
+
 LDCOM_SQLSERVER_DATABASES = {
     "HN": ["LDCOM_KIELSA", "LDFAS_KIELSA"],
     "NI": ["LDCOM_KIELSA_NIC", "LDFAS_KIELSA_NIC"],

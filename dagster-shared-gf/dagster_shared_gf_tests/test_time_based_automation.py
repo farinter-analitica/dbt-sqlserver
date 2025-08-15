@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 
 import pytest
 from dagster import (
@@ -6,6 +7,7 @@ from dagster import (
     AssetMaterialization,
     DagsterInstance,
     Definitions,
+    AssetSelection,
     SourceAsset,
     asset,
     evaluate_automation_conditions,
@@ -13,6 +15,7 @@ from dagster import (
 from dagster_shared_gf.automation.time_based import (
     my_cron_automation_condition,
 )
+from dagster_shared_gf.shared_variables import tags_repo
 
 
 def new_on_cron(cron_schedule: str, cron_timezone: str = "UTC"):
@@ -349,3 +352,151 @@ def test_on_cron_newly_missing_with_updated_deps():
     assert result.total_requested == 1, (
         "Debe disparar missing_asset antes del siguiente cron tick (sin patch debe fallar)"
     )
+
+
+def test_on_cron_allowed_deps_selection_only_requires_allowed_updated() -> None:
+    """Verifica que solo las dependencias dentro de allowed_deps_updated_selection
+    sean requeridas para disparar el asset downstream.
+
+    Escenario:
+      - asset_a (observable vía materialization manual) tiene la etiqueta AutomationHourly.
+      - asset_b no tiene etiqueta.
+      - downstream depende de ambos, pero la condición solo exige updates de los assets etiquetados.
+    Resultado esperado: downstream se dispara tras cron tick + update de asset_a, sin requerir update de asset_b.
+    """
+
+    @asset(tags={tags_repo.AutomationHourly.key: tags_repo.AutomationHourly.value})
+    def asset_a():
+        pass
+
+    @asset
+    def asset_b():
+        pass
+
+    allowed_selection = AssetSelection.tag(
+        key=tags_repo.AutomationHourly.key, value=tags_repo.AutomationHourly.value
+    )
+
+    @asset(
+        deps=[asset_a, asset_b],
+        automation_condition=my_cron_automation_condition(
+            cron_schedule="@hourly",
+            allowed_deps_updated_selection=allowed_selection,
+            lookback_delta=timedelta(hours=2),
+        ),
+    )
+    def downstream():
+        pass
+
+    current_time = datetime.datetime(2024, 8, 16, 4, 35)
+    defs = Definitions(assets=[asset_a, asset_b, downstream])
+    instance = DagsterInstance.ephemeral()
+
+    # Evaluación inicial (antes de pasar cron tick)
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("downstream")) == 0
+    cursor = result.cursor
+
+    # Avanzamos después del primer tick (05:05)
+    current_time += datetime.timedelta(minutes=30)  # 05:05
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("downstream")) == 0, (
+        "No debe disparar solo por el tick sin update"
+    )
+    cursor = result.cursor
+
+    # Actualizamos asset_a (05:06)
+    current_time += datetime.timedelta(minutes=1)  # 05:06
+    instance.report_runless_asset_event(AssetMaterialization("asset_a"))
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("downstream")) == 1, (
+        "Debe disparar tras update de asset_a"
+    )
+    cursor = result.cursor
+
+    # No vuelve a disparar sin nuevo cron tick (05:07)
+    current_time += datetime.timedelta(minutes=1)  # 05:07
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("downstream")) == 0
+    cursor = result.cursor
+
+    # Siguiente tick pasado (06:05)
+    current_time += datetime.timedelta(minutes=58)  # 06:05
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("downstream")) == 0
+    cursor = result.cursor
+
+    # Update asset_a tras nuevo tick (06:06)
+    current_time += datetime.timedelta(minutes=1)  # 06:06
+    instance.report_runless_asset_event(AssetMaterialization("asset_a"))
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("downstream")) == 1, (
+        "Debe disparar downstream tras nuevo tick y update de asset_a"
+    )
+
+
+def test_deps_updated_cron_requires_update_after_each_tick() -> None:
+    """Prueba mínima de deps_updated_cron.
+
+    Se usa un solo upstream (dep_asset). El downstream sólo debe disparar si hubo update
+    después de cada cron tick. Verificamos:
+      1. Sin update tras primer tick => no dispara.
+      2. Update tras primer tick => dispara.
+      3. Sin update tras segundo tick => no dispara.
+      4. Update tras segundo tick => (esperado dispara, hoy falla => xfail).
+    """
+
+    @asset
+    def dep_asset():
+        pass
+
+    @asset(
+        deps=[dep_asset],
+        automation_condition=my_cron_automation_condition(
+            cron_schedule="@daily",
+            deps_updated_cron="@hourly",
+            lookback_delta=timedelta(days=3),
+        ),
+    )
+    def target():
+        pass
+
+    current_time = datetime.datetime(2024, 8, 16, 4, 35)
+    defs = Definitions(assets=[dep_asset, target])
+    instance = DagsterInstance.ephemeral()
+
+    # Evaluación inicial sin tick
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("target")) == 0
+    cursor = result.cursor
+
+    # Avanzamos al primer tick pasado (05:05)
+    current_time += datetime.timedelta(days=1, minutes=30)  # 05:05 next day
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("target")) == 0
+    cursor = result.cursor
+
+    # Update posterior (05:06)
+    current_time += datetime.timedelta(minutes=1)  # 05:06
+    instance.report_runless_asset_event(AssetMaterialization("dep_asset"))
+    result = evaluate_automation_conditions(
+        defs=defs, instance=instance, cursor=cursor, evaluation_time=current_time
+    )
+    assert result.get_num_requested(AssetKey("target")) == 1
+    cursor = result.cursor

@@ -96,6 +96,14 @@ all_assets += apply_function_to_submodules(
     module_name="dagster_kielsa_gf.sling_defs",
     include_specs=True,
 )
+
+all_assets += apply_function_to_submodules(
+    load_assets_from_modules,
+    module_name="dagster_kielsa_gf.sms_kielsa_defs",
+    include_specs=True,
+)
+
+
 all_sources_assets_keys = tuple(
     {asset.key}
     for asset in filter(lambda asset: isinstance(asset, AssetSpec), all_assets)
