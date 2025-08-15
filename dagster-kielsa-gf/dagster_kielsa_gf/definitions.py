@@ -2,12 +2,14 @@ from dagster import (
     AssetSelection,
     Definitions,
     build_sensor_for_freshness_checks,
+    load_definitions_from_package_module,
 )
 
 import dagster_kielsa_gf.dlt_defs.definitions as dlt_defs
 import dagster_kielsa_gf.sling_defs as sling_defs
 import dagster_kielsa_gf.gobernor.jobs_gobernor as gobernor_defs
 from dagster_kielsa_gf import job_control_replicas, jobs
+from dagster_kielsa_gf import sms_kielsa_defs
 from dagster_kielsa_gf.assets import (
     analysis_services,
     cliente_general,
@@ -111,6 +113,7 @@ defs = Definitions.merge(
     ),
     sling_defs.defs,
     dlt_defs.defs,
+    load_definitions_from_package_module(sms_kielsa_defs),
     gobernor_defs.defs,  # De ultimo ya que puede gobernar los demas subrepos
 )
 
