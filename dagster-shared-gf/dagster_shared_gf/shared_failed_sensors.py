@@ -67,11 +67,10 @@ def _format_run_failure_email_simple(
     job_name: Optional[str],
     run_start_iso: Optional[str],
     run_end_iso: Optional[str],
+    initiator: Optional[str] = None,
 ) -> tuple[str, str]:
     """Formato simple para fallos de run sin asset identificado."""
-    subject = (
-        f"[analiticastetl][Run Failure][{env_str}] Run {run_id} - {job_name or 'N/A'}"
-    )
+    subject = f"[analiticastetl][Run Failure][{env_str}] {job_name or 'N/A'} - {initiator or 'N/A'} - Run {run_id}"
     body_parts = [
         f"Run id: {run_id}",
         f"Job: {job_name or 'N/A'}",
@@ -79,7 +78,49 @@ def _format_run_failure_email_simple(
         f"Hora fin (UTC): {run_end_iso or 'N/A'}",
         "No se identificó un asset específico asociado al fallo (RUN_FAILURE).",
     ]
-    return subject, "\n".join(body_parts)
+    body = "\n".join(body_parts)
+    if initiator:
+        body = f"Iniciador: {initiator}\n\n" + body
+    return subject, body
+
+
+def _get_run_initiator(run: dg.DagsterRun) -> Optional[str]:
+    """Try to determine who/what initiated the run using standard Dagster tags.
+
+    Returns a short string like 'sensor:NAME', 'schedule:NAME', 'user:EMAIL',
+    'tick:ID', 'external_source:VALUE' or None when unknown.
+    """
+    try:
+        from dagster._core.storage.tags import (
+            SCHEDULE_NAME_TAG,
+            SENSOR_NAME_TAG,
+            TICK_ID_TAG,
+            EXTERNAL_JOB_SOURCE_TAG_KEY,
+            AUTOMATION_CONDITION_TAG,
+            USER_TAG,
+        )
+
+        tags = getattr(run, "tags", {}) or {}
+        # sensor takes precedence over schedule
+        if tags.get(SENSOR_NAME_TAG):
+            return f"sensor:{tags.get(SENSOR_NAME_TAG)}"
+        if tags.get(SCHEDULE_NAME_TAG):
+            return f"schedule:{tags.get(SCHEDULE_NAME_TAG)}"
+        if tags.get(TICK_ID_TAG):
+            return f"tick:{tags.get(TICK_ID_TAG)}"
+        if tags.get(EXTERNAL_JOB_SOURCE_TAG_KEY):
+            return f"external_source:{tags.get(EXTERNAL_JOB_SOURCE_TAG_KEY)}"
+        # automation condition is boolean-like tag; if present, mark as automation
+        if tags.get(AUTOMATION_CONDITION_TAG) == "true":
+            return "automation"
+        # user tags: both legacy 'user' and 'dagster/user'
+        if tags.get(USER_TAG):
+            return f"user:{tags.get(USER_TAG)}"
+        if tags.get("dagster/user"):
+            return f"user:{tags.get('dagster/user')}"
+    except Exception:
+        pass
+    return None
 
 
 def get_asset_owners(
@@ -94,20 +135,6 @@ def get_asset_owners(
         return []
     owners = asset_metadata.owners_by_key.get(asset_key)
     return owners if owners else []
-
-
-def _group_by_run(
-    events: Sequence[dg.EventLogRecord],
-) -> Dict[str, List[dg.EventLogRecord]]:
-    groups: Dict[str, List[dg.EventLogRecord]] = {}
-    for e in events:
-        run_id = getattr(e, "run_id", None) or getattr(
-            e.event_log_entry, "run_id", None
-        )
-        if not run_id:
-            run_id = f"no-run-{e.storage_id}"
-        groups.setdefault(run_id, []).append(e)
-    return groups
 
 
 def _extract_failed_asset_keys(
@@ -184,6 +211,7 @@ def _format_email_spanish(
     owners_map: Dict[dg.AssetKey, List[str]],
     run_start_iso: Optional[str] = None,
     run_end_iso: Optional[str] = None,
+    initiator: Optional[str] = None,
 ) -> Tuple[str, str]:
     jobs = ", ".join(sorted(job_names)) if job_names else "N/A"
     failed_lines = "\n".join(
@@ -206,8 +234,11 @@ def _format_email_spanish(
     )
     run_end_line = f"Hora fin run (UTC): {run_end_iso}\n\n" if run_end_iso else ""
 
+    # Si se proporcionó iniciador, incluirlo al inicio del cuerpo
+    initiator_line = f"Iniciador: {initiator}\n\n" if initiator else ""
+
     body = (
-        f"Se ha producido un fallo en la(s) materialización(es) del/los activo(s):\n"
+        f"{initiator_line}Se ha producido un fallo en la(s) materialización(es) del/los activo(s):\n"
         f"{failed_lines}\n\n"
         f"Run id: {run_id}\n"
         f"Job(s): {jobs}\n"
@@ -216,7 +247,7 @@ def _format_email_spanish(
         f"{chr(10).join(downstream_lines)}{more_line}\n\n"
         f"Por favor, revise el error y tome las medidas necesarias."
     )
-    subject = f"[analiticastetl][Error][{env_str}] Run {run_id} - {jobs}"
+    subject = f"[analiticastetl][Run Failure][{env_str}] {jobs or 'N/A'} - {initiator or 'N/A'} - Run {run_id}"
     return subject, body
 
 
@@ -377,6 +408,12 @@ def failed_asset_notification_sensor(
             else None
         )
 
+        # extraer posible iniciador/lanzador del run (sensor, schedule, user, external)
+        try:
+            run_initiator = _get_run_initiator(run)
+        except Exception:
+            run_initiator = None
+
         if failed_asset_keys:
             downstream_top, more_count = _resolve_downstream_top_k(
                 repo_ref, failed_asset_keys, k=10
@@ -398,6 +435,7 @@ def failed_asset_notification_sensor(
                 owners_map,
                 run_start_iso,
                 run_end_iso,
+                run_initiator,
             )
             enviador_correo_e_analitica_farinter.send_email(
                 email_to=sorted(recipients), email_subject=subject, email_body=body
@@ -412,6 +450,7 @@ def failed_asset_notification_sensor(
                 job_name=job_name_primary,
                 run_start_iso=run_start_iso,
                 run_end_iso=run_end_iso,
+                initiator=run_initiator,
             )
             enviador_correo_e_analitica_farinter.send_email(
                 email_to=sorted(DEFAULT_RUN_FAILURE_EMAILS),
