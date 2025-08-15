@@ -7,6 +7,7 @@ from dagster_global_gf import assets as assets_repo
 from dagster_global_gf.assets import dbt_sources
 from dagster_global_gf.jobs import all_jobs
 from dagster_global_gf.schedules import all_schedules
+from dagster_shared_gf import shared_failed_sensors
 from dagster_shared_gf.shared_constants import (
     running_default_sensor_status,
     hourly_freshness_seconds_per_environ,
@@ -39,6 +40,7 @@ defs = Definitions(
     sensors=(
         *ACSSensorFactory().get_sensors(),
         all_shared_assets_freshness_checks_sensor,
+        shared_failed_sensors.failed_asset_notification_sensor,
     ),
     resources=all_shared_resources,
 )
