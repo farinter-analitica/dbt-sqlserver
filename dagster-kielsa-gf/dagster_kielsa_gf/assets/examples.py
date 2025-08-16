@@ -7,6 +7,8 @@ from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo
 import pandas as pd
 
+# Estas pruebas o ejemplos ayudan a evitar jobs predefinidos o automatizaciones vacías.
+
 
 @asset
 def fetch_data_from_sql(dwh_farinter_adm: SQLServerResource):
@@ -68,25 +70,30 @@ def select_top_facturaposicion(dwh_farinter_dl: SQLServerResource):
 
 
 @asset(tags=tags_repo.AutomationHourly)
-def kielsa_example_hourly_automation():
+def kielsa_ejemplo_prueba_test_example_hourly_automation():
     pass
 
 
 @asset(tags=tags_repo.AutomationDaily)
-def kielsa_example_daily_automation():
+def kielsa_ejemplo_prueba_test_example_daily_automation():
     pass
 
 
 @asset(tags=tags_repo.AutomationWeekly1)
-def kielsa_example_weekly_automation():
+def kielsa_ejemplo_prueba_test_example_weekly_automation():
     pass
 
 
 @asset(tags=tags_repo.AutomationMonthlyStart)
-def kielsa_example_monthly_automation():
+def kielsa_ejemplo_prueba_test_example_monthly_automation():
     pass
 
 
 @asset(tags=tags_repo.Daily)
-def kielsa_example_daily_without_automation():
+def kielsa_ejemplo_prueba_test_example_daily_without_automation():
+    pass
+
+
+@asset(tags=tags_repo.Hourly)
+def kielsa_ejemplo_prueba_test_example_hourly_without_automation():
     pass
