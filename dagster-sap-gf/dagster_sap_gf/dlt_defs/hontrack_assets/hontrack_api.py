@@ -320,7 +320,7 @@ def hontrack_api_source(
             {
                 "name": "zones_resumen_base",
                 "primary_key": ["evtdid"],
-                "selected": False,  # necesitamos transformar a dos tablas para poder actualizar sin reemplazar la data por fecha
+                "selected": True,  # necesitamos transformar a dos tablas para poder actualizar sin reemplazar la data por fecha
                 "endpoint": {
                     "path": "zones/get_zones_resumen.php",
                     "method": "POST",
@@ -580,7 +580,7 @@ def hontrack_api_source(
         references=[drivers_resumen_reference],
     )
 
-    source.resources.add(zones_resumen_base_to_dict)
+    # source.resources.add(zones_resumen_base_to_dict)
     source.resources.add(zones_resumen)
     source.resources.add(zones_resumen_data)
     source.resources.add(drivers_resumen_base)
@@ -734,10 +734,12 @@ if __name__ == "__main__":
             "test_job",
             selection=(
                 # None
+                # dg.AssetSelection.all()
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
+                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_base")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
         )
         test_resources = {
@@ -753,8 +755,8 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2025-06-02",
-                "dagster/asset_partition_range_end": "2025-06-03",
+                "dagster/asset_partition_range_start": "2025-08-15",
+                "dagster/asset_partition_range_end": "2025-08-16",
             },
             resources=test_resources,
             instance=instance,
@@ -764,7 +766,7 @@ if __name__ == "__main__":
                         "config": {
                             # "dev_mode": True,
                             # "write_disposition": "replace",
-                            # "refresh": "drop_resources",
+                            "refresh": "drop_resources",
                         }
                     }
                 }
