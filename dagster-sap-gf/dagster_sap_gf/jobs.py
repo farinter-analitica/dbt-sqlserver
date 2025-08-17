@@ -1,7 +1,7 @@
 from dagster import AssetSelection, JobDefinition, RunConfig, define_asset_job
 
 from dagster_sap_gf.assets.dbt_dwh_sap import MyDbtConfig
-from dagster_global_gf.definitions import ACSSensorFactory
+from dagster_shared_gf.shared_defs import ACSSensorFactory
 from dagster_shared_gf.shared_functions import get_all_instances_of_class
 from dagster_shared_gf.shared_variables import (
     UnresolvedAssetJobDefinition,

@@ -9,8 +9,7 @@ from dagster import (
 from dagster import (
     AutomationConditionSensorDefinition as ACS,
 )
-from dagster_global_gf import assets as assets_repo
-from dagster_global_gf.assets import dbt_sources
+
 from dagster_polars import PolarsParquetIOManager
 
 from dagster_shared_gf.automation import automation_hourly_delta_12_cron
@@ -24,15 +23,9 @@ from dagster_shared_gf.resources import (
 from dagster_shared_gf.shared_constants import (
     running_default_sensor_status,
 )
-from dagster_shared_gf.shared_helpers import (
-    get_unique_source_assets,
-)
+
 from dagster_shared_gf.shared_variables import Tags, tags_repo
 
-all_assets = assets_repo.all_assets
-dbt_sources_assets: list = get_unique_source_assets(
-    assets_repo.all_assets, dbt_sources.source_assets
-)
 
 all_shared_resources = {
     "dwh_farinter": sql_server_resources.dwh_farinter,
