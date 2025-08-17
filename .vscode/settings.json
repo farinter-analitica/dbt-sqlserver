@@ -1,11 +1,10 @@
 {
     "dbt.enableNewLineagePanel": true,
-    "python.analysis.autoImportCompletions": false,
-    "python.testing.pytestArgs": [
-        "."
-    ],
+    "python.analysis.autoImportCompletions": true,
+    // Usar wrapper para discovery/run que despacha a cada .venv pytest
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    //"python.testing.autoTestDiscoverOnSaveEnabled": true,
     "python.testing.autoTestDiscoverOnSavePattern": "**/test*.py",
     "dbt.perspectiveTheme": "Vintage",
     "python.envFile": "${workspaceFolder}/.env",

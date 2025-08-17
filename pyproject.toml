@@ -1,7 +1,7 @@
 [tool.pyright]
 typeCheckingMode = "standard"
-venv = ".venv"
-venvPath = "."
+# venv = ".venv"
+# venvPath = "."
 
 [tool.pytest.ini_options]
 env_files = [".env", ".env.test"]
@@ -21,18 +21,49 @@ testpaths = [
 [tool.main_dagster]
 python_version = "3.12" # Explicitly specify the required Python version
 
+# Proyecto raíz actúa como "host runtime" (daemon/webserver) mínimo.
+# Las code locations usan sus propios entornos aislados; este entorno sólo
+# necesita Dagster core y servicios base. Las deps de desarrollo van en
+# dependency-groups (dev/helpers) y no se instalan en despliegue (--no-dev).
+[project]
+name = "main-dagster-runtime"
+version = "0.1.0"
+description = "Minimal Dagster host runtime (webserver + daemon)"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+dependencies = [
+    "dagster>=1.9.7,<1.12",
+    "dagster-webserver>=1.9.7,<2.0",
+    "dagster-postgres",
+    "dagster-cloud",
+]
+
+# Empty optional group so that deployment script can call
+# 'uv sync --extra external' without error (root runtime has no external deps)
+[project.optional-dependencies]
+external = []
+
 [tool.uv]
 config-settings = { editable_mode = "compat" } # better-toml-ignore
 default-groups = ["dev", "helpers"]
 
-[tool.uv.sources]
-dagster-shared-gf = { workspace = true }
-dagster-sap-gf = { workspace = true }
-dagster-kielsa-gf = { workspace = true }
-dagster-global-gf = { workspace = true }
+# Se desactiva el workspace uv para que el .venv raíz NO instale automáticamente
+# los paquetes de las code locations. Cada location gestionará su propio lock/entorno
+# (o reutilizará el lock raíz sólo para herramientas si se invoca en su carpeta).
+# Si en el futuro se requiere un único uv.lock multi‑paquete, reintroducir estas secciones.
+# [tool.uv.sources]
+# dagster-shared-gf = { workspace = true }
+# dagster-sap-gf = { workspace = true }
+# dagster-kielsa-gf = { workspace = true }
+# dagster-global-gf = { workspace = true }
 
-[tool.uv.workspace]
-members = ["dagster-shared-gf", "dagster-sap-gf", "dagster-kielsa-gf", "dagster-global-gf"]
+# [tool.uv.workspace]
+# members = [
+#     "dagster-shared-gf",
+#     "dagster-sap-gf",
+#     "dagster-kielsa-gf",
+#     "dagster-global-gf",
+# ]
 
 [tool.yamlfix]
 line_lenght = 0
@@ -52,7 +83,7 @@ dev = [
     "pre-commit",
     "prettier>=0.0.7",
     "sqlfluff",
-    "sqlfluff-templater-dbt"
+    "sqlfluff-templater-dbt",
     #"shandy-sqlfmt", #No compatible debido que solo usa snake_case
 ]
 
@@ -68,3 +99,6 @@ analitics = [
     "xgboost>=3.0.0",
     "xlsxwriter>=3.2.2",
 ]
+
+# ---------------------------------------------------------------------------
+# Configurar los entornos a instalar en scripts/deployment.sh

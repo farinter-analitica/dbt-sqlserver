@@ -1,0 +1,769 @@
+{
+  "dagster-global-gf": {
+    "shared_modules_imported": [
+      "dagster_shared_gf",
+      "dagster_shared_gf.automation.tags_mapping",
+      "dagster_shared_gf.resources.dbt_resources",
+      "dagster_shared_gf.resources.sql_server_resources",
+      "dagster_shared_gf.shared_constants",
+      "dagster_shared_gf.shared_defs",
+      "dagster_shared_gf.shared_functions",
+      "dagster_shared_gf.shared_helpers",
+      "dagster_shared_gf.shared_variables",
+      "dagster_shared_gf.utils"
+    ],
+    "external_packages_required": {
+      "dagster": {
+        "used_by": [
+          "dagster_shared_gf.automation.tags_mapping",
+          "dagster_shared_gf.resources.dbt_resources",
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_constants",
+          "dagster_shared_gf.shared_defs",
+          "dagster_shared_gf.shared_functions",
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "warnings": {
+        "used_by": [
+          "dagster_shared_gf.resources.dbt_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "pydantic": {
+        "used_by": [
+          "dagster_shared_gf.resources.dbt_resources",
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "dagster_dbt": {
+        "used_by": [
+          "dagster_shared_gf.resources.dbt_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "pyodbc": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "extra",
+        "extras": [
+          "odbc"
+        ]
+      },
+      "contextlib": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "enum": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_constants"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "urllib": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "unittest": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "base64": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "sqlalchemy": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dagster_polars": {
+        "used_by": [
+          "dagster_shared_gf.shared_defs"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dlt": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "extra",
+        "extras": [
+          "etl"
+        ]
+      },
+      "requests": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "trycast": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "dagster_graphql": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "scipy": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "extra",
+        "extras": [
+          "ml"
+        ]
+      },
+      "dotenv": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "numpy": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "polars": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "textwrap": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      }
+    },
+    "extras_suggested": [
+      "etl",
+      "ml",
+      "odbc"
+    ],
+    "missing_packages": [
+      "base64",
+      "contextlib",
+      "dagster_dbt",
+      "dagster_graphql",
+      "dagster_polars",
+      "dotenv",
+      "enum",
+      "numpy",
+      "polars",
+      "sqlalchemy",
+      "textwrap",
+      "unittest",
+      "urllib",
+      "warnings"
+    ]
+  },
+  "dagster-kielsa-gf": {
+    "shared_modules_imported": [
+      "dagster_shared_gf",
+      "dagster_shared_gf.automation",
+      "dagster_shared_gf.automation.time_based",
+      "dagster_shared_gf.dlt_shared",
+      "dagster_shared_gf.dlt_shared.dlt_resources",
+      "dagster_shared_gf.dlt_shared.mongodb",
+      "dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers",
+      "dagster_shared_gf.load_env_run",
+      "dagster_shared_gf.partitions.time_based",
+      "dagster_shared_gf.resources.correo_e",
+      "dagster_shared_gf.resources.dbt_resources",
+      "dagster_shared_gf.resources.postgresql_resources",
+      "dagster_shared_gf.resources.smb_resources",
+      "dagster_shared_gf.resources.sql_server_resources",
+      "dagster_shared_gf.shared_constants",
+      "dagster_shared_gf.shared_dagster_api",
+      "dagster_shared_gf.shared_defs",
+      "dagster_shared_gf.shared_functions",
+      "dagster_shared_gf.shared_helpers",
+      "dagster_shared_gf.shared_ops",
+      "dagster_shared_gf.shared_variables",
+      "dagster_shared_gf.sling_shared.generate_yaml",
+      "dagster_shared_gf.sling_shared.sling_resources",
+      "dagster_shared_gf.utils"
+    ],
+    "external_packages_required": {
+      "dagster": {
+        "used_by": [
+          "dagster_shared_gf.automation.time_based",
+          "dagster_shared_gf.dlt_shared.dlt_resources",
+          "dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers",
+          "dagster_shared_gf.partitions.time_based",
+          "dagster_shared_gf.resources.correo_e",
+          "dagster_shared_gf.resources.dbt_resources",
+          "dagster_shared_gf.resources.postgresql_resources",
+          "dagster_shared_gf.resources.smb_resources",
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_constants",
+          "dagster_shared_gf.shared_defs",
+          "dagster_shared_gf.shared_functions",
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.shared_ops",
+          "dagster_shared_gf.shared_variables",
+          "dagster_shared_gf.sling_shared.sling_resources"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "dlt": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.dlt_resources",
+          "dagster_shared_gf.dlt_shared.mongodb",
+          "dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers",
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "extra",
+        "extras": [
+          "etl"
+        ]
+      },
+      "dagster_dlt": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.dlt_resources",
+          "dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "pydantic": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.dlt_resources",
+          "dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers",
+          "dagster_shared_gf.resources.dbt_resources",
+          "dagster_shared_gf.resources.smb_resources",
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "helpers": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.mongodb"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "decimal": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.mongodb.custom_dagster_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dotenv": {
+        "used_by": [
+          "dagster_shared_gf.load_env_run",
+          "dagster_shared_gf.resources.correo_e",
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "pytz": {
+        "used_by": [
+          "dagster_shared_gf.partitions.time_based"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "ssl": {
+        "used_by": [
+          "dagster_shared_gf.resources.correo_e"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "smtplib": {
+        "used_by": [
+          "dagster_shared_gf.resources.correo_e"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "random": {
+        "used_by": [
+          "dagster_shared_gf.resources.correo_e"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "warnings": {
+        "used_by": [
+          "dagster_shared_gf.resources.dbt_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dagster_dbt": {
+        "used_by": [
+          "dagster_shared_gf.resources.dbt_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "sqlalchemy": {
+        "used_by": [
+          "dagster_shared_gf.resources.postgresql_resources",
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.sling_shared.generate_yaml"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "contextlib": {
+        "used_by": [
+          "dagster_shared_gf.resources.postgresql_resources",
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "smbclient": {
+        "used_by": [
+          "dagster_shared_gf.resources.smb_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "pyodbc": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "extra",
+        "extras": [
+          "odbc"
+        ]
+      },
+      "enum": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_constants",
+          "dagster_shared_gf.shared_dagster_api"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "urllib": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "unittest": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "base64": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dagster_graphql": {
+        "used_by": [
+          "dagster_shared_gf.shared_dagster_api",
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dataclasses": {
+        "used_by": [
+          "dagster_shared_gf.shared_dagster_api",
+          "dagster_shared_gf.sling_shared.sling_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "requests": {
+        "used_by": [
+          "dagster_shared_gf.shared_dagster_api",
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "dagster_polars": {
+        "used_by": [
+          "dagster_shared_gf.shared_defs"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "trycast": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "scipy": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "extra",
+        "extras": [
+          "ml"
+        ]
+      },
+      "numpy": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "polars": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.shared_ops",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "textwrap": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.sling_shared.generate_yaml"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "yaml": {
+        "used_by": [
+          "dagster_shared_gf.sling_shared.generate_yaml"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dagster_sling": {
+        "used_by": [
+          "dagster_shared_gf.sling_shared.sling_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      }
+    },
+    "extras_suggested": [
+      "etl",
+      "ml",
+      "odbc"
+    ],
+    "missing_packages": [
+      "base64",
+      "contextlib",
+      "dagster_dbt",
+      "dagster_dlt",
+      "dagster_graphql",
+      "dagster_polars",
+      "dagster_sling",
+      "dataclasses",
+      "decimal",
+      "dotenv",
+      "enum",
+      "helpers",
+      "numpy",
+      "polars",
+      "random",
+      "smbclient",
+      "smtplib",
+      "sqlalchemy",
+      "ssl",
+      "textwrap",
+      "unittest",
+      "urllib",
+      "warnings",
+      "yaml"
+    ]
+  },
+  "dagster-sap-gf": {
+    "shared_modules_imported": [
+      "dagster_shared_gf",
+      "dagster_shared_gf.automation",
+      "dagster_shared_gf.automation.tags_mapping",
+      "dagster_shared_gf.dlt_shared",
+      "dagster_shared_gf.dlt_shared.dlt_resources",
+      "dagster_shared_gf.partitions.time_based",
+      "dagster_shared_gf.resources.dbt_resources",
+      "dagster_shared_gf.resources.smb_resources",
+      "dagster_shared_gf.resources.sql_server_resources",
+      "dagster_shared_gf.shared_constants",
+      "dagster_shared_gf.shared_defs",
+      "dagster_shared_gf.shared_functions",
+      "dagster_shared_gf.shared_helpers",
+      "dagster_shared_gf.shared_variables",
+      "dagster_shared_gf.utils"
+    ],
+    "external_packages_required": {
+      "dagster": {
+        "used_by": [
+          "dagster_shared_gf.automation.tags_mapping",
+          "dagster_shared_gf.dlt_shared.dlt_resources",
+          "dagster_shared_gf.partitions.time_based",
+          "dagster_shared_gf.resources.dbt_resources",
+          "dagster_shared_gf.resources.smb_resources",
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_constants",
+          "dagster_shared_gf.shared_defs",
+          "dagster_shared_gf.shared_functions",
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "dlt": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.dlt_resources",
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "extra",
+        "extras": [
+          "etl"
+        ]
+      },
+      "dagster_dlt": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.dlt_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "pydantic": {
+        "used_by": [
+          "dagster_shared_gf.dlt_shared.dlt_resources",
+          "dagster_shared_gf.resources.dbt_resources",
+          "dagster_shared_gf.resources.smb_resources",
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "pytz": {
+        "used_by": [
+          "dagster_shared_gf.partitions.time_based"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "warnings": {
+        "used_by": [
+          "dagster_shared_gf.resources.dbt_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dagster_dbt": {
+        "used_by": [
+          "dagster_shared_gf.resources.dbt_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "smbclient": {
+        "used_by": [
+          "dagster_shared_gf.resources.smb_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "pyodbc": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "extra",
+        "extras": [
+          "odbc"
+        ]
+      },
+      "contextlib": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "enum": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_constants"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "urllib": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "unittest": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "base64": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "sqlalchemy": {
+        "used_by": [
+          "dagster_shared_gf.resources.sql_server_resources",
+          "dagster_shared_gf.shared_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "dagster_polars": {
+        "used_by": [
+          "dagster_shared_gf.shared_defs"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "requests": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "trycast": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "core",
+        "extras": []
+      },
+      "dagster_graphql": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "scipy": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "extra",
+        "extras": [
+          "ml"
+        ]
+      },
+      "dotenv": {
+        "used_by": [
+          "dagster_shared_gf.shared_functions"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "numpy": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "polars": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers",
+          "dagster_shared_gf.shared_variables"
+        ],
+        "status": "missing",
+        "extras": []
+      },
+      "textwrap": {
+        "used_by": [
+          "dagster_shared_gf.shared_helpers"
+        ],
+        "status": "missing",
+        "extras": []
+      }
+    },
+    "extras_suggested": [
+      "etl",
+      "ml",
+      "odbc"
+    ],
+    "missing_packages": [
+      "base64",
+      "contextlib",
+      "dagster_dbt",
+      "dagster_dlt",
+      "dagster_graphql",
+      "dagster_polars",
+      "dotenv",
+      "enum",
+      "numpy",
+      "polars",
+      "smbclient",
+      "sqlalchemy",
+      "textwrap",
+      "unittest",
+      "urllib",
+      "warnings"
+    ]
+  }
+}

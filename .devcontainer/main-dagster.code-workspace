@@ -1,0 +1,19 @@
+{
+  "folders": [
+    { "path": ".." },
+    { "path": "../dagster-shared-gf" },
+    { "path": "../dagster-global-gf" },
+    { "path": "../dagster-kielsa-gf" },
+    { "path": "../dagster-sap-gf" }
+  ],
+  "settings": {
+    // Hide these subfolders when the repository root ("..") is open to avoid duplicate entries in Explorer
+    "files.exclude": {
+      "dagster-shared-gf": true,
+      "dagster-global-gf": true,
+      "dagster-kielsa-gf": true,
+      "dagster-sap-gf": true
+    }
+  }
+}
+

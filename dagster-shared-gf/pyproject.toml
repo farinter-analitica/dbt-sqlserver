@@ -9,7 +9,7 @@ version = "1.0.1"
 description = "Dagster shared components for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
-requires-python = ">=3.12.10, <3.13"
+requires-python = ">=3.12, <3.13"  # Relaxed (was >=3.12.10) to avoid patch‑level constraint blocking per-location envs
 license = { text = "Proprietary" }
 # Development Status :: 1 - Planning
 # Development Status :: 2 - Pre-Alpha
@@ -35,41 +35,41 @@ classifiers = [
 ]
 
 dependencies = [
+    # Núcleo mínimo transversal a todas las code locations
     "dagster>=1.9.7,<1.12",
-    "dbt-core>=1.8,<2.0",
-    "dagster-dbt>=0.24",
-    "dbt-postgres>=1.8,<2.0",
-    "dbt-sqlserver>=1.8.0,<2.0",
     "dagster-webserver>=1.9.7,<2.0",
     "dagster-postgres",
     "dagster-cloud",
+    "dagster-dbt>=0.24",
+    "dbt-core>=1.8,<2.0",
+    "dbt-postgres>=1.8,<2.0",
+    "dbt-sqlserver>=1.8.0,<2.0",
     "trycast",
-    "pandas",
-    "pyodbc",
-    "smbprotocol",
-    "dagster-polars<0.27.5",
-    "patito",
-    "dagster-gcp",
-    "fastexcel",
-    "openpyxl",
-    "xlsx2csv",
-    "dagster-dlt",
-    "dagster-sling",
-    "pymongo",
-    "pymongoarrow",
-    "arrow-odbc",
-    "deep-translator",
+    "requests",
     "psycopg[binary,pool]",
     "wheel",
-    "ipython",
-    "psutil",
-    "requests",
-    "scipy",
-    "dlt",
+    # Ampliado tras análisis automático: utilizados en todas / varias ubicaciones
+    "pydantic>=2,<3",
+    "pytz",
 ]
 
 [project.optional-dependencies]
+# Extras específicos (ningún paquete listado arriba en core debe repetirse aquí)
 external = ["statstools_gf", "algoritmo_mddme_gf"]
+excel = ["fastexcel", "openpyxl", "xlsx2csv"]
+etl = ["dagster-dlt", "dagster-sling", "dlt"]
+gcp = ["dagster-gcp"]
+mongo = ["pymongo", "pymongoarrow"]
+odbc = ["pyodbc", "arrow-odbc", "smbprotocol"]
+translation = ["deep-translator"]
+ml = ["scipy"]
+interactive = ["ipython"]
+monitoring = ["psutil"]
+polars = ["dagster-polars<0.27.5", "patito"]
+pandas = ["pandas"]
+
+[dependency-groups]
+dev = ["pytest", "pytest-mock", "pytest-env", "mypy", "ruff", "pre-commit"]
 
 [project.urls]
 Repository = "https://github.com/farinter-analitica/main-dagster"

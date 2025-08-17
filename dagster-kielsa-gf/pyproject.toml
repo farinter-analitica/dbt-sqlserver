@@ -12,7 +12,7 @@ version = "1.0.1"
 description = "Dagster kielsa for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 license = { text = "Proprietary" }
 # Development Status :: 1 - Planning
 # Development Status :: 2 - Pre-Alpha
@@ -37,11 +37,15 @@ classifiers = [
 ]
 
 dependencies = [
-    "dagster_shared_gf",
+    # Polars promovido a core; mantiene etl, ml, pandas. Añadimos odbc sugerido.
+    "dagster_shared_gf[etl,ml,pandas,odbc,polars,mongo]",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "mypy", "ruff", "pre-commit"]
+external = ["dagster_shared_gf[external]"]
+
+[dependency-groups]
+dev = ["pytest", "pytest-mock", "pytest-env", "mypy", "ruff", "pre-commit"]
 
 [tool.uv.build-backend]
 module-root = "."
@@ -55,3 +59,7 @@ dagster_kielsa_gf = ["dagster_kielsa_gf_tests"]
 
 [project.urls]
 Repository = "https://github.com/farinter-analitica/main-dagster"
+
+[tool.uv.sources.dagster_shared_gf]
+path = "../dagster-shared-gf"
+editable = true

@@ -12,7 +12,7 @@ version = "1.0.1"
 description = "dagster_global_gf for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 license = { text = "Proprietary" }
 # Development Status :: 1 - Planning
 # Development Status :: 2 - Pre-Alpha
@@ -37,11 +37,15 @@ classifiers = [
 ]
 
 dependencies = [
-    "dagster_shared_gf",
+    # Polars pasa a core común (pydantic/pytz también). Solo requiere translation ahora.
+    "dagster_shared_gf[translation,etl,ml,odbc,polars]",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "mypy", "ruff", "pre-commit"]
+external = []
+
+[dependency-groups]
+dev = ["pytest", "pytest-mock", "pytest-env", "mypy", "ruff", "pre-commit"]
 
 [tool.uv.build-backend]
 module-root = "."
@@ -55,3 +59,8 @@ dagster_global_gf = ["dagster_global_gf_tests"]
 
 [project.urls]
 Repository = "https://github.com/farinter-analitica/main-dagster"
+
+# Fuente local para el paquete compartido (sin workspace uv)
+[tool.uv.sources.dagster_shared_gf]
+path = "../dagster-shared-gf"
+editable = true
