@@ -16,8 +16,6 @@ import re
 from pathlib import Path
 from typing import Mapping
 
-import sys
-import site
 
 import tomllib  # Python 3.11+
 
@@ -62,25 +60,26 @@ def _load_env_sample(root: Path) -> None:
 
 
 # --- local .venv injection --------------------------------------------------
-def _inject_local_venv() -> None:
-    tests_root = Path(__file__).resolve().parents[1]  # dagster-sap-gf
-    venv = tests_root / ".venv"
-    pyver = f"python{sys.version_info.major}.{sys.version_info.minor}"
-    candidates = [
-        venv / "lib" / pyver / "site-packages",
-        venv / "lib64" / pyver / "site-packages",
-    ]
-    for cand in candidates:
-        if cand.is_dir() and str(cand) not in sys.path:
-            site.addsitedir(str(cand))
-            if str(cand) in sys.path:
-                sys.path.remove(str(cand))
-            sys.path.insert(0, str(cand))
-            break
+# def _inject_local_venv() -> None:
+#     tests_root = Path(__file__).resolve().parents[1]  # dagster-sap-gf
+#     venv = tests_root / ".venv"
+#     pyver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+#     candidates = [
+#         venv / "bin",
+#         venv / "lib" / pyver / "site-packages",
+#         venv / "lib64" / pyver / "site-packages",
+#     ]
+#     for cand in candidates:
+#         if cand.is_dir() and str(cand) not in sys.path:
+#             site.addsitedir(str(cand))
+#             if str(cand) in sys.path:
+#                 sys.path.remove(str(cand))
+#             sys.path.insert(0, str(cand))
+#             break
 
 
 def pytest_configure() -> None:  # pragma: no cover
-    _inject_local_venv()
+    # _inject_local_venv()
     root = Path(__file__).resolve().parents[2]
     _load_sample_secrets(root)
     _load_env_sample(root)

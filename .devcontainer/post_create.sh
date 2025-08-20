@@ -64,7 +64,20 @@ echo "🎉 Entorno de desarrollo preparado correctamente (multi-location .venv).
 echo "ℹ️  Ejemplo para correr tests de una location:"
 echo "    (cd dagster-kielsa-gf; UV_PROJECT_ENVIRONMENT=\"\$(pwd)/.venv\" uv run --frozen pytest -q)"
 
-# # Abrir automáticamente el workspace multi-root (no bloqueante)
-# if command -v code >/dev/null 2>&1; then
-#   (code -r .devcontainer/main-dagster.code-workspace || true) &
-# fi
+# Abrir automáticamente el workspace multi-root (no bloqueante)
+if command -v code >/dev/null 2>&1; then
+  # Intentar abrir; si falla, informar al usuario con pasos para abrir desde el host.
+  (
+    if code -r .devcontainer/main-dagster.code-workspace 2>/dev/null; then
+      echo "Se solicitó abrir el workspace multi-root en tu VS Code (no bloqueante)."
+    else
+      echo "No se pudo abrir el workspace automáticamente desde el contenedor."
+      echo "Para abrirlo manualmente en tu host ejecuta:"
+      echo "  code -r .devcontainer/main-dagster.code-workspace"
+      echo "Si usas Remote-Containers / Dev Containers, abre la paleta de comandos y busca: 'Remote-Containers: Reopen Folder in Container' o abre el archivo .devcontainer/main-dagster.code-workspace desde el host."
+    fi
+  ) &
+else
+  echo "Para abrir manualmente el workspace multi-root en tu host ejecuta:"
+  echo "  code -r .devcontainer/main-dagster.code-workspace"
+fi

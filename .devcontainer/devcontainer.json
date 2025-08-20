@@ -56,8 +56,8 @@
 			"configureZshAsDefaultShell": true
 		},
 		"ghcr.io/devcontainers-extra/features/zsh-plugins:0": {
-			"plugins": "zsh-autosuggestions zsh-syntax-highlighting" //,
-			//"omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions.git https://github.com/zsh-users/zsh-syntax-highlighting.git"
+			"plugins": "zsh-autosuggestions zsh-syntax-highlighting",
+			"omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions.git https://github.com/zsh-users/zsh-syntax-highlighting.git"
 		}
 	},
 	"workspaceFolder": "/workspaces/main-dagster",
@@ -74,11 +74,7 @@
 		"PYTHONUNBUFFERED": "True",
 		"UV_LINK_MODE": "copy",
 		"UV_COMPILE_BYTECODE": "True",
-		"DAGSTER_HOME": "${containerWorkspaceFolder}",
-	},
-	"remoteEnv": {
-		// Esto nos ayuda con las herramientas de vscode en general
-		"PYTHONPATH": "${containerWorkspaceFolder}"
+		"DAGSTER_HOME": "${containerWorkspaceFolder}"
 	}
 	//Usar si se corre el app en el Dockerfile
 	//"overrideCommand": false

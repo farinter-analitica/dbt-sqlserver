@@ -1,8 +1,21 @@
 [tool.pyright]
 typeCheckingMode = "standard"
-# venv = ".venv"
-# venvPath = "."
+venvPath = "."
+venv = ".venv"
 
+# Provide an explicit execution environment (helps editors pick up extraPaths)
+[[tool.pyright.executionEnvironments]]
+root = "."
+pythonVersion = "3.12"
+extraPaths = [
+    "./dagster-shared-gf",
+    "./dagster-global-gf",
+    "./dagster-kielsa-gf",
+    "./dagster-sap-gf",
+]
+
+
+# Let pyright resolve imports from the local packages present in the monorepo
 [tool.pytest.ini_options]
 env_files = [".env", ".env.test"]
 filterwarnings = [
@@ -10,12 +23,6 @@ filterwarnings = [
     "ignore:unclosed file .*:ResourceWarning",
     "ignore::DeprecationWarning:.*Pydantic V1 style `@validator` validators are deprecated..*",
     "ignore:.*Parameter `use_user_code_server` .*",
-]
-testpaths = [
-    "dagster-shared-gf/dagster_shared_gf_tests",
-    "dagster-sap-gf/dagster_sap_gf_tests",
-    "dagster-kielsa-gf/dagster_kielsa_gf_tests",
-    "dagster-global-gf/dagster_global_gf_tests",
 ]
 
 [tool.main_dagster]
@@ -36,6 +43,8 @@ dependencies = [
     "dagster-webserver>=1.9.7,<2.0",
     "dagster-postgres",
     "dagster-cloud",
+    "dagster-dbt",
+    "dbt-sqlserver",
 ]
 
 # Empty optional group so that deployment script can call
@@ -47,23 +56,6 @@ external = []
 config-settings = { editable_mode = "compat" } # better-toml-ignore
 default-groups = ["dev", "helpers"]
 
-# Se desactiva el workspace uv para que el .venv raíz NO instale automáticamente
-# los paquetes de las code locations. Cada location gestionará su propio lock/entorno
-# (o reutilizará el lock raíz sólo para herramientas si se invoca en su carpeta).
-# Si en el futuro se requiere un único uv.lock multi‑paquete, reintroducir estas secciones.
-# [tool.uv.sources]
-# dagster-shared-gf = { workspace = true }
-# dagster-sap-gf = { workspace = true }
-# dagster-kielsa-gf = { workspace = true }
-# dagster-global-gf = { workspace = true }
-
-# [tool.uv.workspace]
-# members = [
-#     "dagster-shared-gf",
-#     "dagster-sap-gf",
-#     "dagster-kielsa-gf",
-#     "dagster-global-gf",
-# ]
 
 [tool.yamlfix]
 line_lenght = 0

@@ -15,6 +15,8 @@ from dagster_shared_gf.automation import (
 )
 from dagster_shared_gf.shared_functions import get_for_current_env
 from pydantic import Field
+import shutil
+import sys
 
 warnings.filterwarnings(
     "ignore", message=".*Pydantic V1 style `@validator` validators are deprecated..*"
@@ -41,11 +43,23 @@ class MyDbtCliResource(DbtCliResource):
     )
 
 
+# Find a dbt executable: prefer explicit env vars, then system `dbt`,
+# and finally fall back to the current Python interpreter so pydantic
+# validation during test collection doesn't fail when `dbt` isn't installed.
+dbt_executable = os.getenv("DBT_EXECUTABLE") or shutil.which("dbt") or sys.executable
+
+# Ensure we pass a string path (pydantic validation expects a valid executable path).
+try:
+    dbt_executable = os.fspath(dbt_executable)
+except Exception:
+    dbt_executable = str(dbt_executable)
+
 dbt_resource = MyDbtCliResource(
     project_dir=os.fspath(dbt_project_dir),
     profiles_dir=os.fspath(dbt_project_dir),
     target=dbt_target,
     state_path=None,
+    dbt_executable=dbt_executable,
 )
 
 dbt_manifest_path = dbt_project_dir.joinpath("target", "manifest.json")
