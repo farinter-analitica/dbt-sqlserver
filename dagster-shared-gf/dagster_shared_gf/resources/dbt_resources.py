@@ -16,7 +16,6 @@ from dagster_shared_gf.automation import (
 from dagster_shared_gf.shared_functions import get_for_current_env
 from pydantic import Field
 import shutil
-import sys
 
 warnings.filterwarnings(
     "ignore", message=".*Pydantic V1 style `@validator` validators are deprecated..*"
@@ -43,15 +42,18 @@ class MyDbtCliResource(DbtCliResource):
     )
 
 
-# Find a dbt executable: prefer explicit env vars, then system `dbt`,
-# and finally fall back to the current Python interpreter so pydantic
-# validation during test collection doesn't fail when `dbt` isn't installed.
-dbt_executable = os.getenv("DBT_EXECUTABLE") or shutil.which("dbt") or sys.executable
+# Find a dbt executable: prefer explicit env vars, then system `dbt`.
+dbt_executable = os.getenv("DBT_EXECUTABLE") or shutil.which("dbt")
+
+if not dbt_executable:
+    raise RuntimeError(
+        "dbt executable not found. Please install dbt CLI or set the DBT_EXECUTABLE environment variable."
+    )
 
 # Ensure we pass a string path (pydantic validation expects a valid executable path).
 try:
     dbt_executable = os.fspath(dbt_executable)
-except Exception:
+except (TypeError, AttributeError):
     dbt_executable = str(dbt_executable)
 
 dbt_resource = MyDbtCliResource(

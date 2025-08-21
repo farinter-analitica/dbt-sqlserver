@@ -14,7 +14,7 @@ from pathlib import Path
 
 try:
     import tomllib  # Python 3.11+
-except Exception:
+except ImportError:
     tomllib = None
 
 
@@ -70,7 +70,7 @@ def extract_pkg_name(dep_str: str) -> str:
 def find_shared_imports_in_file(path: Path):
     try:
         tree = ast.parse(path.read_text())
-    except Exception:
+    except (SyntaxError, UnicodeDecodeError, FileNotFoundError):
         return set()
     used = set()
     for node in ast.walk(tree):

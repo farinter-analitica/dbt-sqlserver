@@ -1,9 +1,10 @@
 import subprocess
-from dagster_shared_gf.load_env_run import load_env_vars
+import sys
 from pathlib import Path
 import warnings
 from tabulate import tabulate
 import yaml
+from dotenv import load_dotenv as load_env_vars
 
 warnings.filterwarnings("ignore", message=".*shadows an attribute in parent.*")
 
@@ -14,22 +15,6 @@ WORKSPACE_YAML = ROOT / "workspace.yaml"
 
 
 def load_locations_from_workspace(yaml_path: Path):
-    if not yaml_path.exists():
-        # Fallback: default locations
-        return [
-            {
-                "working_directory": "dagster-kielsa-gf",
-                "executable_path": "dagster-kielsa-gf/.venv/bin/python",
-            },
-            {
-                "working_directory": "dagster-sap-gf",
-                "executable_path": "dagster-sap-gf/.venv/bin/python",
-            },
-            {
-                "working_directory": "dagster-global-gf",
-                "executable_path": "dagster-global-gf/.venv/bin/python",
-            },
-        ]
     data = yaml.safe_load(yaml_path.read_text())
     locations = []
     for entry in data.get("load_from", []):
@@ -38,8 +23,22 @@ def load_locations_from_workspace(yaml_path: Path):
         exe = pm.get("executable_path")
         if wd:
             locations.append({"working_directory": wd, "executable_path": exe})
+    locations.append(
+        {
+            "working_directory": "dagster-shared-gf",
+            "executable_path": "dagster-shared-gf/.venv/bin/python",
+        }
+    )
     return locations
 
+
+# Allow passing extra args to pytest. If --help is provided, show pytest help and exit.
+extra_args = sys.argv[1:]
+if "--help" in extra_args:
+    cmd = ["uv", "run", "--no-sync", "-qq", "-m", "pytest", "--help"]
+    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    print(output.decode("utf-8"))
+    sys.exit(0)
 
 locations = load_locations_from_workspace(WORKSPACE_YAML)
 
@@ -50,47 +49,20 @@ for loc in locations:
     exe = loc.get("executable_path")
     print(f"Running tests in {test_dir}")
     try:
-        if exe:
-            exe_path = ROOT / exe
-            if exe_path.exists() and exe_path.is_file():
-                cmd = [
-                    str(exe_path),
-                    "-m",
-                    "pytest",
-                    str(test_dir),
-                    "-W",
-                    "ignore",
-                    "--tb=short",
-                ]
-            else:
-                # try conventional .venv location
-                alt = ROOT / loc["working_directory"] / ".venv" / "bin" / "python"
-                if alt.exists():
-                    cmd = [
-                        str(alt),
-                        "-m",
-                        "pytest",
-                        str(test_dir),
-                        "-W",
-                        "ignore",
-                        "--tb=short",
-                    ]
-                else:
-                    cmd = ["pytest", str(test_dir), "-W", "ignore", "--tb=short"]
+        exe_path = ROOT / exe
+        if exe and exe_path.exists() and exe_path.is_file():
+            # Use the target python executable to run pytest.
+            cmd = [
+                str(exe_path),
+                "-m",
+                "pytest",
+                str(test_dir),
+                "-W",
+                "ignore",
+                "--tb=short",
+            ] + extra_args
         else:
-            alt = ROOT / loc["working_directory"] / ".venv" / "bin" / "python"
-            if alt.exists():
-                cmd = [
-                    str(alt),
-                    "-m",
-                    "pytest",
-                    str(test_dir),
-                    "-W",
-                    "ignore",
-                    "--tb=short",
-                ]
-            else:
-                cmd = ["pytest", str(test_dir), "-W", "ignore", "--tb=short"]
+            raise FileNotFoundError(f"Executable not found: {exe_path}")
 
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         output_lines = output.decode("utf-8").splitlines()
@@ -113,7 +85,9 @@ for loc in locations:
         else:
             results.append([str(test_dir), "Failure", "", "No test results found"])
     except subprocess.CalledProcessError as e:
-        failure_details = e.output.decode("utf-8") if e.output else str(e)
+        failure_details = (
+            e.output.decode("utf-8", errors="replace") if e.output else str(e)
+        )
         print(f"Error running pytest in {test_dir}: {failure_details}")
         results.append([str(test_dir), "Failure", "", failure_details])
 
