@@ -12,7 +12,7 @@ from dagster_shared_gf.shared_variables import (
     tags_repo,
 )
 from dagster_shared_gf.utils import clean_storage
-from dagster_global_gf.definitions import ACSSensorFactory
+from dagster_shared_gf.shared_defs import ACSSensorFactory
 
 clean_storage_job = clean_storage.clean_storage_job
 

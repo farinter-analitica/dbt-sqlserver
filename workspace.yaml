@@ -1,13 +1,19 @@
 load_from:
-- python_module:
-    module_name: dagster_kielsa_gf
-    working_directory: dagster-kielsa-gf
-    location_name: dagster_kielsa_gf
-- python_module:
-    module_name: dagster_sap_gf
-    working_directory: dagster-sap-gf
-    location_name: dagster_sap_gf
-- python_module:
-    module_name: dagster_global_gf
-    working_directory: dagster-global-gf
-    location_name: dagster_global_gf
+  - python_module:
+      module_name: dagster_kielsa_gf
+      working_directory: dagster-kielsa-gf
+      executable_path: dagster-kielsa-gf/.venv/bin/python
+      location_name: dagster_kielsa_gf
+  - python_module:
+      module_name: dagster_sap_gf
+      working_directory: dagster-sap-gf
+      executable_path: dagster-sap-gf/.venv/bin/python
+      location_name: dagster_sap_gf
+  - python_module:
+      module_name: dagster_global_gf
+      working_directory: dagster-global-gf
+      executable_path: dagster-global-gf/.venv/bin/python
+      location_name: dagster_global_gf
+
+# Per-location executable_path habilita aislamiento de dependencias.
+# Asegúrate de generar cada .venv con scripts/create_location_envs.sh antes de levantar Dagster.

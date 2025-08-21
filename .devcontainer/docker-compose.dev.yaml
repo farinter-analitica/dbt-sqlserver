@@ -14,7 +14,7 @@ services:
     volumes:
       - main-dagster-devcontainer-ssh:/home/vscode/.ssh
       - shared-uv-cache:/home/vscode/.cache/uv
-      - main-dagster-devcontainer-venv:/workspaces/main-dagster/.venv
+    #  - main-dagster-devcontainer-venv:/workspaces/main-dagster/.venv
     # Required for ptrace-based debuggers like C++, Go, and Rust
     # privileged: true
     # cap_add:

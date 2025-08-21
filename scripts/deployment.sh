@@ -66,28 +66,50 @@ install_uv_standalone() {
 
 install_deps_uv() {
     local is_local="${1:-false}"
-
+    unset VIRTUAL_ENV
     echo "Instalando dependencias principales..."
     if [ "$is_local" != "true" ]; then
         uv sync --locked --no-dev --inexact
         # Configurar claves SSH de deploy para repos privados
         uv run --frozen ./scripts/deployment.py setup-deploy-key
+        echo "Instalando dependencias externas..."
+        uv sync --extra external --inexact --locked || \
+            echo "⚠️ Falló la instalación de dependencias externas, el sistema continuará."
     else
         uv sync
         # Configurar claves SSH de deploy para repos privados sin preguntas
         uv run --frozen ./scripts/deployment.py setup-deploy-key --test --dev
-    fi
-
-
-    echo "Instalando dependencias externas..."
-    if [ "$is_local" != "true" ]; then
-        uv sync --extra external --inexact --locked || \
-            echo "⚠️ Falló la instalación de dependencias externas, el sistema continuará."
-    else
+        echo "Instalando dependencias externas..."
         uv sync --extra external --inexact || \
             echo "⚠️ Falló la instalación de dependencias externas, el sistema continuará."
     fi
-    echo "✅ Dependencias externas instaladas correctamente (o ignorado el error)"
+
+    # Sincronizar entornos por code location (.venv individuales) reutilizando la misma lógica de uv sync
+    echo "Creando/actualizando entornos por code location (mismo flujo que root)..."
+    for loc in dagster-global-gf dagster-kielsa-gf dagster-sap-gf; do
+        echo "[$loc] Instalando dependencias..."
+        (
+            cd "$loc";
+            if [ "$is_local" != "true" ]; then
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --locked --no-dev --inexact
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact --locked || echo "⚠️ Falló external en $loc (continuando)"
+            else
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --dev
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact || echo "⚠️ Falló external en $loc (continuando)"
+            fi
+            echo "[$loc] ✅ Sync completado"
+        )
+    done
+    (
+        cd dagster-shared-gf;
+        if [ "$is_local" == "true" ]; then
+            UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --dev --all-extras --no-extra external
+            UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact || echo "⚠️ Falló external en dagster-shared-gf (continuando)"
+        fi
+        echo "dagster-shared-gf ✅ Sync completado"
+    )
+    echo "✅ Entornos por location sincronizados"
+    unset UV_PROJECT_ENVIRONMENT
 }
 
 manage_services() {

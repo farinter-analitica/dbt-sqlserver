@@ -175,7 +175,7 @@ def test_automated_assets_have_required_tags():
     """
 
 
-if __name__ == "__main__":
-    test_all_assets_loaded()
-    test_all_no_asset_duplicates()
-    test_automated_assets_have_required_tags()
+# if __name__ == "__main__":
+#     test_all_assets_loaded()
+#     test_all_no_asset_duplicates()
+#     test_automated_assets_have_required_tags()

@@ -28,7 +28,7 @@
 				"dorzey.vscode-sqlfluff"
 			],
 			"settings": {
-				"python.defaultInterpreterPath": "./.venv/bin/python",
+				"python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
 				"terminal.integrated.defaultProfile.linux": "zsh",
 				"terminal.integrated.profiles.linux": {
 					"zsh": {
@@ -62,11 +62,10 @@
 	},
 	"workspaceFolder": "/workspaces/main-dagster",
 	//No es necesario si no se usa compose en el devcontainer
-  	//"mounts": ["source=${localWorkspaceFolder},target=${containerWorkspaceFolder},type=bind"],
+	//"mounts": ["source=${localWorkspaceFolder},target=${containerWorkspaceFolder},type=bind"],
 	"mounts": [
 		"source=main-dagster-devcontainer-ssh,target=/home/vscode/.ssh,type=volume",
-		"source=shared-uv-cache,target=/home/vscode/.cache/uv,type=volume",
-		"source=main-dagster-devcontainer-venv,target=/workspaces/main-dagster/.venv,type=volume"
+		"source=shared-uv-cache,target=/home/vscode/.cache/uv,type=volume"
 	],
 	"postCreateCommand": "/bin/bash .devcontainer/post_create.sh",
 	"containerEnv": {
@@ -74,15 +73,8 @@
 		"DISPLAY": "dummy",
 		"PYTHONUNBUFFERED": "True",
 		"UV_LINK_MODE": "copy",
-		"UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv",
 		"UV_COMPILE_BYTECODE": "True",
-		"DAGSTER_HOME": "${containerWorkspaceFolder}",
-		"VIRTUAL_ENV": "${containerWorkspaceFolder}/.venv"
-	},
-	"remoteEnv": {
-		// Esto nos ayuda con las herramientas de vscode en general
-		"PATH": "${containerEnv:VIRTUAL_ENV}/bin:${containerEnv:PATH}",
-		"PYTHONPATH": "${containerWorkspaceFolder}"
+		"DAGSTER_HOME": "${containerWorkspaceFolder}"
 	}
 	//Usar si se corre el app en el Dockerfile
 	//"overrideCommand": false

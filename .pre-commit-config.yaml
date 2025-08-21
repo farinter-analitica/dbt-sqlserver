@@ -29,7 +29,7 @@ repos:
         name: pyright
         entry: pyright
         args: [--level=warning, --warnings]
-        #language: system
+        #language: python_venv
         types: [python]
 
   - repo: https://github.com/astral-sh/uv-pre-commit
