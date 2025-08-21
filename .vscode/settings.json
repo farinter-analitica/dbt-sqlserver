@@ -8,7 +8,7 @@
     //"python.testing.autoTestDiscoverOnSaveEnabled": true,
     //"python.testing.autoTestDiscoverOnSavePattern": "**/test*.py",
     "dbt.perspectiveTheme": "Vintage",
-    //"python.envFile": "${workspaceFolder}/.env",
+    "python.envFile": "${workspaceFolder}/.env",
     "[sql]": {
         "editor.defaultFormatter": "dorzey.vscode-sqlfluff"
     },
@@ -22,7 +22,7 @@
     ],
     "sqlfluff.linter.run": "onSave",
     "sqlfluff.experimental.format.executeInTerminal": true,
-    "sqlfluff.executablePath": "${env:DAGSTER_HOME}/scripts/sqlfluff.sh",
+    "sqlfluff.executablePath": "/workspaces/main-dagster/scripts/sqlfluff.sh",
     "editor.formatOnSave": false,
     "dbt.queryLimit": 1000
 }
