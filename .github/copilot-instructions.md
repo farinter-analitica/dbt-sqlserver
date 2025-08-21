@@ -8,7 +8,9 @@
 
 ## Flujos de Trabajo Clave
 - **Build & Install**: No es necesario instalar manualmente; las dependencias se gestionan con el dev container y `uv`.
+	- Nota: el proyecto soporta ahora múltiples intérpretes Python y versiones por paquete; `uv` se usa para aislar e instalar dependencias por subpaquete (ver `uv.lock`).
 - **Pruebas**: Ejecuta todos los tests con `pytest` o `python scripts/run_all_tests.py`. Pre-commit ejecuta chequeos estáticos y formatea el código.
+		- Se consolidó la ejecución de tests en `scripts/run_all_tests.py`. El script extrae las ubicaciones desde `workspace.yaml` y usa los `executable_path` o el `.venv` local para ejecutar `pytest` por ubicación.
 - **Despliegue**: Automático vía GitHub Actions. El tipo de despliegue se controla con el mensaje de commit (ejemplo: `github_actions:deployment_type=deploy-full`). Despliegues manuales con `bash scripts/deployment.sh <tipo>`.
 - **DBT**: El directorio `dbt_dwh_farinter` contiene modelos y scripts DBT para operaciones de data warehouse.
 - **Dagster Dev**: Inicia la UI de Dagster con `dagster dev -h "0.0.0.0"` y accede en http://localhost:3000.
@@ -30,6 +32,7 @@
 ## Referencias
 - Consulta los `README.md` (raíz y subpaquetes) para detalles de setup, despliegue y troubleshooting.
 - Scripts clave: `scripts/deployment.py`, `scripts/deployment.sh`, `scripts/run_all_tests.py`.
+ - Scripts clave: `scripts/deployment.py`, `scripts/deployment.sh`, `scripts/run_all_tests.py`.
 - Proyecto DBT: `dbt_dwh_farinter/`
 - Configuración Dagster: `dagster.yaml`, `workspace.yaml`
 

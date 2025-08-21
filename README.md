@@ -2,10 +2,15 @@
 
 Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Manager** para gestionar las credenciales y el entorno de desarrollo. **Al abrir el proyecto en VS Code y seleccionar "Reopen in Container", todas las dependencias y configuraciones se instalarán automáticamente.** No es necesario ejecutar scripts manualmente para instalar dependencias o configurar el entorno.
 
+Nota sobre multi-entornos Python y `uv`
+------------------------------------
+Este repositorio ahora incluye soporte para entornos con múltiples versiones/interpretes de Python. El flujo del devcontainer y los scripts usan `uv` para gestionar versiones de Python y las dependencias por subpaquete (ver `uv.lock` en cada paquete). Dentro del contenedor puedes seleccionar el intérprete Python por carpeta/paquete desde VS Code; los scripts de despliegue y pruebas usan `uv` para asegurar instalaciones reproducibles.
+
 ### Requisitos Previos
 
 - [Docker](https://www.docker.com/products/docker-desktop) instalado y en ejecución.
    - Si se usa el WSL (mejor rendimiento), debe estar actualizado, si la configuracion de git no funciona usar token de acceso personal.
+   - Se recomienda Debian para el WSL.
 - [Git y GCM](https://git-scm.com/) instalado y configurado. [Git for Windows](https://gitforwindows.org/)
    - Si vscode no autentica correctamente en github, instala el [Git Credential Manager](https://aka.ms/gcm) para tu sistema operativo.
    - Otras opciones [sharing-git-credentials](https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials)
@@ -44,7 +49,7 @@ Este repositorio utiliza **Dev Containers** (devcontainer) y **Git Credential Ma
    Con el uso de WSL2 podria conllevar la necesidad de utilizar la configuracion en .devcontainer/.wslconfig para poder acceder a los puertos expuestos desde el host local. %UserProfile%\.wslconfig, fuera de wsl.
 
 ### DAGSTER DEV
-Debes correr dagster dev -h "0.0.0.0" para poder acceder a la interfaz de dagster desde el host local.
+Debes correr `dagster dev -h "0.0.0.0"` para poder acceder a la interfaz de dagster desde el host local.
 Accede a la interfaz de dagster en http://localhost:3000
 
 ### Variables de entorno
@@ -171,6 +176,14 @@ Estas dependencias requieren llaves SSH configuradas correctamente. El script de
 ### Pre-Commit
 
 Se utiliza pre-commit para ejecutar pruebas estáticas y formatear el código antes de cada commit. La primera vez puede tardar un poco en instalar las dependencias.
+
+### Ejecución de tests consolidada
+------------------------------
+La ejecución de tests se consolidó en `scripts/run_all_tests.py`. Este script:
+
+- Lee las ubicaciones desde `workspace.yaml`.
+- Intenta usar el intérprete definido por ubicación (por ejemplo `dagster-kielsa-gf/.venv/bin/python`) si existe.
+- Realiza un resumen tabulado del resultado por ubicación.
 
 ### Publicación
 
