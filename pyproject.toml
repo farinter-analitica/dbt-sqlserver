@@ -2,6 +2,24 @@
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
+# Rutas extra para que editores/pyright resuelvan paquetes locales si el workspace no está en la raíz.
+# Mantener sincronizadas con los paquetes del monorepo.
+extraPaths = [
+    "./dagster-shared-gf",
+    "./dagster-global-gf",
+    "./dagster-kielsa-gf",
+    "./dagster-sap-gf",
+]
+
+# Excluir artefactos y venv para que pyright no los escanee
+exclude = [
+    "**/__pycache__",
+    "**/*.egg-info",
+    ".venv",
+    "build",
+    "dist",
+    "target",
+]
 
 # Provide an explicit execution environment (helps editors pick up extraPaths)
 [[tool.pyright.executionEnvironments]]
