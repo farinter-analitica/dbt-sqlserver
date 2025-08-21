@@ -8,7 +8,7 @@ Cada ubicación de código (code location) tiene ahora su propio entorno virtual
 - `dagster-kielsa-gf/.venv`
 - `dagster-sap-gf/.venv`
 
-La librería compartida `dagster-shared-gf` NO crea entorno propio; se instala editable dentro de cada entorno de location a través de sus dependencias declaradas y *extras*.
+La librería compartida `dagster-shared-gf` también tiene su propio .venv ya que necesita multiples paquetes para las pruebas.
 
 La resolución y sincronización se hace usando `uv sync` con la variable `UV_PROJECT_ENVIRONMENT` apuntando al directorio `.venv` de cada location para garantizar:
 - Instalación determinista basada en `pyproject.toml` + `uv.lock` raíz.
@@ -17,12 +17,12 @@ La resolución y sincronización se hace usando `uv sync` con la variable `UV_PR
 ## 2. Creación / Actualización de entornos
 Ejecutar:
 ```bash
-bash scripts/create_location_envs.sh
+bash scripts/deployment.sh install-deps --local
 ```
-Esto recorrerá las locations configuradas y llamará internamente a `uv sync` para cada una. Puedes re‑ejecutarlo de forma idempotente tras cambios en dependencias.
+Esto recorrerá las ubicaciones configuradas y llamará internamente a `uv sync --frozen` para cada una. Puedes re‑ejecutarlo de forma idempotente tras cambios en dependencias.
 
 ## 3. Ejecución de Tests por Location
-Ejemplo rápido (desde la raíz del repo):
+Ejemplo rápido (desde la raíz del repo), UV_PROJECT_ENVIRONMENT no es necesario:
 ```bash
 for loc in dagster-global-gf dagster-kielsa-gf dagster-sap-gf; do 
   echo "== PYTEST $loc ==";
@@ -36,17 +36,19 @@ cd dagster-kielsa-gf
 UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv run --frozen pytest -k test_jobs -q
 ```
 
+Ejecutar todos (acepta los args de pytest):
+`scripts/run_all_tests.py`
+
 Notas:
 - Se usa `uv run --frozen` para respetar el lock file sin recalcular resolución.
-- Si necesitas recalcular dependencias tras editar `pyproject.toml`, ejecuta nuevamente `create_location_envs.sh`.
+- Si necesitas recalcular .lock tras editar `pyproject.toml`, ejecuta manualmente `uv sync` en el workdir corrrespondiente.
 
 ## 4. Manejo de Secretos en Tests
 Muchos módulos acceden a `dlt.secrets[...]` en tiempo de importación (pattern anti‑ideal en test). Para evitar fallos:
-- Se añadieron `conftest.py` en `dagster_kielsa_gf_tests/` y `dagster_sap_gf_tests/` que cargan valores dummy a partir de los archivos de muestra:
+- Se añadieron `conftest.py` en las ubicaciones que cargan valores dummy a partir de los archivos de muestra:
   - `.dlt/secrets.toml.sample`
   - `.env.sample`
 - Los valores sólo se aplican si la variable NO está ya definida (no sobreescribe secretos reales en CI).
-- Se ignoran valores `NOT-SET` o vacíos en `.env.sample`.
 
 ### Cómo agregar nuevas claves
 1. Añade la clave en el archivo de ejemplo correspondiente (`.dlt/secrets.toml.sample` o `.env.sample`).
@@ -56,7 +58,7 @@ Muchos módulos acceden a `dlt.secrets[...]` en tiempo de importación (pattern 
 ### Validación manual de claves cargadas
 Puedes inspeccionar qué variables dummy están disponibles:
 ```bash
-uv run env | grep MDB_CRM_HN || true
+uv run --no-sync env | grep MDB_CRM_HN || true
 ```
 
 ## 5. Añadir / Modificar Tests
@@ -69,22 +71,16 @@ uv run env | grep MDB_CRM_HN || true
 - Usa `pytest -q` para feedback rápido y `pytest -vv` sólo si necesitas detalle.
 - Si ves advertencias de Pydantic/Dagster en masa, evalúa silenciarlas selectivamente con filtros en `pytest.ini` (pendiente de implementar si el ruido aumenta).
 
-## 7. Integración en CI (Sugerida)
-Pipeline propuesto (pseudo‑steps):
-1. `bash scripts/create_location_envs.sh`
-2. Para cada location: `UV_PROJECT_ENVIRONMENT="<path>/.venv" uv run --frozen pytest -q`
-3. (Opcional) Publicar reporte JUnit.
-
-## 8. Troubleshooting
+## 7. Troubleshooting
 | Problema | Causa común | Solución |
 |----------|-------------|----------|
 | `ConfigFieldMissingException` vuelve a aparecer | Nueva clave no definida en samples | Añadir clave al sample o exportarla antes de correr tests |
-| Paquetes antiguos permanecen | No se usó `uv sync` con `UV_PROJECT_ENVIRONMENT` | Reejecutar `create_location_envs.sh` |
+| Paquetes antiguos permanecen | No se usó `uv sync` con `UV_PROJECT_ENVIRONMENT` | Reejecutar `bash scripts/deployment.sh install-deps --local` |
 | Dependencias faltantes | Extras no incluidos en el `pyproject.toml` de la location | Agregar el extra requerido y volver a sincronizar |
 | Advertencias masivas Pydantic | Cambios internos v2 | Añadir filtros en `pytest.ini` (opcional) |
 
-## 9. Próximos Pasos (Opcionales)
-- Añadir `pytest.ini` con filtros de warnings críticos.
+## 8. Próximos Pasos (Opcionales)
+- Añadir configuración pytests con filtros de warnings críticos.
 - Script `scripts/run_location_tests.sh` para encapsular el bucle (si se desea).
 - Fixture que falle si una variable crítica queda con valor placeholder en CI.
 
