@@ -5,7 +5,7 @@
 {# Post_hook can't access this context variables so we create the string here if needed only if the macros dont depende on query execution (just returns the query text) #}
 {{-
     config(
-		as_columnstore=false,
+		as_columnstore=true,
 		tags=["periodo/diario","automation/periodo_por_hora"],
 		materialized="incremental",
 		incremental_strategy="farinter_merge",
@@ -15,12 +15,28 @@
 		unique_key=unique_key_list,
 		post_hook=[
       "{{ dwh_farinter_remove_incremental_temp_table() }}",
-      "{{ dwh_farinter_create_clustered_columnstore_index(is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
       "{{ dwh_farinter_create_primary_key(columns=" ~ unique_key_list | tojson ~ ", create_clustered=false, is_incremental=is_incremental(), if_another_exists_drop_it=true) }}",
       "{{ dwh_farinter_create_dummy_data(unique_key=" ~ unique_key_list | tojson ~ ", is_incremental=0) }}"
 		])
 }}
 
+{%- if is_incremental() %}
+    {%- set last_date = run_single_value_query_on_relation_and_return(
+        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this,
+        relation_not_found_value='19000101'|string)|string %}
+{%- else %}
+    {%- set last_date = '19000101' %}
+{%- endif %}
+
+WITH UltimaCaracteristica AS (
+    SELECT
+        Emp_Id,
+        Articulo_Id,
+        Caract_Id,
+        Caract_Descripcion,
+        ROW_NUMBER() OVER (PARTITION BY Emp_Id, Articulo_Id ORDER BY Caract_Fec_Actualizacion DESC) AS rn
+    FROM {{ ref('DL_Kielsa_Articulo_Caracteristicas') }}
+)
 SELECT --noqa: ST06
     ISNULL(A.[Articulo_Id], 0) AS [Articulo_Id],
     ISNULL(A.[Emp_Id], 0) AS [Emp_Id],
@@ -118,6 +134,8 @@ SELECT --noqa: ST06
         CASE WHEN ARTCALC.Bit_Recomendacion = 1 THEN 'RECOMENDADO' END)
         AS Etiquetas,
     {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id'], input_length=29, table_alias='A') }} AS [EmpArt_Id],
+    ISNULL(UC.Caract_Id, 0) AS [Caract_Id],
+    ISNULL(UC.Caract_Descripcion, 'No definido') AS [Caract_Descripcion],
     ISNULL(CAST(GETDATE() AS DATETIME), '19000101') AS [Fecha_Carga],
     ISNULL(CAST(GETDATE() AS DATETIME), '19000101') AS [Fecha_Actualizado]
 FROM {{ source('DL_FARINTER', 'DL_Kielsa_Articulo') }} AS A
@@ -149,8 +167,13 @@ LEFT JOIN {{ source('BI_FARINTER', 'BI_Kielsa_Dim_ArticuloSubCategorias') }} AS 
         AND A.SubCategoria2_Id = SubCat.SubCategoria2Art_Id
         AND A.SubCategoria3_Id = SubCat.SubCategoria3Art_Id
         AND A.SubCategoria4_Id = SubCat.SubCategoria4Art_Id
-{% if is_incremental() and run_started_at.strftime('%H') | int >= 8 and run_started_at.strftime('%H') | int < 18 %}
-  WHERE A.Version_Fecha >= (SELECT CAST(MAX(Fecha_Actualizado) AS DATE) FROM {{ this }})
-{% else %}
+LEFT JOIN UltimaCaracteristica AS UC
+    ON
+        A.Emp_Id = UC.Emp_Id
+        AND A.Articulo_Id = UC.Articulo_Id
+        AND UC.rn = 1
+{% if is_incremental() and run_started_at.strftime('%H') | int >= 8 and run_started_at.strftime('%H') | int < 18 -%}
+    WHERE A.Version_Fecha >= '{{ last_date }}'
+{% else -%}
 --FULL
 {% endif %}
