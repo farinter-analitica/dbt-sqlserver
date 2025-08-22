@@ -14,6 +14,12 @@ load_from:
       working_directory: dagster-global-gf
       executable_path: dagster-global-gf/.venv/bin/python
       location_name: dagster_global_gf
+  - grpc_server:
+      host:
+        env: DAGSTER_GRPC_SCHEDULE_OPTIMIZER_KIELSA_HOST
+      port:
+        env: DAGSTER_GRPC_SCHEDULE_OPTIMIZER_KIELSA_PORT
+      location_name: schedule_optimizer_kielsa
 
 # Per-location executable_path habilita aislamiento de dependencias.
 # Asegúrate de generar cada .venv con scripts/create_location_envs.sh antes de levantar Dagster.
