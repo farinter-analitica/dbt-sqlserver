@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
     # Polars promovido a core; mantiene etl, ml, pandas. Añadimos odbc sugerido.
-    "dagster_shared_gf[etl,ml,pandas,odbc,polars,mongo]",
+    "dagster_shared_gf[etl,ml,pandas,odbc,polars,mongo,excel]",
 ]
 
 [project.optional-dependencies]
