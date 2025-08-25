@@ -7,6 +7,8 @@ sources:
 
   tables:
   - name: IA_Kielsa_Proyeccion_Personal_Necesario
+  - name: IA_Kielsa_Dotacion_Solucion_Turnos
+  - name: IA_Kielsa_Dotacion_Solucion_Encabezado
   config:
     freshness:   # default freshness
       warn_after: {count: 28, period: hour}

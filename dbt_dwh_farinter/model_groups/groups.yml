@@ -83,3 +83,6 @@ groups:
 - name: dbt_kielsa_incentivo
   owner:
     email: brian.padilla@farinter.com
+- name: ia_farinter_kielsa
+  owner:
+    email: brian.padilla@farinter.com

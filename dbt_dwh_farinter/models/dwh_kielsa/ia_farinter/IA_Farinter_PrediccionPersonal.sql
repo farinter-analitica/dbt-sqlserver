@@ -17,25 +17,27 @@
         meta={"owners": ["edwin.martinez@farinter.com"]}
 	)
 }}
-WITH 
+WITH
 ProyeccionConPersonal AS (
-    SELECT 
+    SELECT
         [Fecha_Id],
-        hora_id [Hora],
-        Dia_de_la_Semana [Dia_Semana],
-        Conteo_Transacciones as [Cantidad_Transacciones],
+        hora_id AS [Hora],
+        Dia_de_la_Semana AS [Dia_Semana],
+        Conteo_Transacciones AS [Cantidad_Transacciones],
         personal_recomendado AS [Personal_Necesario],
-        personal_minimo_absoluto as personal_sin_redondeo,
+        personal_minimo_absoluto AS personal_sin_redondeo,
         Segundos_Transaccion_Estimado,
         [Suc_Id],
         [Emp_Id]
     FROM {{ source('IA_FARINTER', 'IA_Kielsa_Proyeccion_Personal_Necesario') }}
     --WHERE Suc_Id=115
     --AND Fecha_Id>='20250324' AND Fecha_Id<'20250331'
-	WHERE Emp_Id=1
+    WHERE Emp_Id = 1
 
 )
-SELECT [Fecha_Id],
+
+SELECT
+    [Fecha_Id],
     [Hora],
     [Dia_Semana],
     [Cantidad_Transacciones],
