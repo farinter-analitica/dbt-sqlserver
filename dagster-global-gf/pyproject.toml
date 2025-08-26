@@ -8,7 +8,7 @@ module_name = "dagster_global_gf"
 # Main project configuration (dagster_global_gf)
 [project]
 name = "dagster_global_gf"
-version = "1.0.1"
+version = "1.0.2"
 description = "dagster_global_gf for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
     # Polars pasa a core común (pydantic/pytz también). Solo requiere translation ahora.
-    "dagster_shared_gf[translation,etl,ml,odbc,polars]",
+    "dagster_shared_gf[translation,etl,ml,odbc,polars,monitoring]",
 ]
 
 [project.optional-dependencies]

@@ -8,7 +8,7 @@ module_name = "dagster_sap_gf"
 # Main project configuration (dagster_sap_gf)
 [project]
 name = "dagster_sap_gf"
-version = "1.0.1"
+version = "1.0.2"
 description = "Dagster sap for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
     # Polars promovido a core; añadimos extras sugeridos etl, ml y odbc
-    "dagster_shared_gf[etl,ml,odbc,polars]",
+    "dagster_shared_gf[etl,ml,odbc,polars,monitoring]",
 ]
 
 [project.optional-dependencies]
