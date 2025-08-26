@@ -41,7 +41,7 @@ concurrency:
         #   limit: 3
 
   pools:
-    granularity: "op"
+    granularity: "op" # only n ops on the pool across all runs (default). run is only n runs containing opts with that pool.
     default_limit: 1
     op_granularity_run_buffer: 1
 
