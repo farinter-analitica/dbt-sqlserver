@@ -5,33 +5,22 @@ venv = ".venv"
 # Rutas extra para que editores/pyright resuelvan paquetes locales si el workspace no está en la raíz.
 # Mantener sincronizadas con los paquetes del monorepo.
 extraPaths = [
-    "./dagster-shared-gf",
-    "./dagster-global-gf",
-    "./dagster-kielsa-gf",
-    "./dagster-sap-gf",
+    "./dagster-shared-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-global-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-kielsa-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-sap-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-shared-gf/",
 ]
 
 # Excluir artefactos y venv para que pyright no los escanee
 exclude = [
+    "**/node_modules",
     "**/__pycache__",
-    "**/*.egg-info",
-    ".venv",
+    "**/.*",
     "build",
     "dist",
     "target",
 ]
-
-# Provide an explicit execution environment (helps editors pick up extraPaths)
-[[tool.pyright.executionEnvironments]]
-root = "."
-pythonVersion = "3.12"
-extraPaths = [
-    "./dagster-shared-gf",
-    "./dagster-global-gf",
-    "./dagster-kielsa-gf",
-    "./dagster-sap-gf",
-]
-
 
 # Let pyright resolve imports from the local packages present in the monorepo
 [tool.pytest.ini_options]
