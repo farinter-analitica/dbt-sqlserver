@@ -40,6 +40,8 @@ from requests import Request, Response
 
 def remove_fields(response: Response, *args, **kwargs) -> Response:
     payload = response.json()
+    if not isinstance(payload, dict):
+        return response
     for record in payload["data"]:
         for kwarg in kwargs:
             # record[kwarg] = "foobar"
@@ -198,6 +200,10 @@ class JsonPageFromRegsPaginator(RangePaginator):
             total = None
             if self.total_pages is None and self.total_path:
                 response_json = response.json()
+                # ensure we pass a dict to jsonpath.find_values to satisfy its typing
+                if not isinstance(response_json, dict):
+                    response_json = {}
+
                 values = jsonpath.find_values(self.total_path, response_json)
                 total = values[0] if values else None
                 if total is None:
@@ -205,7 +211,7 @@ class JsonPageFromRegsPaginator(RangePaginator):
                 else:
                     try:
                         self.total_pages = math.ceil(int(total) / self.regs_per_page)
-                    except ValueError:
+                    except (ValueError, TypeError):
                         self._handle_invalid_total(total)
 
             self.current_value += self.value_step
@@ -320,7 +326,7 @@ def hontrack_api_source(
             {
                 "name": "zones_resumen_base",
                 "primary_key": ["evtdid"],
-                "selected": True,  # necesitamos transformar a dos tablas para poder actualizar sin reemplazar la data por fecha
+                "selected": False,  # necesitamos transformar a dos tablas para poder actualizar sin reemplazar la data por fecha
                 "endpoint": {
                     "path": "zones/get_zones_resumen.php",
                     "method": "POST",
@@ -425,6 +431,7 @@ def hontrack_api_source(
         return {
             "evtdid": doc["evtdid"],
             "enterprise_id": "farinter",
+            "evtdaddr": doc["evtdaddr"],
             "_dlt_id": doc["evtdid"],
         }
 
@@ -734,10 +741,10 @@ if __name__ == "__main__":
             "test_job",
             selection=(
                 # None
-                # dg.AssetSelection.all()
+                dg.AssetSelection.all()
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen")),
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "drivers_resumen_data")),
-                dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_base")),
+                # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_base")),
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen")),
                 # dg.AssetKey(("DL_FARINTER", "hontrack_api", "zones_resumen_data")),
             ),
@@ -755,8 +762,8 @@ if __name__ == "__main__":
         test_job_def = defs.get_job_def("test_job")
         result = test_job_def.execute_in_process(
             tags={
-                "dagster/asset_partition_range_start": "2025-08-15",
-                "dagster/asset_partition_range_end": "2025-08-16",
+                "dagster/asset_partition_range_start": "2025-08-20",
+                "dagster/asset_partition_range_end": "2025-08-25",
             },
             resources=test_resources,
             instance=instance,
@@ -766,7 +773,7 @@ if __name__ == "__main__":
                         "config": {
                             # "dev_mode": True,
                             # "write_disposition": "replace",
-                            "refresh": "drop_resources",
+                            # "refresh": "drop_resources",
                         }
                     }
                 }
