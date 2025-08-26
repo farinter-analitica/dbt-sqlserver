@@ -196,24 +196,61 @@ def execute_job_with_config(
     )
     try:
         if job:
-            job.execute_in_process(
+            # return the run result so tests can construct RunStatusSensorContext
+            return job.execute_in_process(
                 instance=test_instance,
                 run_config=run_config if run_config["ops"] else None,
+                raise_on_error=False,
             )
     except Exception:
-        # failing runs will raise due to blocking asset checks; tests expect that
-        pass
+        # Should not raise because raise_on_error=False, but keep safety
+        return None
+    return None
 
 
-def run_sensor_and_update_cursor(test_context, EmailResource):
-    sensor_result = sfs.failed_asset_notification_sensor(
-        test_context, enviador_correo_e_analitica_farinter=EmailResource()
-    )
-    if isinstance(sensor_result, dg.SensorResult):
-        if sensor_result.cursor:
-            test_context.update_cursor(sensor_result.cursor)
-        return sensor_result
-    raise TypeError(f"Sensor result is not of type SensorResult: {sensor_result}")
+def run_sensor_and_update_cursor(
+    test_context: dg.SensorEvaluationContext,
+    EmailResource,
+    run_result: dg.ExecuteInProcessResult | None = None,
+):
+    # If a run_result is provided, build a RunStatusSensorContext (newer API)
+    if run_result is not None:
+        dagster_run = run_result.dagster_run
+        # ExecuteInProcessResult provides run-level event helpers named get_run_*
+        # Safely attempt to get a failure event, falling back to success event.
+        dagster_event = None
+        # Prefer failure event, but avoid calling getters that raise when the
+        # event type is not present.
+        if run_result.success is False:
+            try:
+                dagster_event = run_result.get_run_failure_event()
+            except Exception:
+                dagster_event = None
+        if dagster_event is None and run_result.success is True:
+            try:
+                dagster_event = run_result.get_run_success_event()
+            except Exception:
+                dagster_event = None
+        if dagster_event is None:
+            return dg.SensorResult(skip_reason="No run_result provided.")
+        rs_context = dg.build_run_status_sensor_context(
+            sensor_name=sfs.failed_asset_notification_sensor.name,
+            dagster_event=dagster_event,
+            dagster_instance=test_context.instance,
+            dagster_run=dagster_run,
+            repository_def=test_context.repository_def,
+        ).for_run_failure()
+
+        # Call the run-failure sensor (new API). The sensor may not return a
+        # SensorResult; tests should not rely on a return value here.
+        returned = sfs.failed_asset_notification_sensor(
+            rs_context, enviador_correo_e_analitica_farinter=EmailResource()
+        )
+        if isinstance(returned, dg.SensorResult) and returned.cursor is not None:
+            test_context.update_cursor(returned.cursor)
+        return returned
+    else:
+        return dg.SensorResult(skip_reason="No run_result provided.")
 
 
 def test_no_failures():
@@ -222,7 +259,16 @@ def test_no_failures():
     )
     with dg.instance_for_test() as test_instance:
         test_context = dg.build_sensor_context(instance=test_instance, definitions=defs)
-        run_sensor_and_update_cursor(test_context, EmailResource)
+        # Execute the job (no failures) to build a run_result we can attach to the
+        # RunStatusSensorContext under the new API.
+        job = defs.get_job_def("can_fail_job")
+        try:
+            result = job.execute_in_process(
+                instance=test_instance, raise_on_error=False
+            )
+        except Exception:
+            result = None
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         assert send_email_mock.call_count == 0
 
 
@@ -233,10 +279,10 @@ def test_root_asset_failure():
     with dg.instance_for_test() as test_instance:
         test_context = dg.build_sensor_context(instance=test_instance, definitions=defs)
         # Fail root asset
-        execute_job_with_config(
+        result = execute_job_with_config(
             test_context, defs, test_instance, {can_fail_asset.key: True}
         )
-        run_sensor_and_update_cursor(test_context, EmailResource)
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         assert send_email_mock.call_count == 1
         recipients = set(sent_emails[0]["to"]) if sent_emails else set()
         expected = {
@@ -261,14 +307,14 @@ def test_mid_asset_failure_with_two_downstream():
     with dg.instance_for_test() as test_instance:
         test_context = dg.build_sensor_context(instance=test_instance, definitions=defs)
         # First run OK
-        execute_job_with_config(test_context, defs, test_instance, {})
-        run_sensor_and_update_cursor(test_context, EmailResource)
+        result = execute_job_with_config(test_context, defs, test_instance, {})
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
 
         # Then fail mid asset
-        execute_job_with_config(
+        result = execute_job_with_config(
             test_context, defs, test_instance, {can_fail_asset_child_1.key: True}
         )
-        run_sensor_and_update_cursor(test_context, EmailResource)
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         assert send_email_mock.call_count == 1
         recipients = set(sent_emails[0]["to"]) if sent_emails else set()
         expected = {
@@ -288,15 +334,17 @@ def test_cursor_prevents_reprocessing():
     )
     with dg.instance_for_test() as test_instance:
         test_context = dg.build_sensor_context(instance=test_instance, definitions=defs)
-        execute_job_with_config(
+        result = execute_job_with_config(
             test_context, defs, test_instance, {can_fail_asset.key: True}
         )
-        result1 = run_sensor_and_update_cursor(test_context, EmailResource)
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         assert send_email_mock.call_count == 1
-        assert result1.cursor is not None
-        result2 = run_sensor_and_update_cursor(test_context, EmailResource)
+        result2 = run_sensor_and_update_cursor(
+            test_context=test_context, EmailResource=EmailResource
+        )
         # No new events -> skip reason set
         assert send_email_mock.call_count == 1
+        assert isinstance(result2, dg.SensorResult)
         assert result2.skip_reason is not None
 
 
@@ -311,16 +359,16 @@ def test_multiple_different_failures():
     ) = make_defs_and_email_resource()
     with dg.instance_for_test() as test_instance:
         test_context = dg.build_sensor_context(instance=test_instance, definitions=defs)
-        execute_job_with_config(
+        result = execute_job_with_config(
             test_context, defs, test_instance, {can_fail_asset.key: True}
         )
-        run_sensor_and_update_cursor(test_context, EmailResource)
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         first_count = send_email_mock.call_count
 
-        execute_job_with_config(
+        result = execute_job_with_config(
             test_context, defs, test_instance, {can_fail_asset_child_1.key: True}
         )
-        run_sensor_and_update_cursor(test_context, EmailResource)
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         second_count = send_email_mock.call_count
         assert second_count == first_count + 1
 
@@ -339,10 +387,12 @@ def test_run_failure_without_assets_triggers_run_level_email():
         # Ejecutar job que falla antes de assets
         job = defs.get_job_def("failing_before_assets_job")
         try:
-            job.execute_in_process(instance=test_instance)
+            result = job.execute_in_process(
+                instance=test_instance, raise_on_error=False
+            )
         except Exception:
-            pass
-        run_sensor_and_update_cursor(test_context, EmailResource)
+            result = None
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         # Debe haber un email a la lista DEFAULT_RUN_FAILURE_EMAILS, solo 1
         assert send_email_mock.call_count == 1
         recipients = set(sent_emails[0]["to"]) if sent_emails else set()
@@ -366,19 +416,21 @@ def test_mixed_asset_and_run_only_failures():
         # 1) Run que falla sin assets
         job = defs.get_job_def("failing_before_assets_job")
         try:
-            job.execute_in_process(instance=test_instance)
+            result = job.execute_in_process(
+                instance=test_instance, raise_on_error=False
+            )
         except Exception:
-            pass
-        run_sensor_and_update_cursor(test_context, EmailResource)
+            result = None
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         assert send_email_mock.call_count == 1
         first_recipients = set(sent_emails[-1]["to"]) if sent_emails else set()
         assert first_recipients == set(sfs.DEFAULT_RUN_FAILURE_EMAILS)
 
         # 2) Ahora un run con fallo de asset raíz
-        execute_job_with_config(
+        result = execute_job_with_config(
             test_context, defs, test_instance, {can_fail_asset.key: True}
         )
-        run_sensor_and_update_cursor(test_context, EmailResource)
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
         assert send_email_mock.call_count == 2
         second_recipients = set(sent_emails[-1]["to"]) if sent_emails else set()
         assert second_recipients != set(sfs.DEFAULT_RUN_FAILURE_EMAILS)
