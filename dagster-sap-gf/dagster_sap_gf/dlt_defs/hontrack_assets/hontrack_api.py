@@ -53,10 +53,24 @@ def remove_fields(response: Response, *args, **kwargs) -> Response:
 
 def validate_response(response: Response, *args, **kwargs) -> Response:
     response.raise_for_status()
-    if response.status_code == 200 and response.json():
-        return response
+    # Sólo aceptamos 200; otros códigos ya lanzaron o se consideran inesperados
+    if response.status_code != 200:
+        raise Exception(
+            f"Unexpected status {response.status_code}: {response.text[:300]}"
+        )
 
-    raise Exception(response.text[:1000])
+    raw = response.text or ""
+    # Rechazamos cuerpo vacío para distinguir de 'sin datos' que la API debería representar con JSON válido
+    if not raw.strip():
+        raise Exception("Empty response body on 200 OK (no JSON returned)")
+
+    # Validar JSON una sola vez; no devolvemos su valor porque dlt lo volverá a consumir
+    try:
+        response.json()
+    except ValueError as ex:
+        snippet = raw[:300].replace("\n", " ")
+        raise Exception(f"Invalid JSON (len={len(raw)}): {snippet}") from ex
+    return response
 
 
 def hash_sha256_from_str(str: str) -> str:
