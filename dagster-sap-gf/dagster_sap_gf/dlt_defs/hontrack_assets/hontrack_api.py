@@ -27,6 +27,8 @@ from dlt.sources.rest_api.typing import (
 from dlt.extract import DltResource
 
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
+from dagster_shared_gf.automation.time_based import my_cron_automation_condition
+from dagster_shared_gf.shared_functions import get_for_current_env
 from dagster_shared_gf.dlt_shared.dlt_resources import (
     MyDagsterDltTranslator,
     dlt_pipeline_dest_mssql_dwh,
@@ -618,6 +620,22 @@ hontrack_api_pipeline = dlt_pipeline_dest_mssql_dwh.get_pipeline(
 # pipeline.dev_mode = True
 # pipeline.refresh = "drop_sources"
 
+# --- Cron único consolidado para hontrack_api ---
+# DEV se reduce para menos carga (puedes ampliar si lo deseas).
+hontrack_api_consolidated_automation = get_for_current_env(
+    {
+        "dev": automation_daily_delta_2_cron,
+        "prd": automation_daily_delta_2_cron
+        | my_cron_automation_condition(
+            cron_schedule="15 3,5,6,10,12,18 * * *",
+            allowed_deps_updated_selection=dg.AssetSelection.tag(
+                key=tags_repo.Daily.key, value=tags_repo.Daily.value
+            ),
+            lookback_delta=timedelta(days=1),
+        ),
+    }
+)
+
 daily_partitions_def = get_daily_partition_def_to_today(
     start_date=datetime(2024, 9, 1, 0, 0, 0),
 )
@@ -642,7 +660,7 @@ def _daily_partition_iter(
     name="hontrack_api",
     group_name="hontrack_api",
     dagster_dlt_translator=MyDagsterDltTranslator(
-        automation_condition=automation_daily_delta_2_cron,
+        automation_condition=hontrack_api_consolidated_automation,
         prefix_key=["DL_FARINTER", "hontrack_api"],
         tags=tags_repo.AutomationDaily | tags_repo.AutomationOnly,
         dataset_name="hontrack_api",
