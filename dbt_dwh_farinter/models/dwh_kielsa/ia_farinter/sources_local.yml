@@ -1,15 +1,15 @@
+---
 sources:
-- name: IA_FARINTER
-  description: Base de tablas transformadas (Data Warehouse)
-  database: IA_FARINTER
-  schema: dbo
-  loaded_at_field: Fecha_Actualizado
-
-  tables:
-  - name: IA_Kielsa_Proyeccion_Personal_Necesario
-  - name: IA_Kielsa_Dotacion_Solucion_Turnos
-  - name: IA_Kielsa_Dotacion_Solucion_Encabezado
-  config:
-    freshness:   # default freshness
-      warn_after: {count: 28, period: hour}
-      error_after: {count: 72, period: hour}
+  - name: IA_FARINTER
+    description: Base de tablas transformadas (Data Warehouse)
+    database: IA_FARINTER
+    schema: dbo
+    tables:
+      - name: IA_Kielsa_Proyeccion_Personal_Necesario
+      - name: IA_Kielsa_Dotacion_Solucion_Turnos
+      - name: IA_Kielsa_Dotacion_Solucion_Encabezado
+    config:
+      freshness:  # default freshness
+        warn_after: {count: 28, period: hour}
+        error_after: {count: 72, period: hour}
+      loaded_at_field: Fecha_Actualizado

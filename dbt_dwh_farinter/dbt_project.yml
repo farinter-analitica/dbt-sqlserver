@@ -1,3 +1,4 @@
+---
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
@@ -16,20 +17,15 @@ test-paths: [tests]
 seed-paths: [seeds]
 macro-paths: [macros]
 snapshot-paths: [snapshots]
-
-clean-targets:         # directories to be removed by `dbt clean`
-- target
-- logs
-
+clean-targets:  # directories to be removed by `dbt clean`
+  - target
+  - logs
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
-
 # In this example config, we tell dbt to build all models in the example/
 # directory as views. These settings can be overridden in the individual model
 # files using the `{{ config(...) }}` macro.
-
-
 models:
   dbt_dwh_farinter:
     # Config indicated by + and applies to all files under models/example/
@@ -71,7 +67,6 @@ models:
       an_farinter:
         +group: dbt_dwh_sap_an
         +database: AN_FARINTER
-
     dwh_kielsa:
       +tags: [dagster_kielsa_gf/dbt]
 #      mart_finanzas:
@@ -120,7 +115,6 @@ models:
       adm_farinter:
         +group: adm_dwh_kielsa
         +database: ADM_FARINTER
-
     dwh_global:
       +tags: [dagster_global_gf/dbt]
       an_farinter:
@@ -132,15 +126,14 @@ models:
       dl_farinter:
         +group: etl_dwh
         +database: DL_FARINTER
-
 snapshots:
   dbt_dwh_farinter:
     +schema: scd
     bi_farinter:
-      +database: 'BI_FARINTER'
+      +database: BI_FARINTER
       kielsa:
-        +tags: ["dagster_kielsa_gf/dbt"]
-        +group: 'dbt_snapshots_kielsa'
+        +tags: [dagster_kielsa_gf/dbt]
+        +group: dbt_snapshots_kielsa
     dl_farinter:
       +database: DL_FARINTER
       kielsa:
@@ -148,7 +141,6 @@ snapshots:
         +group: dbt_snapshots_kielsa
     example:
       +group: dbt_first_group
-
 sources:
   dbt_dwh_farinter:
     dwh_kielsa:
@@ -169,7 +161,6 @@ sources:
       ia_farinter:
         +group: ia_farinter_kielsa
         +database: IA_FARINTER
-
     dwh_sap:
       +tags: [dagster_sap_gf/dbt]
       mart_finanzas:
@@ -196,7 +187,6 @@ sources:
       dl_farinter:
         +group: sap_etl_dwh
         +database: DL_FARINTER
-
     dwh_global:
       +tags: [dagster_global_gf/dbt]
       an_farinter:
@@ -215,52 +205,49 @@ sources:
 #      mart2:
 #       +group: "mart2_group"
 #  +post_hook:    "{{dwh_farinter_create_primary_key(this,columns=['Sociedad_Id'], create_clustered=True, is_incremental=0,if_another_exists_delete=True, show_info=True)}}"
-
-
 vars:
-  P_SAPPRD_LS: SAPPRD #Linked server de SAP PRD
-  P_SQLLDSUBS_LS: REPLICASLD #Linked server de Replicas de KIelsa, SITEPLUS y otros
-  P_DWHPRD_LS: DWHPRD #Linked server de DWH PRD
-  P_FECHADESDE_INC: #a usar por modelos particionados, fecha inicial inclusiva >=
-  P_FECHAHASTA_EXC: #a usar por modelos particionados, fecha final exclusiva <
-
+  P_SAPPRD_LS: SAPPRD  # Linked server de SAP PRD
+  P_SQLLDSUBS_LS: REPLICASLD  # Linked server de Replicas de KIelsa, SITEPLUS y otros
+  P_DWHPRD_LS: DWHPRD  # Linked server de DWH PRD
+  P_FECHADESDE_INC:  # a usar por modelos particionados, fecha inicial inclusiva >=
+  P_FECHAHASTA_EXC:  # a usar por modelos particionados, fecha final exclusiva <
   P_LDCOM_FULL_LINKED_SERVERS:
     HN:
-      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para HN
-      DATABASE: LDCOMREPHN # Base de datos de LDCOM con todas las tablas a utilizar para HN
+      NAME: REPLICASLD  # Linked server de LDCOM con todas las tablas a utilizar para HN
+      DATABASE: LDCOMREPHN  # Base de datos de LDCOM con todas las tablas a utilizar para HN
     GT:
-      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para GT
-      DATABASE: LDCOMREPGT # Base de datos de LDCOM con todas las tablas a utilizar para GT
+      NAME: REPLICASLD  # Linked server de LDCOM con todas las tablas a utilizar para GT
+      DATABASE: LDCOMREPGT  # Base de datos de LDCOM con todas las tablas a utilizar para GT
     NI:
-      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para NI
-      DATABASE: LDCOMREPNIC # Base de datos de LDCOM con todas las tablas a utilizar para NI
+      NAME: REPLICASLD  # Linked server de LDCOM con todas las tablas a utilizar para NI
+      DATABASE: LDCOMREPNIC  # Base de datos de LDCOM con todas las tablas a utilizar para NI
     CR_ARB:
-      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para ARB
-      DATABASE: LDCOMREPARBCR # Base de datos de LDCOM con todas las tablas a utilizar para ARB
+      NAME: REPLICASLD  # Linked server de LDCOM con todas las tablas a utilizar para ARB
+      DATABASE: LDCOMREPARBCR  # Base de datos de LDCOM con todas las tablas a utilizar para ARB
     CR_OLD:
-      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para CR
-      DATABASE: LDCOMREPCR # Base de datos de LDCOM con todas las tablas a utilizar para CR
+      NAME: REPLICASLD  # Linked server de LDCOM con todas las tablas a utilizar para CR
+      DATABASE: LDCOMREPCR  # Base de datos de LDCOM con todas las tablas a utilizar para CR
     SV:
-      NAME: REPLICASLD # Linked server de LDCOM con todas las tablas a utilizar para SV
-      DATABASE: LDCOMREPSLV # Base de datos de LDCOM con todas las tablas a utilizar para SV
-
+      NAME: REPLICASLD  # Linked server de LDCOM con todas las tablas a utilizar para SV
+      DATABASE: LDCOMREPSLV  # Base de datos de LDCOM con todas las tablas a utilizar para SV
   P_LDFAS_FULL_LINKED_SERVERS:
     HN:
-      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para HN
-      DATABASE: LDFASREPHN # Base de datos de LDFAS con todas las tablas a utilizar para HN
+      NAME: REPLICASLD  # Linked server de LDFAS con todas las tablas a utilizar para HN
+      DATABASE: LDFASREPHN  # Base de datos de LDFAS con todas las tablas a utilizar para HN
     GT:
-      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para GT
-      DATABASE: LDFASREPGT # Base de datos de LDFAS con todas las tablas a utilizar para GT
+      NAME: REPLICASLD  # Linked server de LDFAS con todas las tablas a utilizar para GT
+      DATABASE: LDFASREPGT  # Base de datos de LDFAS con todas las tablas a utilizar para GT
     NI:
-      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para NI
-      DATABASE: LDFASREPNIC # Base de datos de LDFAS con todas las tablas a utilizar para NI
+      NAME: REPLICASLD  # Linked server de LDFAS con todas las tablas a utilizar para NI
+      DATABASE: LDFASREPNIC  # Base de datos de LDFAS con todas las tablas a utilizar para NI
     CR_ARB:
-      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para ARB
-      DATABASE: LDFASREPARBCR # Base de datos de LDFAS con todas las tablas a utilizar para ARB
+      NAME: REPLICASLD  # Linked server de LDFAS con todas las tablas a utilizar para ARB
+      DATABASE: LDFASREPARBCR  # Base de datos de LDFAS con todas las tablas a utilizar para ARB
     CR_OLD:
-      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para CR
-      DATABASE: LDFASREPCR # Base de datos de LDFAS con todas las tablas a utilizar para CR
+      NAME: REPLICASLD  # Linked server de LDFAS con todas las tablas a utilizar para CR
+      DATABASE: LDFASREPCR  # Base de datos de LDFAS con todas las tablas a utilizar para CR
     SV:
-      NAME: REPLICASLD # Linked server de LDFAS con todas las tablas a utilizar para SV
-      DATABASE: LDFASREPSLV # Base de datos de LDFAS con todas las tablas a utilizar para SV
-
+      NAME: REPLICASLD  # Linked server de LDFAS con todas las tablas a utilizar para SV
+      DATABASE: LDFASREPSLV  # Base de datos de LDFAS con todas las tablas a utilizar para SV
+flags:
+  require_generic_test_arguments_property: true

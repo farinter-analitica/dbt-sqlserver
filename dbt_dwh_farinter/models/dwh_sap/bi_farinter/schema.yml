@@ -1,12 +1,13 @@
-
+---
 models:
   - name: BI_SAP_Dim_GrupoCliente_Plan
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           name: deben_ser_unicos_por_nombre_BI_SAP_Dim_GrupoCliente_Plan
-          combination_of_columns: ["GrupoClientes_Nombre"]
           config:
             severity: error
+          arguments:
+            combination_of_columns: [GrupoClientes_Nombre]
   - name: VDWH_KielsaReporteDemandaPivot12M_HN
   - name: VDWH_KielsaReporteRegaliasPivot12M_HN
   - name: VDWH_KielsaReporteVentasPivot12M_HN

@@ -1,38 +1,39 @@
+---
 sources:
-- name: BI_FARINTER
-  description: Base de tablas cargadas (Data Lake)
-  database: BI_FARINTER
-  schema: dbo
-  loaded_at_field: Fecha_Actualizado
-  tables:
-  - name: BI_Dim_Articulo_SAP
-  - name: BI_Dim_Sociedad_SAP
-  - name: BI_Dim_Centro_SAP
-  - name: BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia
-  - name: BI_SAP_Hecho_SocAlmArtGpoCli_Forecast
-  - name: BI_SAP_Dim_ClienteAreaCredito_Calc
-  - name: BI_SAP_Dim_ClienteAreaCredito
-  - name: BI_Dim_Cliente_SAP
-  - name: BI_SAP_Dim_Lote
-  - name: BI_SAP_Hecho_Facturas_Posiciones_Reciente
-  - name: BI_SAP_Hecho_Facturas_Posiciones_Actual
-  - name: BI_SAP_Dim_Facturas_Reciente
-  - name: BI_SAP_Dim_Facturas_Actual
-  - name: BI_SAP_Dim_Cliente
-  - name: BI_SAP_Dim_GrupoMaterial
-  - name: BI_Dim_Zona_SAP
-  - name: BI_Dim_Casa_SAP
-  - name: BI_Dim_Vendedor_SAP
-  - name: BI_SAP_Dim_CanalDist
-  - name: BI_SAP_Dim_GrupoCliente
-  - name: BI_Dim_TipoFactura_SAP
-  - name: BI_Dim_ArticuloPadre_Kielsa
-  - name: BI_Hecho_RegaliasHist_Kielsa
-  - name: BI_SAP_Hecho_FlujoFacturacion
-  config:
-    freshness:   # default freshness
-      warn_after: {count: 28, period: hour}
-      error_after: {count: 72, period: hour}
-    meta:
-      dagster:
-        group: dbt_dwh_sap_bi
+  - name: BI_FARINTER
+    description: Base de tablas cargadas (Data Lake)
+    database: BI_FARINTER
+    schema: dbo
+    tables:
+      - name: BI_Dim_Articulo_SAP
+      - name: BI_Dim_Sociedad_SAP
+      - name: BI_Dim_Centro_SAP
+      - name: BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia
+      - name: BI_SAP_Hecho_SocAlmArtGpoCli_Forecast
+      - name: BI_SAP_Dim_ClienteAreaCredito_Calc
+      - name: BI_SAP_Dim_ClienteAreaCredito
+      - name: BI_Dim_Cliente_SAP
+      - name: BI_SAP_Dim_Lote
+      - name: BI_SAP_Hecho_Facturas_Posiciones_Reciente
+      - name: BI_SAP_Hecho_Facturas_Posiciones_Actual
+      - name: BI_SAP_Dim_Facturas_Reciente
+      - name: BI_SAP_Dim_Facturas_Actual
+      - name: BI_SAP_Dim_Cliente
+      - name: BI_SAP_Dim_GrupoMaterial
+      - name: BI_Dim_Zona_SAP
+      - name: BI_Dim_Casa_SAP
+      - name: BI_Dim_Vendedor_SAP
+      - name: BI_SAP_Dim_CanalDist
+      - name: BI_SAP_Dim_GrupoCliente
+      - name: BI_Dim_TipoFactura_SAP
+      - name: BI_Dim_ArticuloPadre_Kielsa
+      - name: BI_Hecho_RegaliasHist_Kielsa
+      - name: BI_SAP_Hecho_FlujoFacturacion
+    config:
+      freshness:  # default freshness
+        warn_after: {count: 28, period: hour}
+        error_after: {count: 72, period: hour}
+      meta:
+        dagster:
+          group: dbt_dwh_sap_bi
+      loaded_at_field: Fecha_Actualizado

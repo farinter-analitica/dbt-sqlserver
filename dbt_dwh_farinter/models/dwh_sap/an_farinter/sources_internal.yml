@@ -1,16 +1,17 @@
+---
 sources:
-- name: AN_FARINTER
-  description: Base de tablas cargadas (Data Lake)
-  database: AN_FARINTER
-  schema: dbo
-  loaded_at_field: Fecha_Actualizado
-  tables:
-  - name: AN_SAP_Cal_ClientesRecordCredito
-  - name: AN_Cal_AtributosCliente_SAP
-  config:
-    freshness:   # default freshness
-      warn_after: {count: 28, period: hour}
-      error_after: {count: 72, period: hour}
-    meta:
-      dagster:
-        group: sap_an_dwh
+  - name: AN_FARINTER
+    description: Base de tablas cargadas (Data Lake)
+    database: AN_FARINTER
+    schema: dbo
+    tables:
+      - name: AN_SAP_Cal_ClientesRecordCredito
+      - name: AN_Cal_AtributosCliente_SAP
+    config:
+      freshness:  # default freshness
+        warn_after: {count: 28, period: hour}
+        error_after: {count: 72, period: hour}
+      meta:
+        dagster:
+          group: sap_an_dwh
+      loaded_at_field: Fecha_Actualizado

@@ -4,16 +4,18 @@ models:
     data_tests:
       - unique_combination_of_columns:
           name: unique_ven_suc_emp_regl
-          combination_of_columns: [Usuario_Id, Suc_Id, Emp_Id, regla_id]
-          where_clause: |
-            codigo_tipo = 'usuario_id'
           config:
             severity: error
+          arguments:
+            combination_of_columns: [Usuario_Id, Suc_Id, Emp_Id, regla_id]
+            where_clause: |
+              codigo_tipo = 'usuario_id'
       - unique_combination_of_columns:
           name: unique_ven_emp_regl
-          combination_of_columns: [Usuario_Id, Vendedor_Id, Emp_Id, regla_id]
-          where_clause: |
-            tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
-            and fecha_validado = cast(getdate() as date)
           config:
             severity: error
+          arguments:
+            combination_of_columns: [Usuario_Id, Vendedor_Id, Emp_Id, regla_id]
+            where_clause: |-
+              tipo_aplicacion in ('unica_sucursal', 'individual_por_codigo')
+              and fecha_validado = cast(getdate() as date)

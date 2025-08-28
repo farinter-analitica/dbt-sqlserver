@@ -1,32 +1,30 @@
+---
 version: 2
-
 models:
   - name: BI_ClinicaLab_Dim_Usuario
-    description: "Dimension table for clinic lab users"
+    description: Dimension table for clinic lab users
     columns:
       - name: Id_Usuario
-        description: "Primary key - Unique identifier for users"
-        data_tests:
-          - unique
-          - not_null
-
+        description: Primary key - Unique identifier for users
+        data_tests: [unique, not_null]
       - name: Fecha_Creado
-        description: "Creation date of the user record"
+        description: Creation date of the user record
         data_tests:
           - check_last_date_recency:
-                max_days: 7
+              config:
                 severity: warn
-
+              arguments:
+                max_days: 7
   - name: BI_Kielsa_Dim_Comision_Detalle
     data_tests:
       - mutually_exclusive_ranges_multi_column:
+          config:
+            partition_by: [Articulo_Id, Suc_Id, Emp_Id]
+            severity: warn
+          arguments:
             lower_bound_column: Comision_Fecha_Inicial
             upper_bound_column: Comision_Fecha_Final
-            partition_by:
-              - Articulo_Id
-              - Suc_Id
-              - Emp_Id
-            gaps: 'allowed'  # o 'not_allowed' o 'required'
-            zero_length_range_allowed: true  # o true
-            where_clause: "Mantener_Registro = 1 AND Comision_Fecha_Final >= DATEADD(day, -30, GETDATE())"
-            severity: warn
+            gaps: allowed
+            zero_length_range_allowed: true
+            where_clause: Mantener_Registro = 1 AND Comision_Fecha_Final >= DATEADD(day,
+              -30, GETDATE())

@@ -1,33 +1,28 @@
-
-#version: 4
+---
+# version: 4
 models:
   - name: BI_Kielsa_Dim_Sucursal
-    description: "Sucursales de Kielsa"
+    description: Sucursales de Kielsa
     columns:
       - name: Sucursal_Id
-        description: "Sucursales de Kielsa"
-        #type: int
+        description: Sucursales de Kielsa
+        # type: int
       - name: Emp_Id
-        description: "Empresa de Kielsa"
-        #type: int
+        description: Empresa de Kielsa
+        # type: int
       - name: HashStr_SucEmp
-        description: "Hash UNICO de la sucursal - empresa"
-        data_tests:
-          - unique
-          - not_null
+        description: Hash UNICO de la sucursal - empresa
+        data_tests: [unique, not_null]
   - name: BI_Kielsa_Dim_CanalVenta
-    description: "Canales de venta de Kielsa"
+    description: Canales de venta de Kielsa
     columns:
       - name: CanalVenta_Id
-        data_tests:
-          - unique
-          - not_null
+        data_tests: [unique, not_null]
   - name: BI_Kielsa_Dim_Usuario
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           name: usuario_nombre_unico_afecta_receta
-          combination_of_columns:
-            - Usuario_Nombre
-            - Emp_Id
           config:
             severity: warn
+          arguments:
+            combination_of_columns: [Usuario_Nombre, Emp_Id]
