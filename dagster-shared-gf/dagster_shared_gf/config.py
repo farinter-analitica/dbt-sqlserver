@@ -232,6 +232,11 @@ class DagsterSettings:
         """Indica si el entorno actual es similar a desarrollo (instance_current_env contiene 'dev')."""
         return self.dagster_instance_current_env in ["dev", "development", "local"]
 
+    @property
+    def is_local(self) -> bool:
+        """Indica si el entorno actual es local (instance_current_env == 'local')."""
+        return self.dagster_instance_current_env == "local"
+
 
 @lru_cache(maxsize=1)
 def get_dagster_config() -> DagsterSettings:
