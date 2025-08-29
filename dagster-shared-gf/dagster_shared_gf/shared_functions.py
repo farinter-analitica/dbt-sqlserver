@@ -161,7 +161,7 @@ def verify_location_name(location_name: str) -> bool:
 
 def get_current_env():
     """Return the current instance env via central config."""
-    return get_dagster_config().instance_current_env
+    return get_dagster_config().dagster_instance_current_env
 
 
 class DagsterInstanceCurrentEnv:

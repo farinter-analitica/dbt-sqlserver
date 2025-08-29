@@ -10,14 +10,14 @@ from dagster._config.field_utils import IntEnvVar
 from dotenv import load_dotenv
 
 
-class CachedIntEnvVar(IntEnvVar):
+class SecretIntEnvVar(IntEnvVar):
     _value: Optional[int] = None
 
     @classmethod
-    def create(cls, name: str) -> "CachedIntEnvVar":
+    def create(cls, name: str) -> "SecretIntEnvVar":
         value = os.getenv(name)
         raw = int(value) if value is not None else None
-        var = CachedIntEnvVar(0)
+        var = SecretIntEnvVar(0)
         var.name = name
         # store cached raw value to avoid triggering IntEnvVar.__int__ which raises
         var._value = raw
@@ -27,7 +27,7 @@ class CachedIntEnvVar(IntEnvVar):
         return self._value if self._value is not None else default
 
 
-class CachedEnvVar(EnvVar):
+class SecretEnvVar(EnvVar):
     """Wrapper que resuelve y cachea el valor de una variable de entorno.
 
     Uso: definir secrets en `DagsterSettings` como `CachedEnvVar("MY_SECRET")`.
@@ -36,8 +36,8 @@ class CachedEnvVar(EnvVar):
     """
 
     @classmethod
-    def int(cls, name: str) -> "CachedIntEnvVar":
-        return CachedIntEnvVar.create(name=name)
+    def int(cls, name: str) -> "SecretIntEnvVar":
+        return SecretIntEnvVar.create(name=name)
 
     def __init__(self, name: str, default: Optional[str] = None):
         self.name = name
@@ -58,8 +58,8 @@ class DagsterSettings:
     os.environ ni os.getenv.
     """
 
-    instance_current_env: str = field(
-        default_factory=lambda: os.getenv("INSTANCE_CURRENT_ENV", "dev")
+    dagster_instance_current_env: str = field(
+        default_factory=lambda: os.getenv("DAGSTER_INSTANCE_CURRENT_ENV", "dev").lower()
     )
     graphql_port: int = field(
         default_factory=lambda: int(
@@ -88,31 +88,31 @@ class DagsterSettings:
     dagster_dev_dwh_farinter_username: Optional[str] = field(
         default_factory=lambda: os.getenv("DAGSTER_DEV_DWH_FARINTER_USERNAME")
     )
-    dagster_dev_dwh_farinter_password: Optional[str] = field(
-        default_factory=lambda: os.getenv("DAGSTER_DEV_DWH_FARINTER_PASSWORD")
-    )
     dagster_prd_dwh_farinter_username: Optional[str] = field(
         default_factory=lambda: os.getenv("DAGSTER_PRD_DWH_FARINTER_USERNAME")
     )
-    dagster_prd_dwh_farinter_password: Optional[str] = field(
-        default_factory=lambda: os.getenv("DAGSTER_PRD_DWH_FARINTER_PASSWORD")
+    dagster_dwh_farinter_sql_server: Optional[str] = field(
+        default_factory=lambda: os.getenv("DAGSTER_DWH_FARINTER_SQL_SERVER")
+    )
+    dagster_dwh_farinter_username: Optional[str] = field(
+        default_factory=lambda: os.getenv("DAGSTER_DWH_FARINTER_USERNAME")
     )
     dagster_sql_server_odbc_driver: Optional[str] = field(
         default_factory=lambda: os.getenv("DAGSTER_SQL_SERVER_ODBC_DRIVER")
     )
 
     # Secrets / passwords
-    dagster_pg_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar("DAGSTER_PG_PASSWORD")
+    dagster_pg_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_PG_PASSWORD")
     )
-    nocodb_pg_farinter_secret_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar("NOCODB_PG_FARINTER_SECRET_PASSWORD")
+    nocodb_pg_farinter_secret_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("NOCODB_PG_FARINTER_SECRET_PASSWORD")
     )
-    auroraqa_pg_farinter_secret_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar("AURORAQA_PG_FARINTER_SECRET_PASSWORD")
+    auroraqa_pg_farinter_secret_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("AURORAQA_PG_FARINTER_SECRET_PASSWORD")
     )
-    dagster_secret_analitica_farinternet_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar(
+    dagster_secret_analitica_farinternet_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar(
             "DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD"
         )
     )
@@ -157,27 +157,42 @@ class DagsterSettings:
     dagster_email_address: Optional[str] = field(
         default_factory=lambda: os.getenv("DAGSTER_EMAIL_ADDRESS")
     )
-    dagster_secret_email_password: Optional[str] = field(
-        default_factory=lambda: CachedEnvVar("DAGSTER_SECRET_EMAIL_PASSWORD")
+    dagster_secret_email_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_SECRET_EMAIL_PASSWORD")
     )
 
-    # Cached EnvVar instances for common secrets (so code can use cfg.<attr> where needed)
-    dagster_secret_dev_dwh_farinter_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar("DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD")
+    # SMS
+    dagster_sms_api_url: Optional[str] = field(
+        default_factory=lambda: "http://172.16.2.236/sms_api/api/SMS/enviar_mensaje"
     )
-    dagster_secret_prd_dwh_farinter_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD")
+
+    # Secrets EnvVar instances for common secrets (so code can use cfg.<attr> where needed)
+    dagster_secret_dwh_farinter_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_SECRET_DWH_FARINTER_PASSWORD")
     )
-    dagster_secret_ldcom_prd_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD")
+    dagster_secret_dev_dwh_farinter_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD")
     )
-    dagster_secret_analitica_su_password: CachedEnvVar = field(
-        default_factory=lambda: CachedEnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD")
+    dagster_secret_prd_dwh_farinter_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD")
+    )
+    dagster_secret_ldcom_prd_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD")
+    )
+    dagster_secret_analitica_su_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD")
     )
 
     # LDCOM / replicas
     dagster_ldcom_prd_username: Optional[str] = field(
         default_factory=lambda: os.getenv("DAGSTER_LDCOM_PRD_USERNAME")
+    )
+
+    dagster_ldcom_prd_ecomm_username: Optional[str] = field(
+        default_factory=lambda: os.getenv("DAGSTER_LDCOM_PRD_ECOMM_USERNAME")
+    )
+    dagster_secret_ldcom_prd_ecomm_password: SecretEnvVar = field(
+        default_factory=lambda: SecretEnvVar("DAGSTER_SECRET_LDCOM_PRD_ECOMM_PASSWORD")
     )
 
     # DBT related
@@ -197,10 +212,25 @@ class DagsterSettings:
         variable de entorno. Ejemplo: cfg.get_secret('dagster_pg_password')
         """
         attr = getattr(self, name, None)
-        if isinstance(attr, CachedEnvVar):
+        if isinstance(attr, SecretEnvVar):
             return attr.get_value(default=default)
         # Si no es CachedEnvVar, intentar devolver tal cual (compatibilidad)
         return attr
+
+    @property
+    def is_prd(self) -> bool:
+        """Indica si el entorno actual es producción (instance_current_env == 'prd')."""
+        return self.dagster_instance_current_env == "prd"
+
+    @property
+    def is_dev(self) -> bool:
+        """Indica si el entorno actual es desarrollo (instance_current_env == 'dev')."""
+        return self.dagster_instance_current_env == "dev"
+
+    @property
+    def is_dev_like(self) -> bool:
+        """Indica si el entorno actual es similar a desarrollo (instance_current_env contiene 'dev')."""
+        return self.dagster_instance_current_env in ["dev", "development", "local"]
 
 
 @lru_cache(maxsize=1)

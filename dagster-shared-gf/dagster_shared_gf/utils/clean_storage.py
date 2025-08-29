@@ -331,7 +331,7 @@ if __name__ == "__main__":
 
     # Determinar entorno
     cfg = get_dagster_config()
-    env_str = cfg.instance_current_env or "local"
+    env_str = cfg.dagster_instance_current_env or "local"
 
     start_time = datetime.now()
 
