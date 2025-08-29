@@ -22,4 +22,4 @@ load_from:
       location_name: schedule_optimizer_kielsa
 
 # Per-location executable_path habilita aislamiento de dependencias.
-# Asegúrate de generar cada .venv con scripts/create_location_envs.sh antes de levantar Dagster.
+# Asegúrate de generar cada .venv antes de levantar Dagster.
