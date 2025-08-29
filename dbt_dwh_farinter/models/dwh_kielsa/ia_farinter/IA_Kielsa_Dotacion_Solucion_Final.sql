@@ -13,7 +13,16 @@ WITH LatestEncabezado AS (
     SELECT *
     FROM (
         SELECT
-            e.*,
+            e.[auto_id],
+            e.[emp_id],
+            e.[suc_id],
+            e.[anio],
+            e.[semana],
+            e.[operational_mode],
+            e.[valor_objetivo],
+            e.[fecha_ejecucion_id],
+            e.[tiempo_ejecucion],
+            e.[status],
             ROW_NUMBER() OVER (
                 PARTITION BY e.emp_id, e.suc_id, e.anio, e.semana, e.operational_mode
                 ORDER BY e.fecha_ejecucion_id DESC
