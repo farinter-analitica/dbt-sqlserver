@@ -3,16 +3,18 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 import yaml
-import os
 from typing import Callable
 
 from dagster import OpExecutionContext, RunsFilter, graph, op
 from dagster_shared_gf.shared_functions import get_for_current_env
 
+from dagster_shared_gf.config import get_dagster_config
+
+cfg = get_dagster_config()
 SETTINGS = {
     "local_storage": {"retention_period": get_for_current_env({"dev": 21, "prd": 21})}
 }
-DAGSTER_HOME = os.environ.get("DAGSTER_HOME") or "."
+DAGSTER_HOME = cfg.dagster_home or "."
 
 
 @dataclass
@@ -191,6 +193,10 @@ def clean_dbt_targets_old_files(context: OpExecutionContext) -> None:
         raise FileNotFoundError(f"No se encontró dbt_project.yml en {dbt_project_path}")
     with dbt_project_path.open("r", encoding="utf-8") as f:
         dbt_config = yaml.safe_load(f)
+        if not isinstance(dbt_config, dict):
+            raise ValueError(
+                f"Expected DBT config to be a dictionary, got {type(dbt_config).__name__} in {dbt_project_path}"
+            )
     clean_targets = dbt_config.get("clean-targets", [])
     policy = build_retention_policy(
         float(SETTINGS["local_storage"]["retention_period"])
@@ -322,10 +328,10 @@ if __name__ == "__main__":
     from dagster import instance_for_test
     from datetime import datetime
     import warnings
-    import os
 
     # Determinar entorno
-    env_str = os.environ.get("ENV", "local")
+    cfg = get_dagster_config()
+    env_str = cfg.instance_current_env or "local"
 
     start_time = datetime.now()
 

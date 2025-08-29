@@ -1,4 +1,4 @@
-import os
+from dagster_shared_gf.config import get_dagster_config
 import json
 from pathlib import Path
 
@@ -220,10 +220,10 @@ if __name__ == "__main__":
     from dagster_shared_gf.resources.postgresql_resources import db_nocodb_data_gf
     from datetime import datetime
     import warnings
-    import os
 
     # Determine environment
-    env_str = os.environ.get("ENV", "local")
+    cfg = get_dagster_config()
+    env_str = cfg.instance_current_env or "local"
 
     start_time = datetime.now()
 

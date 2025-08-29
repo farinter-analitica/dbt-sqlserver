@@ -1,6 +1,5 @@
 import base64
 import contextlib
-import os
 from enum import Enum
 from typing import Any, Generator, Literal, Type, Union
 import urllib.parse
@@ -11,7 +10,7 @@ from dagster import ConfigurableResource, EnvVar, InitResourceContext
 from pydantic import Field
 
 from dagster_shared_gf import shared_variables as shared_vars
-from dagster_shared_gf.load_env_run import load_env_vars
+from dagster_shared_gf.config import get_dagster_config
 from dagster_shared_gf.shared_functions import get_for_current_env
 import sqlalchemy.exc
 
@@ -56,26 +55,27 @@ def decode_password(encoded_str: str) -> str:
 
 env_str = shared_vars.env_str
 
-# Set environment variables
+# Set environment variables desde la configuración centralizada
+cfg = get_dagster_config()
 p_server = get_for_current_env(
     {
-        "dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_SQL_SERVER"),
-        "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_SQL_SERVER"),
+        "dev": cfg.dagster_dev_dwh_farinter_sql_server,
+        "prd": cfg.dagster_prd_dwh_farinter_sql_server,
     }
 )
 p_user = get_for_current_env(
     {
-        "dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_USERNAME"),
-        "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_USERNAME"),
+        "dev": cfg.dagster_dev_dwh_farinter_username,
+        "prd": cfg.dagster_prd_dwh_farinter_username,
     }
 )
 p_password = get_for_current_env(
     {
-        "dev": EnvVar("DAGSTER_SECRET_DEV_DWH_FARINTER_PASSWORD"),
-        "prd": EnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD"),
+        "dev": cfg.dagster_secret_dev_dwh_farinter_password,
+        "prd": cfg.dagster_secret_prd_dwh_farinter_password,
     }
 )
-p_driver = os.environ.get("DAGSTER_SQL_SERVER_ODBC_DRIVER")
+p_driver = cfg.dagster_sql_server_odbc_driver
 
 
 class SQLServerResource(ConfigurableResource):
@@ -509,7 +509,7 @@ dwh_farinter = SQLServerResource(
         "CRM_FARINTER",
     ],
     username=p_user,
-    password=p_password,
+    password=p_password.get_value(),
     trust_server_certificate="yes",
     default_database="DL_FARINTER",
 )
@@ -565,23 +565,23 @@ dwh_farinter_database_admin = SQLServerNonRuntimeResource(
     server=p_server,
     databases=["no_database_specified"],
     username=p_user,
-    password=p_password.get_value(),
+    password=p_password,
     trust_server_certificate="yes",
     default_database="no_database_specified",
     allow_any_database=True,
 )
 
 dwh_farinter_dl_prd = SQLServerResource(
-    server=os.getenv("DAGSTER_PRD_DWH_FARINTER_SQL_SERVER", "ENV NOT FOUND"),
+    server=cfg.dagster_prd_dwh_farinter_sql_server or "ENV NOT FOUND",
     databases=dwh_farinter_dl.databases,
-    username=os.getenv("DAGSTER_PRD_DWH_FARINTER_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD"),
+    username=cfg.dagster_prd_dwh_farinter_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_prd_dwh_farinter_password,
     trust_server_certificate=dwh_farinter_dl.trust_server_certificate,
     default_database=dwh_farinter_dl.default_database,
 )
 
 dwh_farinter_prd_replicas_ldcom = SQLServerResource(
-    server=os.getenv("DAGSTER_PRD_DWH_FARINTER_SQL_SERVER", "ENV NOT FOUND"),
+    server=cfg.dagster_prd_dwh_farinter_sql_server or "ENV NOT FOUND",
     databases=[
         "REP_LDCOM_HN",
         "REP_LDCOM_NI",
@@ -590,8 +590,8 @@ dwh_farinter_prd_replicas_ldcom = SQLServerResource(
         "REP_LDCOM_SV",
         "REP_LDCOM_ARB",
     ],
-    username=os.getenv("DAGSTER_PRD_DWH_FARINTER_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_PRD_DWH_FARINTER_PASSWORD"),
+    username=cfg.dagster_prd_dwh_farinter_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_prd_dwh_farinter_password,
     trust_server_certificate="yes",
     default_database="REP_LDCOM_HN",
 )
@@ -632,14 +632,11 @@ LDCOM_SQLSERVER_DATABASES = {
     ],
 }
 
-if os.getenv("DAGSTER_LDCOM_PRD_USERNAME", None) is None:
-    load_env_vars()
-
 ldcom_hn_prd_sqlserver = SQLServerResource(
     server=LDCOM_SQLSERVER_HOSTS["HN"],
     databases=LDCOM_SQLSERVER_DATABASES["HN"],
-    username=os.getenv("DAGSTER_LDCOM_PRD_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD"),
+    username=cfg.dagster_ldcom_prd_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_ldcom_prd_password,
     trust_server_certificate="yes",
     default_database="LDCOM_KIELSA",
 )
@@ -647,8 +644,8 @@ ldcom_hn_prd_sqlserver = SQLServerResource(
 ldcom_ni_prd_sqlserver = SQLServerResource(
     server=LDCOM_SQLSERVER_HOSTS["NI"],
     databases=LDCOM_SQLSERVER_DATABASES["NI"],
-    username=os.getenv("DAGSTER_LDCOM_PRD_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD"),
+    username=cfg.dagster_ldcom_prd_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_ldcom_prd_password,
     trust_server_certificate="yes",
     default_database="LDCOM_KIELSA_NIC",
 )
@@ -656,8 +653,8 @@ ldcom_ni_prd_sqlserver = SQLServerResource(
 ldcom_cr_prd_sqlserver = SQLServerResource(
     server=LDCOM_SQLSERVER_HOSTS["CR"],
     databases=LDCOM_SQLSERVER_DATABASES["CR"],
-    username=os.getenv("DAGSTER_LDCOM_PRD_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD"),
+    username=cfg.dagster_ldcom_prd_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_ldcom_prd_password,
     trust_server_certificate="yes",
     default_database="LDCOM_KIELSA_CR",
 )
@@ -665,8 +662,8 @@ ldcom_cr_prd_sqlserver = SQLServerResource(
 ldcom_cr_arb_prd_sqlserver = SQLServerResource(
     server=LDCOM_SQLSERVER_HOSTS["CR_ARB"],
     databases=LDCOM_SQLSERVER_DATABASES["CR_ARB"],
-    username=os.getenv("DAGSTER_LDCOM_PRD_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD"),
+    username=cfg.dagster_ldcom_prd_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_ldcom_prd_password,
     trust_server_certificate="yes",
     default_database="LDCOM_KIELSA_CR",
 )
@@ -675,8 +672,8 @@ ldcom_cr_arb_prd_sqlserver = SQLServerResource(
 ldcom_gt_prd_sqlserver = SQLServerResource(
     server=LDCOM_SQLSERVER_HOSTS["GT"],
     databases=LDCOM_SQLSERVER_DATABASES["GT"],
-    username=os.getenv("DAGSTER_LDCOM_PRD_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD"),
+    username=cfg.dagster_ldcom_prd_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_ldcom_prd_password,
     trust_server_certificate="yes",
     default_database="LDCOM_KIELSA_GT",
 )
@@ -684,8 +681,8 @@ ldcom_gt_prd_sqlserver = SQLServerResource(
 ldcom_sv_prd_sqlserver = SQLServerResource(
     server=LDCOM_SQLSERVER_HOSTS["SV"],
     databases=LDCOM_SQLSERVER_DATABASES["SV"],
-    username=os.getenv("DAGSTER_LDCOM_PRD_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD"),
+    username=cfg.dagster_ldcom_prd_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_ldcom_prd_password,
     trust_server_certificate="yes",
     default_database="LDCOM_KIELSA_SALVADOR",
 )
@@ -693,8 +690,8 @@ ldcom_sv_prd_sqlserver = SQLServerResource(
 siteplus_sqlldsubs_sqlserver = SQLServerResource(
     server=LDCOM_SQLSERVER_HOSTS["SQLLDSUBS"],
     databases=LDCOM_SQLSERVER_DATABASES["SQLLDSUBS"],
-    username=os.getenv("DAGSTER_LDCOM_PRD_USERNAME", "ENV NOT FOUND"),
-    password=EnvVar("DAGSTER_SECRET_LDCOM_PRD_PASSWORD"),
+    username=cfg.dagster_ldcom_prd_username or "ENV NOT FOUND",
+    password=cfg.dagster_secret_ldcom_prd_password,
     trust_server_certificate="yes",
     default_database="SITEPLUS",
 )

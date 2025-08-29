@@ -326,14 +326,13 @@ def reload_code_locations():
     import warnings
 
     warnings.filterwarnings("ignore")
+    from dagster_shared_gf.config import get_dagster_config
     from dagster_shared_gf.shared_dagster_api import reload_workspace
 
-    host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
-    port = int(
-        os.environ.get(
-            "DAGSTER_WEBSERVER_PORT", os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)
-        )
-    )
+    cfg = get_dagster_config()
+
+    host = cfg.dagster_webserver_host or "localhost"
+    port = int(cfg.graphql_port)
 
     if not reload_workspace(host, port):
         print("Failed to reload code locations.")

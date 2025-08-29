@@ -14,6 +14,7 @@ from dagster_shared_gf.automation import (
     get_mapped_automation_condition,
 )
 from dagster_shared_gf.shared_functions import get_for_current_env
+from dagster_shared_gf.config import get_dagster_config
 from pydantic import Field
 
 warnings.filterwarnings(
@@ -21,16 +22,15 @@ warnings.filterwarnings(
 )
 env_str: str = shared_vars.env_str
 
-base_path = os.environ.get("DAGSTER_HOME")
-
+cfg = get_dagster_config()
+base_path = cfg.dagster_home
 if not base_path:
     base_os_path = os.path.dirname(__file__)
     base_path = Path(base_os_path).joinpath("..", "..", "..").resolve()
 
 dbt_project_dir = Path(base_path).joinpath("dbt_dwh_farinter").resolve()
-dbt_target = get_for_current_env(
-    {"dev": "dev", "prd": "prd"}
-)  # resuelve el target dependiendo de la variable de ambiente
+dbt_target = get_for_current_env({"dev": "dev", "prd": "prd"})
+# resuelve el target dependiendo de la variable de ambiente
 
 
 # print(os.fspath(dbt_project_dir))
@@ -52,7 +52,7 @@ dbt_manifest_path = dbt_project_dir.joinpath("target", "manifest.json")
 # If DAGSTER_DBT_PARSE_PROJECT_ON_LOAD is set, a manifest will be created at runtime.
 # Otherwise, we expect a manifest to be present in the project's target directory.
 if (
-    os.getenv("DAGSTER_DBT_PARSE_PROJECT_ON_LOAD") == 1
+    get_dagster_config().dagster_dbt_parse_project_on_load == "1"
     or not dbt_manifest_path.exists()
 ):
     dbt_manifest_path = (

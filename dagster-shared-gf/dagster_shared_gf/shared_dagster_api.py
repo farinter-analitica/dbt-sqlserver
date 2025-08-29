@@ -4,6 +4,7 @@ from enum import Enum
 from dataclasses import dataclass
 
 from dagster_graphql import DagsterGraphQLClient, ReloadRepositoryLocationStatus
+from dagster_shared_gf.config import get_dagster_config
 
 
 def get_client(
@@ -12,10 +13,11 @@ def get_client(
     """
     Instancia un cliente GraphQL de Dagster apuntando al webserver.
     """
+    cfg = get_dagster_config()
     if host is None:
-        host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
+        host = cfg.dagster_webserver_host
     if port is None:
-        port = int(os.environ.get("DAGSTER_WEBSERVER_PORT", 3000))
+        port = cfg.graphql_port
     return DagsterGraphQLClient(hostname=host, port_number=port)
 
 
@@ -84,12 +86,11 @@ def reload_workspace_standard(
     Returns:
         ReloadWorkspaceInfo: Object with information about the result of the reload request
     """
-    import os
-
+    cfg = get_dagster_config()
     if host is None:
-        host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
+        host = cfg.dagster_webserver_host
     if port is None:
-        port = int(os.environ.get("DAGSTER_WEBSERVER_PORT", 3000))
+        port = cfg.graphql_port
 
     client = get_client(host, port)
 
@@ -165,11 +166,10 @@ def reload_workspace(host: str, port: int) -> bool:
 
 
 if __name__ == "__main__":
-    import os
-
-    # Example usage:
-    host = os.environ.get("DAGSTER_WEBSERVER_HOST", "localhost")
-    port = int(os.environ.get("DAGSTER_WEBSERVER_PORT", 3000))
+    # Example usage using central config
+    cfg = get_dagster_config()
+    host = cfg.dagster_webserver_host
+    port = cfg.graphql_port
     location_to_reload = "dagster_kielsa_gf"
 
     try:

@@ -5,11 +5,12 @@ import ssl
 ##from dagster._utils.alert import send_email_via_ssl, send_email_via_starttls
 from datetime import datetime
 from typing import Callable, Optional, Sequence, TypeVar
-
+from dagster_shared_gf.config import get_dagster_config
 import dagster as dg
 
 T = TypeVar("T")
 
+cfg = get_dagster_config()
 
 EMAIL_MESSAGE = """From: {email_from}
 To: {email_to}
@@ -153,7 +154,7 @@ enviador_correo_e_analitica_farinter: EmailSenderResource = LazyEmailSenderResou
 ](
     lambda: EmailSenderResource(
         email_from=ValidatedEnvVar("DAGSTER_EMAIL_ADDRESS"),
-        email_password=dg.EnvVar("DAGSTER_SECRET_EMAIL_PASSWORD"),
+        email_password=cfg.dagster_secret_email_password or "NOT-SET",
         smtp_host="mail.farinter.com",
         smtp_port=26,
         smtp_type="STARTTLS",
@@ -210,12 +211,11 @@ def example_for_tests(
 
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
+    # Obtener configuración cacheada (la carga del .env ya la maneja get_dagster_config)
 
-    load_dotenv()
     os.environ["DAGSTER_TEST_MODE"] = "1"
 
-    print(os.getenv("DAGSTER_EMAIL_ADDRESS"))
+    print(cfg.dagster_email_address)
 
     # Simular contexto de sensor
     # Usar un contexto real de Dagster o un mock mínimo

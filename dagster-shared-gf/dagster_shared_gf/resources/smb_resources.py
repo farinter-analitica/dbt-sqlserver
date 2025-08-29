@@ -1,5 +1,4 @@
 from datetime import datetime
-import os
 from collections.abc import Iterator
 from pathlib import PureWindowsPath
 from typing import ClassVar, Dict, Literal
@@ -11,20 +10,13 @@ from smbclient import _pool as smb_poll
 from dagster import ConfigurableResource, EnvVar, InitResourceContext
 from pydantic import dataclasses
 
-from dagster_shared_gf.load_env_run import load_env_vars
+from dagster_shared_gf.config import get_dagster_config
 from dagster_shared_gf.shared_functions import get_for_current_env
 
-if (
-    not os.environ.get("DAGSTER_DEV_DWH_FARINTER_IP")
-    or not EnvVar("DAGSTER_ANALITICA_FARINTERNET_USERNAME").get_value()
-):
-    load_env_vars()
+cfg = get_dagster_config()
 
 p_server_ip_dwh = get_for_current_env(
-    {
-        "dev": os.environ.get("DAGSTER_DEV_DWH_FARINTER_IP"),
-        "prd": os.environ.get("DAGSTER_PRD_DWH_FARINTER_IP"),
-    }
+    {"dev": cfg.dagster_dev_dwh_farinter_ip, "prd": cfg.dagster_prd_dwh_farinter_ip}
 )
 
 
@@ -37,10 +29,10 @@ class SMBClientConfigCredentials:
 all_credentials: Dict[str, SMBClientConfigCredentials] = {
     "analitica": SMBClientConfigCredentials(
         username=get_for_current_env(
-            {"dev": os.environ.get("DAGSTER_ANALITICA_FARINTERNET_USERNAME")}
+            {"dev": cfg.dagster_analitica_farinternet_username}
         ),
         password=get_for_current_env(
-            {"dev": EnvVar("DAGSTER_SECRET_ANALITICA_FARINTERNET_PASSWORD")}
+            {"dev": cfg.dagster_secret_analitica_farinternet_password}
         ),
     ),
 }
@@ -260,7 +252,8 @@ smb_resource_independent_dagster_dwh = SMBResource(
 )
 
 if __name__ == "__main__":
-    load_env_vars()
+    # Obtener configuración cacheada (no cargar .env aquí)
+    cfg = get_dagster_config()
     print(smb_resource_analitica_nasgftgu02.username)
     smb_resource_independent_dagster_dwh.register_session()
 

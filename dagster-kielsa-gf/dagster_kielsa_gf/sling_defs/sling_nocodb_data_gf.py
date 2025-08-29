@@ -26,7 +26,8 @@ from dagster_shared_gf.sling_shared.generate_yaml import (
 from dagster_shared_gf.shared_constants import (
     running_default_sensor_status,
 )
-from dagster_shared_gf.load_env_run import load_env_vars, os
+from dagster_shared_gf.config import get_dagster_config
+import os
 import yaml
 from dagster_kielsa_gf.sling_defs.sling_nocodb_schema_control import (
     create_timestamp_triggers,
@@ -35,10 +36,12 @@ from dagster_kielsa_gf.sling_defs.sling_nocodb_schema_control import (
 
 logger = dg.get_dagster_logger("sling_nocodb_data_gf")
 
-if not os.environ.get("SLING_HOME_DIR") or not os.environ.get(
-    "DAGSTER_DWH_FARINTER_IP"
-):
-    load_env_vars()
+cfg = get_dagster_config()
+if not cfg.sling_home_dir or not cfg.dagster_dwh_farinter_ip:
+    # Si no están configuradas, la instancia ya cargó el .env en get_dagster_config()
+    raise ValueError(
+        "Faltan variables de entorno necesarias (sling_home_dir, dagster_dwh_farinter_ip) para la configuración de SLING."
+    )
 
 
 PARENT_PATH = Path(__file__).parent
@@ -64,7 +67,12 @@ def get_replication_config_dict(path: Path) -> dict:
     with open(path, "r") as file:
         replication_config_dict = yaml.safe_load(file)
 
-    return replication_config_dict
+    if isinstance(replication_config_dict, dict):
+        return replication_config_dict
+
+    raise ValueError(
+        f"Expected replication config to be a dictionary, got {type(replication_config_dict).__name__} in {path}"
+    )
 
 
 def generate_nocodb_data_gf_sling_yaml():
@@ -186,7 +194,7 @@ def nocodb_data_reload_op(context: dg.OpExecutionContext):
             )
             reload_code_location(
                 host="localhost",
-                port=int(os.environ.get("DAGSTER_GRAPHQL_PORT", 3000)),
+                port=cfg.graphql_port,
                 location_name=current_location_name,
             )
         else:
@@ -320,7 +328,9 @@ if __name__ == "__main__":
                 yaml_data = yaml.safe_load(f)
             # Collect all schemas present in the YAML (assuming structure: streams -> schema.table)
             found_schemas = set()
-            streams = yaml_data.get("streams", {})
+            streams = (
+                yaml_data.get("streams", {}) if isinstance(yaml_data, dict) else {}
+            )
             for stream_key in streams.keys():
                 if "." in stream_key:
                     schema = stream_key.split(".")[0]

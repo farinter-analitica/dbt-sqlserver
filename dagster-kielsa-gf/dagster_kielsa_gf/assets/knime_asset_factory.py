@@ -10,7 +10,6 @@ from dagster import (
     AssetSpec,
     AssetsDefinition,
     AutomationCondition,
-    EnvVar,
     Failure,
     asset,
     load_asset_checks_from_current_module,
@@ -35,7 +34,7 @@ from dagster_shared_gf.shared_functions import (
     search_for_word_in_text,
 )
 from dagster_shared_gf.shared_variables import tags_repo, env_str, Tags
-
+from dagster_shared_gf.config import get_dagster_config
 
 """
 #Add privileges to analitica for 
@@ -204,7 +203,7 @@ def execute_knime_workflow(
         "-workflowDir=" + workflow_directory,
     ]
 
-    password = EnvVar("DAGSTER_SECRET_ANALITICA_SU_PASSWORD").get_value()
+    password = get_dagster_config().dagster_secret_analitica_su_password
     if not password:
         load_env_vars()
 

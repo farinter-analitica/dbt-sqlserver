@@ -14,7 +14,7 @@ from dagster._core.definitions.unresolved_asset_job_definition import (
 from dagster import RunFailureSensorContext
 from datetime import datetime
 from typing import Sequence
-import os
+from dagster_shared_gf.config import get_dagster_config
 
 
 def custom_email_body(context: RunFailureSensorContext):
@@ -87,9 +87,11 @@ def create_email_on_failure_sensor(
 
     Examples:
     """
+    settings = get_dagster_config()
+    # Acceder a los settings via atributos en lugar de leer variables de entorno
     return make_email_on_run_failure_sensor(
-        email_from=os.getenv("DAGSTER_EMAIL_ADDRESS") or "",
-        email_password=os.getenv("DAGSTER_SECRET_EMAIL_PASSWORD") or "",
+        email_from=settings.dagster_email_address or "",
+        email_password=settings.dagster_secret_email_password or "",
         email_to=email_to,
         email_subject_fn=lambda _: "Dagster Job Failure Alert",
         email_body_fn=custom_email_body,

@@ -1,5 +1,4 @@
 import contextlib
-import os
 from typing import Any, Sequence, Union, Generator
 
 import sqlalchemy
@@ -9,21 +8,20 @@ import sqlalchemy.exc
 from sqlalchemy.pool import QueuePool
 from dagster import ConfigurableResource, EnvVar, get_dagster_logger
 
-from dagster_shared_gf.load_env_run import load_env_vars
+from dagster_shared_gf.config import get_dagster_config
 from dagster_shared_gf.shared_functions import get_for_current_env
 
 Connection = SQLAConnection
 Row_Tuple = Row
 dagster_logger = get_dagster_logger(name="Independent")
 
-if not os.environ.get("DAGSTER_PG_USERNAME"):
-    load_env_vars()
-# Set environment variables
+# Set environment variables desde la configuración central
+cfg = get_dagster_config()
 p_server = get_for_current_env(
     {"local": "172.16.2.235", "dev": "localhost", "prd": "localhost"}
 )
-p_user = get_for_current_env({"dev": os.environ.get("DAGSTER_PG_USERNAME")})
-p_password = get_for_current_env({"dev": EnvVar("DAGSTER_PG_PASSWORD")})
+p_user = get_for_current_env({"dev": cfg.dagster_pg_username})
+p_password = get_for_current_env({"dev": cfg.dagster_pg_password})
 
 
 class PostgreSQLResource(ConfigurableResource):
@@ -193,20 +191,18 @@ db_analitica_etl = PostgreSQLResource(
 )
 
 db_nocodb_data_gf = PostgreSQLResource(
-    server=get_for_current_env({"dev": os.environ.get("NOCODB_PG_FARINTER_HOST")}),
+    server=get_for_current_env({"dev": cfg.nocodb_pg_farinter_host}),
     databases=["nocodb_data_gf"],
-    user=get_for_current_env({"dev": os.environ.get("NOCODB_PG_FARINTER_USERNAME")}),
-    password=get_for_current_env({"dev": EnvVar("NOCODB_PG_FARINTER_SECRET_PASSWORD")}),
+    user=get_for_current_env({"dev": cfg.nocodb_pg_farinter_username}),
+    password=get_for_current_env({"dev": cfg.nocodb_pg_farinter_secret_password}),
     default_database="nocodb_data_gf",
 )
 
 db_ia_dotacion_gf = PostgreSQLResource(
-    server=get_for_current_env({"dev": os.environ.get("AURORAQA_PG_FARINTER_HOST")}),
+    server=get_for_current_env({"dev": cfg.auroraqa_pg_farinter_host}),
     databases=["IA_DOTACION"],
-    user=get_for_current_env({"dev": os.environ.get("AURORAQA_PG_FARINTER_USERNAME")}),
-    password=get_for_current_env(
-        {"dev": EnvVar("AURORAQA_PG_FARINTER_SECRET_PASSWORD")}
-    ),
+    user=get_for_current_env({"dev": cfg.auroraqa_pg_farinter_username}),
+    password=get_for_current_env({"dev": cfg.auroraqa_pg_farinter_secret_password}),
     default_database="IA_DOTACION",
 )
 

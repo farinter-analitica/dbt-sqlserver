@@ -28,9 +28,11 @@ from dagster_graphql import DagsterGraphQLClient
 from dlt.common import pendulum
 from scipy import stats
 from trycast import isassignable
-from dotenv import load_dotenv
-
 from dagster_shared_gf.utils.snake_case_normalizer import SnakeCase
+from dagster_shared_gf.config import (
+    get_dagster_config,
+    get_env_var,
+)
 
 normalize_identifier = SnakeCase().normalize_identifier
 normalize_table_identifier = SnakeCase().normalize_table_identifier
@@ -54,10 +56,8 @@ def get_job_status(job_name: str) -> str:
     }
     """
 
-    # Retrieve the GraphQL server port from the environment variable
-    # graphql_port = os.getenv('DAGSTER_GRAPHQL_PORT', '3000')  # Default to 3000 if not set
-    graphql_port = os.getenv("DAGSTER_GRAPHQL_PORT", "3000")
-    graphql_endpoint = f"http://localhost:{graphql_port}/graphql"
+    # Recuperar endpoint GraphQL desde la configuración centralizada
+    graphql_endpoint = get_dagster_config().graphql_endpoint
     response = requests.post(
         graphql_endpoint, json={"query": QUERY, "variables": {"jobName": job_name}}
     )
@@ -115,8 +115,10 @@ def start_job_by_name(
         str: The run id of the submitted pipeline run.
     """
     if client is None:
+        # Crear cliente usando configuración centralizada
+        cfg = get_dagster_config()
         client = DagsterGraphQLClient(
-            "localhost", port_number=int(os.getenv("DAGSTER_GRAPHQL_PORT", 3000))
+            cfg.dagster_webserver_host, port_number=cfg.graphql_port
         )
     return client.submit_job_execution(
         job_name=job_name,
@@ -129,7 +131,7 @@ def start_job_by_name(
 
 
 def get_all_locations_name() -> list:
-    dagster_home_env = os.getenv("DAGSTER_HOME")
+    dagster_home_env = get_env_var("DAGSTER_HOME")
     home_dir = None
     locations_data = None
     if dagster_home_env:
@@ -158,14 +160,8 @@ def verify_location_name(location_name: str) -> bool:
 
 
 def get_current_env():
-    dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV")
-    if not dagster_instance_current_env:
-        load_dotenv()
-    dagster_instance_current_env = os.getenv("DAGSTER_INSTANCE_CURRENT_ENV")
-    assert dagster_instance_current_env is not None, (
-        "Expected DAGSTER_INSTANCE_CURRENT_ENV, got None"
-    )  # env var must be set
-    return dagster_instance_current_env
+    """Return the current instance env via central config."""
+    return get_dagster_config().instance_current_env
 
 
 class DagsterInstanceCurrentEnv:
@@ -174,7 +170,7 @@ class DagsterInstanceCurrentEnv:
     # env:str = get_current_env()
     def __init__(self):
         self.env: str = get_current_env()
-        self.env_long_name: str
+        # env_long_name provides a human readable environment name
         if self.env == "dev":
             self.env_long_name = "development"
         elif self.env == "prd":
@@ -183,7 +179,8 @@ class DagsterInstanceCurrentEnv:
             self.env_long_name = "local"
         else:
             self.env_long_name = f"{self.env} no long name asigned"
-        self.graphql_port = int(os.getenv("DAGSTER_GRAPHQL_PORT", 3000))
+        # cache common values from central config
+        self.graphql_port = get_dagster_config().graphql_port
 
     def __str__(self) -> str:
         return self.env
