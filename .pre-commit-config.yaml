@@ -22,15 +22,15 @@ repos:
         #language: system
         #pass_filenames: false
         types: [python]
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.402
+  - repo: local
     hooks:
-      - id: pyright
-        name: pyright
-        entry: pyright
-        args: [--level=warning, --warnings]
-        #language: python_venv
+      - id: pyright-per-package
+        name: Run pre-commit per package using package .venv
+        entry: scripts/run-pyright-per-package.sh
+        language: system
+        # pass_filenames: true
         types: [python]
+        stages: [pre-commit]
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.

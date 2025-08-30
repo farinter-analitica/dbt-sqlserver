@@ -45,7 +45,7 @@ dependencies = [
 external = []
 
 [dependency-groups]
-dev = ["pytest", "pytest-mock", "pytest-env", "mypy", "ruff", "pre-commit"]
+dev = ["pytest", "pytest-mock", "pytest-env", "mypy", "ruff", "pre-commit", "pyright"]
 
 [tool.uv.build-backend]
 module-root = "."
@@ -64,3 +64,8 @@ Repository = "https://github.com/farinter-analitica/main-dagster"
 [tool.uv.sources.dagster_shared_gf]
 path = "../dagster-shared-gf"
 editable = true
+
+[tool.pyright]
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"

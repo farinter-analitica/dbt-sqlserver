@@ -1,0 +1,59 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run pyright per package (current file)",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/run-pyright-per-package.sh",
+            "args": [
+                "${file}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "pyright-per-package",
+                    "fileLocation": [
+                        "absolute"
+                    ],
+                    "pattern": {
+                        "regexp": "^(.+):(\\d+):(\\d+) - (error|warning): (.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                }
+            ],
+        },
+        {
+            "label": "Run pyright per package (workspace)",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/run-pyright-per-package.sh",
+            "args": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                {
+                    "owner": "pyright-per-package",
+                    "fileLocation": [
+                        "absolute"
+                    ],
+                    "pattern": {
+                        "regexp": "^(.+):(\\d+):(\\d+) - (error|warning): (.*)$",
+                        "file": 1,
+                        "line": 2,
+                        "column": 3,
+                        "severity": 4,
+                        "message": 5
+                    }
+                }
+            ]
+        }
+    ]
+}

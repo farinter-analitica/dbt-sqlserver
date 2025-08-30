@@ -69,7 +69,7 @@ polars = ["dagster-polars<0.27.5", "patito"]
 pandas = ["pandas"]
 
 [dependency-groups]
-dev = ["pytest", "pytest-mock", "pytest-env", "mypy", "ruff", "pre-commit"]
+dev = ["pytest", "pytest-mock", "pytest-env", "mypy", "ruff", "pre-commit", "pyright"]
 
 [project.urls]
 Repository = "https://github.com/farinter-analitica/main-dagster"
@@ -99,3 +99,8 @@ rev = "v1.0.7"
 git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git"
 subdirectory = "algoritmo-mddme-gf"
 rev = "v1.0.7"
+
+[tool.pyright]
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"

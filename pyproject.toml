@@ -1,40 +1,3 @@
-[tool.pyright]
-typeCheckingMode = "standard"
-venvPath = "."
-venv = ".venv"
-# Rutas extra para que editores/pyright resuelvan paquetes locales si el workspace no está en la raíz.
-# Mantener sincronizadas con los paquetes del monorepo.
-extraPaths = [
-    "./dagster-shared-gf/.venv/lib/python3.12/site-packages",
-    "./dagster-global-gf/.venv/lib/python3.12/site-packages",
-    "./dagster-kielsa-gf/.venv/lib/python3.12/site-packages",
-    "./dagster-sap-gf/.venv/lib/python3.12/site-packages",
-    "./dagster-shared-gf/",
-]
-
-# Excluir artefactos y venv para que pyright no los escanee
-exclude = [
-    "**/node_modules",
-    "**/__pycache__",
-    "**/.*",
-    "build",
-    "dist",
-    "target",
-]
-
-# Let pyright resolve imports from the local packages present in the monorepo
-[tool.pytest.ini_options]
-env_files = [".env", ".env.test"]
-filterwarnings = [
-    "ignore:.*'soft_unicode' has been renamed to 'soft_str'*:DeprecationWarning",
-    "ignore:unclosed file .*:ResourceWarning",
-    "ignore::DeprecationWarning:.*Pydantic V1 style `@validator` validators are deprecated..*",
-    "ignore:.*Parameter `use_user_code_server` .*",
-]
-
-[tool.main_dagster]
-python_version = "3.12" # Explicitly specify the required Python version
-
 # Proyecto raíz actúa como "host runtime" (daemon/webserver) mínimo.
 # Las code locations usan sus propios entornos aislados; este entorno sólo
 # necesita Dagster core y servicios base. Las deps de desarrollo van en
@@ -83,6 +46,7 @@ dev = [
     "prettier>=0.0.7",
     "sqlfluff",
     "sqlfluff-templater-dbt",
+
     #"shandy-sqlfmt", #No compatible debido que solo usa snake_case
 ]
 
@@ -101,3 +65,46 @@ analitics = [
 
 # ---------------------------------------------------------------------------
 # Configurar los entornos a instalar en scripts/deployment.sh
+[tool.pyright]
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+# Rutas extra para que editores/pyright resuelvan paquetes locales si el workspace no está en la raíz.
+# Mantener sincronizadas con los paquetes del monorepo.
+extraPaths = [
+    "./dagster-shared-gf/",
+    "./dagster-global-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-kielsa-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-sap-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-shared-gf/.venv/lib/python3.12/site-packages",
+]
+
+# Excluir artefactos y venv para que pyright no los escanee
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".eggs",
+    ".tox",
+    ".egg-info",
+    ".venv/**/site-packages/**",
+    ".cache*",
+    "**/.*",
+    "build",
+    "dist",
+    "target",
+]
+
+# Let pyright resolve imports from the local packages present in the monorepo
+[tool.pytest.ini_options]
+env_files = [".env", ".env.test"]
+filterwarnings = [
+    "ignore:.*'soft_unicode' has been renamed to 'soft_str'*:DeprecationWarning",
+    "ignore:unclosed file .*:ResourceWarning",
+    "ignore::DeprecationWarning:.*Pydantic V1 style `@validator` validators are deprecated..*",
+    "ignore:.*Parameter `use_user_code_server` .*",
+]
+
+[tool.main_dagster]
+python_version = "3.12" # Explicitly specify the required Python version

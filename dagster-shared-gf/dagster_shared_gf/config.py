@@ -237,6 +237,11 @@ class DagsterSettings:
         """Indica si el entorno actual es local (instance_current_env == 'local')."""
         return self.dagster_instance_current_env == "local"
 
+    @property
+    def default_timezone_iana(self) -> str:
+        """Devuelve la zona horaria por defecto en formato IANA."""
+        return "America/Tegucigalpa"
+
 
 @lru_cache(maxsize=1)
 def get_dagster_config() -> DagsterSettings:
