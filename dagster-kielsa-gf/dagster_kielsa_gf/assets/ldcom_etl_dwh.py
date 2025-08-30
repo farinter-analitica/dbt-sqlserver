@@ -4,6 +4,7 @@ from dagster import (
     load_assets_from_current_module,
     load_asset_checks_from_current_module,
     AssetChecksDefinition,
+    Output,
     AssetExecutionContext,
     Field,
 )
@@ -26,7 +27,7 @@ import re
 )
 def DL_Kielsa_FacturaEncabezado(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
+) -> Output:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaEncabezado"
     from_date: date = datetime.now().date() - timedelta(days=1)
     if context.op_execution_context.op_config.get(
@@ -52,10 +53,21 @@ def DL_Kielsa_FacturaEncabezado(
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
 
     context.log.info(final_query)
-
+    momento_inicio = datetime.now()
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit=True) as conn:
         # print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+
+    duracion_total = datetime.now() - momento_inicio
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "query_executed": final_query,
+        },
+    )
 
 
 @asset(
@@ -68,7 +80,7 @@ def DL_Kielsa_FacturaEncabezado(
 )
 def DL_Kielsa_FacturasPosiciones(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
+) -> Output:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturasPosiciones"
     from_date: date = datetime.now().date() - timedelta(days=1)
     if context.op_execution_context.op_config.get(
@@ -94,9 +106,20 @@ def DL_Kielsa_FacturasPosiciones(
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
 
     context.log.info(final_query)
-
+    momento_inicio = datetime.now()
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit=True) as conn:
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+
+    duracion_total = datetime.now() - momento_inicio
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "query_executed": final_query,
+        },
+    )
 
 
 @asset(
@@ -109,7 +132,7 @@ def DL_Kielsa_FacturasPosiciones(
 )
 def DL_Kielsa_FacturaPosicionDescuento(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
+) -> Output:
     final_query = r"EXEC dbo.DL_paCargarKielsa_FacturaPosicionDescuento"
     from_date: date = datetime.now().date() - timedelta(days=1)
     if context.op_execution_context.op_config.get(
@@ -135,9 +158,20 @@ def DL_Kielsa_FacturaPosicionDescuento(
         final_query = final_query + (f" @FechaDesdeSP='{from_date.isoformat()}'")
 
     context.log.info(final_query)
-
+    momento_inicio = datetime.now()
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit=True) as conn:
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+
+    duracion_total = datetime.now() - momento_inicio
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "query_executed": final_query,
+        },
+    )
 
 
 @asset(
@@ -152,15 +186,16 @@ def DL_Kielsa_FacturaPosicionDescuento(
 )
 def DL_Kielsa_Monedero_Tarjetas_Replica(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
+) -> Output:
     final_query = r"EXEC dbo.DL_paCargarKielsa_Monedero_Tarjetas_Replica"
     actualizar_todo: int
+    momento_inicio = datetime.now()
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
         actualizar_todo = 1
     elif (
         tags_repo.Daily.key in context.run_tags
         or tags_repo.Monthly.key in context.run_tags
-    ):
+    ) and momento_inicio.hour < 8:
         actualizar_todo = 1
     else:
         actualizar_todo = 0
@@ -171,10 +206,20 @@ def DL_Kielsa_Monedero_Tarjetas_Replica(
         )
 
     context.log.info(final_query)
-
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit=True) as conn:
         # print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+
+    duracion_total = datetime.now() - momento_inicio
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "query_executed": final_query,
+        },
+    )
 
 
 @asset(
@@ -189,7 +234,7 @@ def DL_Kielsa_Monedero_Tarjetas_Replica(
 )
 def DL_Kielsa_Articulo(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
+) -> Output:
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo"
     actualizar_todo: int = 0
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
@@ -211,10 +256,21 @@ def DL_Kielsa_Articulo(
         )
 
     context.log.info(final_query)
-
+    momento_inicio = datetime.now()
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit=True) as conn:
         # print(final_query)
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+
+    duracion_total = datetime.now() - momento_inicio
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "query_executed": final_query,
+        },
+    )
 
 
 @asset(
@@ -229,7 +285,7 @@ def DL_Kielsa_Articulo(
 )
 def DL_Kielsa_Articulo_x_Bodega(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
+) -> Output:
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo_x_Bodega"
     actualizar_todo: int = 0
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
@@ -251,9 +307,20 @@ def DL_Kielsa_Articulo_x_Bodega(
         )
 
     context.log.info(final_query)
-
+    momento_inicio = datetime.now()
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit=True) as conn:
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+
+    duracion_total = datetime.now() - momento_inicio
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "query_executed": final_query,
+        },
+    )
 
 
 @asset(
@@ -268,7 +335,7 @@ def DL_Kielsa_Articulo_x_Bodega(
 )
 def DL_Kielsa_Articulo_x_Sucursal(
     context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
-) -> None:
+) -> Output:
     final_query = r"EXEC dbo.DL_paCargarKielsa_Articulo_x_Sucursal"
     actualizar_todo: int = 0
     if context.op_execution_context.op_config.get("p_actualizar_todo"):
@@ -290,9 +357,20 @@ def DL_Kielsa_Articulo_x_Sucursal(
         )
 
     context.log.info(final_query)
-
+    momento_inicio = datetime.now()
     with dwh_farinter_dl.get_connection("DL_FARINTER", autocommit=True) as conn:
         dwh_farinter_dl.execute_and_commit(final_query, connection=conn)
+
+    duracion_total = datetime.now() - momento_inicio
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "query_executed": final_query,
+        },
+    )
 
 
 @asset(
@@ -306,10 +384,11 @@ def DL_Kielsa_Articulo_x_Sucursal(
 )
 def BI_Dim_MecanicaCanje_Kielsa(
     context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource
-) -> None:
+) -> Output:
     table_name = "BI_Dim_MecanicaCanje_Kielsa"
     # Read data from SQL Server
     df: pl.DataFrame
+    momento_inicio = datetime.now()
     with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
         # conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP")
         df = pl.read_database(
@@ -446,6 +525,24 @@ def BI_Dim_MecanicaCanje_Kielsa(
         # Optionally, drop or truncate the staging table
         exec(f"DROP TABLE {staging_table_name}", connection=conn)
         exec(extra_sql, connection=conn)
+    duracion_total = datetime.now() - momento_inicio
+
+    # rows processed in this run
+    rows = (
+        df.height
+        if hasattr(df, "height")
+        else (df.shape[0] if hasattr(df, "shape") else None)
+    )
+
+    return Output(
+        value=None,
+        metadata={
+            "duracion_total": duracion_total.total_seconds(),
+            "duration_total": duracion_total.total_seconds(),
+            "rows": rows,
+            "staging_table": staging_table_name,
+        },
+    )
 
 
 all_assets = tuple(load_assets_from_current_module(group_name="ldcom_etl_dwh"))
