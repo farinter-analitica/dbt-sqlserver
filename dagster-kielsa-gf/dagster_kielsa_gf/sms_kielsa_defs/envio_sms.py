@@ -662,9 +662,9 @@ def run_sms_kielsa_job() -> None:
     else "*/15 10 * * *",
     execution_timezone=get_dagster_config().default_timezone_iana,
     job=run_sms_kielsa_job,
-    default_status=dg.ScheduleStatus.RUNNING
+    default_status=dg.DefaultScheduleStatus.RUNNING
     if not get_dagster_config().is_local
-    else dg.ScheduleStatus.STOPPED,
+    else dg.DefaultScheduleStatus.STOPPED,
 )
 def run_sms_kielsa_schedule():
     return dg.RunRequest()

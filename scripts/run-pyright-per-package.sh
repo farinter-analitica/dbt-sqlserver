@@ -134,7 +134,13 @@ if [ ${#FILES[@]} -gt 0 ]; then
           echo "[SKIP] no package root found for $f"
           continue
         fi
-        groups["$pkg_root"]+="$abs"
+        # Append with a real newline separator so multiple file paths don't get concatenated.
+        # If there is no existing entry, set it directly to avoid a leading empty line.
+        if [ -z "${groups[$pkg_root]:-}" ]; then
+          groups["$pkg_root"]="$abs"
+        else
+          groups["$pkg_root"]+=$'\n'"$abs"
+        fi
         ;;
       *)
         # skip non-py files
@@ -143,9 +149,18 @@ if [ ${#FILES[@]} -gt 0 ]; then
   done
 
   for pkg in "${!groups[@]}"; do
-    # shellcheck disable=SC2207
-    files_arr=( ${groups[$pkg]} )
-    run_pyright_on_files "$pkg" "${files_arr[@]}"
+    # Read the grouped paths (newline-separated) into an array safely
+    mapfile -t files_arr <<< "${groups[$pkg]}"
+    # Filter out any empty entries (possible trailing newline)
+    filtered_files=()
+    for f in "${files_arr[@]}"; do
+      if [ -n "$f" ]; then
+        filtered_files+=("$f")
+      fi
+    done
+    if [ ${#filtered_files[@]} -gt 0 ]; then
+      run_pyright_on_files "$pkg" "${filtered_files[@]}"
+    fi
   done
 else
   # No files passed: run full per-package check (existing behavior)

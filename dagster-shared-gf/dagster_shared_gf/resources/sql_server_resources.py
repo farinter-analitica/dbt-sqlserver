@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any, Generator, Literal, Type, Union
 import urllib.parse
 
+import pymssql
 import pyodbc
 import sqlalchemy
 from dagster import ConfigurableResource, EnvVar, InitResourceContext
@@ -14,25 +15,33 @@ from dagster_shared_gf.config import get_dagster_config
 from dagster_shared_gf.shared_functions import get_for_current_env
 import sqlalchemy.exc
 
-Row = pyodbc.Row | sqlalchemy.Row
+Row = tuple[Any, ...] | sqlalchemy.Row
 encode_url = urllib.parse.quote
 
 
 class EngineType(str, Enum):
     """Database engine types supported by the SQL Server resource."""
 
-    PYODBC = "pyodbc"  # Standard ODBC connection using pyodbc
+    PYMSSQL = "pymssql"  # Standard connection using pymssql
     SQLALCHEMY = "sqlalchemy"  # SQLAlchemy ORM connection
     ARROW_ODBC = "arrow-odbc"  # Apache Arrow ODBC connection
+    PYODBC = "pyodbc"  # Standard connection using pyodbc
+    SQLALCHEMY_PYODBC = "sqlalchemy_pyodbc"  # SQLAlchemy ORM connection
 
 
 # For type hints
 ENGINES = Union[
-    Literal[EngineType.PYODBC, EngineType.SQLALCHEMY, EngineType.ARROW_ODBC],
-    Literal["pyodbc", "sqlalchemy", "arrow-odbc"],
+    Literal[
+        EngineType.PYMSSQL,
+        EngineType.SQLALCHEMY,
+        EngineType.ARROW_ODBC,
+        EngineType.PYODBC,
+        EngineType.SQLALCHEMY_PYODBC,
+    ],
+    Literal["pymssql", "sqlalchemy", "arrow-odbc", "pyodbc", "sqlalchemy_pyodbc"],
 ]
 
-Connection = Union[pyodbc.Connection, sqlalchemy.Connection]
+Connection = Union[pymssql.Connection, sqlalchemy.Connection, pyodbc.Connection]
 
 
 def encode_password(input_str: str) -> str:
@@ -110,7 +119,7 @@ class SQLServerResource(ConfigurableResource):
     ) -> Generator[Connection, None, None]:
         """
         A context manager that provides a connection to a SQL Server database, beware, by default is non autocommit.
-        Pyodbc engine is used by default, sqlalchemy can only return connections and will fail on query and execute if provided.
+        Pymssql engine is used by default, sqlalchemy can only return connections and will fail on query and execute if provided.
         Args:
             database (str, optional): The name of the database to connect to. If not provided, the default database will be used.
             autocommit (bool, optional): Whether to enable autocommit. Defaults to False.
@@ -119,7 +128,7 @@ class SQLServerResource(ConfigurableResource):
             connection_attrs (dict, optional): Additional connection attributes or tags.
 
         Yields:
-            Union[pyodbc.Connection, sqlalchemy.Connection, Any]: A connection to the SQL Server database.
+            Union[pymssql.Connection, sqlalchemy.Connection, Any]: A connection to the SQL Server database.
 
         Raises:
             ValueError: If the specified database is not in the allowed list.
@@ -138,16 +147,16 @@ class SQLServerResource(ConfigurableResource):
 
         conn: Connection | None = None
         try:
-            if engine == EngineType.PYODBC:
+            if engine == EngineType.PYMSSQL:
                 try:
                     # Add timeout parameter and any connection attributes
                     conn_options = {"autocommit": autocommit, "timeout": timeout}
                     conn_options.update(connection_attrs)
-                    conn = pyodbc.connect(str(connection_string), **conn_options)
-                    self._assert_connection_type(conn, pyodbc.Connection)
-                except pyodbc.Error as e:
+                    conn = pymssql.connect(str(connection_string), **conn_options)
+                    self._assert_connection_type(conn, pymssql.Connection)
+                except pymssql.Error as e:
                     self.log_event(
-                        "error", f"Failed to establish PYODBC connection: {e}"
+                        "error", f"Failed to establish PYMSSQL connection: {e}"
                     )
                     raise ConnectionError(f"Could not connect to database: {e}")
 
@@ -181,10 +190,14 @@ class SQLServerResource(ConfigurableResource):
         finally:
             if conn:
                 try:
-                    if engine == EngineType.PYODBC:
-                        if not getattr(conn, "autocommit", False):
+                    if engine in (EngineType.PYMSSQL, EngineType.PYODBC) and isinstance(
+                        conn, (pymssql.Connection, pyodbc.Connection)
+                    ):
+                        if not conn.autocommit:
                             conn.commit()
-                    elif engine == EngineType.SQLALCHEMY:
+                    elif engine == EngineType.SQLALCHEMY and isinstance(
+                        conn, sqlalchemy.Connection
+                    ):
                         if not conn.closed:
                             conn.commit()
                 except Exception as e:
@@ -223,26 +236,20 @@ class SQLServerResource(ConfigurableResource):
             database = self.default_database
         if not self.allow_any_database and database not in self.databases:
             raise ValueError(f"Database {database} is not in the allowed list.")
-        if engine == EngineType.PYODBC:
+        if engine == EngineType.PYMSSQL:
             connection_instance = (
-                f"DRIVER={self.driver};"
-                f"SERVER={self.server};"
-                f"DATABASE={database};"
-                f"UID={self.username};"
-                f"PWD={self.get_password()};"
-                f"TrustServerCertificate={self.trust_server_certificate};"
+                f"server={self.server};"
+                f"database={database};"
+                f"user={self.username};"
+                f"password={self.get_password()};"
             )
         elif engine == EngineType.SQLALCHEMY:
             connection_instance = sqlalchemy.URL.create(
-                "mssql+pyodbc",
+                "mssql+pymssql",
                 username=self.username,
                 password=self.get_password(),
                 host=self.server,
                 database=database,
-                query={
-                    "driver": self.driver,
-                    "TrustServerCertificate": self.trust_server_certificate,
-                },
             )
         elif engine == EngineType.ARROW_ODBC:
             # Ej. Driver={PostgreSQL};Server=localhost;Port=5432;Database=test;Uid=usr;Pwd="
@@ -253,6 +260,27 @@ class SQLServerResource(ConfigurableResource):
                 f"Uid={{{self.username}}};"
                 f"Pwd={{{self.get_password()}}};"
                 f"TrustServerCertificate={{{self.trust_server_certificate}}};"
+            )
+        elif engine == EngineType.PYODBC:
+            connection_instance = (
+                f"DRIVER={self.driver};"
+                f"SERVER={self.server};"
+                f"DATABASE={database};"
+                f"UID={self.username};"
+                f"PWD={self.get_password()};"
+                f"TrustServerCertificate={self.trust_server_certificate};"
+            )
+        elif engine == EngineType.SQLALCHEMY_PYODBC:
+            connection_instance = sqlalchemy.URL.create(
+                "mssql+pyodbc",
+                username=self.username,
+                password=self.get_password(),
+                host=self.server,
+                database=database,
+                query={
+                    "driver": self.driver,
+                    "TrustServerCertificate": self.trust_server_certificate,
+                },
             )
         return connection_instance
 
@@ -267,17 +295,25 @@ class SQLServerResource(ConfigurableResource):
             raise RuntimeError(f"Error closing connection: {e}")
 
     def _cursor_fetch_first_result(
-        self, cursor: pyodbc.Cursor, fetch_val: bool = False
+        self, cursor: pymssql.Cursor, fetch_val: bool = False
     ):
         """Fetch the first valid result set from the cursor, skipping any non‐result sets."""
         if cursor.description is not None:
-            return cursor.fetchval() if fetch_val else cursor.fetchall()
+            if fetch_val:
+                row = cursor.fetchone()
+                return row[0] if row else None
+            else:
+                return cursor.fetchall()
         else:
             self.log_event("info", "Skipping non-result set (no description available)")
 
         while cursor.nextset():
             if cursor.description is not None:
-                return cursor.fetchval() if fetch_val else cursor.fetchall()
+                if fetch_val:
+                    row = cursor.fetchone()
+                    return row[0] if row else None
+                else:
+                    return cursor.fetchall()
             else:
                 self.log_event(
                     "info", "Skipping non-result set (no description available)"
@@ -306,14 +342,14 @@ class SQLServerResource(ConfigurableResource):
         if engine not in EngineType:
             raise ValueError(f"Engine {engine} is not supported.")
         try:
-            # Helper to extract results using pyodbc cursor from SQLAlchemy result
+            # Helper to extract results using pymssql cursor from SQLAlchemy result
             def _fetch_from_sqlalchemy(conn: sqlalchemy.Connection) -> Any:
                 result = (
                     conn.engine.raw_connection()
                     .cursor()
                     .execute(self._ensure_text(query).text)
                 )
-                cursor = result if isinstance(result, pyodbc.Cursor) else None
+                cursor = result if isinstance(result, pymssql.Cursor) else None
                 if not cursor:
                     raise ValueError(
                         f"Cursor is not available or implemented. Cursor: {result}"
@@ -326,7 +362,7 @@ class SQLServerResource(ConfigurableResource):
                 with self.get_connection(
                     database=database, autocommit=autocommit, engine=engine
                 ) as new_conn:
-                    if isinstance(new_conn, pyodbc.Connection):
+                    if isinstance(new_conn, pymssql.Connection):
                         cursor = new_conn.cursor()
                         cursor.execute(query)
                         return self._cursor_fetch_first_result(
@@ -335,7 +371,7 @@ class SQLServerResource(ConfigurableResource):
                     elif isinstance(new_conn, sqlalchemy.Connection):
                         return _fetch_from_sqlalchemy(new_conn)
             else:
-                if isinstance(connection, pyodbc.Connection):
+                if isinstance(connection, pymssql.Connection):
                     cursor = connection.cursor()
                     cursor.execute(query)
                     return self._cursor_fetch_first_result(
@@ -343,7 +379,7 @@ class SQLServerResource(ConfigurableResource):
                     )
                 elif isinstance(connection, sqlalchemy.Connection):
                     return _fetch_from_sqlalchemy(connection)
-        except pyodbc.DatabaseError as opex:
+        except pymssql.DatabaseError as opex:
             if opex.args[0] == "42S02":
                 self.log_event(
                     "info",
@@ -355,7 +391,7 @@ class SQLServerResource(ConfigurableResource):
                     "error", f"An unexpected database error occurred: {str(opex)}."
                 )
                 raise opex
-        except pyodbc.Error as e:
+        except pymssql.Error as e:
             self.log_event(
                 "error", f"Error executing and committing query: {str(e.args)}."
             )
@@ -370,7 +406,7 @@ class SQLServerResource(ConfigurableResource):
         query: str,
         autocommit: bool,
     ):
-        if isinstance(conn, pyodbc.Connection):
+        if isinstance(conn, pymssql.Connection):
             cursor = conn.cursor()
             cursor.execute(query)
             if not conn.autocommit:
@@ -418,7 +454,7 @@ class SQLServerResource(ConfigurableResource):
             else:
                 self._execute_query_and_commit(connection, query, autocommit)
 
-        except pyodbc.Error as e:
+        except pymssql.Error as e:
             # Add proper logging here
             self.log_event(
                 "error", f"Error executing and committing query: {str(e.args)}."
@@ -437,19 +473,24 @@ class SQLServerResource(ConfigurableResource):
         )
         return str(conn_string)
 
+    def get_sqlalchemy_pyodbc_conn_string(self, database: str | None = None) -> str:
+        """Get the pyodbc connection string for the SQL Server resource."""
+        conn_string = self.get_connection_string(
+            engine=EngineType.SQLALCHEMY_PYODBC, database=database
+        )
+        if isinstance(conn_string, sqlalchemy.URL):
+            return str(conn_string.render_as_string(hide_password=False))
+        return str(conn_string)
+
     def get_sqlalchemy_url(self) -> sqlalchemy.URL:
         """Get the SQLAlchemy URL for the SQL Server resource."""
         return sqlalchemy.URL.create(
-            "mssql",
+            "mssql+pymssql",
             username=self.username,
             password=self.get_password(),
             host=self.server,
             # , port=1433
             database=self.default_database,
-            query={
-                "driver": self.driver,
-                "TrustServerCertificate": self.trust_server_certificate,
-            },
         )
 
     @contextlib.contextmanager
@@ -464,14 +505,14 @@ class SQLServerResource(ConfigurableResource):
             yield conn
 
     @contextlib.contextmanager
-    def get_pyodbc_conn(
+    def get_pymssql_conn(
         self, database: str | None = None, autocommit: bool = False
-    ) -> Generator[pyodbc.Connection, None, None]:
+    ) -> Generator[pymssql.Connection, None, None]:
         with self.get_connection(
-            database=database, autocommit=autocommit, engine=EngineType.PYODBC
+            database=database, autocommit=autocommit, engine=EngineType.PYMSSQL
         ) as conn:
-            if not isinstance(conn, pyodbc.Connection):
-                raise TypeError("Expected pyodbc connection")
+            if not isinstance(conn, pymssql.Connection):
+                raise TypeError("Expected pymssql connection")
             yield conn
 
     def setup_for_execution(self, context: InitResourceContext):
@@ -767,9 +808,9 @@ if __name__ == "__main__":
         resource.log_event("info", "Test message")
 
     # Test the get_connection method
-    @patch("pyodbc.connect")
+    @patch("pymssql.connect")
     def test_get_connection(mock_connect):
-        mock_conn = MagicMock(spec=pyodbc.Connection)  # Mock connection object
+        mock_conn = MagicMock(spec=pymssql.Connection)  # Mock connection object
         mock_connect.return_value = mock_conn  # Return the mock connection object
 
         resource = SQLServerNonRuntimeResource(
@@ -780,18 +821,18 @@ if __name__ == "__main__":
             default_database="test_default_database",
             allow_any_database=True,
         )
-        with resource.get_connection(engine=EngineType.PYODBC) as connection:
+        with resource.get_connection(engine=EngineType.PYMSSQL) as connection:
             assert (
                 connection is mock_conn
             )  # Assert that the connection is the mock connection object
             mock_connect.assert_called_once()  # Assert that the mock connection was called once
 
     # Test the query method
-    @patch("pyodbc.connect")
+    @patch("pymssql.connect")
     def test_query(mock_connect):
-        mock_conn = MagicMock(spec=pyodbc.Connection)  # Mock connection object
+        mock_conn = MagicMock(spec=pymssql.Connection)  # Mock connection object
         mock_connect.return_value = mock_conn  # Return the mock connection object
-        mock_cursor = MagicMock(spec=pyodbc.Cursor)
+        mock_cursor = MagicMock(spec=pymssql.Cursor)
         mock_cursor.execute.return_value = None
         mock_cursor.fetchall.return_value = []
         mock_connect.return_value.cursor.return_value = mock_cursor
@@ -803,17 +844,19 @@ if __name__ == "__main__":
             password="test_password",
             default_database="test_default_database",
         )
-        query_result = resource.query("SELECT * FROM test_table")
+        query_result = resource.query(
+            "SELECT * FROM test_table", engine=EngineType.PYMSSQL
+        )
         assert query_result == []
         mock_cursor.execute.assert_called_once()
         mock_cursor.fetchall.assert_called_once()
 
     # Test the execute_and_commit method
-    @patch("pyodbc.connect")
+    @patch("pymssql.connect")
     def test_execute_and_commit(mock_connect):
-        mock_cursor = MagicMock(spec=pyodbc.Cursor)
+        mock_cursor = MagicMock(spec=pymssql.Cursor)
         mock_cursor.execute.return_value = None
-        mock_conn = MagicMock(spec=pyodbc.Connection)
+        mock_conn = MagicMock(spec=pymssql.Connection)
         mock_connect.return_value = mock_conn
 
         mock_connect.return_value.cursor.return_value = mock_cursor
@@ -828,7 +871,9 @@ if __name__ == "__main__":
             default_database="test_default_database",
         )
         resource.execute_and_commit(
-            "INSERT INTO test_table (column1) VALUES ('value1')", autocommit=False
+            "INSERT INTO test_table (column1) VALUES ('value1')",
+            autocommit=False,
+            engine=EngineType.PYMSSQL,
         )
         mock_cursor.execute.assert_called_once()
         assert mock_connect.return_value.commit.call_count == 2
@@ -862,12 +907,12 @@ if __name__ == "__main__":
             assert conn is mock_conn
             mock_create_engine.assert_called_once()
 
-    # Test the get_pyodbc_conn method
-    @patch("pyodbc.connect")
-    def test_get_pyodbc_conn(mock_connect):
-        mock_conn = MagicMock(spec=pyodbc.Connection)  # Mock connection object
+    # Test the get_pymssql_conn method
+    @patch("pymssql.connect")
+    def test_get_pymssql_conn(mock_connect):
+        mock_conn = MagicMock(spec=pymssql.Connection)  # Mock connection object
         mock_connect.return_value = mock_conn  # Return the mock connection object
-        mock_connect.return_value.cursor.return_value = MagicMock(spec=pyodbc.Cursor)
+        mock_connect.return_value.cursor.return_value = MagicMock(spec=pymssql.Cursor)
 
         resource = SQLServerNonRuntimeResource(
             server="test_server",
@@ -876,7 +921,7 @@ if __name__ == "__main__":
             password="test_password",
             default_database="test_default_database",
         )
-        with resource.get_pyodbc_conn() as conn:
+        with resource.get_pymssql_conn() as conn:
             assert conn is not None
             mock_connect.assert_called_once()
 
@@ -892,11 +937,11 @@ if __name__ == "__main__":
             allow_any_database=False,
         )
         expected_conn_string = (
-            f"DRIVER={{{resource.driver}}};"
-            f"SERVER={{{resource.server}}};"
-            f"DATABASE={{{resource.default_database}}};"
-            f"UID={{{resource.username}}};"
-            f"PWD={{{resource.password}}};"
+            f"Driver={{{resource.driver}}};"
+            f"Server={{{resource.server}}};"
+            f"Database={{{resource.default_database}}};"
+            f"Uid={{{resource.username}}};"
+            f"Pwd={{{resource.password}}};"
             f"TrustServerCertificate={{{resource.trust_server_certificate}}};"
         )
         conn_string = resource.get_arrow_odbc_conn_string()
@@ -913,6 +958,6 @@ if __name__ == "__main__":
     test_execute_and_commit()
     test_get_sqlalchemy_url()
     test_get_sqlalchemy_conn()
-    test_get_pyodbc_conn()
+    test_get_pymssql_conn()
     test_get_arrow_odbc_conn_string()
     # print(dwh_farinter_dl.get_arrow_odbc_conn_string())

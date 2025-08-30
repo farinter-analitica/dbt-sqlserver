@@ -21,7 +21,7 @@ driver = "ODBC Driver 18 for SQL Server"
 
 # Create a connection URL
 connection_url = URL.create(
-    "mssql+pyodbc",
+    "mssql+pymssql",
     username=username,
     password=password,
     host=server,

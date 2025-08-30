@@ -952,7 +952,6 @@ def bulk_load_to_sql_server(
     with dwh_farinter_bi.get_sqlalchemy_conn(autocommit=True) as conn:
         # df_clientes.limit(100).write_database(table_name=f"{table_name}_dagster_temp_base", connection=conn, if_table_exists='replace')
         dwh_farinter_bi.execute_and_commit(sql_script, connection=conn)
-    # dwh_farinter_dl.execute_and_commit(sql_script, engine="pyodbc") #Allows to execute the query without service account delegation
 
 
 @graph(

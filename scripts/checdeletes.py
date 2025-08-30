@@ -1,9 +1,9 @@
-import pyodbc
+import pymssql
 
 
 def check_procedures_for_delete(database, server="localhost"):
     conn_str = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={server};DATABASE={database};Trusted_Connection=yes;"
-    conn = pyodbc.connect(conn_str)
+    conn = pymssql.connect(conn_str)
     cursor = conn.cursor()
 
     query = """
@@ -21,13 +21,14 @@ def check_procedures_for_delete(database, server="localhost"):
 
 def check_all_databases(server="localhost"):
     conn_str = f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};Trusted_Connection=yes;"
-    conn = pyodbc.connect(conn_str)
+    conn = pymssql.connect(conn_str)
     cursor = conn.cursor()
 
     cursor.execute(
         "SELECT name FROM sys.databases WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb');"
     )
-    databases = [row.name for row in cursor.fetchall()]
+    rows = cursor.fetchall() or []
+    databases = [row[0] for row in rows]
     conn.close()
 
     results = {}

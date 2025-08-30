@@ -34,9 +34,7 @@ from dagster_shared_gf.shared_functions import (
 new_pipelines_dir = os.path.join(get_dlt_pipelines_dir(), env_str)
 
 dlt.secrets["dwh_farinter_dl"] = (
-    sql_server_resources.dwh_farinter_dl.get_sqlalchemy_url().render_as_string(
-        hide_password=False
-    )
+    sql_server_resources.dwh_farinter_dl.get_sqlalchemy_pyodbc_conn_string()
 )
 
 mssql_dwh_destination = dlt.destinations.mssql(

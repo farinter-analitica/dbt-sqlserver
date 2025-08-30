@@ -5,7 +5,6 @@ from dagster_shared_gf.resources.sql_server_resources import (
 )
 from typing import Literal, Dict, List, Any
 import networkx as nx
-import matplotlib.pyplot as plt
 import json
 import re
 import time
@@ -87,7 +86,7 @@ def get_user_databases_tuples(
     if cached_data:
         return cached_data
 
-    with sql_server.get_connection(database="master", engine="pyodbc") as conn:
+    with sql_server.get_connection(database="master", engine="pymssql") as conn:
         query = """
         SELECT database_id, name 
         FROM sys.databases  WITH (NOLOCK)
@@ -104,7 +103,7 @@ def get_server_name_str(sql_server: SQLServerNonRuntimeResource) -> str:
     if cached_data:
         return cached_data
 
-    with sql_server.get_connection(database="master", engine="pyodbc") as conn:
+    with sql_server.get_connection(database="master", engine="pymssql") as conn:
         query = """
         SELECT CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255))
         """
@@ -126,7 +125,7 @@ def get_all_dependencies_tuples(
         return cached_data
 
     global PRINTING_EVENTS
-    with sql_server.get_connection(database=db_name, engine="pyodbc") as conn:
+    with sql_server.get_connection(database=db_name, engine="pymssql") as conn:
         query = f"""
         SELECT 
             CONCAT(referencing_server_name, '.', referencing_database_name, '.', referencing_schema, '.', referencing_object_name) AS referencing_relation_path,
@@ -163,7 +162,7 @@ def get_all_dependencies_tuples(
 def get_all_object_definitions_tuples(
     sql_server: SQLServerNonRuntimeResource, db_name: str
 ) -> list[Row | tuple] | Any:
-    with sql_server.get_connection(database=db_name, engine="pyodbc") as conn:
+    with sql_server.get_connection(database=db_name, engine="pymssql") as conn:
         query = f"""
         SELECT 
             CONCAT(CAST(SERVERPROPERTY('MachineName') AS VARCHAR(255)), '.', '{db_name}', '.', SCHEMA_NAME(o.schema_id), '.', name) AS referencing_relation_path
@@ -267,7 +266,7 @@ def get_object_dependencies_tuples_by_definition(
     """
 
     if connection is None:
-        with sql_server.get_connection(database=db_name, engine="pyodbc") as conn:
+        with sql_server.get_connection(database=db_name, engine="pymssql") as conn:
             return sql_server.query(query, connection=conn)
     else:
         return sql_server.query(query, connection=connection)
@@ -477,6 +476,11 @@ def print_dag_as_json(dependencies: GraphDict):
 
 
 def generate_dag(graph_dict: GraphDict):
+    try:
+        import matplotlib.pyplot as plt  # type: ignore
+    except Exception:
+        plt = None
+
     """
     Generates and displays a DAG based on the provided graph dictionary.
 
@@ -537,6 +541,10 @@ def generate_dag(graph_dict: GraphDict):
             graph.nodes[node]["layer"] = layer
 
     # Draw the graph
+    if plt is None:
+        print("matplotlib is not available; skipping DAG generation.")
+        return
+
     plt.figure(figsize=(12, 8))
     pos = nx.multipartite_layout(
         graph,
