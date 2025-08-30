@@ -711,11 +711,8 @@ def normalize_metadata_value(v, _seen: set | None = None):
         return v
 
     # Check for dagster MetadataValue objects first
-    try:
-        if isinstance(v, dg.MetadataValue):
-            return v
-    except (AttributeError, NameError):
-        pass
+    if isinstance(v, dg.MetadataValue):
+        return v
 
     # Handle datetime types
     if isinstance(v, datetime):
@@ -742,23 +739,31 @@ def normalize_metadata_value(v, _seen: set | None = None):
         pass
 
     # Handle collections with cycle protection
-    if isinstance(v, Mapping):
-        return _with_cycle_protection(
-            v, lambda: {k: normalize_metadata_value(val, _seen) for k, val in v.items()}
-        )
-
-    if isinstance(v, (list, tuple)):
-        return _with_cycle_protection(
-            v, lambda: [normalize_metadata_value(i, _seen) for i in v]
-        )
-
-    # Handle other iterables (excluding strings/bytes already handled above)
     try:
-        if isinstance(v, Iterable):
+        if isinstance(v, Mapping):
+            return _with_cycle_protection(
+                v,
+                lambda: {
+                    k: normalize_metadata_value(val, _seen) for k, val in v.items()
+                },
+            )
+    except Exception:
+        pass
+
+    try:
+        if isinstance(v, (list, tuple)):
             return _with_cycle_protection(
                 v, lambda: [normalize_metadata_value(i, _seen) for i in v]
             )
-    except TypeError:
+    except Exception:
+        pass
+
+    # Detect Dagster @record objects (iteration is banned) and stringify or use to_dict
+    try:
+        if hasattr(v, "to_dict") and callable(getattr(v, "to_dict")):
+            return normalize_metadata_value(v.to_dict())  # type: ignore
+    except Exception:
+        # defensive - if probing attributes raises, fall through to default
         pass
 
     # Fallback: stringify unknown objects
