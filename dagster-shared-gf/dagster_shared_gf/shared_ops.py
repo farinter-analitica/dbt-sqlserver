@@ -23,6 +23,7 @@ from dagster_shared_gf.shared_functions import (
     get_job_status,
     start_job_by_name,
     verify_location_name,
+    normalize_metadata,
 )
 from dagster_shared_gf.shared_variables import (
     ErrorsOccurred,
@@ -194,7 +195,7 @@ class ExcelFileProcessor:
                 file.write(log_message)
             raise e
 
-        return MaterializeResult(metadata=self.v_metadata)
+        return MaterializeResult(metadata=normalize_metadata(self.v_metadata))
 
     def _process_single_file(self, file_descriptor):
         rows_inserted = 0

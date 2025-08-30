@@ -27,9 +27,7 @@ from dagster_shared_gf.dlt_shared.dlt_resources import (
     MyDagsterDltTranslator,
 )
 from dagster_shared_gf.dlt_shared.mongodb.helpers import max_dt_with_lag_last_value_func
-from dagster_shared_gf.shared_functions import (
-    get_for_current_env,
-)
+from dagster_shared_gf.shared_functions import get_for_current_env, normalize_metadata
 from dagster_shared_gf.shared_variables import Tags, tags_repo
 
 # logger = get_dagster_logger()
@@ -124,10 +122,12 @@ class DagsterDltTranslatorMongodb(MyDagsterDltTranslator):
         return AssetSpec(
             key=self._custom_get_asset_key(resource),
             deps=self._custom_get_deps_asset_keys(resource),
-            metadata={
-                **self._default_metadata_fn(resource),
-                **self.get_collection_metadata(resource),
-            },
+            metadata=normalize_metadata(
+                {
+                    **self._default_metadata_fn(resource),
+                    **self.get_collection_metadata(resource),
+                }
+            ),
             automation_condition=self._custom_get_automation_condition()
             or self._default_automation_condition_fn(resource),
             tags={**self._default_tags_fn(resource), **self._custom_get_tags()},
@@ -488,7 +488,7 @@ def create_dlt_asset(
 
         return MaterializeResult(
             asset_key=asset_spec.key,
-            metadata=extracted_resource_metadata,
+            metadata=normalize_metadata(extracted_resource_metadata),
         )
 
     return compute_dlt_asset

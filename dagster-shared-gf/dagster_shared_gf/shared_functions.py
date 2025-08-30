@@ -1,3 +1,4 @@
+import decimal
 import hashlib
 import inspect
 import itertools
@@ -22,17 +23,19 @@ from typing import (
     get_origin,
 )
 
-import requests
 import dagster as dg
+import numpy as np
+import requests
 from dagster_graphql import DagsterGraphQLClient
 from dlt.common import pendulum
 from scipy import stats
 from trycast import isassignable
-from dagster_shared_gf.utils.snake_case_normalizer import SnakeCase
+
 from dagster_shared_gf.config import (
     get_dagster_config,
     get_env_var,
 )
+from dagster_shared_gf.utils.snake_case_normalizer import SnakeCase
 
 normalize_identifier = SnakeCase().normalize_identifier
 normalize_table_identifier = SnakeCase().normalize_table_identifier
@@ -676,3 +679,104 @@ def get_current_location_name(
     if remote_job_origin:
         return remote_job_origin.repository_origin.code_location_origin.location_name
     return None
+
+
+def normalize_metadata_value(v, _seen: set | None = None):
+    """Normalize a single metadata value into Dagster-supported primitives.
+
+    This function is defensive: it preserves simple primitives, converts
+    common complex types (pendulum, Decimal, numpy scalars/arrays) and
+    detects cyclic references to avoid infinite recursion.
+
+    Args:
+        v: value to normalize
+        _seen: internal set of object ids visited to detect cycles
+    """
+    if _seen is None:
+        _seen = set()
+
+    # Helper function to handle cycle detection
+    def _with_cycle_protection(obj, processor):
+        objid = id(obj)
+        if objid in _seen:
+            return f"<cyclic {type(obj).__name__}>"
+        _seen.add(objid)
+        try:
+            return processor()
+        finally:
+            _seen.remove(objid)
+
+    # Early returns for simple types
+    if v is None or isinstance(v, (str, bytes, bytearray, int, float, bool)):
+        return v
+
+    # Check for dagster MetadataValue objects first
+    try:
+        if isinstance(v, dg.MetadataValue):
+            return v
+    except (AttributeError, NameError):
+        pass
+
+    # Handle datetime types
+    if isinstance(v, datetime):
+        return v
+    if isinstance(v, pendulum.DateTime):
+        return pendulum_dt_to_datetime(v)
+
+    # Handle decimal
+    if isinstance(v, decimal.Decimal):
+        try:
+            return float(v)
+        except (ValueError, OverflowError):
+            return str(v)
+
+    # Handle numpy types
+    try:
+        if isinstance(v, np.generic):
+            return v.item()
+        if isinstance(v, np.ndarray):
+            return _with_cycle_protection(
+                v, lambda: [normalize_metadata_value(i, _seen) for i in v.tolist()]
+            )
+    except (AttributeError, NameError):
+        pass
+
+    # Handle collections with cycle protection
+    if isinstance(v, Mapping):
+        return _with_cycle_protection(
+            v, lambda: {k: normalize_metadata_value(val, _seen) for k, val in v.items()}
+        )
+
+    if isinstance(v, (list, tuple)):
+        return _with_cycle_protection(
+            v, lambda: [normalize_metadata_value(i, _seen) for i in v]
+        )
+
+    # Handle other iterables (excluding strings/bytes already handled above)
+    try:
+        if isinstance(v, Iterable):
+            return _with_cycle_protection(
+                v, lambda: [normalize_metadata_value(i, _seen) for i in v]
+            )
+    except TypeError:
+        pass
+
+    # Fallback: stringify unknown objects
+    try:
+        return str(v)
+    except Exception:
+        return f"<unserializable {type(v).__name__}>"
+
+
+def normalize_metadata(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Normalize the metadata values in a dictionary.
+
+    Args:
+        metadata (dict[str, Any]): The metadata dictionary to normalize.
+
+    Returns:
+        dict[str, Any]: The normalized metadata dictionary.
+    """
+    if metadata is None:
+        return None
+    return {k: normalize_metadata_value(v) for k, v in metadata.items()}
