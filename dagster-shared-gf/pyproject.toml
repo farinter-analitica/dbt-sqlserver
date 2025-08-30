@@ -51,6 +51,7 @@ dependencies = [
     # Ampliado tras análisis automático: utilizados en todas / varias ubicaciones
     "pydantic>=2,<3",
     "pytz",
+    "portalocker",
 ]
 
 [project.optional-dependencies]

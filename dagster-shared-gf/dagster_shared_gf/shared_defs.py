@@ -44,7 +44,7 @@ all_shared_resources = {
     "ldcom_sv_prd_sqlserver": sql_server_resources.ldcom_sv_prd_sqlserver,
     "siteplus_sqlldsubs_sqlserver": sql_server_resources.siteplus_sqlldsubs_sqlserver,
     #
-    "dbt_resource": dbt_resources.dbt_resource,
+    "dbt_resource": dbt_resources.get_dbt_resource(),
     #
     "db_analitica_etl": postgresql_resources.db_analitica_etl,
     #

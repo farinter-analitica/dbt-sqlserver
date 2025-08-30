@@ -20,7 +20,7 @@ from dagster_shared_gf.partitions.time_based import (
 )
 from dagster_shared_gf.resources.dbt_resources import (
     MyDbtSourceTranslator,
-    dbt_manifest,
+    get_dbt_manifest,
 )
 from dagster_shared_gf.shared_variables import tags_repo
 
@@ -75,7 +75,7 @@ def create_group_asset_function(select: str, exclude: str, group_name: str):
 
     # Apply the dbt_assets decorator
     decorated_function = dbt_assets(
-        manifest=dbt_manifest,
+        manifest=get_dbt_manifest(),
         select=select,
         exclude=exclude,
         dagster_dbt_translator=MyDbtSourceTranslator(),
@@ -88,7 +88,7 @@ def create_group_asset_function(select: str, exclude: str, group_name: str):
 # Crear los grupos de assets dbt, un hilo de ejecucion (la funcion dbt_assets) para cada uno.
 dbt_group_assets = []
 group_names = {
-    group_def["name"] for group_def in dbt_manifest.get("groups", {}).values()
+    group_def["name"] for group_def in get_dbt_manifest().get("groups", {}).values()
 }
 for group_name in group_names:
     dbt_group_assets.append(
@@ -110,7 +110,7 @@ dbt_group_assets.append(
 
 
 @dbt_assets(
-    manifest=dbt_manifest,
+    manifest=get_dbt_manifest(),
     select=f"{MAIN_SELECT_STR},tag:{tags_repo.AutomationOnlyParticionado.key}",
     dagster_dbt_translator=MyDbtSourceTranslator(),
     partitions_def=diario_desde_360_dias_atras_hasta_hoy,

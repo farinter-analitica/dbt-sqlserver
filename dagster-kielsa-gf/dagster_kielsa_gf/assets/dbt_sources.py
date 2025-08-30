@@ -23,7 +23,7 @@ def build_dbt_sources(
             metadata=dagster_dbt_translator.get_metadata(dbt_resource_props),
             freshness_policy=dagster_dbt_translator.get_freshness_policy(
                 dbt_resource_props
-            ),
+            ),  # type: ignore
         )
         for dbt_resource_props in manifest["sources"].values()
         if any(
@@ -35,7 +35,7 @@ def build_dbt_sources(
 
 source_assets: Sequence[AssetSpec] = []
 # build_dbt_sources(
-#     dbt_manifest, MyDbtSourceTranslator()
+#     get_dbt_manifest(), MyDbtSourceTranslator()
 # )
 if __name__ == "__main__":
     # print(source_assets)

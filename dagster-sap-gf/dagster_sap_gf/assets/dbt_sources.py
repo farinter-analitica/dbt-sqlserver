@@ -2,7 +2,7 @@ from typing import Mapping, Any, Sequence
 from dagster import AssetSpec
 from dagster_dbt import DagsterDbtTranslator
 from dagster_shared_gf.resources.dbt_resources import (
-    dbt_manifest,
+    get_dbt_manifest,
     MyDbtSourceTranslator,
 )
 
@@ -27,7 +27,7 @@ def build_dbt_sources(
             metadata=dagster_dbt_translator.get_metadata(dbt_resource_props),
             freshness_policy=dagster_dbt_translator.get_freshness_policy(
                 dbt_resource_props
-            ),
+            ),  # type: ignore
         )
         for dbt_resource_props in manifest["sources"].values()
         if any(
@@ -38,7 +38,7 @@ def build_dbt_sources(
 
 
 source_assets: Sequence[AssetSpec] = build_dbt_sources(
-    dbt_manifest, MyDbtSourceTranslator()
+    get_dbt_manifest(), MyDbtSourceTranslator()
 )  # empezo a funcionar en nueva version
 
 if __name__ == "__main__":

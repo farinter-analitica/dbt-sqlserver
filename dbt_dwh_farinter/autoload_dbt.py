@@ -1,12 +1,7 @@
 import os
-from pathlib import Path
 from dotenv import load_dotenv
+from pathlib import Path
 import subprocess
-
-# Define the relative path to the .env file
-base_os_path = os.path.dirname(__file__)
-dbt_project_dir = Path(base_os_path).joinpath("..").resolve()
-env_path = os.path.join(dbt_project_dir, ".env")
 
 
 # os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"]="python"
@@ -35,37 +30,44 @@ def debug():
 
 
 def autoload(command: str = "parse", select: str = ""):
-    # Load environment variables from .env file if it exists
-    if os.path.exists(env_path):
-        print(f"Loading .env file from {env_path}.")
-        load_dotenv(env_path)
+    print("Loading .env file if it exists.")
+    load_dotenv()
 
-        # Define paths for --project-dir and --profiles-dir
-        project_dir = os.path.join(base_os_path, "")
-        profiles_dir = os.path.join(base_os_path, "")
-        if command == "":
-            command = "parse"
+    # Define paths for --project-dir and --profiles-dir
 
-        # Run dbt run command with proper directory paths
-        run_options = [
-            command,
-            "--project-dir",
-            project_dir,
-            "--profiles-dir",
-            profiles_dir,
-            "--target",
-            "dev",
-        ]
-        if select != "":
-            run_options.append("--select")
-            run_options.append(select)
+    base_os_path = os.environ.get("DAGSTER_HOME")
+    env_str = os.environ.get("DAGSTER_INSTANCE_CURRENT_ENV", "dev")
+    if not base_os_path or not env_str:
+        raise ValueError(
+            "DAGSTER_HOME or DAGSTER_INSTANCE_CURRENT_ENV environment variable is not set."
+        )
 
-        # print (run_options)
-        subprocess.run(["dbt", *run_options])
+    project_dir = Path(base_os_path) / "dbt_dwh_farinter"
+    profiles_dir = Path(base_os_path) / "dbt_dwh_farinter"
+    if command == "":
+        command = "parse"
 
-        print(f"dbt completed successfully: {command} {select}")
-    else:
-        print(".env file not found in the script directory. Please create it.")
+    # Normalizar target
+    env_str = "prd" if env_str == "prd" else "dev"
+
+    # Run dbt run command with proper directory paths
+    run_options = [
+        command,
+        "--project-dir",
+        project_dir,
+        "--profiles-dir",
+        profiles_dir,
+        "--target",
+        env_str,
+    ]
+    if select != "":
+        run_options.append("--select")
+        run_options.append(select)
+
+    # print (run_options)
+    subprocess.run(["dbt", *run_options])
+
+    print(f"dbt completed successfully: {command} {select}")
 
 
 def ask():

@@ -9,10 +9,10 @@ from dagster import (
 )
 from dagster_dbt import DbtCliResource, dbt_assets
 
-from dagster_shared_gf.resources.dbt_resources import dbt_manifest_path
+from dagster_shared_gf.resources.dbt_resources import dbt_project
 
 
-@dbt_assets(manifest=dbt_manifest_path, select="example")
+@dbt_assets(manifest=dbt_project.manifest_path, select="example")
 def firts_example_dbt_assets(
     context: AssetExecutionContext, dbt_resource: DbtCliResource
 ):
@@ -23,7 +23,7 @@ def firts_example_dbt_assets(
     shutil.rmtree(dbt_invocation.target_path, ignore_errors=True)
 
 
-@dbt_assets(manifest=dbt_manifest_path, select="dagster_example")
+@dbt_assets(manifest=dbt_project.manifest_path, select="dagster_example")
 def dep_example_dbt_assets(
     context: AssetExecutionContext, dbt_resource: DbtCliResource
 ):

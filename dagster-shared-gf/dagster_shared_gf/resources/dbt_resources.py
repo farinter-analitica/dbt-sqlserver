@@ -1,13 +1,26 @@
+from functools import cache
 import json
-import os
 import warnings
 from pathlib import Path
 from typing import Any, Mapping, Optional
+import threading
+import time
+import os
+
+# portalocker provides a simple cross-process file lock on Unix/Windows.
+try:
+    import portalocker
+except (
+    Exception
+) as e:  # pragma: no cover - environment may not have portalocker installed
+    raise ImportError(
+        "portalocker is required for inter-process locking in dbt_resources. Install it."
+    ) from e
 
 # from ...dbt_kielsa
 from dagster import AssetKey, AutomationCondition
 from dagster._utils.tags import normalize_tags
-from dagster_dbt import DagsterDbtTranslator, DbtCliResource
+from dagster_dbt import DagsterDbtTranslator, DbtCliResource, DbtProject
 
 from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.automation import (
@@ -25,12 +38,12 @@ env_str: str = shared_vars.env_str
 cfg = get_dagster_config()
 base_path = cfg.dagster_home
 if not base_path:
-    base_os_path = os.path.dirname(__file__)
-    base_path = Path(base_os_path).joinpath("..", "..", "..").resolve()
+    raise ValueError("dagster_home is not set in dagster config")
 
 dbt_project_dir = Path(base_path).joinpath("dbt_dwh_farinter").resolve()
 dbt_target = get_for_current_env({"dev": "dev", "prd": "prd"})
 # resuelve el target dependiendo de la variable de ambiente
+dbt_project = DbtProject(dbt_project_dir)
 
 
 # print(os.fspath(dbt_project_dir))
@@ -41,37 +54,119 @@ class MyDbtCliResource(DbtCliResource):
     )
 
 
-dbt_resource = MyDbtCliResource(
-    project_dir=os.fspath(dbt_project_dir),
-    profiles_dir=os.fspath(dbt_project_dir),
-    target=dbt_target,
-    state_path=None,
-)
-
-dbt_manifest_path = dbt_project_dir.joinpath("target", "manifest.json")
-# If DAGSTER_DBT_PARSE_PROJECT_ON_LOAD is set, a manifest will be created at runtime.
-# Otherwise, we expect a manifest to be present in the project's target directory.
-if (
-    get_dagster_config().dagster_dbt_parse_project_on_load == "1"
-    or not dbt_manifest_path.exists()
-):
-    dbt_manifest_path = (
-        dbt_resource.cli(
-            ["--quiet", "parse"],
-            target_path=Path("target"),
-        )
-        .wait()
-        .target_path.joinpath("manifest.json")
-    )
-
-
+@cache
 def load_manifest(manifest_path) -> Mapping[str, Any]:
-    with open(manifest_path, "r") as file:
+    """Load and parse a dbt manifest JSON file from disk.
+
+    Accepts a Path or string. Cached to avoid repeated disk reads during the
+    process lifetime.
+    """
+    p = Path(manifest_path)
+    with p.open("r") as file:
         return json.load(file)
 
 
-# Load the manifest from the path
-dbt_manifest = load_manifest(dbt_manifest_path)
+@cache
+def get_dbt_resource() -> MyDbtCliResource:
+    """Lazily construct and return the dbt CLI resource."""
+    return MyDbtCliResource(
+        project_dir=dbt_project.project_dir.as_posix(),
+        profiles_dir=dbt_project.profiles_dir.as_posix(),
+        target=dbt_target,
+        state_path=None,
+    )
+
+
+# Intra-process lock to prevent multiple threads from attempting parse at once,
+# and a file used with portalocker for inter-process coordination.
+_manifest_init_lock = threading.Lock()
+_manifest_lock_file = dbt_project.target_path.joinpath(".manifest.lock")
+
+
+@cache
+def get_dbt_manifest() -> Mapping[str, Any]:
+    """Lazily resolve (and if needed, parse) the dbt manifest and return it as a dict.
+
+    This avoids running `dbt parse` or reading the manifest at import time.
+    """
+    dbt_manifest_path = dbt_project.manifest_path
+
+    # Whether parse-on-load is requested
+    parse_on_load = get_dagster_config().dagster_dbt_parse_project_on_load == "1"
+
+    # Cooldown interval (seconds) to avoid frequent parses when parse_on_load is enabled.
+    min_interval = int(os.getenv("DAGSTER_DBT_PARSE_MIN_INTERVAL_SECONDS", "120"))
+
+    # Fast path: manifest exists and no forced parse-on-load. Avoid locking.
+    if not parse_on_load and dbt_manifest_path.exists():
+        return load_manifest(dbt_manifest_path)
+
+    # If parse_on_load is enabled but manifest exists and is recent, skip parse.
+    if parse_on_load and dbt_manifest_path.exists():
+        try:
+            mtime = dbt_manifest_path.stat().st_mtime
+            if (time.time() - mtime) < min_interval:
+                return load_manifest(dbt_manifest_path)
+        except Exception:
+            # If stat fails, proceed to locking and parse attempt
+            pass
+
+    # Ensure only one thread in this process attempts to create/parse the manifest.
+    with _manifest_init_lock:
+        # Ensure target_path exists for the lock file
+        dbt_project.target_path.mkdir(parents=True, exist_ok=True)
+
+        # Use portalocker to coordinate between processes on the same host/filesystem.
+        lock_path = str(_manifest_lock_file)
+        # open/create the lock file and acquire an exclusive lock (blocking, with timeout)
+        with portalocker.Lock(lock_path, mode="w", timeout=120):
+            # Recompute manifest path after acquiring locks (double-check)
+            dbt_manifest_path = dbt_project.manifest_path
+
+            # Re-evaluate parse_on_load and recency inside the lock to avoid races
+            parse_on_load = (
+                get_dagster_config().dagster_dbt_parse_project_on_load == "1"
+            )
+            if dbt_manifest_path.exists():
+                try:
+                    mtime = dbt_manifest_path.stat().st_mtime
+                    if not parse_on_load or (time.time() - mtime) < min_interval:
+                        # Nothing to do: manifest is fresh enough or parse not requested
+                        pass
+                    else:
+                        result = (
+                            get_dbt_resource()
+                            .cli(
+                                ["--quiet", "parse"],
+                                target_path=dbt_project.target_path,
+                            )
+                            .wait()
+                        )
+                        dbt_manifest_path = result.target_path.joinpath("manifest.json")
+                except Exception:
+                    # If stat fails, attempt parse
+                    result = (
+                        get_dbt_resource()
+                        .cli(
+                            ["--quiet", "parse"],
+                            target_path=dbt_project.target_path,
+                        )
+                        .wait()
+                    )
+                    dbt_manifest_path = result.target_path.joinpath("manifest.json")
+            else:
+                # Manifest doesn't exist, must parse
+                result = (
+                    get_dbt_resource()
+                    .cli(
+                        ["--quiet", "parse"],
+                        target_path=dbt_project.target_path,
+                    )
+                    .wait()
+                )
+                dbt_manifest_path = result.target_path.joinpath("manifest.json")
+
+    return load_manifest(dbt_manifest_path)
 
 
 class MyDbtSourceTranslator(DagsterDbtTranslator):

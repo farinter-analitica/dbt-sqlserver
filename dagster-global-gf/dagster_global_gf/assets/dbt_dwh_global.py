@@ -14,7 +14,7 @@ from pydantic import Field
 
 from dagster_shared_gf.resources.dbt_resources import (
     MyDbtSourceTranslator,
-    dbt_manifest,
+    get_dbt_manifest,
 )
 from dagster_shared_gf.shared_variables import tags_repo
 
@@ -69,7 +69,7 @@ def create_group_asset_function(select: str, exclude: str, group_name: str):
 
     # Apply the dbt_assets decorator
     decorated_function = dbt_assets(
-        manifest=dbt_manifest,
+        manifest=get_dbt_manifest(),
         select=select,
         exclude=exclude,
         dagster_dbt_translator=MyDbtSourceTranslator(),
@@ -82,7 +82,7 @@ def create_group_asset_function(select: str, exclude: str, group_name: str):
 dbt_group_assets = []
 group_names = {
     group_def["name"]
-    for group_def in dbt_manifest.get("groups", {}).values()
+    for group_def in get_dbt_manifest().get("groups", {}).values()
     if any(MAIN_SELECT_STR in tag for tag in group_def.get("tags", []))
 }
 
