@@ -14,6 +14,7 @@ from dagster_shared_gf import shared_variables as shared_vars
 from dagster_shared_gf.config import get_dagster_config
 from dagster_shared_gf.shared_functions import get_for_current_env
 import sqlalchemy.exc
+from sqlalchemy.engine.interfaces import DBAPICursor
 
 Row = tuple[Any, ...] | sqlalchemy.Row
 encode_url = urllib.parse.quote
@@ -295,7 +296,7 @@ class SQLServerResource(ConfigurableResource):
             raise RuntimeError(f"Error closing connection: {e}")
 
     def _cursor_fetch_first_result(
-        self, cursor: pymssql.Cursor, fetch_val: bool = False
+        self, cursor: pymssql.Cursor | DBAPICursor, fetch_val: bool = False
     ):
         """Fetch the first valid result set from the cursor, skipping any non‐result sets."""
         if cursor.description is not None:
@@ -344,15 +345,16 @@ class SQLServerResource(ConfigurableResource):
         try:
             # Helper to extract results using pymssql cursor from SQLAlchemy result
             def _fetch_from_sqlalchemy(conn: sqlalchemy.Connection) -> Any:
-                result = (
-                    conn.engine.raw_connection()
-                    .cursor()
-                    .execute(self._ensure_text(query).text)
-                )
-                cursor = result if isinstance(result, pymssql.Cursor) else None
-                if not cursor:
+                # Obtain a raw DBAPI connection and cursor, then execute the query
+                raw_conn = conn.engine.raw_connection()
+                cursor = raw_conn.cursor()
+                # Execute the SQL text on the DBAPI cursor
+                sql_text = self._ensure_text(query).text
+                cursor.execute(sql_text)
+                # Ensure we have a usable cursor
+                if cursor is None:
                     raise ValueError(
-                        f"Cursor is not available or implemented. Cursor: {result}"
+                        f"Cursor is not available or implemented. Cursor: {cursor}"
                     )
                 return self._cursor_fetch_first_result(
                     cursor=cursor, fetch_val=fetch_val
