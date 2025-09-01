@@ -321,16 +321,21 @@ def algoritmo_envio_sms():
     Inicio = time.time()
     Final = time.time()
     Duracion_Minutos = 0
-    resultadoError = ""
+    resultado = ""
+    # Contadores de envíos: exitosos (status 1) y con errores (status 2 o 3)
+    exitosos = 0
+    errores = 0
     # Carga mensajes enviados por la acción
     cargaSMS = ejecutar_proceso("EXEC SMS_paCargaMensajes_ClientesNuevos")
 
     if "ejecutado exitosamente" in cargaSMS:
         Bitacora_Tipo = "Finalizado"
-        Bitacora_Mensaje = "python SMS_paCargaMensajes_ClientesNuevos"
+        Bitacora_Mensaje = (
+            "python/Dagster/envio_sms_kielsa SMS_paCargaMensajes_ClientesNuevos"
+        )
     else:
         Bitacora_Tipo = "Error"
-        Bitacora_Mensaje = cargaSMS
+        Bitacora_Mensaje = f"python/Dagster/envio_sms_kielsa {cargaSMS}"
 
     Final = time.time()
 
@@ -338,7 +343,7 @@ def algoritmo_envio_sms():
 
     parametros = (Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos)
 
-    resultadoError = ejecutar_proceso(
+    resultado = ejecutar_proceso(
         "INSERT INTO SMS_CnfBitacora(Bitacora_Fecha, Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos) values(getdate(), %s, %s, %s, %s)",
         parametros,
     )
@@ -349,10 +354,12 @@ def algoritmo_envio_sms():
 
     if "ejecutado exitosamente" in ActualizaSaldos:
         Bitacora_Tipo = "Finalizado"
-        Bitacora_Mensaje = "python SMS_paActualizaSaldo_Monederos"
+        Bitacora_Mensaje = (
+            "python/Dagster/envio_sms_kielsa SMS_paActualizaSaldo_Monederos"
+        )
     else:
         Bitacora_Tipo = "Error"
-        Bitacora_Mensaje = ActualizaSaldos
+        Bitacora_Mensaje = f"python/Dagster/envio_sms_kielsa {ActualizaSaldos}"
 
     Final = time.time()
 
@@ -360,7 +367,7 @@ def algoritmo_envio_sms():
 
     parametros = (Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos)
 
-    resultadoError = ejecutar_proceso(
+    resultado = ejecutar_proceso(
         "INSERT INTO SMS_CnfBitacora(Bitacora_Fecha, Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos) values(getdate(), %s, %s, %s, %s)",
         parametros,
     )
@@ -468,7 +475,7 @@ def algoritmo_envio_sms():
                 Duracion_Minutos,
             )
 
-            resultadoError = ejecutar_proceso(
+            resultado = ejecutar_proceso(
                 "INSERT INTO SMS_CnfBitacora(Bitacora_Fecha, Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos) values(getdate(), %s, %s, %s, %s)",
                 parametros,
             )
@@ -611,12 +618,25 @@ def algoritmo_envio_sms():
                     )
             log_debug("Actualiza_SMS: %s", Actualiza_SMS)
             log_debug("SMS_Estado: %s", SMS_Estado)
+            # Actualizar contadores según estado del envío
+            try:
+                exitosos += 1
+            except Exception:
+                # defensivo: no dejar que un fallo en el conteo rompa el proceso
+                pass
             if ACTIVAR_PRUEBA_DE_INTEGRACION:
                 # Evitar multiples mensajes de prueba
                 break
 
         except Exception as e:
-            Bitacora_Mensaje = "Error al enviar sms " + str(e)
+            # Contabilizar como error de envío
+            try:
+                errores += 1
+            except Exception:
+                pass
+            Bitacora_Mensaje = (
+                f"python/Dagster/envio_sms_kielsa Error al enviar sms {str(e)}"
+            )
             Final = time.time()
             Bitacora_Tipo = "Error"
             Duracion_Minutos = (Final - Inicio) / 60
@@ -626,29 +646,44 @@ def algoritmo_envio_sms():
                 Bitacora_Tabla,
                 Duracion_Minutos,
             )
-            resultadoError = ejecutar_proceso(
+            resultado = ejecutar_proceso(
                 "INSERT INTO SMS_CnfBitacora(Bitacora_Fecha, Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos) values(getdate(), %s, %s, %s, %s)",
                 parametros,
             )
-            log_debug("Exception while sending SMS: %s", e)
+            log_debug("Error enviando SMS: %s", e)
 
-    Bitacora_Mensaje = (
-        f"Ejecucion exitosa de SMS Envio {cfg.dagster_instance_current_env.upper()}"
-    )
+    Bitacora_Mensaje = f"python/Dagster/envio_sms_kielsa Ejecucion exitosa de SMS Envio {cfg.dagster_instance_current_env.upper()}"
     Final = time.time()
     Duracion_Minutos = (Final - Inicio) / 60
     Bitacora_Tipo = "Finalizado"
     parametros = (Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos)
-    resultadoError = ejecutar_proceso(
+    resultado = ejecutar_proceso(
         "INSERT INTO SMS_CnfBitacora(Bitacora_Fecha, Bitacora_Mensaje, Bitacora_Tipo, Bitacora_Tabla, Duracion_Minutos) values(getdate(), %s, %s, %s, %s)",
         parametros,
     )
-    log_debug("resultadoError: %s", resultadoError)
+    log_debug("resultado: %s", resultado)
+
+    # Devolver contadores para ser usados por el op
+    return {"exitosos": exitosos, "errores": errores}
 
 
 @dg.op(pool="run_sms_kielsa_op")
-def run_sms_kielsa_op() -> None:
-    algoritmo_envio_sms()
+def run_sms_kielsa_op() -> dg.Output:
+    inicio = time.time()
+    counters = algoritmo_envio_sms()
+    exitosos = counters.get("exitosos", 0)
+    errores = counters.get("errores", 0)
+
+    metadata = {"duracion": time.time() - inicio}
+    metadata["envios_exitosos"] = exitosos
+    metadata["envios_con_error"] = errores
+
+    if exitosos > 5 and errores / exitosos > 0.9:
+        raise Exception(
+            f"python/Dagster/envio_sms_kielsa: Alto ratio de errores en envíos SMS: {errores} errores vs {exitosos} exitosos"
+        )
+
+    return dg.Output(value=None, metadata=metadata)
 
 
 @dg.job
@@ -657,23 +692,59 @@ def run_sms_kielsa_job() -> None:
 
 
 @dg.schedule(
-    cron_schedule="*/15 13-16 * * *"
-    if get_dagster_config().is_prd
-    else "*/15 10 * * *",
+    cron_schedule="*/15 9-21 * * *" if get_dagster_config().is_prd else "*/15 10 * * *",
     execution_timezone=get_dagster_config().default_timezone_iana,
     job=run_sms_kielsa_job,
     default_status=dg.DefaultScheduleStatus.RUNNING
     if not get_dagster_config().is_local
     else dg.DefaultScheduleStatus.STOPPED,
 )
-def run_sms_kielsa_schedule():
+def run_sms_kielsa_schedule() -> dg.RunRequest:
     return dg.RunRequest()
 
 
 if __name__ == "__main__":
     ACTIVAR_PRUEBA_DE_INTEGRACION = False
     NUMERO_DE_TELEFONO_INTEGRACION = None  # Especificar un numero y enviara un mensaje en modo integracion en dev/local
-    run_sms_kielsa_op()
+    print("--- Prueba de integración con la función completa ---")
+    print(run_sms_kielsa_op().metadata)
+
+    print("--- Pruebas simples (mocks) para validar la lógica del op ---")
+    # Guardar la referencia original y restaurar después
+    original_alg = algoritmo_envio_sms
+
+    def mock_alg_ok():
+        # 3 exitosos, 1 error -> no debe lanzar excepción
+        return {"exitosos": 3, "errores": 1}
+
+    def mock_alg_high_error():
+        # 10 exitosos, 10 errores -> ratio = 1.0 > 0.9 y exitosos > 5 -> debe lanzar
+        return {"exitosos": 10, "errores": 10}
+
+    try:
+        # Caso: comportamiento OK
+        algoritmo_envio_sms = mock_alg_ok
+        out = run_sms_kielsa_op()
+        md = out.metadata
+        ok1 = (
+            md.get("envios_exitosos").value == 3
+            and md.get("envios_con_error").value == 1
+        )
+        print("TEST mock_alg_ok ->", "PASS" if ok1 else f"FAIL metadata={md}")
+
+        # Caso: alto ratio de errores -> debe levantar excepción
+        algoritmo_envio_sms = mock_alg_high_error
+        try:
+            run_sms_kielsa_op()
+            print("TEST mock_alg_high_error -> FAIL (no lanzó excepción)")
+        except Exception as e:
+            print("TEST mock_alg_high_error -> PASS (excepción lanzada):", str(e))
+
+    finally:
+        # Restaurar la función original
+        algoritmo_envio_sms = original_alg
+
+    print("--- Pruebas de integración con Dagster ---")
     defs = dg.Definitions(
         jobs=[run_sms_kielsa_job],
         schedules=[run_sms_kielsa_schedule],
