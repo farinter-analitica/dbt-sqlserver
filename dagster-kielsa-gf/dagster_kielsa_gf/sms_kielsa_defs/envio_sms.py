@@ -692,7 +692,7 @@ def run_sms_kielsa_job() -> None:
 
 
 @dg.schedule(
-    cron_schedule="*/15 9-21 * * *" if get_dagster_config().is_prd else "*/15 10 * * *",
+    cron_schedule="*/15 6-21 * * *" if get_dagster_config().is_prd else "*/15 10 * * *",
     execution_timezone=get_dagster_config().default_timezone_iana,
     job=run_sms_kielsa_job,
     default_status=dg.DefaultScheduleStatus.RUNNING
