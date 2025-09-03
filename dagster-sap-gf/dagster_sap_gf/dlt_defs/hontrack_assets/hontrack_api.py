@@ -606,10 +606,11 @@ def hontrack_api_source(
     # source.resources.add(zones_resumen_base_to_dict)
     source.resources.add(zones_resumen)
     source.resources.add(zones_resumen_data)
-    source.resources.add(drivers_resumen_base)
+    # source.resources.add(drivers_resumen_base)
     source.resources.add(drivers_resumen)
     source.resources.add(drivers_resumen_data)
     source.root_key = True
+    # Formalizar lista final en el asset
 
     return source
 
@@ -655,7 +656,14 @@ def _daily_partition_iter(
 
 
 @dlt_assets(
-    dlt_source=hontrack_api_source(),
+    dlt_source=hontrack_api_source().with_resources(
+        "zones_resumen",
+        "zones_resumen_data",
+        "drivers_resumen",
+        "drivers_resumen_data",
+        "sensors_resumen",
+        "vehicles_resumen",
+    ),  # Formalizar lista final
     dlt_pipeline=hontrack_api_pipeline,
     name="hontrack_api",
     group_name="hontrack_api",
