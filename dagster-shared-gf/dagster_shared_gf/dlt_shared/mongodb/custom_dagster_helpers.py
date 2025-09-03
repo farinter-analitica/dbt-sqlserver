@@ -63,6 +63,9 @@ class DltResourceCollectionConfig:
     columns_hints: Optional[dict[str, Any]] = None
     columns_to_remove: Optional[tuple[str, ...]] = None
     columns_to_include: Optional[tuple[str, ...]] = None
+    # Columns listed here will be "normalized" to avoid creating problematic empty child tables
+    # (eg. arrays that are always empty -> removed; list of primitives -> wrapped into objects so schema is stable).
+    columns_to_normalize: Optional[tuple[str, ...]] = None
     limit: Optional[int] = None
     cursor_path: Optional[str] = None
     initial_value: Optional[pendulum.DateTime] = None
@@ -364,6 +367,29 @@ def process_collection_config(
 
     if c.schema_contract:
         col_res = col_res.apply_hints(schema_contract=c.schema_contract)
+
+    if c.columns_to_normalize:
+
+        def _normalize_problem_columns(doc: Dict):  # type: ignore
+            for col in c.columns_to_normalize or ():
+                if col not in doc:
+                    continue
+                val = doc.get(col)
+                # Remove empty lists entirely -> prevents creation of empty child table with no columns
+                if isinstance(val, list):
+                    if len(val) == 0:
+                        del doc[col]
+                        continue
+                    # If list of dicts but all dicts empty, drop field
+                    if all(isinstance(it, dict) and len(it) == 0 for it in val):
+                        del doc[col]
+                        continue
+                # If value is None or empty string just remove
+                if val in (None, ""):
+                    del doc[col]
+            return doc
+
+        col_res = col_res.add_map(_normalize_problem_columns)
 
     return col_res
 

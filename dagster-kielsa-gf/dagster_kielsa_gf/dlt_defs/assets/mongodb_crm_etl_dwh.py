@@ -167,6 +167,8 @@ read_source_config_multi_column: ColConfigs = (
             IncConfig(cursor_path="created_at"),
         ),
         # columns_to_remove=("programationDays",),
+        # Normalize problematic columns so doesn't generate empty child tables or wrong data
+        columns_to_normalize=("programationDays",),
     ),  # updatedAt
     DLTRColl(
         collection_name="campaignSchedule",
@@ -455,11 +457,7 @@ if __name__ == "__main__":
                 asset
                 for asset in all_mongodb_hn_assets
                 if asset.key
-                in (
-                    AssetKey(
-                        ("DL_FARINTER", "mongo_db_crm_hn", "hrm_employeeposition")
-                    ),
-                )
+                in (AssetKey(("DL_FARINTER", "mongo_db_crm_hn", "crm_campaign")),)
             )
             assert asset_to_test
             result = materialize(
