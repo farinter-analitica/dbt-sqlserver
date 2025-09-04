@@ -166,9 +166,9 @@ read_source_config_multi_column: ColConfigs = (
             ),
             IncConfig(cursor_path="created_at"),
         ),
-        # columns_to_remove=("programationDays",),
+        columns_to_remove=("programationDays",),
         # Normalize problematic columns so doesn't generate empty child tables or wrong data
-        columns_to_normalize=("programationDays",),
+        # columns_to_normalize=("programationDays",),
     ),  # updatedAt
     DLTRColl(
         collection_name="campaignSchedule",
@@ -470,6 +470,7 @@ if __name__ == "__main__":
                             "config": {
                                 # "write_disposition": "replace",
                                 # "refresh": "drop_resources",
+                                "drop_pending_packages": True,
                             }
                         }
                     }
