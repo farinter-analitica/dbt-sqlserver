@@ -111,8 +111,13 @@ class SMBResource(ConfigurableResource):
 
         if self.password is None or self.username is None:
             raise ValueError("Username and password must be set")
+        password = (
+            self.password.get_value()
+            if isinstance(self.password, EnvVar)
+            else self.password
+        )
         return smbclient.register_session(
-            server=self.server_ip, username=self.username, password=self.password
+            server=self.server_ip, username=self.username, password=password
         )
 
     def get_full_server_path(self, directory: str | PureWindowsPath) -> PureWindowsPath:

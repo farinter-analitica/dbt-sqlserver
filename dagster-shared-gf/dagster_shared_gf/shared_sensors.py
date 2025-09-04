@@ -91,7 +91,7 @@ def create_email_on_failure_sensor(
     # Acceder a los settings via atributos en lugar de leer variables de entorno
     return make_email_on_run_failure_sensor(
         email_from=settings.dagster_email_address or "",
-        email_password=settings.dagster_secret_email_password or "",
+        email_password=settings.dagster_secret_email_password.get_value() or "",
         email_to=email_to,
         email_subject_fn=lambda _: "Dagster Job Failure Alert",
         email_body_fn=custom_email_body,
