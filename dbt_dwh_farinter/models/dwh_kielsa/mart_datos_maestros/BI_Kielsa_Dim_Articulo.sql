@@ -173,7 +173,7 @@ LEFT JOIN UltimaCaracteristica AS UC
         AND A.Articulo_Id = UC.Articulo_Id
         AND UC.rn = 1
 {% if is_incremental() and run_started_at.strftime('%H') | int >= 8 and run_started_at.strftime('%H') | int < 18 -%}
-    WHERE A.Version_Fecha >= '{{ last_date }}'
+    WHERE A.Fecha_Actualizado >= '{{ last_date }}'
 {% else -%}
 --FULL
 {% endif %}
