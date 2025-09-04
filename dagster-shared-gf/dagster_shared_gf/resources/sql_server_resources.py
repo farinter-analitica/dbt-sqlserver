@@ -542,64 +542,66 @@ class SQLServerNonRuntimeResource(SQLServerResource):
         print(f"{type}: {message}")
 
 
+DWH_FARINTER_DATABASES = [
+    "BI_FARINTER",
+    "ADM_FARINTER",
+    "DL_FARINTER",
+    "IA_FARINTER",
+    "CRM_FARINTER",
+]
+
 dwh_farinter = SQLServerResource(
     server=p_server,
-    databases=[
-        "BI_FARINTER",
-        "ADM_FARINTER",
-        "DL_FARINTER",
-        "IA_FARINTER",
-        "CRM_FARINTER",
-    ],
+    databases=DWH_FARINTER_DATABASES,
     username=p_user,
-    password=p_password.get_value(),
+    password=p_password,
     trust_server_certificate="yes",
     default_database="DL_FARINTER",
 )
 
 dwh_farinter_adm = SQLServerResource(
-    server=dwh_farinter.server,
-    databases=dwh_farinter.databases,
-    username=dwh_farinter.username,
-    password=dwh_farinter.password,
-    trust_server_certificate=dwh_farinter.trust_server_certificate,
+    server=p_server,
+    databases=DWH_FARINTER_DATABASES,
+    username=p_user,
+    password=p_password,
+    trust_server_certificate="yes",
     default_database="ADM_FARINTER",
 )
 
 dwh_farinter_dl = SQLServerResource(
-    server=dwh_farinter.server,
-    databases=dwh_farinter.databases,
-    username=dwh_farinter.username,
-    password=dwh_farinter.password,
-    trust_server_certificate=dwh_farinter.trust_server_certificate,
+    server=p_server,
+    databases=DWH_FARINTER_DATABASES,
+    username=p_user,
+    password=p_password,
+    trust_server_certificate="yes",
     default_database="DL_FARINTER",
 )
 
 dwh_farinter_bi = SQLServerResource(
-    server=dwh_farinter.server,
-    databases=dwh_farinter.databases,
-    username=dwh_farinter.username,
-    password=dwh_farinter.password,
-    trust_server_certificate=dwh_farinter.trust_server_certificate,
+    server=p_server,
+    databases=DWH_FARINTER_DATABASES,
+    username=p_user,
+    password=p_password,
+    trust_server_certificate="yes",
     default_database="BI_FARINTER",
 )
 
 dwh_farinter_ia = SQLServerResource(
-    server=dwh_farinter.server,
-    databases=dwh_farinter.databases,
-    username=dwh_farinter.username,
-    password=dwh_farinter.password,
-    trust_server_certificate=dwh_farinter.trust_server_certificate,
+    server=p_server,
+    databases=DWH_FARINTER_DATABASES,
+    username=p_user,
+    password=p_password,
+    trust_server_certificate="yes",
     default_database="IA_FARINTER",
 )
 
 dwh_farinter_sms_kielsa = SQLServerResource(
-    server=dwh_farinter.server,
+    server=p_server,
     databases=[
         "SMS_KIELSA",
     ],
-    username=dwh_farinter.username,
-    password=dwh_farinter.password,
+    username=p_user,
+    password=p_password,
     trust_server_certificate="yes",
     default_database="SMS_KIELSA",
 )
