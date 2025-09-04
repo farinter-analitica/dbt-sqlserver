@@ -1023,6 +1023,7 @@ class DataframeSQLTableManager:
         drop_temp: bool = True,
         drop_target: bool = False,
         update: bool = True,
+        sync_schema: bool = True,
     ) -> None:
         """
         Full process: create table if needed, create temp, load, merge, drop temp.
@@ -1045,7 +1046,8 @@ class DataframeSQLTableManager:
             if drop_target:
                 self.drop_table(connection=connection)
             self.create_table_if_not_exists(connection=connection)
-            self.sync_schema_from_temp(connection=connection)
+            if sync_schema and not drop_target:
+                self.sync_schema_from_temp(connection=connection)
             self.merge_temp_to_target(connection=connection, update=update)
             self.filas_total_tabla = self.count_rows(connection=connection)
             if drop_temp:

@@ -1,10 +1,8 @@
-import textwrap
 import unittest
 import warnings
 from datetime import datetime
 from typing import Sequence
 
-from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
 import polars as pl
 import polars.testing as pltest
 from dagster import (
@@ -24,7 +22,6 @@ from dagster import (
     materialize,
     op,
 )
-
 from dagster_shared_gf.automation import automation_daily_delta_2_cron
 from dagster_shared_gf.resources.smb_resources import (
     SMBResource,
@@ -32,21 +29,19 @@ from dagster_shared_gf.resources.smb_resources import (
 )
 from dagster_shared_gf.resources.sql_server_resources import (
     SQLServerResource,
-    dwh_farinter_bi,
-    dwh_farinter_dl,
 )
 from dagster_shared_gf.shared_constants import (
     EMAIL_REGEX_INVALID_DOTS_PATTERN,
     EMAIL_REGEX_PATTERN_RUST_CRATES,
 )
-from dagster_shared_gf.shared_functions import (
-    get_for_current_env,
-)
-from dagster_shared_gf.shared_variables import env_str, tags_repo
+from dagster_shared_gf.shared_helpers import DataframeSQLTableManager
+from dagster_shared_gf.shared_variables import tags_repo
+from dagster_shared_gf.config import get_dagster_config
 
-top_clause = get_for_current_env(
-    {"local": "TOP 100", "dev": "--TOP 100", "prd": "--TOP 100"}
-)
+
+def get_top_clause() -> str:
+    return "TOP 100" if get_dagster_config().is_local else ""
+
 
 warnings.filterwarnings("ignore", message="PolarsParquetIOManager", append=True)
 
@@ -76,7 +71,7 @@ def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
         email_principal,
         profile_gender
     FROM (
-        SELECT {top_clause}
+        SELECT {get_top_clause()}
             [_id]
             ,1 as Emp_Id
             ,[created_at_date]
@@ -141,7 +136,7 @@ def get_df_ecommerce(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
 def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
-        SELECT {top_clause}
+        SELECT {get_top_clause()}
             M.[Monedero_Id] 
             , M.[Emp_Id]
             , M.[Monedero_Nombre] 
@@ -191,7 +186,7 @@ def get_df_monederos(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
 def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
-        SELECT {top_clause} 
+        SELECT {get_top_clause()} 
             Identidad_Limpia,
             Pais_Id,
             Nombre,
@@ -226,7 +221,7 @@ def get_df_libros_cliente(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
 def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
-        SELECT {top_clause}
+        SELECT {get_top_clause()}
                 * 
         FROM [DL_FARINTER].[dbo].[DL_Kielsa_Libros_Tipo]
     """
@@ -246,7 +241,7 @@ def get_df_libros_tipo(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
 def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
     # Define the SQL query to select data from the database
     sql_query = f"""
-        SELECT {top_clause}
+        SELECT {get_top_clause()}
             Cedula,
             Emp_Id,
             Cliente_Nombre,
@@ -275,7 +270,7 @@ def get_df_clientes(dwh_farinter_dl: SQLServerResource) -> pl.DataFrame:
 )
 def get_df_empresas(dwh_farinter_bi: SQLServerResource) -> pl.DataFrame:
     sql_query = f"""
-        SELECT {top_clause} 
+        SELECT {get_top_clause()} 
             E.[Empresa_Id] AS [Emp_Id]
             --,E.[Empresa_Nombre]
             , E.[Pais_Id]
@@ -862,6 +857,8 @@ def create_file_on_smb(
     # format_file_path = smbr.get_full_server_path("\\staging_dagster\\kielsa_clientes.fmt")
 
     # Write the CSV file
+    # Esta configuracion es la que mejor funciona con BULK INSERT en SQL Server
+    # sin que falle por temas de encoding, saltos de linea, etc.
     with smbr.client.open_file(file_path, mode="w") as f:
         df_clientes.cast({pl.Boolean: pl.Int8}).write_csv(
             f,
@@ -892,66 +889,26 @@ def create_file_on_smb(
 def bulk_load_to_sql_server(
     dwh_farinter_bi: SQLServerResource, file_path: str, df_clientes: pl.DataFrame
 ) -> None:
-    sg = DataframeSQLScriptGenerator(
-        primary_keys=("Identidad_Limpia", "Emp_Id"),
+    # Crear el manager para manejar la carga completa de la tabla
+    manager = DataframeSQLTableManager(
+        df=df_clientes,
         db_schema="dbo",
         table_name="BI_Kielsa_Dim_ClienteGeneral",
+        sqla_engine=dwh_farinter_bi.get_sqlalchemy_engine(),
+        primary_keys=("Identidad_Limpia", "Emp_Id"),
         temp_table_name="BI_Kielsa_Dim_ClienteGeneral_NEW",
-        df=df_clientes,
     )
-    # row_terminator = "\r\n"
-    # format_file_path = ""
-    # # Print the first few lines of the CSV file for debugging
-    # with open(file_path, "r", encoding="utf-8") as f:
-    #     for _ in range(5):
-    #         print(f.readline().strip()[:1000])
 
-    sql_script = textwrap.dedent(f"""
-        SET XACT_ABORT ON;
-        SET NOCOUNT ON;
-
-        BEGIN TRY
-
-            -- Drop the NEW temp table if it exists
-            {sg.drop_table_sql_script(temp=True)};
-
-            -- Drop the old table if it exists
-            DROP TABLE IF EXISTS [{sg.db_schema}].[{sg.table_name}_OLD];
-
-            -- Create a new temp table with the same structure as the existing one
-            {sg.create_table_sql_script(temp=True)}
-            
-            -- Bulk load the data into the new table
-            {
-        sg.bulk_insert_sql_script(
-            file_path=file_path,
-            temp=True,
-            # format_file_path=format_file_path,
-            # error_file_path=file_path.replace(".csv", "_error.csv"),
-        )
-    }
-            -- Convert the new table to columnstore
-            {sg.columnstore_table_sql_script(temp=True)}
-
-            -- Add primary key
-            {sg.primary_key_table_sql_script(temp=True)}
-            
-            -- Drop a view if it exists
-            {sg.drop_view_sql_script()}
-
-            -- Swap the tables
-            {sg.swap_table_with_temp()}
-
-        END TRY
-        BEGIN CATCH
-            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-            THROW;
-        END CATCH;
-    """)
-    # print(sql_script)
-    with dwh_farinter_bi.get_sqlalchemy_conn(autocommit=True) as conn:
-        # df_clientes.limit(100).write_database(table_name=f"{table_name}_dagster_temp_base", connection=conn, if_table_exists='replace')
-        dwh_farinter_bi.execute_and_commit(sql_script, connection=conn)
+    # Ejecutar reemplazo completo de tabla usando bulk insert desde archivo
+    manager.upsert_dataframe(
+        file_path=file_path,
+        drop_temp=True,
+        drop_target=False
+        if get_dagster_config().is_local
+        else True,  # Reemplaza completamente la tabla en dev y prd
+        update=True,
+        sync_schema=False,  # No sincroniza el esquema (tipos y columnas)
+    )
 
 
 @graph(
@@ -1021,6 +978,10 @@ BI_Kielsa_Dim_ClienteGeneral = AssetsDefinition.from_graph(
 
 if __name__ == "__main__":
     from dagster_polars import PolarsParquetIOManager
+    from dagster_shared_gf.resources.sql_server_resources import (
+        dwh_farinter_bi,
+        dwh_farinter_dl,
+    )
 
     class TestPhoneNumberValidation(unittest.TestCase):
         def test_honduras_phone_numbers(self):
@@ -1076,23 +1037,25 @@ if __name__ == "__main__":
 
     start_time = datetime.now()
     with instance_for_test() as instance:
-        from dagster import ResourceDefinition
+        # from dagster import ResourceDefinition
 
-        if env_str == "local":
-            warnings.warn("Running in local mode, using top 1000 rows")
+        if get_dagster_config().is_local:
+            warnings.warn(
+                f"Ejecutándose en modo local, utilizando la cláusula {get_top_clause()} y sin drop del objetivo."
+            )
 
         @asset(name="between_asset")
         def mock_between_asset() -> int:
             return 1
 
-        mock_dwh_farinter_bi = ResourceDefinition.mock_resource()
+        # mock_dwh_farinter_bi = ResourceDefinition.mock_resource()
 
         result = materialize(
             assets=[mock_between_asset, BI_Kielsa_Dim_ClienteGeneral],
             instance=instance,
             resources={
                 "dwh_farinter_dl": dwh_farinter_dl,
-                "dwh_farinter_bi": mock_dwh_farinter_bi,
+                "dwh_farinter_bi": dwh_farinter_bi,
                 "smb_resource_staging_dagster_dwh": smb_resource_staging_dagster_dwh,
                 "polars_parquet_io_manager": PolarsParquetIOManager(),
             },
