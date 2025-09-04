@@ -24,7 +24,6 @@ from dagster_shared_gf.automation import (
     automation_daily_delta_2_cron,
     automation_hourly_additional_delta_12_cron,
 )
-from dagster_shared_gf.load_env_run import load_env_vars
 from dagster_shared_gf.resources.postgresql_resources import (
     PostgreSQLResource,
     db_independent_analitica_etl as db_analitica_etl,
@@ -34,7 +33,7 @@ from dagster_shared_gf.shared_functions import (
     search_for_word_in_text,
 )
 from dagster_shared_gf.shared_variables import tags_repo, env_str, Tags
-from dagster_shared_gf.config import get_dagster_config
+from dagster_shared_gf.config import get_dagster_config, SecretEnvVar
 
 """
 #Add privileges to analitica for 
@@ -204,8 +203,8 @@ def execute_knime_workflow(
     ]
 
     password = get_dagster_config().dagster_secret_analitica_su_password
-    if not password:
-        load_env_vars()
+    if isinstance(password, SecretEnvVar):
+        password = password.get_value()
 
     if password:
         password = password + "\n"
