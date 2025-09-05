@@ -17,7 +17,7 @@
 }}
 
 {% set v_fecha_inicio = (modules.datetime.datetime.now() - modules.datetime.timedelta(days=31)).strftime('%Y%m%d') %}
-{% set v_fecha_fin = (modules.datetime.datetime.now() + modules.datetime.timedelta(days=120)).strftime('%Y%m%d') %}
+{% set v_fecha_fin = (modules.datetime.datetime.now() + modules.datetime.timedelta(days=210)).strftime('%Y%m%d') %}
 --Correccion 20250409 de varios problemas en modelos upstream
 /*
 --1. Pesos de cada dia de la semana por sucursal, valor y peso
@@ -58,57 +58,63 @@ DROP TABLE IF EXISTS #Temp
     "Segundos_Actividad_Estimado"
 ] %}
 
-WITH Calculo AS
-(
+WITH Calculo AS (
     SELECT --TOP (1000) 
-        ISNULL(PR.Emp_Id,0) AS Emp_Id,
-        ISNULL(PR.Suc_Id,0) AS Suc_Id,
-        ISNULL(CAL.Fecha_Calendario,'1999-01-01') AS [Fecha_Id],
-        ISNULL(PDSH.Hora_Id,0) AS Hora_Id,
-        ISNULL(PDS.Dia_Semana_Iso_Id,0) AS Dia_Semana_Iso_Id,
+        ISNULL(PR.Emp_Id, 0) AS Emp_Id,
+        ISNULL(PR.Suc_Id, 0) AS Suc_Id,
+        ISNULL(CAL.Fecha_Calendario, '1999-01-01') AS [Fecha_Id],
+        ISNULL(PDSH.Hora_Id, 0) AS Hora_Id,
+        ISNULL(PDS.Dia_Semana_Iso_Id, 0) AS Dia_Semana_Iso_Id,
         {%- for field in metric_fields %}
-        CAST((CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_{{ field }} ELSE PR.Prom_{{ field }} END)
-            *ISNULL(PDS.Peso_{{ field }},1)*ISNULL(PDSH.Part_{{ field }},1)
-            *ISNULL(PM.Peso_{{ field }},1)*ISNULL(TVH.Crec_{{ field }},1) AS DECIMAL(16,6)) 
-            AS {{ field }}{% if not loop.last %},{% endif %}
+            CAST(
+                (CASE WHEN CAL.Es_Dia_Feriado = 1 THEN PFER.Prom_{{ field }} ELSE PR.Prom_{{ field }} END)
+                * ISNULL(PDS.Peso_{{ field }}, 1) * ISNULL(PDSH.Part_{{ field }}, 1)
+                * ISNULL(PM.Peso_{{ field }}, 1) * ISNULL(TVH.Crec_{{ field }}, 1) AS DECIMAL(16, 6))
+                AS {{ field }}{% if not loop.last %},{% endif %}
         {%- endfor %}
-    FROM {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaBaseMesesProyec') }} PR
-        INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} EMP
-            ON EMP.Empresa_Id = PR.Emp_Id
-        INNER JOIN {{ source ('BI_FARINTER', 'BI_Dim_Pais' ) }} PAIS
-            ON PAIS.Pais_Id = EMP.Pais_Id
-        INNER JOIN {{ ref('BI_Dim_Calendario_LaboralPais') }} CAL
-            on CAL.[Fecha_Calendario] >= '{{ v_fecha_inicio }}' AND CAL.[Fecha_Calendario] < '{{ v_fecha_fin }}'
+    FROM {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaBaseMesesProyec') }} AS PR
+    INNER JOIN {{ source ('BI_FARINTER', 'BI_Kielsa_Dim_Empresa' ) }} AS EMP
+        ON PR.Emp_Id = EMP.Empresa_Id
+    INNER JOIN {{ source ('BI_FARINTER', 'BI_Dim_Pais' ) }} AS PAIS
+        ON EMP.Pais_Id = PAIS.Pais_Id
+    INNER JOIN {{ ref('BI_Dim_Calendario_LaboralPais') }} AS CAL
+        ON
+            CAL.[Fecha_Calendario] >= '{{ v_fecha_inicio }}' AND CAL.[Fecha_Calendario] < '{{ v_fecha_fin }}'
             AND PAIS.Pais_ISO2 = CAL.Pais_ISO2
-        INNER JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PartDiaSemana') }} PDS
-            ON PDS.Emp_Id = PR.Emp_Id AND PDS.Suc_Id = PR.Suc_Id
-            AND PDS.Dia_Semana_Iso_Id = CAL.Dia_de_la_Semana
-        INNER JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PartDiaSemanaHora') }} PDSH
-            ON PDSH.Emp_Id = PR.Emp_Id AND PDSH.Suc_Id = PR.Suc_Id
-            AND PDSH.Dia_Semana_Iso_Id = CAL.Dia_de_la_Semana
-        LEFT JOIN {{ ref('BI_Kielsa_Agr_Sucursal_PartMes') }} PM
-            ON PM.Emp_Id = PR.Emp_Id 
-            AND PM.Suc_Id = PR.Suc_Id
+    INNER JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PartDiaSemana') }} AS PDS
+        ON
+            PR.Emp_Id = PDS.Emp_Id AND PR.Suc_Id = PDS.Suc_Id
+            AND CAL.Dia_de_la_Semana = PDS.Dia_Semana_Iso_Id
+    INNER JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PartDiaSemanaHora') }} AS PDSH
+        ON
+            PR.Emp_Id = PDSH.Emp_Id AND PR.Suc_Id = PDSH.Suc_Id
+            AND CAL.Dia_de_la_Semana = PDSH.Dia_Semana_Iso_Id
+    LEFT JOIN {{ ref('BI_Kielsa_Agr_Sucursal_PartMes') }} AS PM
+        ON
+            PR.Emp_Id = PM.Emp_Id
+            AND PR.Suc_Id = PM.Suc_Id
             AND CAL.Mes_Calendario = PM.Mes_Id
-        --OJO: Solo puedes incluir un solo crecimiento o un promedio de crecimientos en una proyeccion
-        INNER JOIN {{ ref('BI_Kielsa_Agr_Sucursal_CrecVsHist_Semana') }} TVH
-            ON TVH.Emp_Id = PR.Emp_Id AND TVH.Suc_Id = PR.Suc_Id
-        LEFT JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaFeriados') }} PFER
-            ON PFER.Emp_Id = PR.Emp_Id AND PFER.Suc_Id = PR.Suc_Id
-        LEFT JOIN {{ ref ('BI_Kielsa_Dim_Sucursal_Horario_DiaSemana') }} HSUC
-            ON HSUC.Emp_Id = PR.Emp_Id AND HSUC.Suc_Id = PR.Suc_Id
-            AND HSUC.Dia_Semana_Iso_Id = CAL.Dia_de_la_Semana
-    WHERE HSUC.Dia_Semana_Iso_Id IS NULL OR HSUC.Es_24_Horas = 1
+    --OJO: Solo puedes incluir un solo crecimiento o un promedio de crecimientos en una proyeccion
+    INNER JOIN {{ ref('BI_Kielsa_Agr_Sucursal_CrecVsHist_Semana') }} AS TVH
+        ON PR.Emp_Id = TVH.Emp_Id AND PR.Suc_Id = TVH.Suc_Id
+    LEFT JOIN {{ ref ('BI_Kielsa_Agr_Sucursal_PromDiaFeriados') }} AS PFER
+        ON PR.Emp_Id = PFER.Emp_Id AND PR.Suc_Id = PFER.Suc_Id
+    LEFT JOIN {{ ref ('BI_Kielsa_Dim_Sucursal_Horario_DiaSemana') }} AS HSUC
+        ON
+            PR.Emp_Id = HSUC.Emp_Id AND PR.Suc_Id = HSUC.Suc_Id
+            AND CAL.Dia_de_la_Semana = HSUC.Dia_Semana_Iso_Id
+    WHERE
+        HSUC.Dia_Semana_Iso_Id IS NULL OR HSUC.Es_24_Horas = 1
         OR PDSH.Hora_Id BETWEEN DATEPART(HOUR, HSUC.H_Apertura) AND HSUC.Horas_Cero_Hasta_Cierre
 )
-SELECT *,
-    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=19, table_alias='')}} [EmpSuc_Id]
+
+SELECT
+    *,
+    {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Suc_Id'], input_length=19, table_alias='') }} AS [EmpSuc_Id]
 FROM Calculo
 
 
-
-
-    /*
+/*
 
 --Comprobar
 
@@ -119,15 +125,15 @@ SELECT a.Hora_Id,
     b.Valor_Neto as ValorNeto_BaseMes,
     a.Cantidad_Padre - b.Cantidad_Padre as Diferencia_Cantidad,
     a.Valor_Neto - b.Valor_Neto as Diferencia_Valor
-FROM 
+FROM
     "BI_FARINTER"."dbo".BI_Kielsa_Hecho_ProyeccionVenta_SucCanHora a
     FULL OUTER JOIN "BI_FARINTER"."dbo".BI_Kielsa_Hecho_ProyeccionVenta_BaseMes_SucHora b
-    ON a.emp_id = b.emp_id 
+    ON a.emp_id = b.emp_id
     AND a.Suc_Id = b.Suc_Id
 	and a.Fecha_Id = b.fecha_id
 	and a.Hora_Id = b.hora_id
-WHERE 
-    a.emp_id = 1 
+WHERE
+    a.emp_id = 1
     AND a.Suc_Id = 1
 
     */
