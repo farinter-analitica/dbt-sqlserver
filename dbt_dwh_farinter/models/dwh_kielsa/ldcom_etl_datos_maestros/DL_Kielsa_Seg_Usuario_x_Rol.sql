@@ -29,8 +29,8 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
 
 {%- if is_incremental() %}
     {%- set last_date = run_single_value_query_on_relation_and_return(
-			query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -365, max(Usuario_Fec_Actualizacion)), 112), '19000101')  from  """ ~ this, 
-			relation_not_found_value='19000101'|string)|string %}
+		query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -365, max(Usuario_Fec_Actualizacion)), 112), '19000101')  from  """ ~ this, 
+		relation_not_found_value='19000101'|string)|string %}
 {%- else %}
     {%- set last_date = '19000101' %}
 {%- endif %}
@@ -44,27 +44,28 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
     {%- endif -%}
 {%- endfor -%}
 
-WITH DatosBase
-AS
-(
+WITH DatosBase AS (
 {%- for item in valid_empresas -%}
-{%- if not loop.first %}
-	UNION ALL{%- endif %}
-	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
-		, ISNULL(CAST(Usuario_Id AS INT),0) AS [Usuario_Id]
-		, ISNULL(CAST(Rol_Id AS INT),0) AS [Rol_Id]
-		, [Fec_Actualizacion]
-		, [Consecutivo]
-	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.[Seg_Usuario_x_Rol] 
-	--WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
-	{%- if is_incremental() %}
-	WHERE Fec_Actualizacion >= '{{last_date}}'
-	{%- endif %}
-	
-{% endfor -%}
+        {%- if not loop.first %}
+            UNION ALL{%- endif %}
+        SELECT
+            ISNULL({{ item['Empresa_Id'] }}, 0) AS [Emp_Id],
+            ISNULL(CAST(Usuario_Id AS INT), 0) AS [Usuario_Id],
+            ISNULL(CAST(Rol_Id AS INT), 0) AS [Rol_Id],
+            [Fec_Actualizacion],
+            [Consecutivo]
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.[Seg_Usuario_x_Rol]
+        --WHERE Emp_Id = {{ item['Empresa_Id_Original'] }} --AND Fecha_Actualizado >= {{ last_date }}
+        {%- if is_incremental() %}
+		--WHERE Fec_Actualizacion >= '{{ last_date }}' --LD NO ES FIABLE
+		{%- endif %}
+
+    {% endfor -%}
 )
-SELECT *
-	, ISNULL({{ dwh_farinter_hash_column(unique_key_list) }},'') as Hash_UsuRolEmp
-	, GETDATE() AS [Fecha_Carga]
-	, GETDATE() AS [Fecha_Actualizado]
+
+SELECT
+    *,
+    ISNULL({{ dwh_farinter_hash_column(unique_key_list) }}, '') AS Hash_UsuRolEmp,
+    GETDATE() AS [Fecha_Carga],
+    GETDATE() AS [Fecha_Actualizado]
 FROM datosBase
