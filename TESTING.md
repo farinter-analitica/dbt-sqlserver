@@ -41,6 +41,55 @@ Ejecutar todos (acepta los args de pytest):
 
 Notas:
 - Se usa `uv run --frozen` para respetar el lock file sin recalcular resolución.
+- Si necesitas recalcular .lock tras editar `pyproject.toml`, ejecuta manualmente `uv sync` en el workdir correspondiente.
+
+### Uso de uv run --project vs --directory
+------------------------------------------
+- **uv run --project <ubicacion>**: Usa para scripts dentro de un paquete que necesitan su propio venv pero trabajar con el espacio de trabajo raíz. Ejemplo: `uv run --project dagster-global-gf scripts/some_script.py`.
+- **uv run --directory <ubicacion>**: Usa para tests que necesitan tanto el .venv como su propio contexto (funcionalidades de pytest). Ejemplo: `uv run --directory dagster-global-gf pytest`.
+- **uv run**: Para scripts en la raíz que necesitan contexto del proyecto raíz. Ejemplo: `uv run scripts/run_all_tests.py`.
+
+## 4. Manejo de Secretos en Tests
+
+## 1. Arquitectura de Entornos
+Cada ubicación de código (code location) tiene ahora su propio entorno virtual aislado:
+- `dagster-global-gf/.venv`
+- `dagster-kielsa-gf/.venv`
+- `dagster-sap-gf/.venv`
+
+La librería compartida `dagster-shared-gf` también tiene su propio .venv ya que necesita multiples paquetes para las pruebas.
+
+La resolución y sincronización se hace usando `uv sync` con la variable `UV_PROJECT_ENVIRONMENT` apuntando al directorio `.venv` de cada location para garantizar:
+- Instalación determinista basada en `pyproject.toml` + `uv.lock` raíz.
+- Eliminación (prune) automática de dependencias obsoletas.
+
+## 2. Creación / Actualización de entornos
+Ejecutar:
+```bash
+bash scripts/deployment.sh install-deps --local
+```
+Esto recorrerá las ubicaciones configuradas y llamará internamente a `uv sync --frozen` para cada una. Puedes re‑ejecutarlo de forma idempotente tras cambios en dependencias.
+
+## 3. Ejecución de Tests por Location
+Ejemplo rápido (desde la raíz del repo), UV_PROJECT_ENVIRONMENT no es necesario:
+```bash
+for loc in dagster-global-gf dagster-kielsa-gf dagster-sap-gf; do 
+  echo "== PYTEST $loc ==";
+  (cd $loc; UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv run --frozen pytest -q);
+done
+```
+
+Ejecutar sólo un subconjunto (patrón):
+```bash
+cd dagster-kielsa-gf
+UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv run --frozen pytest -k test_jobs -q
+```
+
+Ejecutar todos (acepta los args de pytest):
+`scripts/run_all_tests.py`
+
+Notas:
+- Se usa `uv run --frozen` para respetar el lock file sin recalcular resolución.
 - Si necesitas recalcular .lock tras editar `pyproject.toml`, ejecuta manualmente `uv sync` en el workdir corrrespondiente.
 
 ## 4. Manejo de Secretos en Tests

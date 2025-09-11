@@ -185,6 +185,20 @@ La ejecución de tests se consolidó en `scripts/run_all_tests.py`. Este script:
 - Intenta usar el intérprete definido por ubicación (por ejemplo `dagster-kielsa-gf/.venv/bin/python`) si existe.
 - Realiza un resumen tabulado del resultado por ubicación.
 
+### Uso de uv para ejecutar comandos
+-----------------------------------
+Este proyecto utiliza `uv` para gestionar entornos y ejecutar comandos de manera consistente. Dependiendo del contexto:
+
+- **Para scripts en la raíz que necesitan contexto del proyecto raíz**: Usa `uv run <comando>`.
+  - Ejemplo: `uv run scripts/run_all_tests.py` para ejecutar el script de tests desde la raíz.
+- **Para scripts dentro de un paquete que necesitan su propio venv pero trabajar con el espacio de trabajo raíz**: Usa `uv run --project <ubicacion> <comando>`.
+  - Ejemplo: `uv run --project dagster-global-gf scripts/some_script.py` para scripts en dagster-global-gf que necesitan contexto raíz.
+- **Para ejecutar tests que necesitan tanto el .venv como su propio contexto**: Usa `uv run --directory <ubicacion> <comando>`.
+  - Ejemplo: `uv run --directory dagster-global-gf pytest` para ejecutar tests solo en dagster-global-gf.
+  - Ejemplo: `uv run --directory dagster-kielsa-gf pytest -k test_jobs` para tests específicos en dagster-kielsa-gf.
+
+Esto asegura que los comandos se ejecuten en el entorno correcto, respetando las dependencias y configuraciones específicas de cada ubicación.
+
 ### Publicación
 
 Antes de publicar commits, ejecutar manualmente las pruebas usando:
@@ -196,5 +210,10 @@ pytest
 ```
 3. Script de pruebas rápido:
 ```bash
-python run_all_tests.py
+uv run scripts/run_all_tests.py
+```
+4. Usando uv para entornos específicos:
+```bash
+# Para tests en una ubicación específica
+uv run --directory dagster-global-gf pytest
 ```
