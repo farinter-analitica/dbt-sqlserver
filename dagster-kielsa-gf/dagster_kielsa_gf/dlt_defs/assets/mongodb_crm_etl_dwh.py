@@ -169,6 +169,8 @@ read_source_config_multi_column: ColConfigs = (
         columns_to_remove=("programationDays",),
         # Normalize problematic columns so doesn't generate empty child tables or wrong data
         # columns_to_normalize=("programationDays",),
+        tags=tags_repo.IgnorarNotificacionFallo
+        | tags_repo.Daily,  # No es crítico si falla este asset
     ),  # updatedAt
     DLTRColl(
         collection_name="campaignSchedule",

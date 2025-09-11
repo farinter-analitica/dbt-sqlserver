@@ -206,6 +206,9 @@ class TagsRepositoryGF(metaclass=SingletonMeta):
     Descontinuado: Tags = Tags(key="descontinuado/si", value="")
     """{"descontinuado/si": ""} Usar para definir que es descontinuado."""
 
+    IgnorarNotificacionFallo: Tags = Tags(key="ignorar_notificacion_fallo/si", value="")
+    """{"ignorar_notificacion_fallo/si": ""} Usar para ignorar la notificacion de fallos."""
+
     Automation: Tags = Tags(key="automation/si", value="")
     """{"automation/si": ""} Usar para definir que tiene automatizacion pero puede usarse en jobs."""
 

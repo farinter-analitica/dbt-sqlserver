@@ -2,7 +2,7 @@ from typing import Sequence, Set, Dict, List, Optional, Tuple
 import dagster as dg
 from dagster_shared_gf.resources.correo_e import EmailSenderResource
 from dagster_shared_gf.shared_functions import get_for_current_env
-from dagster_shared_gf.shared_variables import env_str, default_timezone_teg
+from dagster_shared_gf.shared_variables import env_str, default_timezone_teg, tags_repo
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -47,23 +47,11 @@ DEFAULT_RUN_FAILURE_EMAILS = [
     "david.saravia@farinter.com",
 ]  # lista para fallos de run sin asset
 
+# Etiqueta para filtrar activos que no deben notificar en caso de fallo
+FILTER_OUT_TAG = tags_repo.IgnorarNotificacionFallo
+
 
 # ----------------- Helpers reutilizables -----------------
-
-
-def _filter_failed_runs_since(
-    context: dg.SensorEvaluationContext, since: datetime
-) -> List[object]:
-    """Obtiene runs que han fallado (status=FAILURE) actualizados después de 'since'.
-
-    NOTA: aún no se usa en el flujo principal; se integrará en refactor posterior.
-    """
-    from dagster._core.storage.dagster_run import RunsFilter  # type: ignore
-
-    records = context.instance.get_run_records(
-        filters=RunsFilter(statuses=[dg.DagsterRunStatus.FAILURE], updated_after=since)
-    )
-    return list(records)
 
 
 def _format_run_failure_email_simple(
@@ -92,10 +80,10 @@ def _format_run_failure_email_simple(
 
 
 def _get_run_initiator(run: dg.DagsterRun) -> Optional[str]:
-    """Try to determine who/what initiated the run using standard Dagster tags.
+    """Intenta determinar quién/cuál inició el run usando etiquetas estándar de Dagster.
 
-    Returns a short string like 'sensor:NAME', 'schedule:NAME', 'user:EMAIL',
-    'tick:ID', 'external_source:VALUE' or None when unknown.
+    Retorna una cadena corta como 'sensor:NAME', 'schedule:NAME', 'user:EMAIL',
+    'tick:ID', 'external_source:VALUE' o None cuando es desconocido.
     """
     try:
         from dagster._core.storage.tags import (
@@ -107,8 +95,8 @@ def _get_run_initiator(run: dg.DagsterRun) -> Optional[str]:
             USER_TAG,
         )
 
-        tags = getattr(run, "tags", {}) or {}
-        # sensor takes precedence over schedule
+        tags = run.tags or {}
+        # sensor tiene precedencia sobre schedule
         if tags.get(SENSOR_NAME_TAG):
             return f"sensor:{tags.get(SENSOR_NAME_TAG)}"
         if tags.get(SCHEDULE_NAME_TAG):
@@ -117,10 +105,10 @@ def _get_run_initiator(run: dg.DagsterRun) -> Optional[str]:
             return f"tick:{tags.get(TICK_ID_TAG)}"
         if tags.get(EXTERNAL_JOB_SOURCE_TAG_KEY):
             return f"external_source:{tags.get(EXTERNAL_JOB_SOURCE_TAG_KEY)}"
-        # automation condition is boolean-like tag; if present, mark as automation
+        # automation condition es etiqueta booleana; si está presente, marcar como automation
         if tags.get(AUTOMATION_CONDITION_TAG) == "true":
             return "automation"
-        # user tags: both legacy 'user' and 'dagster/user'
+        # user tags: tanto legacy 'user' como 'dagster/user'
         if tags.get(USER_TAG):
             return f"user:{tags.get(USER_TAG)}"
         if tags.get("dagster/user"):
@@ -148,51 +136,55 @@ def _extract_failed_asset_keys(
     event: dg.DagsterEvent,
     repo_ref: dg.RepositoryDefinition,
     job_def: Optional[dg.JobDefinition],
+    run_asset_selection: Optional[Set[dg.AssetKey]],
 ) -> Set[dg.AssetKey]:
-    # Preferir asset_key explícito del evento y normalizar a AssetKey
-    if getattr(event, "asset_key", None):
-        ak = event.asset_key
-        underlying = getattr(ak, "asset_key", None)
-        if underlying:
-            ak = underlying
-        if isinstance(ak, dg.AssetKey):
-            return {ak}
-        try:
-            return {dg.AssetKey(str(ak))}
-        except Exception:
-            return set()
+    """Extraer claves de activos fallidos desde el evento, filtrando por selección del run."""
+    result: Set[dg.AssetKey] = set()
 
-    # Fallback: intentar resolver desde node_handle cuando esté disponible
-    try:
-        dag_event = event
-        node_handle = getattr(dag_event, "node_handle", None) if dag_event else None
-        if node_handle and job_def:
-            keys = job_def.asset_layer.get_selected_entity_keys_for_node(node_handle)
-            result: Set[dg.AssetKey] = set()
+    # Para eventos que tienen asset_key directamente
+    if event.event_type in (
+        dg.DagsterEventType.ASSET_FAILED_TO_MATERIALIZE,
+        dg.DagsterEventType.ASSET_MATERIALIZATION,
+        dg.DagsterEventType.ASSET_OBSERVATION,
+        dg.DagsterEventType.ASSET_MATERIALIZATION_PLANNED,
+    ):
+        ak = event.asset_key
+        if ak and isinstance(ak, dg.AssetKey):
+            if not run_asset_selection or ak in run_asset_selection:
+                result.add(ak)
+
+    # Para STEP_FAILURE, usar node_handle para obtener activos
+    elif event.event_type == dg.DagsterEventType.STEP_FAILURE:
+        if event.node_handle and job_def:
+            keys = job_def.asset_layer.get_selected_entity_keys_for_node(
+                event.node_handle
+            )
             for k in keys or []:
-                try:
-                    base = getattr(k, "asset_key", None) or k
-                    if isinstance(base, dg.AssetKey):
-                        result.add(base)
-                    else:
-                        result.add(dg.AssetKey(str(base)))
-                except Exception:
-                    continue
-            return result
-    except Exception:
-        return set()
-    return set()
+                if isinstance(k, dg.AssetKey):
+                    if not run_asset_selection or k in run_asset_selection:
+                        result.add(k)
+                elif isinstance(k, dg.AssetCheckKey):
+                    if not run_asset_selection or k.asset_key in run_asset_selection:
+                        result.add(k.asset_key)
+
+    return result
 
 
 def _resolve_downstream_top_k(
-    repo_ref: dg.RepositoryDefinition, asset_keys: Set[dg.AssetKey], k: int = 10
+    repo_ref: dg.RepositoryDefinition,
+    asset_keys: Set[dg.AssetKey],
+    run_asset_selection: Optional[Set[dg.AssetKey]],
+    k: int = 10,
 ) -> Tuple[List[dg.AssetKey], int]:
+    """Resolver downstream activos, limitando a la selección del run."""
     seen: List[dg.AssetKey] = []
     seen_set: Set[dg.AssetKey] = set()
     for ak in asset_keys:
         sel = dg.AssetSelection.assets(ak).downstream()
         for d in sel.resolve(repo_ref.asset_graph):
-            if d not in seen_set:
+            if d not in seen_set and (
+                not run_asset_selection or d in run_asset_selection
+            ):
                 seen_set.add(d)
                 seen.append(d)
     more = max(0, len(seen) - k)
@@ -207,6 +199,33 @@ def _collect_owners_map(
         owners = get_asset_owners(ak, context) or []
         owners_map[ak] = list(owners)
     return owners_map
+
+
+def _filter_asset_keys_by_tag(
+    asset_keys: Set[dg.AssetKey],
+    context: dg.RunFailureSensorContext,
+    filter_tag: dict[str, str],
+) -> Set[dg.AssetKey]:
+    """Filtrar activos que contienen la etiqueta especificada."""
+    filtered: Set[dg.AssetKey] = set()
+    repo_ref = context.repository_def
+    if not repo_ref:
+        return asset_keys
+
+    for ak in asset_keys:
+        asset_def = repo_ref.assets_defs_by_key.get(ak)
+        if asset_def:
+            tags = asset_def.tags_by_key.get(ak, {})
+            # Verificar si alguna etiqueta de filtro está presente en las etiquetas del activo
+            has_filter_tag = any(
+                k in tags and tags[k] == v for k, v in filter_tag.items()
+            )
+            if not has_filter_tag:
+                filtered.add(ak)
+        else:
+            # Si no hay definición, incluir por defecto
+            filtered.add(ak)
+    return filtered
 
 
 def _format_email_spanish(
@@ -275,18 +294,33 @@ def failed_asset_notification_sensor(
     context: dg.RunFailureSensorContext,
     enviador_correo_e_analitica_farinter: EmailSenderResource,
 ):
+    from dagster._core.execution.plan.objects import StepFailureData
+
     failed_run = context.dagster_run
     failure_event = context.failure_event
     step_failure_events = context.get_step_failure_events()
     repo_ref = context.repository_def
     run_id = failed_run.run_id
     error = failure_event.message
-    steps_messages = [step.message for step in step_failure_events if step.message]
+    # Extraer mensajes de error detallados de eventos de fallo de pasos
+    steps_messages = []
+    for step in step_failure_events:
+        # Verificar si el evento es de tipo STEP_FAILURE y tiene datos específicos
+        if step.event_type == dg.DagsterEventType.STEP_FAILURE:
+            if isinstance(step.event_specific_data, StepFailureData):
+                error_info = step.event_specific_data.error
+                if error_info and error_info.message:
+                    steps_messages.append(error_info.message)
     errors_steps = ";/n".join(steps_messages)
-    if errors_steps is not None:
+    if errors_steps:
         error = f"{error};/n{errors_steps}"
     if failed_run.is_success:
         return
+
+    # Obtener selección de activos del run para limitar el grafo
+    run_asset_selection = (
+        set(failed_run.asset_selection) if failed_run.asset_selection else None
+    )
 
     rr_start_l = context.instance.get_run_records(
         dg.RunsFilter(run_ids=[run_id]), limit=1, order_by="start_time"
@@ -298,47 +332,34 @@ def failed_asset_notification_sensor(
     rr_end = rr_end_l[0] if rr_end_l else None
 
     failed_asset_keys: Set[dg.AssetKey] = set()
-    # Primero intento directo desde STEP_FAILURE
+    # Extraer activos fallidos desde eventos de fallo de pasos
     job_name_primary = failed_run.job_name
     job_def = repo_ref.get_job(job_name_primary) if repo_ref else None
 
     if repo_ref:
         for ev in step_failure_events:
-            keys = _extract_failed_asset_keys(ev, repo_ref, job_def)
+            keys = _extract_failed_asset_keys(
+                ev, repo_ref, job_def, run_asset_selection
+            )
             failed_asset_keys.update(keys)
 
-    # Fallback ligero: si hubo STEP_FAILURE pero no derivamos asset keys, mirar último ASSET_CHECK_EVALUATION
-    if step_failure_events and not failed_asset_keys:
-        try:
-            check_conn = context.instance.event_log_storage.get_records_for_run(  # type: ignore
-                run_id, of_type=dg.DagsterEventType.ASSET_CHECK_EVALUATION
-            )
-            check_records = getattr(check_conn, "records", [])
-            for rec in reversed(check_records):  # del más reciente hacia atrás
-                try:
-                    dag_ev = rec.event_log_entry.dagster_event  # type: ignore
-                    ak = getattr(dag_ev, "asset_key", None)
-                    if ak:
-                        base = getattr(ak, "asset_key", None) or ak
-                        if isinstance(base, dg.AssetKey):
-                            failed_asset_keys.add(base)
-                        else:
-                            failed_asset_keys.add(dg.AssetKey(str(base)))
-                        break
-                except Exception:
-                    continue
-        except Exception:
-            pass
-    # Tiempos run
+    # Record failed assets before filtering
+    has_failed_asset_keys_before_filter = len(failed_asset_keys) > 0
+
+    # Filtrar activos que tienen la etiqueta de filtro
+    if failed_asset_keys:
+        failed_asset_keys = _filter_asset_keys_by_tag(
+            failed_asset_keys, context, FILTER_OUT_TAG
+        )
+
+    # Tiempos del run
     rr_start_time = rr_start.start_time if rr_start else None
     rr_end_time = rr_end.end_time if rr_end else None
-    # Normalizar default_timezone_teg a un tzinfo (acepta ya sea un objeto tzinfo o un string tipo "UTC")
+    # Normalizar zona horaria
     tzinfo_obj = default_timezone_teg
-    # si viene como string, crear ZoneInfo; si ya es tzinfo (tiene utcoffset), usarlo
     if isinstance(tzinfo_obj, str):
         tzinfo_obj = ZoneInfo(tzinfo_obj)
-    elif not hasattr(tzinfo_obj, "utcoffset"):
-        # desconocido, intentar crear ZoneInfo desde su representación string
+    else:
         tzinfo_obj = ZoneInfo(str(tzinfo_obj))
 
     run_start_iso = (
@@ -356,15 +377,16 @@ def failed_asset_notification_sensor(
         else None
     )
 
-    # extraer posible iniciador/lanzador del run (sensor, schedule, user, external)
+    # Extraer posible iniciador del run
     try:
         run_initiator = _get_run_initiator(failed_run)
     except Exception:
         run_initiator = None
 
     if repo_ref and failed_asset_keys:
+        # Resolver downstream limitando a la selección del run
         downstream_top, more_count = _resolve_downstream_top_k(
-            repo_ref, failed_asset_keys, k=10
+            repo_ref, failed_asset_keys, run_asset_selection, k=10
         )
         owners_map = _collect_owners_map(
             list(downstream_top) + list(failed_asset_keys), context
@@ -392,8 +414,8 @@ def failed_asset_notification_sensor(
         context.log.info(
             f"Notificación (assets) enviada a: {', '.join(sorted(recipients))} para run {run_id}"
         )
-    else:
-        # Email simple de run
+    elif not has_failed_asset_keys_before_filter:
+        # Email simple de run solo si no hay activos fallidos antes del filtro (run sin assets o fallos no relacionados con assets)
         subject, body = _format_run_failure_email_simple(
             run_id=run_id,
             job_name=job_name_primary,

@@ -443,3 +443,104 @@ def test_mixed_asset_and_run_only_failures():
             *set(sfs.DEFAULT_EMAILS),
         }
         assert second_recipients == expected_asset_fail
+
+
+def test_failed_asset_with_filter_tag_no_notification():
+    """Test that when a failed asset has the filter_out tag, no notification is sent."""
+    sent_emails = []
+    send_email_mock = MagicMock()
+    # Ensure tests use controlled default email lists
+    sfs.DEFAULT_EMAILS = ["default.email1@farinter.com", "default.email2@farinter.com"]
+    sfs.DEFAULT_RUN_FAILURE_EMAILS = [
+        "default.email_rf1@farinter.com",
+        "default.email_rf2@farinter.com",
+        "default.email_rf3@farinter.com",
+    ]
+
+    @dg.asset(
+        owners=["owner1@example.com", "owner2@example.com"],
+        tags=sfs.FILTER_OUT_TAG,  # This asset has the filter tag
+        config_schema={
+            "fail": dg.Field(bool, is_required=False, default_value=False),
+        },
+        key=["prefix", "can_fail_asset"],
+    )
+    def can_fail_asset_tagged(context: dg.AssetExecutionContext) -> None:
+        if context.op_execution_context.op_config.get("fail"):
+            context.log.error("Asset processing failed, but no exception is raised.")
+            context.add_output_metadata({"status": "failed"})
+        return None
+
+    @dg.asset_check(asset=can_fail_asset_tagged, blocking=True)
+    def can_fail_asset_check_tagged(
+        context: dg.AssetCheckExecutionContext,
+    ) -> dg.AssetCheckResult:
+        asset_key = context.check_specs[0].asset_key
+        materialization_records = context.instance.get_latest_materialization_events(
+            [asset_key]
+        )
+        latest_materialization = (
+            materialization_records.get(asset_key) if materialization_records else None
+        )
+
+        if not latest_materialization or not latest_materialization.dagster_event:
+            return dg.AssetCheckResult(
+                passed=True,
+                metadata={"reason": "No materialization found for the asset."},
+            )
+
+        event_data = latest_materialization.dagster_event.event_specific_data
+        from dagster._core.events import StepMaterializationData
+
+        if not isinstance(event_data, StepMaterializationData):
+            return dg.AssetCheckResult(
+                passed=True, metadata={"reason": "Invalid materialization data."}
+            )
+
+        status = event_data.materialization.metadata.get("status")
+        if not status:
+            return dg.AssetCheckResult(
+                passed=True, metadata={"reason": "No status found in asset metadata."}
+            )
+
+        return dg.AssetCheckResult(
+            passed=status.value != "failed",
+            metadata={"reason": "Asset reported failure status in metadata."}
+            if status.value == "failed"
+            else {},
+        )
+
+    tagged_job = dg.define_asset_job(
+        name="tagged_job",
+        selection=dg.AssetSelection.assets(can_fail_asset_tagged),
+    )
+
+    class EmailResource:
+        @staticmethod
+        def send_email(
+            email_to: list[str], email_subject: str, email_body: str
+        ) -> None:
+            sent_emails.append(
+                {"to": list(email_to), "subject": email_subject, "body": email_body}
+            )
+            send_email_mock(email_to, email_subject, email_body)
+
+    defs = dg.Definitions(
+        assets=[can_fail_asset_tagged],
+        asset_checks=[can_fail_asset_check_tagged],
+        jobs=[tagged_job],
+        sensors=[sfs.failed_asset_notification_sensor],
+        resources={"enviador_correo_e_analitica_farinter": EmailResource()},
+    )
+
+    with dg.instance_for_test() as test_instance:
+        test_context = dg.build_sensor_context(instance=test_instance, definitions=defs)
+        # Fail the tagged asset
+        run_config = {"ops": {"prefix__can_fail_asset": {"config": {"fail": True}}}}
+        job = defs.get_job_def("tagged_job")
+        result = job.execute_in_process(
+            instance=test_instance, run_config=run_config, raise_on_error=False
+        )
+        run_sensor_and_update_cursor(test_context, EmailResource, run_result=result)
+        # Should not send email because asset has filter tag
+        assert send_email_mock.call_count == 0
