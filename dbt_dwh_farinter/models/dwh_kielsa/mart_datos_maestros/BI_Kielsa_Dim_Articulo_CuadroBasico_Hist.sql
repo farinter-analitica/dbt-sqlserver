@@ -4,7 +4,7 @@
     config(
 		as_columnstore=true,
 		tags=["periodo/diario"],
-		materialized="table",
+		materialized="incremental",
 		incremental_strategy="farinter_merge",
 		on_schema_change="append_new_columns",
 		merge_exclude_columns=unique_key_list + ["Fecha_Carga"],
@@ -17,14 +17,46 @@
 		])
 }}
 
+{%- if is_incremental() %}
+    {%- set last_date = run_single_value_query_on_relation_and_return(
+        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Hasta)), 112), '19000101')  from  """ ~ this,
+        relation_not_found_value='19000101'|string)|string %}
+{%- else %}
+    {%- set last_date = '19000101' %}
+{%- endif %}
+
+
 -- SCD de Cuadro Básico por Emp y Artículo usando el histórico de posiciones
-WITH base_raw AS (
+WITH
+-- Identificar las combinaciones que tienen datos nuevos en este run incremental
+combinaciones_con_datos_nuevos AS (
+    {%- if is_incremental() %}
+        SELECT DISTINCT --noqa: ST06
+            CAST(H.Emp_Id AS INT) AS Emp_Id,
+            H.Articulo_Id
+        FROM {{ ref('BI_Kielsa_Hecho_FacturaPosicion_DimHist') }} AS H
+        WHERE H.Factura_Fecha > '{{ last_date }}'
+    {%- else %}
+    -- En carga completa, procesar todas las combinaciones
+    SELECT DISTINCT
+        H.Articulo_Id,
+        CAST(H.Emp_Id AS INT) AS Emp_Id
+    FROM {{ ref('BI_Kielsa_Hecho_FacturaPosicion_DimHist') }} AS H
+    WHERE H.Factura_Fecha >= '20230101'
+    {% endif %}
+),
+
+base_raw AS (
     SELECT --noqa: ST06
         H.Factura_Fecha, -- conservar datetime para ordenar dentro del día
         CAST(H.Emp_Id AS INT) AS Emp_Id,
         H.Articulo_Id,
         CAST(ISNULL(H.Cuadro_Id, 0) AS INT) AS Cuadro_Id
     FROM {{ ref('BI_Kielsa_Hecho_FacturaPosicion_DimHist') }} AS H
+    INNER JOIN combinaciones_con_datos_nuevos AS ccdn
+        ON
+            CAST(H.Emp_Id AS INT) = ccdn.Emp_Id
+            AND H.Articulo_Id = ccdn.Articulo_Id
     WHERE H.Factura_Fecha >= '20230101'
 ),
 
@@ -100,7 +132,23 @@ rangos_con_fin AS (
         ) AS Fecha_Hasta,
         CONVERT(VARCHAR(8), r.Fecha_Desde, 112) AS Fecha_Id -- reemplaza FORMAT por CONVERT (112) por rendimiento
     FROM rangos AS r
+),
+
+-- En modo incremental, solo necesitamos recalcular los rangos para las combinaciones con datos nuevos
+{% if is_incremental() %}
+    rangos_finales AS (
+    -- Todos los rangos recalculados para las combinaciones con datos nuevos
+    -- La estrategia farinter_merge se encarga de actualizar/insertar según corresponda
+        SELECT rcf.*
+        FROM rangos_con_fin AS rcf
+    )
+{% else %}
+rangos_finales AS (
+    SELECT
+        *
+    FROM rangos_con_fin
 )
+{% endif %}
 
 SELECT --noqa: ST06
     ISNULL(Emp_Id, 0) AS Emp_Id,
@@ -111,4 +159,4 @@ SELECT --noqa: ST06
     ISNULL(CAST(Fecha_Hasta AS DATE), '9999-12-31') AS [Fecha_Hasta],
     -- Surrogate key estable por versión SCD (Emp_Id, Articulo_Id, Fecha_Desde),
     {{ dwh_farinter_concat_key_columns(columns=['Emp_Id', 'Articulo_Id', 'Fecha_Id'], input_length=64, table_alias='') }} AS [EmpArtFec_Id]
-FROM rangos_con_fin;
+FROM rangos_finales;
