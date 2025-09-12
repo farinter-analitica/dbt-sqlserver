@@ -18,15 +18,38 @@
 }}
 
 -- SCD de Cuadro Básico por Emp y Artículo usando el histórico de posiciones
-WITH base AS (
+WITH base_raw AS (
     SELECT --noqa: ST06
-        CAST(H.Factura_Fecha AS DATE) AS Fecha,
+        H.Factura_Fecha, -- conservar datetime para ordenar dentro del día
         CAST(H.Emp_Id AS INT) AS Emp_Id,
         H.Articulo_Id,
         CAST(ISNULL(H.Cuadro_Id, 0) AS INT) AS Cuadro_Id
     FROM {{ ref('BI_Kielsa_Hecho_FacturaPosicion_DimHist') }} AS H
     WHERE H.Factura_Fecha >= '20230101'
-    GROUP BY CAST(H.Factura_Fecha AS DATE), CAST(H.Emp_Id AS INT), H.Articulo_Id, CAST(H.Cuadro_Id AS INT)
+),
+
+-- Una sola fila por día (Emp, Artículo) eligiendo la última ocurrencia del día
+dedup_dia AS (
+    SELECT --noqa: ST06
+        CAST(br.Factura_Fecha AS DATE) AS Fecha,
+        br.Emp_Id,
+        br.Articulo_Id,
+        br.Cuadro_Id,
+        ROW_NUMBER() OVER (
+            PARTITION BY br.Emp_Id, br.Articulo_Id, CAST(br.Factura_Fecha AS DATE)
+            ORDER BY br.Factura_Fecha DESC
+        ) AS rn
+    FROM base_raw AS br
+),
+
+base AS (
+    SELECT
+        Fecha,
+        Emp_Id,
+        Articulo_Id,
+        Cuadro_Id
+    FROM dedup_dia
+    WHERE rn = 1
 ),
 
 marcado AS (
@@ -75,7 +98,7 @@ rangos_con_fin AS (
                     ORDER BY r.Fecha_Desde
                 )
         ) AS Fecha_Hasta,
-        FORMAT(r.Fecha_Desde, 'yyyyMMdd') AS Fecha_Id
+        CONVERT(VARCHAR(8), r.Fecha_Desde, 112) AS Fecha_Id -- reemplaza FORMAT por CONVERT (112) por rendimiento
     FROM rangos AS r
 )
 
