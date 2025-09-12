@@ -9,13 +9,12 @@
 ## Flujos de Trabajo Clave
 - **Build & Install**: No es necesario instalar manualmente; las dependencias se gestionan con el dev container y `uv`.
 	- Nota: el proyecto soporta ahora múltiples intérpretes Python y versiones por paquete; `uv` se usa para aislar e instalar dependencias por subpaquete (ver `uv.lock`).
-- **Pruebas**: Ejecuta todos los tests con `pytest` o `python scripts/run_all_tests.py`. Pre-commit ejecuta chequeos estáticos y formatea el código.
+- Pre-commit ejecuta chequeos estáticos y formatea el código.
 		- Se consolidó la ejecución de tests en `scripts/run_all_tests.py`. El script extrae las ubicaciones desde `workspace.yaml` y usa los `executable_path` o el `.venv` local para ejecutar `pytest` por ubicación.
 		- Para ejecutar tests en una ubicación específica: `uv run --directory dagster-global-gf pytest`.
 		- Para ejecutar scripts que requieren el contexto del proyecto raíz: `uv run scripts/run_all_tests.py`.
 - **Despliegue**: Automático vía GitHub Actions. El tipo de despliegue se controla con el mensaje de commit (ejemplo: `github_actions:deployment_type=deploy-full`). Despliegues manuales con `bash scripts/deployment.sh <tipo>`.
-- **DBT**: El directorio `dbt_dwh_farinter` contiene modelos y scripts DBT para operaciones de data warehouse.
-- **Dagster Dev**: Inicia la UI de Dagster con `dagster dev -h "0.0.0.0"` y accede en http://localhost:3000.
+- **Dagster Dev**: Inicia la UI de Dagster con `uv run dagster dev -h "0.0.0.0"` y accede en http://localhost:3000.
 
 ## Estructura y Convenciones
 - **Subpaquetes**: Cada carpeta `dagster-*` es un paquete Python con su propio `pyproject.toml`, código y tests.
@@ -25,7 +24,7 @@
 - **Base de Datos**: El desarrollo local requiere PostgreSQL; configura la conexión en `dagster.yaml` usando variables de entorno.
 
 ## Patrones y Ejemplos
-- **Gestión de Llaves SSH**: Usa `python scripts/deployment.py setup-deploy-key --repo=<repo> --org=<org>` para gestionar llaves de despliegue de dependencias privadas.
+- **Gestión de Llaves SSH**: Usa `scripts/deployment.py setup-deploy-key --repo=<repo> --org=<org>` para gestionar llaves de despliegue de dependencias privadas.
 - **Pruebas**: Ubica los tests en carpetas `<paquete>_tests/`. Usa `pytest` para ejecutarlos.
 - **Ejecución de Comandos con uv**:
   - Para scripts en la raíz que necesitan contexto del proyecto raíz: `uv run <comando>`.
@@ -33,6 +32,7 @@
   - Para ejecutar tests que necesitan tanto el .venv como su propio contexto: `uv run --directory <ubicacion> <comando>`.
   - Ejemplo: `uv run --directory dagster-global-gf pytest` para tests en dagster-global-gf.
   - Ejemplo: `uv run --project dagster-global-gf scripts/some_script.py` para scripts en dagster-global-gf que necesitan contexto raíz.
+  - **DBT**: El directorio `dbt_dwh_farinter` contiene modelos y scripts DBT para operaciones de data warehouse. Usa `uv run --env-file .env dbt_dwh_farinter dbt <comando> --project-dir dbt_dwh_farinter ` para ejecutar comandos DBT.
 - **Tipos de Despliegue**: Controla la granularidad del despliegue de acuerdo a los tipos de cambios con palabras clave en el commit (ver README para opciones).
 - **Pre-commit**: Los chequeos estáticos y el formateo se ejecutan antes de cada commit.
 - **Commit Messages**: Usa mensajes de commit segun formato `templates/commit-template.git.txt`.
