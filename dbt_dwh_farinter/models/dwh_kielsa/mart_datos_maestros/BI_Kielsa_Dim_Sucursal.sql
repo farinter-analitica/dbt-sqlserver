@@ -63,7 +63,7 @@ Sucursal_Numero AS (
 Sucursal_Numero_Fila AS (
     SELECT
         *,
-        ROW_NUMBER() OVER (PARTITION BY [Sucursal_Numero] ORDER BY [Sucursal_Id] DESC) AS [Fila]
+        ROW_NUMBER() OVER (PARTITION BY [Emp_Id], [Sucursal_Numero] ORDER BY [Sucursal_Id] DESC) AS [Fila]
     FROM Sucursal_Numero
 ),
 
