@@ -315,12 +315,50 @@ drop_data: Wipe all data and resource state for all resources being processed. S
         load_info: LoadInfo,
         dlt_pipeline: dlt.Pipeline,
     ) -> ExtractedResourceMetadata:
-        return fn_extract_resource_metadata(
-            context,
-            resource=resource_data,
-            load_info=load_info,
-            dlt_pipeline=dlt_pipeline,
-        )
+        if dlt_pipeline.last_trace.last_normalize_info:
+            return fn_extract_resource_metadata(
+                context,
+                resource=resource_data,
+                load_info=load_info,
+                dlt_pipeline=dlt_pipeline,
+            )
+        else:
+            # Extract metadata from load_info instead
+            metadata = {}
+            if load_info:
+                # Basic load info that should be available
+                metadata["load_id"] = MetadataValue.text(
+                    str(getattr(load_info, "load_id", "unknown"))
+                )
+
+                # Try to get any available job information safely
+                if hasattr(load_info, "has_failed_jobs"):
+                    metadata["has_failed_jobs"] = MetadataValue.bool(
+                        load_info.has_failed_jobs
+                    )
+
+                # Set extraction status
+                metadata["extraction_status"] = MetadataValue.text(
+                    "completed_without_normalization_info"
+                )
+                metadata["fallback_reason"] = MetadataValue.text(
+                    "last_normalize_info was None"
+                )
+
+            # Add basic pipeline info
+            metadata.update(
+                {
+                    "pipeline_name": MetadataValue.text(dlt_pipeline.pipeline_name),
+                    "dataset_name": MetadataValue.text(dlt_pipeline.dataset_name),
+                    "destination": MetadataValue.text(str(dlt_pipeline.destination)),
+                    "resource_name": MetadataValue.text(resource_data.name),
+                    "write_disposition": MetadataValue.text(
+                        str(resource_data.write_disposition)
+                    ),
+                }
+            )
+
+            return metadata
 
 
 class DltPipelineDestMssqlDwh(BaseDltPipeline):
