@@ -36,32 +36,32 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
     {%- endif -%}
 {%- endfor -%}
 
-WITH DatosBase
-AS
-(
+WITH DatosBase AS (
 {%- for item in valid_empresas -%}
-{%- if not loop.first %}
-	UNION ALL{%- endif %}
-	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
-		, ISNULL(CAST(Depto_Id AS INT),0) AS DeptoArt_Id
-		, UPPER(Depto_Nombre) COLLATE DATABASE_DEFAULT AS [DeptoArt_Nombre]
-	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Departamento 
-	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
-{% endfor -%}
+        {%- if not loop.first %}
+            UNION ALL{%- endif %}
+        SELECT
+            ISNULL({{ item['Empresa_Id'] }}, 0) AS [Emp_Id],
+            ISNULL(CAST(Depto_Id AS INT), 0) AS DeptoArt_Id,
+            UPPER(Depto_Nombre) COLLATE DATABASE_DEFAULT AS [DeptoArt_Nombre]
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Departamento
+        WHERE Emp_Id = {{ item['Empresa_Id_Original'] }} --AND Fecha_Actualizado >= {{ last_date }}
+    {% endfor -%}
 )
-SELECT *
-	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(DeptoArt_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_DeptoArtEmp 
-	,CASE 
-			WHEN DeptoArt_Nombre LIKE '%MP&A%' THEN 'MP&A' 
-			WHEN DeptoArt_Nombre LIKE '%FARMA%' THEN 'FARMA' 
-			WHEN DeptoArt_Nombre LIKE '%CONSUMO%' THEN 'CONSUMO' 
-			WHEN DeptoArt_Nombre LIKE '%OTRO%DONACI%N%' THEN 'OTROS/DONACION' 
-			WHEN DeptoArt_Nombre LIKE '%SERVICIO%' THEN 'SERVICIOS' 
-			WHEN DeptoArt_Nombre LIKE '%EMPAQUETADO%' THEN 'EMPAQUETADO' 
-			WHEN DeptoArt_Nombre LIKE '%BOLETO%CUPONE%' THEN 'BOLETOS/CUPONES' 
-			ELSE 'No definido' 
-		END AS Tipo_Canal
-	, GETDATE() AS [Fecha_Carga]
-	, GETDATE() AS [Fecha_Actualizado]
-FROM datosBase
 
+SELECT
+    *,
+    ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(DeptoArt_Id, '-', Emp_Id)) AS INT) AS BIGINT)) AS Hash_DeptoArtEmp,
+    CASE
+        WHEN DeptoArt_Nombre LIKE '%MP&A%' THEN 'MP&A'
+        WHEN DeptoArt_Nombre LIKE '%FARMA%' THEN 'FARMA'
+        WHEN DeptoArt_Nombre LIKE '%CONSUMO%' THEN 'CONSUMO'
+        WHEN DeptoArt_Nombre LIKE '%OTRO%DONACI%N%' THEN 'OTROS/DONACION'
+        WHEN DeptoArt_Nombre LIKE '%SERVICIO%' THEN 'SERVICIOS'
+        WHEN DeptoArt_Nombre LIKE '%EMPAQUETADO%' THEN 'EMPAQUETADO'
+        WHEN DeptoArt_Nombre LIKE '%BOLETO%CUPONE%' THEN 'BOLETOS/CUPONES'
+        ELSE 'No definido'
+    END AS Tipo_Canal,
+    GETDATE() AS [Fecha_Carga],
+    GETDATE() AS [Fecha_Actualizado]
+FROM datosBase
