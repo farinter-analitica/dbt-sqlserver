@@ -12,6 +12,7 @@
 
 select
     fe.[Factura_Fecha],
+    fe.[AnioMes_Id],
     fe.[Emp_Id],
     fe.[Suc_Id],
     fe.[Bodega_Id],
