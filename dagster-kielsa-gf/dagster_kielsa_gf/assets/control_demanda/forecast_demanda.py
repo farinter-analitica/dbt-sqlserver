@@ -14,6 +14,11 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
 @dg.op(
+    ins={
+        "BI_Kielsa_Hecho_SucArt_Demanda_Limpia": dg.In(
+            dagster_type=dg.Nothing,
+        ),
+    },
     out={
         "df_demanda": dg.Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     },
@@ -133,15 +138,19 @@ def save_kielsa_forecast(
 
 
 @dg.graph
-def forecast_kielsa_graph():
-    df_demanda = get_kielsa_demanda_limpia()
+def forecast_kielsa_graph(BI_Kielsa_Hecho_SucArt_Demanda_Limpia):
+    df_demanda = get_kielsa_demanda_limpia(BI_Kielsa_Hecho_SucArt_Demanda_Limpia)
     df_forecast = generar_forecast(df_demanda)
     return save_kielsa_forecast(df_forecast)
 
 
 BI_Kielsa_Hecho_SucArt_Forecast = dg.AssetsDefinition.from_graph(
     graph_def=forecast_kielsa_graph,
-    keys_by_input_name={},
+    keys_by_input_name={
+        "BI_Kielsa_Hecho_SucArt_Demanda_Limpia": dg.AssetKey(
+            ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_SucArt_Demanda_Limpia"]
+        )
+    },
     keys_by_output_name={
         "result": dg.AssetKey(["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_SucArt_Forecast"])
     },

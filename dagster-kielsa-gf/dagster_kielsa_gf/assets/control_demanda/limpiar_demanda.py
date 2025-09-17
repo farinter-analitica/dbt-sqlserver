@@ -19,6 +19,11 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
 @dg.op(
+    ins={
+        "BI_Kielsa_Hecho_FacturaPosicion": dg.In(
+            dagster_type=dg.Nothing,
+        ),
+    },
     out={
         "df_demanda": dg.Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     },
@@ -111,6 +116,11 @@ def get_kielsa_demanda_data(
 
 
 @dg.op(
+    ins={
+        "DL_Kielsa_ExistenciaHist": dg.In(
+            dagster_type=dg.Nothing,
+        ),
+    },
     out={
         "df_stock": dg.Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     },
@@ -303,17 +313,26 @@ def start_timer_op() -> float:
 
 
 @dg.graph
-def limpiar_demanda_kielsa_graph():
+def limpiar_demanda_kielsa_graph(
+    BI_Kielsa_Hecho_FacturaPosicion, DL_Kielsa_ExistenciaHist
+):
     start_time = start_timer_op()
-    df_demanda = get_kielsa_demanda_data()
-    df_stock = get_kielsa_stock_data()
+    df_demanda = get_kielsa_demanda_data(BI_Kielsa_Hecho_FacturaPosicion)
+    df_stock = get_kielsa_stock_data(DL_Kielsa_ExistenciaHist)
     demanda_procesada = procesar_con_mddme_op(df_demanda, df_stock)
     return save_demanda_procesada(demanda_procesada, start_time)
 
 
 BI_Kielsa_Hecho_SucArt_Demanda_Limpia = dg.AssetsDefinition.from_graph(
     graph_def=limpiar_demanda_kielsa_graph,
-    keys_by_input_name={},
+    keys_by_input_name={
+        "BI_Kielsa_Hecho_FacturaPosicion": dg.AssetKey(
+            ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_FacturaPosicion"]
+        ),
+        "DL_Kielsa_ExistenciaHist": dg.AssetKey(
+            ["DL_FARINTER", "dbo", "DL_Kielsa_ExistenciaHist"]
+        ),
+    },
     keys_by_output_name={
         "result": dg.AssetKey(
             ["BI_FARINTER", "dbo", "BI_Kielsa_Hecho_SucArt_Demanda_Limpia"]
