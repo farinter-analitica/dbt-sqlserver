@@ -9,6 +9,7 @@ from dagster import (
     AssetsDefinition,
     AssetSpec,
     load_assets_from_modules,
+    Definitions,
 )
 
 from dagster_global_gf import defs
@@ -123,6 +124,11 @@ all_not_in_definitions = set(
 all_not_in_modules = set(
     filter(lambda x: x not in all_assets_keys_deduplicated, all_defs_assets_keys)
 )
+
+
+def test_validate_definitions():
+    Definitions.validate_loadable(defs)
+    assert True  # If no error was raised, the definitions are valid
 
 
 def test_all_assets_loaded():
