@@ -6,7 +6,7 @@
 name = "main-dagster-runtime"
 version = "0.1.0"
 description = "Minimal Dagster host runtime (webserver + daemon)"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13,<3.14"
 license = { text = "Proprietary" }
 dependencies = [
     "dagster>=1.9.7,<1.12",
@@ -14,7 +14,9 @@ dependencies = [
     "dagster-postgres",
     "dagster-cloud",
     "dagster-dbt",
+    "dbt-core>=1.10.5,<2.0",
     "dbt-sqlserver",
+    "pyodbc>=5.2.0",
 ]
 
 # Empty optional group so that deployment script can call
@@ -25,7 +27,9 @@ external = []
 [tool.uv]
 config-settings = { editable_mode = "compat" } # better-toml-ignore
 default-groups = ["dev", "helpers"]
-
+override-dependencies = [
+    "pyodbc>=5.2.0,<5.3.0", # Python 3.13 necesario por dbt-sqlserver
+]
 
 [tool.yamlfix]
 line_lenght = 0
@@ -107,4 +111,4 @@ filterwarnings = [
 ]
 
 [tool.main_dagster]
-python_version = "3.12" # Explicitly specify the required Python version
+python_version = "3.13" # Explicitly specify the required Python version

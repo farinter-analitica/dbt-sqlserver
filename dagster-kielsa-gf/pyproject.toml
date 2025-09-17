@@ -12,7 +12,7 @@ version = "1.0.2"
 description = "Dagster kielsa for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.13,<3.14"
 license = { text = "Proprietary" }
 # Development Status :: 1 - Planning
 # Development Status :: 2 - Pre-Alpha
@@ -24,6 +24,7 @@ license = { text = "Proprietary" }
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
     "Topic :: Assets Orchestration",
     "Topic :: Database",
@@ -63,6 +64,11 @@ Repository = "https://github.com/farinter-analitica/main-dagster"
 [tool.uv.sources.dagster_shared_gf]
 path = "../dagster-shared-gf"
 editable = true
+
+[tool.uv]
+override-dependencies = [
+    "pyodbc>=5.2.0,<5.3.0", # Python 3.13 necesario por dbt-sqlserver
+]
 
 [tool.pyright]
 typeCheckingMode = "standard"

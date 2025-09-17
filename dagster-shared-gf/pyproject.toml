@@ -9,7 +9,7 @@ version = "1.0.2"
 description = "Dagster shared components for GF"
 authors = [{ name = "Axell Padilla", email = "brian.padilla@farinter.com" }]
 readme = "README.md"
-requires-python = ">=3.12, <3.13"  # Relaxed (was >=3.12.10) to avoid patch‑level constraint blocking per-location envs
+requires-python = ">=3.13, <3.14"  # Relaxed (was >=3.12.10) to avoid patch‑level constraint blocking per-location envs
 license = { text = "Proprietary" }
 # Development Status :: 1 - Planning
 # Development Status :: 2 - Pre-Alpha
@@ -22,6 +22,7 @@ license = { text = "Proprietary" }
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
     "Topic :: Assets Orchestration",
     "Topic :: Database",
@@ -41,9 +42,9 @@ dependencies = [
     "dagster-postgres",
     "dagster-cloud",
     "dagster-dbt>=0.24",
-    "dbt-core>=1.8,<2.0",
+    "dbt-core>=1.10.5,<2.0",
     "dbt-postgres>=1.8,<2.0",
-    "dbt-sqlserver>=1.8.0,<2.0",
+    "dbt-sqlserver>=1.9.0,<2.0",
     "trycast",
     "requests",
     "psycopg[binary,pool]",
@@ -61,7 +62,7 @@ excel = ["fastexcel", "openpyxl", "xlsx2csv"]
 etl = ["dagster-dlt", "dagster-sling", "dlt"]
 gcp = ["dagster-gcp"]
 mongo = ["pymongo", "pymongoarrow"]
-odbc = ["pyodbc", "arrow-odbc", "smbprotocol", "pymssql"]
+odbc = ["pyodbc>=5.2.0", "arrow-odbc", "smbprotocol", "pymssql"]
 translation = ["deep-translator"]
 ml = ["scipy"]
 interactive = ["ipython"]
@@ -100,6 +101,11 @@ rev = "v1.0.7"
 git = "ssh://git@github.com-algoritmos-gf/farinter-analitica/algoritmos-gf.git"
 subdirectory = "algoritmo-mddme-gf"
 rev = "v1.0.7"
+
+[tool.uv]
+override-dependencies = [
+    "pyodbc>=5.2.0,<5.3.0", # Python 3.13 necesario por dbt-sqlserver
+]
 
 [tool.pyright]
 typeCheckingMode = "standard"
