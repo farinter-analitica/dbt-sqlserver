@@ -36,22 +36,23 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
     {%- endif -%}
 {%- endfor -%}
 
-WITH DatosBase
-AS
-(
+WITH DatosBase AS (
 {%- for item in valid_empresas -%}
-{%- if not loop.first %}
-	UNION ALL{%- endif %}
-	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
-		, ISNULL(CAST(Categoria_Id AS INT),0) AS Categoria_Id
-		, Categoria_Nombre COLLATE DATABASE_DEFAULT AS [Categoria_Nombre]
-	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Categoria_Articulo 
-	WHERE Emp_Id = {{item['Empresa_Id_Original']}} --AND Fecha_Actualizado >= {{last_date}}
+        {%- if not loop.first %}
+            UNION ALL{%- endif %}
+        SELECT
+            ISNULL({{ item['Empresa_Id'] }}, 0) AS [Emp_Id],
+            ISNULL(CAST(Categoria_Id AS INT), 0) AS Categoria_Id,
+            Categoria_Nombre COLLATE DATABASE_DEFAULT AS [Categoria_Nombre]
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Categoria_Articulo
+        WHERE Emp_Id = {{ item['Empresa_Id_Original'] }} --AND Fecha_Actualizado >= {{ last_date }}
 
-{% endfor -%}
+    {% endfor -%}
 )
-SELECT *
-	, ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Categoria_Id, '-', Emp_Id)) AS INT) AS bigint))  AS Hash_CategoriaEmp 
-	, GETDATE() AS [Fecha_Carga]
-	, GETDATE() AS [Fecha_Actualizado]
+
+SELECT
+    *,
+    ABS(CAST(CAST(HASHBYTES('SHA2_256', CONCAT(Categoria_Id, '-', Emp_Id)) AS INT) AS BIGINT)) AS Hash_CategoriaEmp,
+    GETDATE() AS [Fecha_Carga],
+    GETDATE() AS [Fecha_Actualizado]
 FROM datosBase
