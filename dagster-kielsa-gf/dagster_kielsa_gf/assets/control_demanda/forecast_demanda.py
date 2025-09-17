@@ -9,7 +9,7 @@ from dagster_shared_gf.resources.smb_resources import (
     smb_resource_staging_dagster_dwh,
 )
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
-from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLTableManager
 from dagster_shared_gf.shared_variables import env_str, tags_repo
 
 
@@ -18,13 +18,15 @@ from dagster_shared_gf.shared_variables import env_str, tags_repo
         "df_demanda": dg.Out(pl.DataFrame, io_manager_key="polars_parquet_io_manager"),
     },
     config_schema={
-        "meses_muestra": dg.Field(int, is_required=False, default_value=12 * 5)
+        "meses_muestra": dg.Field(int, is_required=False, default_value=12 * 5),
+        "sucursal_id": dg.Field(int, is_required=False, default_value=3),
     },
 )
 def get_kielsa_demanda_limpia(
     context: dg.OpExecutionContext, dwh_farinter_bi: SQLServerResource
 ) -> pl.DataFrame:
     meses_muestra = context.op_config["meses_muestra"]
+    sucursal_id = context.op_config["sucursal_id"]
     fecha_desde = pdl.today().subtract(months=meses_muestra)
 
     sql_query = f"""
@@ -37,6 +39,7 @@ def get_kielsa_demanda_limpia(
         Limpios_Forecast AS Ctd_Demanda
     FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_SucArt_Demanda_Limpia
     WHERE Fecha_Id >= '{fecha_desde.strftime("%Y-%m-%d")}'
+      AND Centro_Almacen_Id = {sucursal_id}
     """
 
     df = (
@@ -105,14 +108,6 @@ def generar_forecast(
 def save_kielsa_forecast(
     dwh_farinter_bi: SQLServerResource, forecast_procesado: pl.DataFrame
 ) -> None:
-    sg = DataframeSQLScriptGenerator(
-        primary_keys=("Material_Id", "Centro_Almacen_Id", "Gpo_Cliente", "Fecha_Id"),
-        db_schema="dbo",
-        table_name="BI_Kielsa_Hecho_SucArt_Forecast",
-        df=forecast_procesado,
-        temp_table_name="BI_Kielsa_Hecho_SucArt_Forecast_NEW",
-    )
-
     if env_str == "local":
         with pl.Config() as c:
             c.set_tbl_rows(-1)
@@ -122,27 +117,19 @@ def save_kielsa_forecast(
         return
 
     print(f"Por guardar {len(forecast_procesado)} registros")
-    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-        dwh_farinter_bi.execute_and_commit(
-            sg.drop_table_sql_script(temp=True), connection=conn
-        )
-        dwh_farinter_bi.execute_and_commit(
-            sg.create_table_sql_script(temp=True), connection=conn
-        )
-        dwh_farinter_bi.execute_and_commit(
-            sg.columnstore_table_sql_script(temp=True), connection=conn
-        )
 
-        forecast_procesado.write_database(
-            table_name=sg.temp_table_name,
-            connection=conn,
-            if_table_exists="append",
-        )
+    engine = dwh_farinter_bi.get_sqlalchemy_engine()
 
-        dwh_farinter_bi.execute_and_commit(
-            sg.primary_key_table_sql_script(temp=True), connection=conn
-        )
-        dwh_farinter_bi.execute_and_commit(sg.swap_table_with_temp(), connection=conn)
+    manager = DataframeSQLTableManager(
+        df=forecast_procesado,
+        db_schema="dbo",
+        table_name="BI_Kielsa_Hecho_SucArt_Forecast",
+        sqla_engine=engine,
+        primary_keys=("Material_Id", "Centro_Almacen_Id", "Gpo_Cliente", "Fecha_Id"),
+        temp_table_name="BI_Kielsa_Hecho_SucArt_Forecast_NEW",
+    )
+
+    manager.upsert_dataframe()
 
 
 @dg.graph

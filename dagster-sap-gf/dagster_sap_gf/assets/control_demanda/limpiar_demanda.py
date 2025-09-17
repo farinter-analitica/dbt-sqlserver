@@ -1,7 +1,7 @@
 import warnings
 from datetime import datetime
 
-from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLTableManager
 import pendulum as pdl
 import polars as pl
 import dagster as dg
@@ -153,44 +153,24 @@ def save_demanda_procesada(
             print(demanda_procesada.describe())
     else:
         print(f"Por guardar {len(demanda_procesada)} registros")
-        with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-            sg = DataframeSQLScriptGenerator(
-                primary_keys=(
-                    "Material_Id",
-                    "Fecha_Id",
-                    "Centro_Almacen_Id",
-                    "Gpo_Cliente",
-                ),
-                db_schema="dbo",
-                table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia",
-                df=demanda_procesada,
-                temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_NEW",
-            )
 
-            dwh_farinter_bi.execute_and_commit(
-                sg.drop_table_sql_script(temp=True), connection=conn
-            )
-            dwh_farinter_bi.execute_and_commit(
-                sg.create_table_sql_script(temp=True), connection=conn
-            )
-            dwh_farinter_bi.execute_and_commit(
-                sg.columnstore_table_sql_script(temp=True), connection=conn
-            )
+        engine = dwh_farinter_bi.get_sqlalchemy_engine()
 
-            # First write as regular table
-            demanda_procesada.write_database(
-                table_name=sg.temp_table_name,
-                connection=conn,
-                if_table_exists="append",
-            )
+        manager = DataframeSQLTableManager(
+            df=demanda_procesada,
+            db_schema="dbo",
+            table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia",
+            sqla_engine=engine,
+            primary_keys=(
+                "Material_Id",
+                "Fecha_Id",
+                "Centro_Almacen_Id",
+                "Gpo_Cliente",
+            ),
+            temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Demanda_Limpia_NEW",
+        )
 
-            dwh_farinter_bi.execute_and_commit(
-                sg.primary_key_table_sql_script(temp=True), connection=conn
-            )
-
-            dwh_farinter_bi.execute_and_commit(
-                sg.swap_table_with_temp(), connection=conn
-            )
+        manager.upsert_dataframe(swap_table=True)
 
     context.add_output_metadata(
         metadata={

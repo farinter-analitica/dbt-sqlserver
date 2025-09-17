@@ -928,11 +928,19 @@ class DataframeSQLTableManager:
         self._execute_sql(sql, connection=connection)
 
     def load_dataframe_to_temp(
-        self, connection: sqla.Connection, file_path: str | None
+        self,
+        connection: sqla.Connection,
+        file_path: str | None,
+        add_indexes: bool = False,
     ) -> None:
         """
         Loads the dataframe to the temp table.
         If existing file_path is None, it uses the dataframe.write_database method.
+
+        Args:
+            connection: SQLAlchemy connection
+            file_path: Path to file for bulk insert, or None to use write_database
+            add_indexes: If True, adds primary key and columnstore indexes after loading
         """
         if file_path is None:
             # Use Polars' write_database with SQLAlchemy connection
@@ -947,6 +955,18 @@ class DataframeSQLTableManager:
                 temp=True,
             )
             self._execute_sql(sql, connection=connection)
+
+        # Add indexes if requested (typically for swap operations)
+        if add_indexes:
+            if self.generator.primary_keys:
+                self._execute_sql(
+                    self.generator.primary_key_table_sql_script(temp=True),
+                    connection=connection,
+                )
+            self._execute_sql(
+                self.generator.columnstore_table_sql_script(temp=True),
+                connection=connection,
+            )
 
     def _fetch_columns_metadata(
         self, connection: sqla.Connection, table_name: str, schema: str
@@ -1013,6 +1033,14 @@ class DataframeSQLTableManager:
         sql = self.generator.merge_table_sql_script(update=update)
         self._execute_sql(sql, connection=connection)
 
+    def swap_temp_with_target(self, connection: sqla.Connection) -> None:
+        """
+        Swaps temp table with target table using the efficient swap strategy.
+        This is faster than MERGE.
+        """
+        sql = self.generator.swap_table_with_temp()
+        self._execute_sql(sql, connection=connection)
+
     def drop_table(self, connection: sqla.Connection, temp: bool = False) -> None:
         sql = self.generator.drop_table_sql_script(temp=temp)
         self._execute_sql(sql, connection=connection)
@@ -1022,6 +1050,7 @@ class DataframeSQLTableManager:
         file_path: str | None = None,
         drop_temp: bool = True,
         drop_target: bool = False,
+        swap_table: bool = False,
         update: bool = True,
         sync_schema: bool = True,
     ) -> None:
@@ -1034,23 +1063,41 @@ class DataframeSQLTableManager:
             file_path: Path to the parquet file to use for bulk insert.
             drop_temp: Whether to drop the temp table after merging.
             drop_target: Whether to drop the target table to refresh it.
-            update: On false doesn't update existing records.
+                Old data is lost.
+            swap_table: If true, renames target to OLD, temp to target and drops OLD.
+                This is faster than drop_target. Old data is lost.
+            update: On false doesn't update existing records, only inserts new ones.
+            sync_schema: If true, alters target table to match temp schema before merging.
+                This can cause errors if incompatible changes are made.
         """
         with self.engine.begin() as connection:
             self.drop_table(connection=connection, temp=True)
             self.create_temp_table(connection=connection)
         with self.engine.begin() as connection:
-            self.load_dataframe_to_temp(connection=connection, file_path=file_path)
+            self.load_dataframe_to_temp(
+                connection=connection,
+                file_path=file_path,
+                add_indexes=swap_table,  # Add indexes during load if we'll be swapping
+            )
             self.filas_tabla_temp = self.count_rows(temp=True, connection=connection)
         with self.engine.begin() as connection:
-            if drop_target:
-                self.drop_table(connection=connection)
-            self.create_table_if_not_exists(connection=connection)
-            if sync_schema and not drop_target:
-                self.sync_schema_from_temp(connection=connection)
-            self.merge_temp_to_target(connection=connection, update=update)
+            if swap_table:
+                # For swap strategy, ensure target table exists but don't drop it
+                self.create_table_if_not_exists(connection=connection)
+                # Perform the table swap (indexes already added during load)
+                self.swap_temp_with_target(connection=connection)
+            else:
+                # Use traditional MERGE approach
+                if drop_target:
+                    self.drop_table(connection=connection)
+                self.create_table_if_not_exists(connection=connection)
+                if sync_schema and not drop_target:
+                    self.sync_schema_from_temp(connection=connection)
+                self.merge_temp_to_target(connection=connection, update=update)
+
             self.filas_total_tabla = self.count_rows(connection=connection)
-            if drop_temp:
+            if drop_temp and not swap_table:
+                # Note: When swapping, temp table is automatically renamed/dropped
                 self.drop_table(connection=connection, temp=True)
 
 

@@ -2,7 +2,7 @@ from collections import deque
 import warnings
 from datetime import datetime
 
-from dagster_shared_gf.shared_helpers import DataframeSQLScriptGenerator
+from dagster_shared_gf.shared_helpers import DataframeSQLTableManager
 import pendulum as pdl
 import polars as pl
 from dagster import (
@@ -149,19 +149,6 @@ def procesar_forecast(
 def save_forecast_procesado(
     dwh_farinter_bi: SQLServerResource, forecast_procesado: pl.DataFrame
 ) -> None:
-    sg = DataframeSQLScriptGenerator(
-        primary_keys=(
-            "Material_Id",
-            "Fecha_Id",
-            "Centro_Almacen_Id",
-            "Gpo_Cliente",
-        ),
-        db_schema="dbo",
-        table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast",
-        df=forecast_procesado,
-        temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast_NEW",
-    )
-
     if env_str == "local":
         with pl.Config() as c:
             c.set_tbl_rows(-1)
@@ -169,30 +156,26 @@ def save_forecast_procesado(
             print(forecast_procesado.head(10))
             print(forecast_procesado.describe())
         return
+
     print(f"Por guardar {len(forecast_procesado)} registros")
-    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-        dwh_farinter_bi.execute_and_commit(
-            sg.drop_table_sql_script(temp=True), connection=conn
-        )
-        dwh_farinter_bi.execute_and_commit(
-            sg.create_table_sql_script(temp=True), connection=conn
-        )
-        dwh_farinter_bi.execute_and_commit(
-            sg.columnstore_table_sql_script(temp=True), connection=conn
-        )
 
-        # First write as regular table
-        forecast_procesado.write_database(
-            table_name=sg.temp_table_name,
-            connection=conn,
-            if_table_exists="append",
-        )
+    engine = dwh_farinter_bi.get_sqlalchemy_engine()
 
-        dwh_farinter_bi.execute_and_commit(
-            sg.primary_key_table_sql_script(temp=True), connection=conn
-        )
+    manager = DataframeSQLTableManager(
+        df=forecast_procesado,
+        db_schema="dbo",
+        table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast",
+        sqla_engine=engine,
+        primary_keys=(
+            "Material_Id",
+            "Fecha_Id",
+            "Centro_Almacen_Id",
+            "Gpo_Cliente",
+        ),
+        temp_table_name="BI_SAP_Hecho_SocAlmArtGpoCli_Forecast_NEW",
+    )
 
-        dwh_farinter_bi.execute_and_commit(sg.swap_table_with_temp(), connection=conn)
+    manager.upsert_dataframe(swap_table=True)
 
 
 @graph
