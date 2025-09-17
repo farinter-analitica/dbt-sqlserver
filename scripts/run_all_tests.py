@@ -15,7 +15,7 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 import yaml
@@ -38,6 +38,8 @@ class Result:
     dur: float
     err: Optional[str] = None
     raw: Optional[str] = None
+    issues: List[str] = field(default_factory=list)
+    targets: List[str] = field(default_factory=list)
 
 
 def load_locations() -> List[tuple[str, str]]:  # (working_dir, executable)
@@ -76,7 +78,17 @@ def build_cmd(wd: str, exe: str | None, extra: List[str], verbose: bool) -> List
         if exe
         else ["uv", "run", "--no-sync", "-qq", "-m", "pytest"]
     )
-    return base + [str(ROOT / wd), "--tb=short"] + (["-v"] if verbose else []) + extra
+    # Add a short summary for failed/errors so we can show concise info without full verbosity.
+    # Respect user-provided -r if present in extra.
+    add_report = not any(arg.startswith("-r") for arg in extra)
+    default_report = ["-r", "fE"] if add_report else []
+    return (
+        base
+        + [str(ROOT / wd), "--tb=short"]
+        + (["-v"] if verbose else [])
+        + default_report
+        + extra
+    )
 
 
 def parse_output(
@@ -86,10 +98,21 @@ def parse_output(
     passed = failed = skipped = 0
     error_count = 0
     lines = out.splitlines()
+    # Collect concise failure/error lines so we can display a compact summary later
+    issues: List[str] = []
+    targets: List[str] = []
     for ln in lines:
         s = ln.strip()
         if "ERROR collecting" in s:
             error_count += 1
+            if s not in issues:
+                issues.append(s)
+            # Example: "ERROR collecting path/to/test.py - ImportError: ..."
+            parts = s.split()
+            if len(parts) >= 3:
+                target = parts[2]
+                if target and target not in targets:
+                    targets.append(target)
         if s.startswith("=") and any(
             w in s for w in ("passed", "failed", "skipped", "error")
         ):
@@ -106,12 +129,28 @@ def parse_output(
                         skipped = n
                     elif tag.startswith("error"):
                         error_count = max(error_count, n)
-        elif s.startswith(("PASSED", "FAILED", "SKIPPED")):
+        elif s.startswith(("PASSED", "FAILED", "SKIPPED", "ERROR")):
             # fallback incremental counting if needed
             if s.startswith("PASSED"):
                 passed += 1
             elif s.startswith("FAILED"):
                 failed += 1
+                # Keep a brief record like: FAILED path::test - AssertionError: ...
+                issues.append(s)
+                toks = s.split()
+                if len(toks) >= 2:
+                    target = toks[1]
+                    if target and target not in targets:
+                        targets.append(target)
+            elif s.startswith("ERROR"):
+                error_count += 1
+                # Keep the short summary line: ERROR path - Exception: ...
+                issues.append(s)
+                toks = s.split()
+                if len(toks) >= 2:
+                    target = toks[1]
+                    if target and target not in targets:
+                        targets.append(target)
             else:
                 skipped += 1
     total = passed + failed + skipped
@@ -132,16 +171,23 @@ def parse_output(
         err_msg = f"Pytest exit {returncode}"
     if error_count:
         err_msg = f"{error_count} collection error(s)"
+    # If we have a failure/error but didn't capture any concise issues, include a short tail of output
+    if (status in ("failure", "error")) and not issues:
+        tail = [line.strip() for line in lines[-30:] if line.strip()]
+        issues = tail[-10:] if tail else []
+
     return Result(
-        loc,
-        status,
-        total,
-        passed,
-        failed,
-        skipped,
-        dur,
-        err_msg,
-        out if verbose else None,
+        loc=loc,
+        status=status,
+        tests=total,
+        passed=passed,
+        failed=failed,
+        skipped=skipped,
+        dur=dur,
+        err=err_msg,
+        raw=out if verbose else None,
+        issues=issues,
+        targets=targets,
     )
 
 
@@ -235,6 +281,51 @@ def print_summary(results: List[Result]):
     print(
         f"Total Locations: {len(results)}\nTotal Tests: {tot_tests}\nPassed: {tot_pass}\nFailed: {tot_fail}\nSkipped: {tot_skip}\nTotal Duration: {tot_dur:.1f}s\nAverage Duration: {tot_dur / len(results):.1f}s per location"
     )
+    # Print concise failure/error summaries so it's clear where and what broke
+    bad = [r for r in results if r.status in ("failure", "error")]
+    if bad:
+        print("\n" + "!" * 100 + "\nISSUES BY LOCATION\n" + "!" * 100)
+        for r in bad:
+            print(f"\n[{r.loc}] -> {r.status.upper()} ({r.err or 'see below'})")
+            to_show = r.issues or []
+            if not to_show and r.raw:
+                to_show = [ln.strip() for ln in r.raw.splitlines() if ln.strip()][-10:]
+            for line in to_show:
+                print(f"  - {line}")
+            # Provide a copy-pastable rerun command using uv for this location
+            unique_targets = []
+            seen = set()
+            for t in r.targets:
+                if t not in seen:
+                    unique_targets.append(t)
+                    seen.add(t)
+            if unique_targets:
+                # Make targets relative to the package dir, since we'll pass --directory <pkg>
+                rel_targets: List[str] = []
+                pkg_prefix = r.loc.rstrip("/") + "/"
+                for t in unique_targets:
+                    # Split nodeid into path and optional ::node part
+                    if "::" in t:
+                        path_part, node_part = t.split("::", 1)
+                    else:
+                        path_part, node_part = t, None
+                    # Strip package prefix if present
+                    if path_part.startswith(pkg_prefix):
+                        rel_path = path_part[len(pkg_prefix) :]
+                    else:
+                        # Try absolute path relative_to <ROOT>/<pkg>
+                        try:
+                            p = Path(path_part)
+                            rel_path = str(p.relative_to(ROOT / r.loc))
+                        except Exception:
+                            rel_path = path_part
+                    rel_targets.append(
+                        f"{rel_path}::{node_part}" if node_part else rel_path
+                    )
+                targets_str = " ".join(rel_targets)
+                print(
+                    f"  Re-run failed tests: uv run --directory {r.loc} pytest -q --maxfail=1 {targets_str}"
+                )
     if any(r.status in ("failure", "error") for r in results):
         print("\n❌ Some locations had failures/errors")
         sys.exit(1)
