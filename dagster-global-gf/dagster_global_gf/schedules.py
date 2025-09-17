@@ -105,7 +105,7 @@ shared_hourly_job_schedule = ScheduleDefinition(
 )
 
 clean_storage_job_schedule = ScheduleDefinition(
-    cron_schedule=get_for_current_env({"dev": "5 21 * * 6", "prd": "5 21 * * 7"}),
+    cron_schedule=get_for_current_env({"dev": "55 21 * * 6", "prd": "55 21 * * 7"}),
     job=jobs.clean_storage_job,
     default_status=running_default_schedule_status,
 )

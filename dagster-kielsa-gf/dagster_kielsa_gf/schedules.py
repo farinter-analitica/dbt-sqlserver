@@ -182,7 +182,7 @@ kielsa_hourly_additional_job_schedule = ScheduleDefinition(
 )
 
 clean_storage_job_schedule = ScheduleDefinition(
-    cron_schedule=get_for_current_env({"dev": "5 20 * * 6", "prd": "5 20 * * 7"}),
+    cron_schedule=get_for_current_env({"dev": "55 20 * * 5", "prd": "55 20 * * 6"}),
     job=jobs.clean_storage_job,
     default_status=running_default_schedule_status,
 )

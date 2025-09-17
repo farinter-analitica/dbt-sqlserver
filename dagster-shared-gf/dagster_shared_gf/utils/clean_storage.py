@@ -12,7 +12,7 @@ from dagster_shared_gf.config import get_dagster_config
 
 cfg = get_dagster_config()
 SETTINGS = {
-    "local_storage": {"retention_period": get_for_current_env({"dev": 21, "prd": 21})}
+    "local_storage": {"retention_period": get_for_current_env({"dev": 15, "prd": 15})}
 }
 DAGSTER_HOME = cfg.dagster_home or "."
 
@@ -30,8 +30,8 @@ def build_retention_policy(retention_days: float) -> RetentionPolicy:
     return RetentionPolicy(
         base_now=now,
         run_cutoff=now - timedelta(days=retention_days),
-        extended_cutoff=now - timedelta(days=retention_days + 5),
-        protected_cutoff=now - timedelta(days=retention_days + 10),
+        extended_cutoff=now - timedelta(days=retention_days + 4),
+        protected_cutoff=now - timedelta(days=retention_days + 8),
     )
 
 
@@ -219,7 +219,7 @@ def clean_dbt_targets_old_files(context: OpExecutionContext) -> None:
         total_stats.empty_dirs_removed += stats.empty_dirs_removed
         total_stats.items_scanned += stats.items_scanned
     context.log.info(
-        f"Limpieza DBT clean-targets: revisados={total_stats.items_scanned} normales={total_stats.normal_deleted} protegidos={total_stats.protected_deleted} directorios_vacios={total_stats.empty_dirs_removed}"
+        f"Limpieza DBT clean-targets: revisados={total_stats.items_scanned} borrados normales={total_stats.normal_deleted} b. protegidos={total_stats.protected_deleted} directorios_vacios={total_stats.empty_dirs_removed}"
     )
 
 

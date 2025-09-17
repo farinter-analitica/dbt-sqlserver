@@ -97,7 +97,7 @@ sap_dwh_hourly_job_schedule = ScheduleDefinition(
 )
 
 clean_storage_job_schedule = ScheduleDefinition(
-    cron_schedule=get_for_current_env({"dev": "5 22 * * 6", "prd": "5 22 * * 7"}),
+    cron_schedule=get_for_current_env({"dev": "55 22 * * 3", "prd": "55 22 * * 4"}),
     job=jobs.clean_storage_job,
     default_status=running_default_schedule_status,
 )
