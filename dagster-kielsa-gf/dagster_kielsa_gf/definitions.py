@@ -65,6 +65,7 @@ all_asset_checks = (
     *recomendaciones.all_asset_checks,
     *cliente_general.all_asset_checks,
     *kielsa_all_asset_checks,
+    *control_demanda.all_asset_checks,
 )
 
 dbt_sources_assets: list = get_unique_source_assets(
