@@ -30,14 +30,14 @@ select
     fe.[Fecha_Actualizado],
     fe.[EmpSucDocCajFac_Id],
     fe.[EmpMon_Id],
-    dh.EmpZona_Id as [EmpZona_Id_Hist],
-    dh.EmpDep_Id as [EmpDep_Id_Hist],
-    dh.EmpDepMun_Id as [EmpDepMun_Id_Hist],
-    dh.EmpDepMunCiu_Id as [EmpDepMunCiu_Id_Hist],
-    dh.EmpTipoSucursal_Id as [EmpTipoSucursal_Id_Hist],
-    dh.EmpPlan_Id as [EmpPlan_Id_Hist],
-    dh.EmpTipoCliente_Id as [EmpTipoCliente_Id_Hist],
-    dh.CanalVenta_Id as [CanalVenta_Id_Hist]
+    isnull(dh.EmpZona_Id, 'X') as [EmpZona_Id_Hist],
+    isnull(dh.EmpDep_Id, 'X') as [EmpDep_Id_Hist],
+    isnull(dh.EmpDepMun_Id, 'X') as [EmpDepMun_Id_Hist],
+    isnull(dh.EmpDepMunCiu_Id, 'X') as [EmpDepMunCiu_Id_Hist],
+    isnull(dh.EmpTipoSucursal_Id, 'X') as [EmpTipoSucursal_Id_Hist],
+    isnull(dh.EmpPlan_Id, 'X') as [EmpPlan_Id_Hist],
+    isnull(dh.EmpTipoCliente_Id, 'X') as [EmpTipoCliente_Id_Hist],
+    isnull(dh.CanalVenta_Id, 0) as [CanalVenta_Id_Hist]
 from [dbo].[BI_Kielsa_Hecho_FacturaEncabezado] as fe
 left join [dbo].[BI_Kielsa_Hecho_FacturaEncabezado_DimHist] as dh
     on
