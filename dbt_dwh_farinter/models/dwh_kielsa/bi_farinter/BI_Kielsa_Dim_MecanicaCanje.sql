@@ -38,7 +38,6 @@ WITH Dim_MecanicaCanje AS (
         ISNULL(MecanicaCanje_Nombre, 'N.D.') AS [MecanicaCanje_Nombre],
         ISNULL(MecanicaCanje_Tipo, 'N.D.') AS [MecanicaCanje_Tipo],
         EmpMecanicaCanje_Id,
-        Hash_MecanicaCanjeEmp,
         Fecha_Actualizado AS Fecha_Carga,
         Fecha_Actualizado
     FROM {{ source('DL_FARINTER', 'DL_Kielsa_MecanicaCanje') }}
@@ -53,7 +52,6 @@ SELECT
     MecanicaCanje_Nombre,
     MecanicaCanje_Tipo,
     EmpMecanicaCanje_Id,
-    Hash_MecanicaCanjeEmp,
     Fecha_Carga,
     Fecha_Actualizado
 FROM Dim_MecanicaCanje;
