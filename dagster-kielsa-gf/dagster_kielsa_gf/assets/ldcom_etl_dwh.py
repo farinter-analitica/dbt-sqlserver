@@ -375,7 +375,7 @@ def DL_Kielsa_Articulo_x_Sucursal(
 
 
 @asset(
-    key_prefix=["BI_FARINTER", "dbo"],
+    key_prefix=["DL_FARINTER", "dbo"],
     tags=tags_repo.Daily.tag | {"dagster/storage_kind": "sqlserver"},
     compute_kind="polars",
     config_schema={
@@ -383,14 +383,14 @@ def DL_Kielsa_Articulo_x_Sucursal(
     },
     deps=[AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"])],
 )
-def BI_Kielsa_Dim_MecanicaCanje(
-    context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource
+def DL_Kielsa_MecanicaCanje(
+    context: AssetExecutionContext, dwh_farinter_dl: SQLServerResource
 ) -> Output:
-    table_name = "BI_Kielsa_Dim_MecanicaCanje"
+    table_name = "DL_Kielsa_MecanicaCanje"
     # Read data from SQL Server
     df: pl.DataFrame
     momento_inicio = datetime.now()
-    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
+    with dwh_farinter_dl.get_sqlalchemy_conn() as conn:
         # conn.execute(f"USE {database}; SELECT Division_Id, Division_Nombre FROM dbo.DL_Edit_Division_SAP")
         df = pl.read_database(
             """SELECT Emp_Id, Alerta_Id, Nombre FROM DL_FARINTER.dbo.DL_Kielsa_PV_Alerta
@@ -433,27 +433,27 @@ def BI_Kielsa_Dim_MecanicaCanje(
         pl.col("Nombre")
         .map_elements(extract_tipo, return_dtype=pl.String)
         .fill_null("CANJE")
-        .alias("Mecanica_Tipo"),
+        .alias("MecanicaCanje_Tipo"),
         pl.concat_str(
             [
                 pl.col("Emp_Id").cast(pl.String()),
                 pl.lit("-"),
                 pl.col("Alerta_Id").cast(pl.String()),
             ]
-        ).alias("EmpMecanica_Id"),
-    ).rename({"Alerta_Id": "Mecanica_Id", "Nombre": "Mecanica_Nombre"})
+        ).alias("EmpMecanicaCanje_Id"),
+    )
 
     # Add special records to the dataframe
     special_records = pl.DataFrame(
         {
-            "EmpMecanica_Id": ["x", "1-142", "1-165"],
-            "Mecanica_Id": [0, 142, 165],
-            "Mecanica_Nombre": [
+            "EmpMecanicaCanje_Id": ["x", "1-142", "1-165"],
+            "Alerta_Id": [0, 142, 165],
+            "Nombre": [
                 "No Aplica",
                 "Canje borrado en BD",
                 "Canje borrado en BD",
             ],
-            "Mecanica_Tipo": [
+            "MecanicaCanje_Tipo": [
                 "No Aplica",
                 "Canje borrado en BD",
                 "Canje borrado en BD",
@@ -464,6 +464,34 @@ def BI_Kielsa_Dim_MecanicaCanje(
 
     # Concatenate the main dataframe with special records
     df = pl.concat([df, special_records], how="align")
+
+    # Cast and rename columns after concatenation
+    df = df.with_columns(
+        pl.col("Emp_Id").cast(pl.Int32),
+        pl.col("Alerta_Id").cast(pl.Int32),
+    ).rename({"Alerta_Id": "MecanicaCanje_Id", "Nombre": "MecanicaCanje_Nombre"})
+
+    # Replicate SQL Server hash: ABS(CAST(HASHBYTES('SHA2_256', CONCAT(Alerta_Id, 0, Emp_Id)) AS INT))
+    import hashlib
+    import struct
+
+    def sql_server_sha256_hash(alerta_id, emp_id):
+        # Concatenate as string: Alerta_Id + '0' + Emp_Id
+        concat_str = f"{alerta_id}0{emp_id}"
+        # Compute SHA256
+        hash_bytes = hashlib.sha256(concat_str.encode("utf-8")).digest()
+        # Take first 4 bytes as little-endian int32, then absolute value
+        int_val = struct.unpack("<i", hash_bytes[:4])[0]
+        return abs(int_val)
+
+    df = df.with_columns(
+        pl.struct(["MecanicaCanje_Id", "Emp_Id"])
+        .map_elements(
+            lambda x: sql_server_sha256_hash(x["MecanicaCanje_Id"], x["Emp_Id"]),
+            return_dtype=pl.Int64,
+        )
+        .alias("Hash_MecanicaCanjeEmp")
+    )
 
     # Display the DataFrame
     with pl.Config() as config:
@@ -476,8 +504,8 @@ def BI_Kielsa_Dim_MecanicaCanje(
         df=df,
         db_schema="dbo",
         table_name=table_name,
-        sqla_engine=dwh_farinter_bi.get_sqlalchemy_engine(),
-        primary_keys=("Mecanica_Id", "Emp_Id"),
+        sqla_engine=dwh_farinter_dl.get_sqlalchemy_engine(),
+        primary_keys=("MecanicaCanje_Id", "Emp_Id"),
         temp_table_name=f"{table_name}_temp_dagster",
         update_datetime_col="Fecha_Actualizado",
     )
@@ -487,19 +515,12 @@ def BI_Kielsa_Dim_MecanicaCanje(
 
     duracion_total = datetime.now() - momento_inicio
 
-    # rows processed in this run
-    rows = (
-        df.height
-        if hasattr(df, "height")
-        else (df.shape[0] if hasattr(df, "shape") else None)
-    )
-
     return Output(
         value=None,
         metadata={
             "duracion_total": duracion_total.total_seconds(),
             "duration_total": duracion_total.total_seconds(),
-            "rows": rows,
+            "rows": df.height,
             "staging_table": table_manager.generator.temp_table_name,
             "filas_tabla_temp": table_manager.filas_tabla_temp,
             "filas_total_tabla": table_manager.filas_total_tabla,
@@ -518,7 +539,7 @@ if __name__ == "__main__":
     from unittest.mock import MagicMock, patch
     from dagster import materialize_to_memory
 
-    def test_BI_Kielsa_Dim_MecanicaCanje():
+    def test_DL_Kielsa_MecanicaCanje():
         mock_data = pl.from_dict(
             {
                 "Emp_Id": list(range(1, 26)),
@@ -560,33 +581,33 @@ if __name__ == "__main__":
                 "polars.read_database", MagicMock(return_value=mock_data)
             ) as mock_read_database,
         ):
-            #      patch("dagster_shared_gf.resources.sql_server_resources.dwh_farinter_bi.get_sqlalchemy_conn", MagicMock()) as mock_get_conn:
+            #      patch("dagster_shared_gf.resources.sql_server_resources.dwh_farinter_dl.get_sqlalchemy_conn", MagicMock()) as mock_get_conn:
 
             # # Mock connection and execute methods
             # mock_conn = mock_get_conn.return_value.__enter__.return_value
             # mock_conn.execute = MagicMock()
 
             materialize_to_memory(
-                [BI_Kielsa_Dim_MecanicaCanje],
-                resources={"dwh_farinter_bi": MagicMock()},
+                [DL_Kielsa_MecanicaCanje],
+                resources={"dwh_farinter_dl": MagicMock()},
             )
             assert mock_write_database.call_count > 0
             assert mock_read_database.call_count > 0
 
     # prueba funcional
-    def test_BI_Kielsa_Dim_MecanicaCanje_funcional():
-        from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_bi
+    def test_DL_Kielsa_MecanicaCanje_funcional():
+        from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_dl
 
         materialize_to_memory(
-            [BI_Kielsa_Dim_MecanicaCanje],
-            resources={"dwh_farinter_bi": dwh_farinter_bi},
+            [DL_Kielsa_MecanicaCanje],
+            resources={"dwh_farinter_dl": dwh_farinter_dl},
         )
 
     # run tests
-    test_BI_Kielsa_Dim_MecanicaCanje() if 0 == 1 else print(
-        "Skipping test_BI_Kielsa_Dim_MecanicaCanje"
+    test_DL_Kielsa_MecanicaCanje() if 0 == 1 else print(
+        "Skipping test_DL_Kielsa_MecanicaCanje"
     )
-    test_BI_Kielsa_Dim_MecanicaCanje_funcional() if 1 == 1 and env_str in [
+    test_DL_Kielsa_MecanicaCanje_funcional() if 1 == 1 and env_str in [
         "local",
         "dev",
-    ] else print("Skipping test_BI_Kielsa_Dim_MecanicaCanje_funcional")
+    ] else print("Skipping test_DL_Kielsa_MecanicaCanje_funcional")

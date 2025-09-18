@@ -669,12 +669,6 @@ store_procedures: dict[str, StoreProcedureConfig] = {
         "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
         "deps": [AssetKey(["AN_FARINTER", "dbo", "AN_Param_PesoseCommerce_Kielsa"])],
     },
-    "DL_paCargarKielsa_MecanicaCanje": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_MecanicaCanje",
-        "tags": tags_repo.Daily.tag | tags_repo.UniquePeriod.tag,
-        "deps": [AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"])],
-    },
     "BI_paCargarHecho_IngresosHist_Kielsa": {
         "key_prefix": ["BI_FARINTER", "dbo"],
         "name": "BI_Hecho_IngresosHist_Kielsa",

@@ -196,6 +196,15 @@ sources:
       - name: DL_Planning_ListaNegra
       - name: DL_Kielsa_Regalia_Incentivo
       - name: DL_Kielsa_Mov_Inventario_Encabezado
+      - name: DL_Kielsa_MecanicaCanje
+        description: >
+          "Dimension table for Mecanica Canje (exchange mechanics) in Kielsa"
+        columns:
+          - name: Emp_Id
+          - name: MecanicaCanje_Id
+            description: Derivado de Alerta_Id en la tabla fuente de alertas
+          - name: MecanicaCanje_Nombre
+            description: Derivado de Nombre en la tabla fuente de alertas
     config:
       freshness:  # default freshness
         warn_after: {count: 28, period: hour}
