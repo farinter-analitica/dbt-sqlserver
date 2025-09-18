@@ -11,6 +11,7 @@ from dagster import (
 from dagster_shared_gf.resources.sql_server_resources import SQLServerResource
 from dagster_shared_gf.shared_variables import tags_repo, env_str
 from dagster_shared_gf.automation import automation_hourly_delta_12_cron
+from dagster_shared_gf.shared_helpers import DataframeSQLTableManager
 from datetime import timedelta, datetime, date
 from typing import Sequence
 import polars as pl
@@ -382,10 +383,10 @@ def DL_Kielsa_Articulo_x_Sucursal(
     },
     deps=[AssetKey(["DL_FARINTER", "dbo", "DL_Kielsa_PV_Alerta"])],
 )
-def BI_Dim_MecanicaCanje_Kielsa(
+def BI_Kielsa_Dim_MecanicaCanje(
     context: AssetExecutionContext, dwh_farinter_bi: SQLServerResource
 ) -> Output:
-    table_name = "BI_Dim_MecanicaCanje_Kielsa"
+    table_name = "BI_Kielsa_Dim_MecanicaCanje"
     # Read data from SQL Server
     df: pl.DataFrame
     momento_inicio = datetime.now()
@@ -439,9 +440,30 @@ def BI_Dim_MecanicaCanje_Kielsa(
                 pl.lit("-"),
                 pl.col("Alerta_Id").cast(pl.String()),
             ]
-        ).alias("Mecanica_Id"),
-        pl.col("Nombre").alias("Mecanica_Nombre"),
-    ).drop("Alerta_Id", "Nombre")
+        ).alias("EmpMecanica_Id"),
+    ).rename({"Alerta_Id": "Mecanica_Id", "Nombre": "Mecanica_Nombre"})
+
+    # Add special records to the dataframe
+    special_records = pl.DataFrame(
+        {
+            "EmpMecanica_Id": ["x", "1-142", "1-165"],
+            "Mecanica_Id": [0, 142, 165],
+            "Mecanica_Nombre": [
+                "No Aplica",
+                "Canje borrado en BD",
+                "Canje borrado en BD",
+            ],
+            "Mecanica_Tipo": [
+                "No Aplica",
+                "Canje borrado en BD",
+                "Canje borrado en BD",
+            ],
+            "Emp_Id": [0, 1, 1],
+        }
+    )
+
+    # Concatenate the main dataframe with special records
+    df = pl.concat([df, special_records], how="align")
 
     # Display the DataFrame
     with pl.Config() as config:
@@ -449,82 +471,20 @@ def BI_Dim_MecanicaCanje_Kielsa(
         config.set_tbl_rows(10)
         context.log.debug(df.head())
 
-    # Define a staging table name
-    staging_table_name = f"{table_name}_temp_dagster"
-
-    # Write the DataFrame to the staging table
-    # Use 'replace' to create or replace the staging table
-    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-        df.write_database(
-            staging_table_name, connection=conn, if_table_exists="replace"
-        )
-
-    key_columns = ["Mecanica_Id"]
-    key_columns_str = " AND ".join(
-        [f"target.{col} = source.{col}" for col in key_columns]
+    # Use DataframeSQLTableManager for upsert operations
+    table_manager = DataframeSQLTableManager(
+        df=df,
+        db_schema="dbo",
+        table_name=table_name,
+        sqla_engine=dwh_farinter_bi.get_sqlalchemy_engine(),
+        primary_keys=("Mecanica_Id", "Emp_Id"),
+        temp_table_name=f"{table_name}_temp_dagster",
+        update_datetime_col="Fecha_Actualizado",
     )
-    non_key_columns = [col for col in df.columns if col not in key_columns]
-    update_columns_str = ", ".join(
-        [f"target.{col} = source.{col}" for col in non_key_columns]
-    )
-    insert_columns_str = ", ".join(df.columns)
-    insert_values_str = ", ".join([f"source.{col}" for col in df.columns])
-    except_target_str = ", ".join([f"target.{col}" for col in non_key_columns])
-    except_source_str = ", ".join([f"source.{col}" for col in non_key_columns])
-    # Build the MERGE SQL statement
-    merge_sql = f"""
-    MERGE INTO {table_name} AS target
-    USING {staging_table_name} AS source
-    ON ({key_columns_str})
-    WHEN MATCHED 
-    AND EXISTS (SELECT {except_target_str} EXCEPT SELECT {except_source_str}) 
-    THEN
-        UPDATE SET {update_columns_str}
-    WHEN NOT MATCHED THEN
-        INSERT ({insert_columns_str})
-        VALUES ({insert_values_str});
-    """
 
-    context.log.debug(merge_sql)
+    # Perform the upsert operation
+    table_manager.upsert_dataframe()
 
-    extra_sql = f"""
-		if not exists(select * from dbo.BI_Dim_MecanicaCanje_Kielsa where Mecanica_Id = 'x')
-		
-            INSERT INTO {table_name} (
-                Mecanica_Id,
-                Mecanica_Nombre,
-                Mecanica_Tipo,
-                Emp_Id
-            )
-            SELECT 'x', 'No Aplica', 'No Aplica', 0
-       ;
-
-            INSERT INTO {table_name} (
-                Mecanica_Id,
-                Mecanica_Nombre,
-                Mecanica_Tipo,
-                Emp_Id
-            )
-            SELECT t.Mecanica_Id, t.Mecanica_Nombre, t.Mecanica_Tipo, t.Emp_Id
-            FROM (
-                SELECT '1-142' AS Mecanica_Id, 'Canje borrado en BD' AS Mecanica_Nombre, 'Canje borrado en BD' AS Mecanica_Tipo, 1 AS Emp_Id
-                UNION ALL
-                SELECT '1-165', 'Canje borrado en BD', 'Canje borrado en BD', 1
-            ) t
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM dbo.BI_Dim_MecanicaCanje_Kielsa e
-                WHERE e.Mecanica_Id = t.Mecanica_Id
-            );              
-                      """
-
-    # Execute the MERGE statement within a transaction
-    with dwh_farinter_bi.get_sqlalchemy_conn() as conn:
-        exec = dwh_farinter_bi.execute_and_commit
-        exec(merge_sql, connection=conn)
-        # Optionally, drop or truncate the staging table
-        exec(f"DROP TABLE {staging_table_name}", connection=conn)
-        exec(extra_sql, connection=conn)
     duracion_total = datetime.now() - momento_inicio
 
     # rows processed in this run
@@ -540,7 +500,9 @@ def BI_Dim_MecanicaCanje_Kielsa(
             "duracion_total": duracion_total.total_seconds(),
             "duration_total": duracion_total.total_seconds(),
             "rows": rows,
-            "staging_table": staging_table_name,
+            "staging_table": table_manager.generator.temp_table_name,
+            "filas_tabla_temp": table_manager.filas_tabla_temp,
+            "filas_total_tabla": table_manager.filas_total_tabla,
         },
     )
 
@@ -556,7 +518,7 @@ if __name__ == "__main__":
     from unittest.mock import MagicMock, patch
     from dagster import materialize_to_memory
 
-    def test_BI_Dim_MecanicaCanje_Kielsa():
+    def test_BI_Kielsa_Dim_MecanicaCanje():
         mock_data = pl.from_dict(
             {
                 "Emp_Id": list(range(1, 26)),
@@ -605,26 +567,26 @@ if __name__ == "__main__":
             # mock_conn.execute = MagicMock()
 
             materialize_to_memory(
-                [BI_Dim_MecanicaCanje_Kielsa],
+                [BI_Kielsa_Dim_MecanicaCanje],
                 resources={"dwh_farinter_bi": MagicMock()},
             )
             assert mock_write_database.call_count > 0
             assert mock_read_database.call_count > 0
 
     # prueba funcional
-    def test_BI_Dim_MecanicaCanje_Kielsa_funcional():
+    def test_BI_Kielsa_Dim_MecanicaCanje_funcional():
         from dagster_shared_gf.resources.sql_server_resources import dwh_farinter_bi
 
         materialize_to_memory(
-            [BI_Dim_MecanicaCanje_Kielsa],
+            [BI_Kielsa_Dim_MecanicaCanje],
             resources={"dwh_farinter_bi": dwh_farinter_bi},
         )
 
     # run tests
-    test_BI_Dim_MecanicaCanje_Kielsa() if 0 == 1 else print(
-        "Skipping test_BI_Dim_MecanicaCanje_Kielsa"
+    test_BI_Kielsa_Dim_MecanicaCanje() if 0 == 1 else print(
+        "Skipping test_BI_Kielsa_Dim_MecanicaCanje"
     )
-    test_BI_Dim_MecanicaCanje_Kielsa_funcional() if 1 == 1 and env_str in [
+    test_BI_Kielsa_Dim_MecanicaCanje_funcional() if 1 == 1 and env_str in [
         "local",
         "dev",
-    ] else print("Skipping test_BI_Dim_MecanicaCanje_Kielsa_funcional")
+    ] else print("Skipping test_BI_Kielsa_Dim_MecanicaCanje_funcional")

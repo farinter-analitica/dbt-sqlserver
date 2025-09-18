@@ -66,6 +66,19 @@ sources:
       - name: BI_Dim_CanalVenta_Kielsa
       - name: BI_Dim_DeptoArt_Kielsa
       - name: BI_Dim_TipoCliente_Kielsa
+      - name: BI_Kielsa_Dim_MecanicaCanje
+        description: >
+          "Dimension table for Mecanica Canje (exchange mechanics) in Kielsa"
+        columns:
+          - name: Emp_Id
+          - name: Mecanica_Id
+            description: Derivado de Alerta_Id en la tabla fuente
+          - name: Mecanica_Nombre
+            description: Derivado de Nombre en la tabla fuente
+        config:
+          meta:
+            dagster:
+              group: dbt_dwh_kielsa_mart_datos_maestros
     config:
       freshness:  # default freshness
         warn_after: {count: 28, period: hour}

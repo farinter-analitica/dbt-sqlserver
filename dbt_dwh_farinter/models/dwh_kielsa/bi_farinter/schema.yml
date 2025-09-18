@@ -28,3 +28,8 @@ models:
             zero_length_range_allowed: true
             where_clause: Mantener_Registro = 1 AND Comision_Fecha_Final >= DATEADD(day,
               -30, GETDATE())
+  - name: BI_Dim_MecanicaCanje_Kielsa
+    description: >
+      Vista que reemplaza la antigua tabla BI_Dim_MecanicaCanje_Kielsa.
+      Esta vista selecciona de la nueva tabla BI_Kielsa_Dim_MecanicaCanje
+      para mantener la compatibilidad hacia atrás.
