@@ -51,7 +51,7 @@ select
     isnull(dh.EmpCatSubCategoria1_2_3Art_Id, 'X') as [EmpCatSubCategoria1_2_3Art_Id_Hist],
     isnull(dh.EmpCatSubCategoria1_2_3_4Art_Id, 'X') as [EmpCatSubCategoria1_2_3_4Art_Id_Hist],
     isnull(dh.Cuadro_Id, 0) as [Cuadro_Id_Hist],
-    isnull(dh.Mecanica_Id, 'X') as [EmpMecanicaCanje_Id],
+    isnull(dh.Mecanica_Id, 'X') as [EmpMecanicaCanje_Id_Hist],
     isnull(dh.EmpProv_Id, 'X') as [EmpProv_Id_Hist],
     isnull(deh.EmpZona_Id, 'X') as [EmpZona_Id_Hist],
     isnull(deh.EmpDep_Id, 'X') as [EmpDep_Id_Hist],
