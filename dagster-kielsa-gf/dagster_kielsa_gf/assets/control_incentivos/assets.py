@@ -106,8 +106,8 @@ def cargar_asset_incentivos(
         table_name=table_name,
         sqla_engine=dwh_farinter_dl.get_sqlalchemy_engine(),
         primary_keys=lazyframe_meta.primary_keys,
-        load_date_col=None,  # Mejorar rendimiento, es tabla grande
-        update_date_col="Fecha_Actualizado",
+        load_datetime_col=None,  # Mejorar rendimiento, es tabla grande
+        update_datetime_col="Fecha_Actualizado",
     )
 
     # Tenemos que hacer carga masiva por los datos grandes

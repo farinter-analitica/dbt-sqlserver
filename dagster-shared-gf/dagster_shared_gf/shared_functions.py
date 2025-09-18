@@ -22,6 +22,7 @@ from typing import (
     get_args,
     get_origin,
 )
+from zoneinfo import ZoneInfo
 
 import dagster as dg
 import numpy as np
@@ -587,7 +588,10 @@ def get_function_path(func):
 
 
 def get_now_datetime() -> datetime:
-    return datetime.now()
+    """Get the current datetime in the default timezone without tzinfo."""
+    return datetime.now(ZoneInfo(get_dagster_config().default_timezone_iana)).replace(
+        tzinfo=None
+    )
 
 
 def pendulum_dt_to_datetime(dt: pendulum.DateTime) -> datetime:

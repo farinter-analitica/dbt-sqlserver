@@ -312,8 +312,8 @@ def IA_Kielsa_Dotacion_Efectividad_Planificado(
         table_name="IA_Kielsa_Dotacion_Efectividad_Planificado",
         sqla_engine=dwh_farinter_ia.get_sqlalchemy_engine(),
         primary_keys=("Suc_Id", "Fecha_Id", "Hora_Id"),
-        load_date_col="Fecha_Carga",
-        update_date_col="Fecha_Actualizado",
+        load_datetime_col="Fecha_Carga",
+        update_datetime_col="Fecha_Actualizado",
     )
     manager.upsert_dataframe(drop_temp=config.drop_temp, drop_target=config.drop_target)
     num_registros = df_resultado.height

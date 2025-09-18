@@ -150,8 +150,8 @@ class DataframeSQLScriptGenerator:
         db_name: str | None = None,
         primary_keys: tuple[str, ...] = tuple(),
         temp_table_name: Optional[str] = None,
-        load_date: str | None = None,
-        update_date: str | None = None,
+        load_datetime_col: str | None = None,
+        update_datetime_col: str | None = None,
     ):
         """
         Initialize a SQLScriptGenerator with configuration for SQL script generation.
@@ -181,10 +181,12 @@ class DataframeSQLScriptGenerator:
 
         self._sql_lang = sql_lang
         self._df = self.clean_dataframe_for_sql(df)
-        if load_date or update_date:
-            self._df = self.add_change_tracking(self._df, load_date, update_date)
-        self._load_date = load_date
-        self._update_date = update_date
+        if load_datetime_col or update_datetime_col:
+            self._df = self.add_change_tracking(
+                self._df, load_datetime_col, update_datetime_col
+            )
+        self._load_date = load_datetime_col
+        self._update_date = update_datetime_col
         self._df_schema = self.df.collect_schema()
         self._db_name = db_name
         self._db_schema = db_schema
@@ -250,33 +252,35 @@ class DataframeSQLScriptGenerator:
     def add_change_tracking(
         self,
         df: pl.DataFrame,
-        load_date: str | None = None,
-        update_date: str | None = None,
+        load_datetime_col: str | None = None,
+        update_datetime_col: str | None = None,
     ) -> pl.DataFrame:
         """
         Add change tracking columns to a DataFrame.
 
         Args:
             df: The DataFrame to add change tracking columns to.
-            load_date: The name of the load date column.
-            update_date: The name of the update date column.
+            load_datetime_col: The name of the load date column.
+            update_datetime_col: The name of the update date column.
 
         Returns:
             The DataFrame with change tracking columns.
         """
-        if load_date is not None:
-            if load_date not in df.columns:
-                df = df.with_columns(pl.lit(dt.datetime.today()).alias(load_date))
-            if df.schema[load_date] != pl.Datetime:
+        if load_datetime_col is not None:
+            if load_datetime_col not in df.columns:
+                current_time = get_now_datetime()
+                df = df.with_columns(pl.lit(current_time).alias(load_datetime_col))
+            if df.schema[load_datetime_col] != pl.Datetime:
                 raise TypeError(
-                    f"load_date must be a datetime column, not {df.schema[load_date]}"
+                    f"load_datetime_col must be a datetime column, not {df.schema[load_datetime_col]}"
                 )
-        if update_date is not None:
-            if update_date not in df.columns:
-                df = df.with_columns(pl.lit(dt.datetime.today()).alias(update_date))
-            if df.schema[update_date] != pl.Datetime:
+        if update_datetime_col is not None:
+            if update_datetime_col not in df.columns:
+                current_time = get_now_datetime()
+                df = df.with_columns(pl.lit(current_time).alias(update_datetime_col))
+            if df.schema[update_datetime_col] != pl.Datetime:
                 raise TypeError(
-                    f"update_date must be a datetime column, not {df.schema[update_date]}"
+                    f"update_datetime_col must be a datetime column, not {df.schema[update_datetime_col]}"
                 )
 
         return df
@@ -866,8 +870,8 @@ class DataframeSQLTableManager:
         db_name: str | None = None,
         primary_keys: tuple[str, ...] = tuple(),
         temp_table_name: str | None = None,
-        load_date_col: str | None = None,
-        update_date_col: str | None = None,
+        load_datetime_col: str | None = None,
+        update_datetime_col: str | None = None,
     ):
         self.generator = DataframeSQLScriptGenerator(
             df=df,
@@ -876,8 +880,8 @@ class DataframeSQLTableManager:
             db_name=db_name,
             primary_keys=primary_keys,
             temp_table_name=temp_table_name,
-            load_date=load_date_col,
-            update_date=update_date_col,
+            load_datetime_col=load_datetime_col,
+            update_datetime_col=update_datetime_col,
         )
         self.engine = sqla_engine
         self.filas_tabla_temp: int | None = None
