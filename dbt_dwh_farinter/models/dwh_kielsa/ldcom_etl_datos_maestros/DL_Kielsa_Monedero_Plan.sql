@@ -28,49 +28,51 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
 {%- endset -%}
 {%- set empresas = run_query_and_return(query_empresas) -%} {# Returns: [{Empresa_Id,Emp_Id_Original,Pais_Id,LS_LDCOM_Replica,D_LDCOM_Replica}] #}
 
-WITH DatosBase
-AS
-(
+WITH DatosBase AS (
 	{%- for item in empresas -%}
-		{%- if not loop.first %}
-		UNION ALL{%- endif %}
-	SELECT ISNULL(CAST({{item['Empresa_Id']}} AS SMALLINT),0) AS [Emp_Id]
-		,ISNULL([Monedero_Id],0) AS [Monedero_Id] 
-		,[Monedero_Nombre] COLLATE DATABASE_DEFAULT AS [Monedero_Nombre]
-		,[Monedero_Desde]
-		,[Monedero_Hasta]
-		,[Monedero_Limite_Uso]
-		,[Monedero_Estado]
-		,[Monedero_Acum_Sig_Compra]
-		,[Monedero_Activacion_Site]
-		,[Monedero_Asigna_Puntos_Site]
-		,[Monedero_Monto_Minimo]
-		,[Monedero_Acumula_Punto_Venta_Monedero]
-		,[Monedero_Fec_Actualizacion]
-		,[Monedero_Monto_Minimo_Canje]
-		,[Aplica_Cliente]
-		,[Aplica_Validacion_Edad]
-		,[Edad_Minima_Permitida]
-		,[Valida_Numero_Tarjeta]
-		,[Monedero_Monto_Maximo_Acumulado]
-		,[Dias_Inactividad_Limpieza_Saldo]
-		,[Marca_Comercial_Id]
-		,[Monedero_Acumula_FP_Monedero]
-		,[Monedero_Formula_Acum]
-		,[Monedero_Hora_Inicio]
-		,[Monedero_Hora_Final]
-		,[Monedero_Dia1]
-		,[Monedero_Dia2]
-		,[Monedero_Dia3]
-		,[Monedero_Dia4]
-		,[Monedero_Dia5]
-		,[Monedero_Dia6]
-		,[Monedero_Dia7]
-		FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Monedero_Plan
-		WHERE Emp_Id = {{item['Empresa_Id_Original']}}
-	{%- endfor -%}   
+        {%- if not loop.first %}
+            UNION ALL{%- endif %}
+        SELECT
+            ISNULL(CAST({{ item['Empresa_Id'] }} AS SMALLINT), 0) AS [Emp_Id],
+            ISNULL([Monedero_Id], 0) AS [Monedero_Id],
+            [Monedero_Nombre] COLLATE DATABASE_DEFAULT AS [Monedero_Nombre],
+            [Monedero_Desde],
+            [Monedero_Hasta],
+            [Monedero_Limite_Uso],
+            [Monedero_Estado],
+            [Monedero_Acum_Sig_Compra],
+            [Monedero_Activacion_Site],
+            [Monedero_Asigna_Puntos_Site],
+            [Monedero_Monto_Minimo],
+            [Monedero_Acumula_Punto_Venta_Monedero],
+            [Monedero_Fec_Actualizacion],
+            [Monedero_Monto_Minimo_Canje],
+            [Aplica_Cliente],
+            [Aplica_Validacion_Edad],
+            [Edad_Minima_Permitida],
+            [Valida_Numero_Tarjeta],
+            [Monedero_Monto_Maximo_Acumulado],
+            [Dias_Inactividad_Limpieza_Saldo],
+            [Marca_Comercial_Id],
+            [Monedero_Acumula_FP_Monedero],
+            [Monedero_Formula_Acum],
+            [Monedero_Hora_Inicio],
+            [Monedero_Hora_Final],
+            [Monedero_Dia1],
+            [Monedero_Dia2],
+            [Monedero_Dia3],
+            [Monedero_Dia4],
+            [Monedero_Dia5],
+            [Monedero_Dia6],
+            [Monedero_Dia7]
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Monedero_Plan
+        WHERE Emp_Id = {{ item['Empresa_Id_Original'] }}
+    {%- endfor -%}   
+
 )
-SELECT *
-	, GETDATE() AS [Fecha_Carga]
-	, GETDATE() AS [Fecha_Actualizado]
+
+SELECT
+    *,
+    GETDATE() AS [Fecha_Carga],
+    GETDATE() AS [Fecha_Actualizado]
 FROM datosBase
