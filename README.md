@@ -81,6 +81,10 @@ https://github.com/farinter-analitica/algoritmos-gf/settings/keys
 
 1. Crear los archivos de configuración basándose en los archivos .sample.
 2. Configurar las variables de entorno necesarias en el archivo .env, o .dlt/secrets.toml o .slingdata/env.yaml
+3. Para actualizar las dependencias ejecutar:
+```
+bash scripts/deployment.sh install-deps --local --upgrade-deps 
+```
 
 ## Ejecución Local
 
