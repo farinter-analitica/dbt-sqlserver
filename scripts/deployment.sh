@@ -117,7 +117,7 @@ manage_services() {
     local action="${2:-restart}"
     
     echo "Managing services: $action"
-    uv run --project --frozen ./scripts/deployment.py manage-services --env "$env" --action "$action"
+    uv run --frozen ./scripts/deployment.py manage-services --env "$env" --action "$action"
 }
 
 generate_service() {
