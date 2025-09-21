@@ -36,33 +36,36 @@ WHERE LS_LDCOM_Replica IS NOT NULL and Es_Empresa_Principal = 1
     {%- endif -%}
 {%- endfor -%}
 
-WITH DatosBase
-AS
-(
+WITH DatosBase AS (
     {%- for item in valid_empresas -%}
         {%- if not loop.first %}
-		UNION ALL{%- endif %}
-		{%- if is_incremental() -%}
+            UNION ALL{%- endif %}
+        {%- if is_incremental() -%}
 			{%- set last_date = run_single_value_query_on_relation_and_return(
-				query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this ~ " where Emp_Id = " ~ item['Empresa_Id'], relation_not_found_value='19000101'|string
+				query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this ~ " where Emp_Id = " ~ item['Empresa_Id'], relation_not_found_value='19000101'|string
 				)|string -%}
-		{%- else -%}
+        {%- else -%}
 			{%- set last_date = '19000101' -%}
 		{%- endif %}		
-	SELECT ISNULL(CAST({{item['Empresa_Id']}} AS SMALLINT),0) AS [Emp_Id]
-      ,ISNULL([Comision_Id],	0) AS [Comision_Id]
-      ,[Comision_Nombre] COLLATE DATABASE_DEFAULT AS [Comision_Nombre]
-      ,[Comision_Fecha]
-      ,[Comision_Fecha_Inicial]
-      ,[Comision_Fecha_Final]
-      ,[Comision_Estado] COLLATE DATABASE_DEFAULT AS [Comision_Estado]
-      ,[Comision_Fec_Actualizacion]
-	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Comision_Encabezado
-	WHERE Emp_Id = {{ item['Empresa_Id_Original'] }}  
-		AND (Comision_Fec_Actualizacion >= '{{ last_date }}' OR Comision_Fecha_Final >= '{{ last_date }}')
+        SELECT
+            ISNULL(CAST({{ item['Empresa_Id'] }} AS SMALLINT), 0) AS [Emp_Id],
+            ISNULL([Comision_Id], 0) AS [Comision_Id],
+            [Comision_Nombre] COLLATE DATABASE_DEFAULT AS [Comision_Nombre],
+            [Comision_Fecha],
+            [Comision_Fecha_Inicial],
+            [Comision_Fecha_Final],
+            [Comision_Estado] COLLATE DATABASE_DEFAULT AS [Comision_Estado],
+            [Comision_Fec_Actualizacion]
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Comision_Encabezado
+        WHERE
+            Emp_Id = {{ item['Empresa_Id_Original'] }}
+            AND (Comision_Fec_Actualizacion >= '{{ last_date }}' OR Comision_Fecha_Final >= '{{ last_date }}')
     {%- endfor -%}   
+
 )
-SELECT *
-	, GETDATE() AS [Fecha_Carga]
-	, GETDATE() AS [Fecha_Actualizado]
+
+SELECT
+    *,
+    GETDATE() AS [Fecha_Carga],
+    GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

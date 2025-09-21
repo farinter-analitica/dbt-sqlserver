@@ -21,29 +21,29 @@
 ) }}
 
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
+    {% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
 {% else %}
 	{% set last_date = '00000000'|string %}
 {% endif %}
 
 
-
-SELECT ISNULL(CAST([id] AS INT),0) AS Id
-      ,ISNULL(CAST([TarjetaKC_Id] AS VARCHAR(50)) COLLATE DATABASE_DEFAULT ,'') AS TarjetaKC_Id
-      ,ISNULL([Fecha],'19000101') AS [Fecha]
-      ,[CodPlanKielsaClinica] COLLATE DATABASE_DEFAULT AS CodPlanKielsaClinica
-      ,[Tipo_Ingreso] COLLATE DATABASE_DEFAULT AS Tipo_Ingreso
-      ,[Origen] 
-      ,[Tipo_Documento] COLLATE DATABASE_DEFAULT AS Tipo_Documento
-      ,[Sucursal_Registro]
-      ,[Usuario_Registro] COLLATE DATABASE_DEFAULT AS Usuario_Registro
-      ,[TipoPlan]
-      ,[Tipo_Registro] COLLATE DATABASE_DEFAULT  AS Tipo_Registro
-      , GETDATE() AS Fecha_Actualizado
-  FROM  {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'LogMovimientoSuscripcion') }} --[KPP_DB].[dbo].[LogMovimientoSuscripcion]
-  {% if is_incremental() %}
-  WHERE Fecha > '{{ last_date }}'
-  {% else %}
+SELECT
+    ISNULL(CAST([id] AS INT), 0) AS Id,
+    ISNULL(CAST([TarjetaKC_Id] AS VARCHAR(50)) COLLATE DATABASE_DEFAULT, '') AS TarjetaKC_Id,
+    ISNULL([Fecha], '19000101') AS [Fecha],
+    [CodPlanKielsaClinica] COLLATE DATABASE_DEFAULT AS CodPlanKielsaClinica,
+    [Tipo_Ingreso] COLLATE DATABASE_DEFAULT AS Tipo_Ingreso,
+    [Origen],
+    [Tipo_Documento] COLLATE DATABASE_DEFAULT AS Tipo_Documento,
+    [Sucursal_Registro],
+    [Usuario_Registro] COLLATE DATABASE_DEFAULT AS Usuario_Registro,
+    [TipoPlan],
+    [Tipo_Registro] COLLATE DATABASE_DEFAULT AS Tipo_Registro,
+    GETDATE() AS Fecha_Actualizado
+FROM {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'LogMovimientoSuscripcion') }} --[KPP_DB].[dbo].[LogMovimientoSuscripcion]
+{% if is_incremental() %}
+    WHERE Fecha > '{{ last_date }}'
+{% else %}
   UNION ALL
   SELECT ISNULL(CAST([id] AS INT),0) AS Id
       ,ISNULL(CAST([TarjetaKC_Id] AS VARCHAR(50)),'') AS TarjetaKC_Id

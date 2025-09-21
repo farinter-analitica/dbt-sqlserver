@@ -22,7 +22,7 @@
 
 {%- if is_incremental() %}
     {%- set v_fecha_desde = run_single_value_query_on_relation_and_return(
-        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(YEAR, -1, GETDATE()), 112), '19000101')  from  """ ~ this, 
+        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(YEAR, -1, GETDATE()), 112), '19000101') as fecha_a from  """ ~ this, 
         relation_not_found_value='19000101'|string)|string %}
 {%- else %}
     {%- set v_fecha_desde = '19000101' %}
@@ -70,49 +70,51 @@ WITH staging AS (
         SUM(A.Costo) AS Costo,
         GETDATE() AS Fecha_Actualizado,
         GETDATE() AS Fecha_Carga
-    FROM {{ref('BI_SAP_Mixto_Facturas')}} A 
-    INNER JOIN {{source('BI_FARINTER','BI_SAP_Dim_GrupoMaterial')}} B
+    FROM {{ ref('BI_SAP_Mixto_Facturas') }} A
+    INNER JOIN {{ source('BI_FARINTER','BI_SAP_Dim_GrupoMaterial') }} B
         ON A.Grupo_Materiales_Id = B.GrupoMaterial_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_Sociedad_SAP')}} D
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_Sociedad_SAP') }} D
         ON A.Sociedad_Id = D.Sociedad_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_Centro_SAP')}} E
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_Centro_SAP') }} E
         ON A.Centro_Id = E.Centro_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_Zona_SAP')}} F
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_Zona_SAP') }} F
         ON A.Zona_Id = F.Zona_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_Vendedor_SAP')}} G
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_Vendedor_SAP') }} G
         ON A.Vendedor_Id = G.Vendedor_Id
-    INNER JOIN {{source('BI_FARINTER','BI_SAP_Dim_GrupoCliente')}} H
+    INNER JOIN {{ source('BI_FARINTER','BI_SAP_Dim_GrupoCliente') }} H
         ON A.GrupoCliente_Id = H.GrupoCliente_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_Cliente_SAP')}} I
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_Cliente_SAP') }} I
         ON A.Cliente_Id = I.Cliente_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_Casa_SAP')}} J
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_Casa_SAP') }} J
         ON A.Casa_Id = J.Casa_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_Articulo_SAP')}} K
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_Articulo_SAP') }} K
         ON A.Articulo_Id = K.Articulo_Id
-    INNER JOIN {{source('BI_FARINTER','BI_SAP_Dim_CanalDist')}} L
+    INNER JOIN {{ source('BI_FARINTER','BI_SAP_Dim_CanalDist') }} L
         ON A.CanalDistribucion_Id = L.CanalDist_Id
-    INNER JOIN {{source('BI_FARINTER','BI_Dim_TipoFactura_SAP')}} M
+    INNER JOIN {{ source('BI_FARINTER','BI_Dim_TipoFactura_SAP') }} M
         ON A.ClaseFactura_Id = M.TipoFactura_Id
-    LEFT JOIN {{source('DL_FARINTER','DL_Planning_ListaNegra')}} LN
-        ON A.Articulo_Id = LN.Articulo_Id
-        AND LN.fecha_desde <= CAST(GETDATE() AS DATE) --Activo actualmente
-        AND LN.fecha_hasta >= CAST(GETDATE() AS DATE)
-        AND LN.condicion_id = 'CP' --Solo cambios de presentación
-    LEFT JOIN {{source('BI_FARINTER','BI_Dim_Articulo_SAP')}} LNA
+    LEFT JOIN {{ source('DL_FARINTER','DL_Planning_ListaNegra') }} LN
+        ON
+            A.Articulo_Id = LN.Articulo_Id
+            AND LN.fecha_desde <= CAST(GETDATE() AS DATE) --Activo actualmente
+            AND LN.fecha_hasta >= CAST(GETDATE() AS DATE)
+            AND LN.condicion_id = 'CP' --Solo cambios de presentación
+    LEFT JOIN {{ source('BI_FARINTER','BI_Dim_Articulo_SAP') }} LNA
         ON LN.Articulo_Nuevo_Id = LNA.Articulo_Id
-    WHERE A.Sociedad_Id IN ('1200', '1300', '1301', '1700','2500')
+    WHERE
+        A.Sociedad_Id IN ('1200', '1300', '1301', '1700', '2500')
         {% if is_incremental() %}
-        AND A.Fecha_Id >= '{{ v_fecha_desde }}'
-		AND A.Anio_Calendario>= {{ v_anio_desde }}
-        AND A.AnioMesCreado_Id>= {{ v_aniomes_desde }}
-		{% else %}
+            AND A.Fecha_Id >= '{{ v_fecha_desde }}'
+            AND A.Anio_Calendario >= {{ v_anio_desde }}
+            AND A.AnioMesCreado_Id >= {{ v_aniomes_desde }}
+        {% else %}
         AND A.Anio_Calendario >= YEAR(GETDATE()) - 4
         AND A.AnioMesCreado_Id >= (YEAR(GETDATE()) - 4) * 100 + MONTH(GETDATE())
         {% endif %}
-    GROUP BY 
+    GROUP BY
         A.Factura_Id,
         K.Articulo_Id
 )
 
-SELECT * 
+SELECT *
 FROM staging

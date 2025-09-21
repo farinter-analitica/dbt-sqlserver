@@ -21,7 +21,7 @@
 
 {% if is_incremental() %}
     {% set last_date = run_single_value_query_on_relation_and_return(
-        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this,
+        query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this,
         relation_not_found_value='00000000'|string)|string %}
 {% else %}
     {% set last_date = '00000000'|string %}
@@ -69,7 +69,9 @@ LogValidation AS (
         TarjetaKC_Id,
         CAST(FRegistro AS DATE) AS Fecha_Log,
         COUNT(*) AS Total_Errores,
-        STRING_AGG(ErrorMessage, ' | ') WITHIN GROUP (ORDER BY FRegistro) AS Errores_Concatenados
+        STRING_AGG(ErrorMessage, ' | ') WITHIN GROUP (
+            ORDER BY FRegistro
+        ) AS Errores_Concatenados
     FROM {{ ref('DL_Kielsa_KPP_LogSuscripcion') }}
     WHERE
         (ErrorMessage LIKE '%error%' AND ErrorMessage NOT LIKE '%usuario no encontrado%')

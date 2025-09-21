@@ -28,16 +28,16 @@
 }}
 {%- if is_incremental() %}
 	{%- set v_last_date = run_single_value_query_on_relation_and_return(query=
-        """select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Id)), 112), '19000101')  from  """ ~ this, 
+        """select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Id)), 112), '19000101') as fecha_a from  """ ~ this, 
             relation_not_found_value='19000101'|string)|string 
     -%}
 {%- else %}
-	{%- set v_last_date = '19000101' %}
+    {%- set v_last_date = '19000101' %}
 {%- endif %}
 
 
 WITH source_data AS (
-SELECT
+    SELECT
         V.Emp_Id,
         V.Emp_Id AS Pais_Id,
         V.Suc_Id Sucursal_Id, -- Added based on requirement
@@ -46,41 +46,43 @@ SELECT
         V.Factura_Fecha AS Fecha_Id,
         YEAR(V.Factura_Fecha) Anio_Id,
         MONTH(V.Factura_Fecha) Mes_Id,
-        SUM(V.Detalle_Cantidad)   AS Cantidad,
+        SUM(V.Detalle_Cantidad) AS Cantidad,
         SUM(V.Cantidad_Padre) AS Cantidad_Padre
         --V.Factura_Id
-        FROM {{ ref('BI_Kielsa_Hecho_FacturaPosicion') }} V
-        -- Joins are not strictly necessary if the required columns (Sucursal_Id, Articulo_Id) exist in the source fact table
-        -- INNER JOIN {{ ref('BI_Kielsa_Dim_Sucursal') }} S
-        -- ON V.Suc_Id = S.Suc_Id -- Assuming V.Sucursal_Id is the correct FK
-        -- AND V.Pais_Id    = S.Emp_Id
-        INNER JOIN {{ ref('BI_Kielsa_Dim_Articulo') }} A
-        ON V.Pais_Id    = A.Emp_Id
-        AND V.Articulo_Id = A.Articulo_Id -- Assuming V.Articulo_Id is the correct FK
-        {% if is_incremental() %}
-        WHERE V.Factura_Fecha >= '{{v_last_date}}'
+    FROM {{ ref('BI_Kielsa_Hecho_FacturaPosicion') }} V
+    -- Joins are not strictly necessary if the required columns (Sucursal_Id, Articulo_Id) exist in the source fact table
+-- INNER JOIN {{ ref('BI_Kielsa_Dim_Sucursal') }} S
+-- ON V.Suc_Id = S.Suc_Id -- Assuming V.Sucursal_Id is the correct FK
+    -- AND V.Pais_Id    = S.Emp_Id
+    INNER JOIN {{ ref('BI_Kielsa_Dim_Articulo') }} A
+        ON
+            V.Pais_Id = A.Emp_Id
+            AND V.Articulo_Id = A.Articulo_Id -- Assuming V.Articulo_Id is the correct FK
+    {% if is_incremental() %}
+        WHERE V.Factura_Fecha >= '{{ v_last_date }}'
         {% else %}
-        WHERE V.Factura_Fecha >= '{{v_limit_min_date}}'
-        {% endif %}
-        GROUP BY
-            V.Emp_Id,
-            V.Suc_Id,
-            V.Articulo_Id,
-            A.Articulo_Codigo_Padre,
-            V.Factura_Fecha,
-            YEAR(V.Factura_Fecha),
-            MONTH(V.Factura_Fecha)
+        WHERE V.Factura_Fecha >= '{{ v_limit_min_date }}'
+    {% endif %}
+    GROUP BY
+        V.Emp_Id,
+        V.Suc_Id,
+        V.Articulo_Id,
+        A.Articulo_Codigo_Padre,
+        V.Factura_Fecha,
+        YEAR(V.Factura_Fecha),
+        MONTH(V.Factura_Fecha)
 )
+
 SELECT
-        Emp_Id,
-        Pais_Id,
-        Sucursal_Id,
-        Articulo_Id,
-        ArticuloPadre_Id,
-        Fecha_Id,
-        Anio_Id,
-        Mes_Id,
-        Cantidad,
-        Cantidad_Padre
-        --Factura_Id
+    Emp_Id,
+    Pais_Id,
+    Sucursal_Id,
+    Articulo_Id,
+    ArticuloPadre_Id,
+    Fecha_Id,
+    Anio_Id,
+    Mes_Id,
+    Cantidad,
+    Cantidad_Padre
+--Factura_Id
 FROM source_data

@@ -37,36 +37,37 @@ WHERE LS_LDCOM_Replica IS NOT NULL and Es_Empresa_Principal = 1
     {%- endif -%}
 {%- endfor -%}
 
-WITH DatosBase
-AS
-(
+WITH DatosBase AS (
     {%- for item in valid_empresas -%}
         {%- if not loop.first %}
-		UNION ALL{%- endif %}
-		{%- if is_incremental() -%}
+            UNION ALL{%- endif %}
+        {%- if is_incremental() -%}
 			{%- set last_date = run_single_value_query_on_relation_and_return(
-				query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -2, max(Fecha_Actualizado)), 112), '19000101')  from  """ 
+				query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -2, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ 
 					~ this ~ " where Emp_Id = " ~ item['Empresa_Id'], 
 				relation_not_found_value='19000101'|string
 				)|string -%}
-		{%- else -%}
+        {%- else -%}
 			{%- set last_date = '19000101' -%}
 		{%- endif %}		
-	SELECT ISNULL(CAST({{item['Empresa_Id']}} AS SMALLINT),0) AS [Emp_Id],
-		ISNULL([Suc_Id],0) AS [Suc_Id],
-		[Comision_Fecha],
-		[Vendedor_id] as [Vendedor_Id],
-		[Articulo_id] COLLATE DATABASE_DEFAULT as [Articulo_Id],
-		[Comision_CantArticulo],
-		[Comision_Monto]
-	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Comision_Bitacora
-	WHERE Emp_Id = {{ item['Empresa_Id_Original'] }}  
-		AND [Comision_Fecha] >= '{{ last_date }}' 
+        SELECT
+            ISNULL(CAST({{ item['Empresa_Id'] }} AS SMALLINT), 0) AS [Emp_Id],
+            ISNULL([Suc_Id], 0) AS [Suc_Id],
+            [Comision_Fecha],
+            [Vendedor_id] AS [Vendedor_Id],
+            [Articulo_id] COLLATE DATABASE_DEFAULT AS [Articulo_Id],
+            [Comision_CantArticulo],
+            [Comision_Monto]
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Comision_Bitacora
+        WHERE
+            Emp_Id = {{ item['Empresa_Id_Original'] }}
+            AND [Comision_Fecha] >= '{{ last_date }}' 
     {%- endfor -%}   
+
 )
-SELECT *
-	, GETDATE() AS [Fecha_Carga]
-	, GETDATE() AS [Fecha_Actualizado]
+
+SELECT
+    *,
+    GETDATE() AS [Fecha_Carga],
+    GETDATE() AS [Fecha_Actualizado]
 FROM datosBase
-
-

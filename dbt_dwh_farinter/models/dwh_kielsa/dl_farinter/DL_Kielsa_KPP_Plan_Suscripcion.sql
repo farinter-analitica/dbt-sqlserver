@@ -20,24 +20,24 @@
 ) }}
 
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
+    {% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
 {% else %}
 	{% set last_date = '00000000'|string %}
 {% endif %}
 
 
-	SELECT --TOP (1000)
-       ISNULL([Plan_Id], 0) AS [Plan_Id]
-      ,[Nombre]
-      ,[Costo]
-      ,[Contrato]
-      ,[CodPlanKielsaClinica]
-      ,[PlanType]
-      , GETDATE() AS Fecha_Actualizado
-  FROM {{ var('P_SQLLDSUBS_LS') }}.[KPP_DB].[dbo].[Plan_Suscripcion] -- {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'Plan_Suscripcion') }} 
-  --{% if is_incremental() %}
-  --WHERE [Fecha_Creacion] > '{{ last_date }}'
-  --{% else %}
+SELECT --TOP (1000)
+    ISNULL([Plan_Id], 0) AS [Plan_Id],
+    [Nombre],
+    [Costo],
+    [Contrato],
+    [CodPlanKielsaClinica],
+    [PlanType],
+    GETDATE() AS Fecha_Actualizado
+FROM {{ var('P_SQLLDSUBS_LS') }}.[KPP_DB].[dbo].[Plan_Suscripcion] -- {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'Plan_Suscripcion') }} 
+--{% if is_incremental() %}
+--WHERE [Fecha_Creacion] > '{{ last_date }}'
+--{% else %}
 
   --{% endif %}
 

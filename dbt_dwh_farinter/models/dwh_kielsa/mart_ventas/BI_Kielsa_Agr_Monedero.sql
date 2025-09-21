@@ -2,7 +2,7 @@
 
 {% if is_incremental() %}
     {% set v_last_date = run_single_value_query_on_relation_and_return(
-		query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, 0, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this,
+		query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, 0, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this,
 		relation_not_found_value='19000101'|string)|string %}
     {% set v_merge_exclude_columns = unique_key_list + ["Fecha_Carga","Fecha_Primer_Factura"] %}
     {% set v_merge_check_diff_exclude_columns = v_merge_exclude_columns + ["Fecha_Actualizado"] %}
@@ -104,8 +104,8 @@ MetricasRecientes AS (
     WHERE
         FE.AnioMes_Id >= ('{{ v_180_days[0:6] }}')
         AND FE.Factura_Fecha > CAST('{{ v_180_days }}' AS DATE)
-	GROUP BY
-		FE.Monedero_Id,
+    GROUP BY
+        FE.Monedero_Id,
         FE.Emp_Id
 )
 

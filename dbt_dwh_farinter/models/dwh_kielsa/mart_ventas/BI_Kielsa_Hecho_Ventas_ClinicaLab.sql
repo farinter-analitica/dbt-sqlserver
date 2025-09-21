@@ -18,7 +18,7 @@
 }}
 
 {%- if is_incremental() %}
-	{%- set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+    {%- set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
 {%- else %}
 	{%- set last_date = '19000101' %}
 {%- endif %}
@@ -32,12 +32,12 @@ SELECT --TOP 100
     ISNULL(CAST(CONCAT(FP.Emp_Id, '-', FP.Suc_Id) AS VARCHAR(50)), 'X') AS EmpSuc_Id, -- Sucursal_Id,
     ISNULL(FP.Articulo_Id, 0) AS Articulo_Id,
     ISNULL(CAST(CONCAT(FP.Emp_Id, '-', FP.Articulo_Id) AS VARCHAR(50)), 'X') AS EmpArticulo_Id, -- Articulo_Id,
-    ISNULL(CONCAT(FP.Emp_Id, '-', MAX(ART.Articulo_Codigo_Padre) ), 'X') AS EmpArticuloPadre_Id, -- ArticuloPadre_Id,
+    ISNULL(CONCAT(FP.Emp_Id, '-', MAX(ART.Articulo_Codigo_Padre)), 'X') AS EmpArticuloPadre_Id, -- ArticuloPadre_Id,
     ISNULL(FP.Factura_Id, 0) AS Factura_Id,
-	ISNULL(MAX(FP.EmpSucDocCajFac_Id),0) AS EmpSucDocCajFac_Id,
+    ISNULL(MAX(FP.EmpSucDocCajFac_Id), 0) AS EmpSucDocCajFac_Id,
     ISNULL(FP.TipoDoc_Id, 0) AS TipoDocumento_Id, -- Documento_Id,
     -- Non-key columns
-    ISNULL(MAX(ART.Articulo_Codigo_Padre), 'X')  AS ArticuloPadre_Id,
+    ISNULL(MAX(ART.Articulo_Codigo_Padre), 'X') AS ArticuloPadre_Id,
     MIN(FP.AnioMes_Id) AS AnioMes_Id,
     MIN(FP.Hora_Id) AS Hora_Id,
     YEAR(MAX(FP.Factura_Fecha)) AS Anio_Id,
@@ -56,51 +56,62 @@ SELECT --TOP 100
     SUM(FP.Valor_Utilidad) AS Valor_Utilidad, -- Utilidad,
     SUM(FP.Valor_Costo) AS Valor_Costo,  -- Costo,
     SUM(FP.Valor_Descuento) AS Valor_Descuento,  -- Descuento
-	MAX(FP.Fecha_Actualizado) AS Fecha_Actualizado
+    MAX(FP.Fecha_Actualizado) AS Fecha_Actualizado
 FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaPosicion FP -- {{ ref('BI_Kielsa_Hecho_FacturaPosicion') }}
 LEFT JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo ART
-    ON FP.Emp_Id = ART.Emp_Id
-    AND FP.Articulo_Id = ART.Articulo_Id
+    ON
+        FP.Emp_Id = ART.Emp_Id
+        AND FP.Articulo_Id = ART.Articulo_Id
 LEFT JOIN (
-    SELECT DISTINCT FP.Emp_Id, FP.Factura_Id, FP.Suc_Id, FP.TipoDoc_Id, FP.Caja_Id
+    SELECT DISTINCT
+        FP.Emp_Id,
+        FP.Factura_Id,
+        FP.Suc_Id,
+        FP.TipoDoc_Id,
+        FP.Caja_Id
     FROM BI_FARINTER.dbo.BI_Kielsa_Hecho_FacturaPosicion FP -- {{ ref('BI_Kielsa_Hecho_FacturaPosicion') }}
-	INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo ART -- {{ ref('BI_Kielsa_Dim_Articulo') }}
-		ON FP.Emp_Id = ART.Emp_Id
-		AND FP.Articulo_Id = ART.Articulo_Id
-	INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Cliente CLI -- {{ ref('BI_Kielsa_Dim_Cliente') }}
-		ON FP.Emp_Id = CLI.Emp_Id
-		AND FP.Cliente_Id = CLI.Cliente_Id
-    WHERE FP.Emp_Id = 1 
-	{% if is_incremental() %}
-	--Se hace aqui por si solo una posición se editó.
-		AND FP.Fecha_Actualizado >= '{{ last_date }}'
-	{% endif %} 
-	    AND (
-			ART.Categoria_Id = '6'
-			OR CLI.Tipo_Cliente LIKE '%CLINICA%PLAN%'
-			OR CLI.Tipo_Cliente LIKE '%CLINICA%LAB%'
-		)
+    INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Articulo ART -- {{ ref('BI_Kielsa_Dim_Articulo') }}
+        ON
+            FP.Emp_Id = ART.Emp_Id
+            AND FP.Articulo_Id = ART.Articulo_Id
+    INNER JOIN BI_FARINTER.dbo.BI_Kielsa_Dim_Cliente CLI -- {{ ref('BI_Kielsa_Dim_Cliente') }}
+        ON
+            FP.Emp_Id = CLI.Emp_Id
+            AND FP.Cliente_Id = CLI.Cliente_Id
+    WHERE
+        FP.Emp_Id = 1
+        {% if is_incremental() %}
+            --Se hace aqui por si solo una posición se editó.
+            AND FP.Fecha_Actualizado >= '{{ last_date }}'
+        {% endif %} 
+        AND (
+            ART.Categoria_Id = '6'
+            OR CLI.Tipo_Cliente LIKE '%CLINICA%PLAN%'
+            OR CLI.Tipo_Cliente LIKE '%CLINICA%LAB%'
+        )
 ) SubFP
-    ON FP.Factura_Id = SubFP.Factura_Id
-	AND FP.Emp_Id = SubFP.Emp_Id
-	AND FP.Suc_Id = SubFP.Suc_Id
-	AND FP.TipoDoc_Id = SubFP.TipoDoc_Id
-	AND FP.Caja_Id = SubFP.Caja_Id
+    ON
+        FP.Factura_Id = SubFP.Factura_Id
+        AND FP.Emp_Id = SubFP.Emp_Id
+        AND FP.Suc_Id = SubFP.Suc_Id
+        AND FP.TipoDoc_Id = SubFP.TipoDoc_Id
+        AND FP.Caja_Id = SubFP.Caja_Id
 {% if is_incremental() %}
-WHERE FP.Factura_Fecha >= DATEADD(MONTH, -2, '{{ last_date }}')
-    AND FP.Emp_Id = 1
-    AND  SubFP.Factura_Id IS NOT NULL
+    WHERE
+        FP.Factura_Fecha >= DATEADD(MONTH, -2, '{{ last_date }}')
+        AND FP.Emp_Id = 1
+        AND SubFP.Factura_Id IS NOT NULL
 {% else %}
 WHERE FP.Factura_Fecha >= DATEADD(YEAR, -3, GETDATE()) -- @FechaInicio
     AND FP.Emp_Id = 1
     AND  SubFP.Factura_Id IS NOT NULL
 {% endif %}
 GROUP BY
-	FP.Factura_Fecha,
+    FP.Factura_Fecha,
     FP.Emp_Id,
-	FP.Pais_Id,
+    FP.Pais_Id,
     FP.Suc_Id,
     FP.Articulo_Id,
     FP.Factura_Id,
     FP.AnioMes_Id,
-	FP.TipoDoc_Id
+    FP.TipoDoc_Id

@@ -26,7 +26,7 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
 {%- set empresas = run_query_and_return(query_empresas) -%} {# Returns: [{Empresa_Id,Emp_Id_Original,Pais_Id,LS_LDCOM_Replica,D_LDCOM_Replica}] #}
 
 {%- if is_incremental() %}
-    {%- set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Ult_Fec_Actualizacion)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+    {%- set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Ult_Fec_Actualizacion)), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
 {%- else %}
     {%- set last_date = '19000101' %}
 {%- endif %}

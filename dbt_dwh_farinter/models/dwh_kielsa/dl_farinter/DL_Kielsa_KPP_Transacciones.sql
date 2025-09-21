@@ -20,32 +20,32 @@
 ) }}
 
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
+    {% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -1, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
 {% else %}
 	{% set last_date = '00000000'|string %}
 {% endif %}
 
 
-	SELECT --TOP (1000) 
-    [Transaccion_Id]
-		  ,[TarjetaKC_Id]
-		  ,[Cliente_Nombre]
-		  ,[Monto_Rebajado]
-		  ,[Fecha]
-		  ,[NumeroTarjeta]
-		  ,[TipoTarjeta]
-		  ,[ResponseMessage]
-		  ,[transaction_id]
-		  ,[transaction_reference]
-		  ,[payment_uuid]
-		  ,[payment_hash]
-		  ,[response_reason]
-		  ,[ResponseSuccess]
-      , GETDATE() AS Fecha_Actualizado
-  FROM {{ var('P_SQLLDSUBS_LS') }}.[KPP_DB].[dbo].[Transacciones] -- {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'Transacciones') }} 
-  {% if is_incremental() %}
-  WHERE Fecha > '{{ last_date }}'
-  {% else %}
+SELECT --TOP (1000) 
+    [Transaccion_Id],
+    [TarjetaKC_Id],
+    [Cliente_Nombre],
+    [Monto_Rebajado],
+    [Fecha],
+    [NumeroTarjeta],
+    [TipoTarjeta],
+    [ResponseMessage],
+    [transaction_id],
+    [transaction_reference],
+    [payment_uuid],
+    [payment_hash],
+    [response_reason],
+    [ResponseSuccess],
+    GETDATE() AS Fecha_Actualizado
+FROM {{ var('P_SQLLDSUBS_LS') }}.[KPP_DB].[dbo].[Transacciones] -- {{ var('P_SQLLDSUBS_LS') }}.{{ source('KPP_DB', 'Transacciones') }} 
+{% if is_incremental() %}
+    WHERE Fecha > '{{ last_date }}'
+{% else %}
 
   {% endif %}
 

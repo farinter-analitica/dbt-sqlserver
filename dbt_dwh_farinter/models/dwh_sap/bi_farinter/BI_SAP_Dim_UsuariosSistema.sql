@@ -17,15 +17,15 @@
     ) 
 }}
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizacion)), 112), '19000101')  from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
+    {% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizacion)), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='00000000'|string)|string %}
 {% else %}
 	{% set last_date = '00000000'|string %}
 {% endif %}
 
-SELECT 
+SELECT
     U.[BNAME] COLLATE DATABASE_DEFAULT AS Usuario_Id,
     dbo.fnc_ProperCase(U.[NAME_FIRST]) COLLATE DATABASE_DEFAULT AS Nombre,
-    dbo.fnc_ProperCase(U.[NAME_LAST]) COLLATE DATABASE_DEFAULT AS Apellido, 
+    dbo.fnc_ProperCase(U.[NAME_LAST]) COLLATE DATABASE_DEFAULT AS Apellido,
     dbo.fnc_ProperCase(U.[NAME_TEXTC]) COLLATE DATABASE_DEFAULT AS Nombre_Completo,
     U.[TEL_EXTENS] COLLATE DATABASE_DEFAULT AS Telefono,
     U.[KOSTL] COLLATE DATABASE_DEFAULT AS CentroCosto_Id,
@@ -36,12 +36,13 @@ SELECT
     U.[NAME1] COLLATE DATABASE_DEFAULT AS Nombre_1,
     U.[CITY1] COLLATE DATABASE_DEFAULT AS Ciudad,
     U.[POST_CODE1] COLLATE DATABASE_DEFAULT AS Codigo_Postal,
-	ISNULL(UV.VKGRP,'X') COLLATE DATABASE_DEFAULT AS GrupoVendedores_Id,
+    ISNULL(UV.VKGRP, 'X') COLLATE DATABASE_DEFAULT AS GrupoVendedores_Id,
     U.Fecha_Actualizado AS Fecha_Actualizacion
 FROM [DL_FARINTER].[dbo].[DL_SAP_USER_ADDR] U --{{ ref('DL_SAP_USER_ADDR') }} 
 LEFT JOIN [DL_FARINTER].[dbo].[DL_SAP_ZFRM_EPT_0001] UV
-ON U.[BNAME] = UV.[BNAME] 
+    ON U.[BNAME] = UV.[BNAME]
 {% if is_incremental() %}
-WHERE U.Fecha_Actualizado > '{{last_date}}'
-	OR UV.Fecha_Actualizado > '{{last_date}}'
+    WHERE
+        U.Fecha_Actualizado > '{{ last_date }}'
+        OR UV.Fecha_Actualizado > '{{ last_date }}'
 {% endif %}

@@ -18,31 +18,32 @@
 }}
 
 {% if is_incremental() %}
-  {% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -15, max(Fecha_Actualizado)), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+    {% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -15, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
 {% endif %}
 
 SELECT --TOP (1000) 
-    ISNULL(RM.[Ciclo],0) AS [Ciclo]
-      ,RM.[Id_Empleado] COLLATE DATABASE_DEFAULT AS [Id_Empleado]
-      ,RM.[HEntrada]
-      ,RM.[HSAlmuerzo]
-      ,RM.[HEAlmuerzo]
-      ,RM.[HSPermiso1]
-      ,RM.[HEPermiso1]
-      ,RM.[HSPermiso2]
-      ,RM.[HEPermiso2]
-      ,RM.[HSPermiso3]
-      ,RM.[HEPermiso3]
-      ,RM.[HSalida]
-      ,RM.[Computadora] COLLATE DATABASE_DEFAULT AS [Computadora]
-      ,RM.[Pais] COLLATE DATABASE_DEFAULT as [Pais]
-      ,RM.[HSReceso]
-      ,RM.[HEReceso]
-      ,RM.[HSReceso2]
-      ,RM.[HEReceso2]
-      , GETDATE() AS Fecha_Actualizado
-  FROM {{ var('P_SQLLDSUBS_LS') }}.{{ source('SITEPLUS', 'Kielsa_Reloj_Marcador') }} RM
+    ISNULL(RM.[Ciclo], 0) AS [Ciclo],
+    RM.[Id_Empleado] COLLATE DATABASE_DEFAULT AS [Id_Empleado],
+    RM.[HEntrada],
+    RM.[HSAlmuerzo],
+    RM.[HEAlmuerzo],
+    RM.[HSPermiso1],
+    RM.[HEPermiso1],
+    RM.[HSPermiso2],
+    RM.[HEPermiso2],
+    RM.[HSPermiso3],
+    RM.[HEPermiso3],
+    RM.[HSalida],
+    RM.[Computadora] COLLATE DATABASE_DEFAULT AS [Computadora],
+    RM.[Pais] COLLATE DATABASE_DEFAULT AS [Pais],
+    RM.[HSReceso],
+    RM.[HEReceso],
+    RM.[HSReceso2],
+    RM.[HEReceso2],
+    GETDATE() AS Fecha_Actualizado
+FROM {{ var('P_SQLLDSUBS_LS') }}.{{ source('SITEPLUS', 'Kielsa_Reloj_Marcador') }} RM
 {% if is_incremental() %}
-  WHERE RM.HEntrada > '{{ last_date }}'
-  OR RM.HSalida > '{{ last_date }}'
+    WHERE
+        RM.HEntrada > '{{ last_date }}'
+        OR RM.HSalida > '{{ last_date }}'
 {% endif %}

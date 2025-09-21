@@ -36,38 +36,40 @@ WHERE LS_LDCOM_RepLocal IS NOT NULL and Es_Empresa_Principal = 1
     {%- endif -%}
 {%- endfor -%}
 
-WITH DatosBase
-AS
-(
+WITH DatosBase AS (
 {%- for item in valid_empresas -%}
-{%- if not loop.first %}
-	UNION ALL{%- endif %}
-{%- if is_incremental() -%}
+        {%- if not loop.first %}
+            UNION ALL{%- endif %}
+        {%- if is_incremental() -%}
 	{%- set last_date = run_single_value_query_on_relation_and_return(
-		query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Marca_Fec_Actualizacion)), 112), '19000101')  from  """ ~ this ~ " where Emp_Id = " ~ item['Empresa_Id'], relation_not_found_value='19000101'|string
+		query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Marca_Fec_Actualizacion)), 112), '19000101') as fecha_a from  """ ~ this ~ " where Emp_Id = " ~ item['Empresa_Id'], relation_not_found_value='19000101'|string
 		)|string -%}
-{%- else -%}
+        {%- else -%}
 	{%- set last_date = '19000101' -%}
 {%- endif %}		
-	SELECT ISNULL({{item['Empresa_Id']}},0) AS [Emp_Id]
-		, ISNULL(MCS.Marca_Comercial_x_Sucursal_Id,0) AS [Marca_Comercial_x_Sucursal_Id]
-		, ISNULL(MCS.Marca_Comercial_Id,0) AS [Marca_Comercial_Id]
-		, ISNULL(MCS.Suc_Id,0) AS [Suc_Id]
-		, MCS.Marca_Principal
-		, MCS.Marca_Fec_Actualizacion 
-	FROM {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Marca_Comercial_x_Sucursal MCS
-	INNER JOIN {{item['Servidor_Vinculado']}}.{{item['Base_Datos']}}.dbo.Marca_Comercial MC
-	ON MC.Marca_Comercial_Id = MCS.Marca_Comercial_Id
-	WHERE MC.Emp_Id = {{item['Empresa_Id_Original']}} 
-	{% if is_incremental() %}
-		AND MCS.Marca_Fec_Actualizacion >= '{{last_date}}'
-	{% else %}
-	  --AND MCS.Marca_Fec_Actualizacion >= '{{last_date}}'
+        SELECT
+            ISNULL({{ item['Empresa_Id'] }}, 0) AS [Emp_Id],
+            ISNULL(MCS.Marca_Comercial_x_Sucursal_Id, 0) AS [Marca_Comercial_x_Sucursal_Id],
+            ISNULL(MCS.Marca_Comercial_Id, 0) AS [Marca_Comercial_Id],
+            ISNULL(MCS.Suc_Id, 0) AS [Suc_Id],
+            MCS.Marca_Principal,
+            MCS.Marca_Fec_Actualizacion
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Marca_Comercial_x_Sucursal MCS
+        INNER JOIN {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Marca_Comercial MC
+            ON MC.Marca_Comercial_Id = MCS.Marca_Comercial_Id
+        WHERE
+            MC.Emp_Id = {{ item['Empresa_Id_Original'] }}
+            {% if is_incremental() %}
+                AND MCS.Marca_Fec_Actualizacion >= '{{ last_date }}'
+            {% else %}
+	  --AND MCS.Marca_Fec_Actualizacion >= '{{ last_date }}'
 	{% endif %}
 
-{% endfor -%}
+    {% endfor -%}
 )
-SELECT *
-	, GETDATE() AS [Fecha_Carga]
-	, GETDATE() AS [Fecha_Actualizado]
+
+SELECT
+    *,
+    GETDATE() AS [Fecha_Carga],
+    GETDATE() AS [Fecha_Actualizado]
 FROM datosBase

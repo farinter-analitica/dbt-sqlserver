@@ -24,36 +24,37 @@
     full_refresh= true,
 */
 {% if is_incremental() %}
-	{% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR(8),max(Fecha_Actualizado), 112), '19000101')  from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
+    {% set last_date = run_single_value_query_on_relation_and_return(query="""select ISNULL(CONVERT(VARCHAR(8),max(Fecha_Actualizado), 112), '19000101') as fecha_a from  """ ~ this, relation_not_found_value='19000101'|string)|string %}
 {% else %}
 	{% set last_date = '19000101'|string %}
 {% endif %}
 
-WITH T AS
-(
-SELECT
-    [BUKRS] AS Sociedad_Id  
-    , [MATNR] AS [Articulo_Id]
-    , [LICHA] AS [Lote_Id]
-    , [EBELN] AS [Pedido_Id]
-    , [ID] AS [CartaCompromiso_Id]
-    , [ZCARTA] AS [Indicador_CartaCompromiso]
-    , [ZAPRO_INT] AS [Indicador_Aprobacion_Interna]
-    , [USNAM] AS [Usuario_Id]
-    , ISNULL(TRY_CONVERT(DATE,[ERDAT], 112), '19000101') AS [Fecha_Creacion]
-    , [ERZET] AS [Hora_Creacion]
-    , [AENAM] AS [Usuario_Modificacion]
-    , ISNULL(TRY_CONVERT(DATE,[AEDAT], 112), '19000101') AS [Fecha_Modificacion]
-    , [UTIME] AS [Hora_Modificacion]   
-    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Carga]
-    , ISNULL(CAST(GETDATE() AS DATETIME),'19000101') AS [Fecha_Actualizado]
-FROM {{ ref('DL_SAP_ZMM_CARTA_COMPRO') }} A
-{% if is_incremental() %}
-WHERE (A.Fecha_Actualizado >= '{{last_date}}')
-{% else %}
+WITH T AS (
+    SELECT
+        [BUKRS] AS Sociedad_Id,
+        [MATNR] AS [Articulo_Id],
+        [LICHA] AS [Lote_Id],
+        [EBELN] AS [Pedido_Id],
+        [ID] AS [CartaCompromiso_Id],
+        [ZCARTA] AS [Indicador_CartaCompromiso],
+        [ZAPRO_INT] AS [Indicador_Aprobacion_Interna],
+        [USNAM] AS [Usuario_Id],
+        ISNULL(TRY_CONVERT(DATE, [ERDAT], 112), '19000101') AS [Fecha_Creacion],
+        [ERZET] AS [Hora_Creacion],
+        [AENAM] AS [Usuario_Modificacion],
+        ISNULL(TRY_CONVERT(DATE, [AEDAT], 112), '19000101') AS [Fecha_Modificacion],
+        [UTIME] AS [Hora_Modificacion],
+        ISNULL(CAST(GETDATE() AS DATETIME), '19000101') AS [Fecha_Carga],
+        ISNULL(CAST(GETDATE() AS DATETIME), '19000101') AS [Fecha_Actualizado]
+    FROM {{ ref('DL_SAP_ZMM_CARTA_COMPRO') }} A
+    {% if is_incremental() %}
+        WHERE (A.Fecha_Actualizado >= '{{ last_date }}')
+    {% else %}
   --and A.ERDAT >= '19000101'
 {% endif %}
 )
-SELECT * 
-	  , ISNULL({{ dwh_farinter_hash_column(columns=unique_key_list,table_alias='T' ) }}, '') AS [HashStr_SocArtLotPedCar] --IdUnico, no cambiar orden
+
+SELECT
+    *,
+    ISNULL({{ dwh_farinter_hash_column(columns=unique_key_list,table_alias='T' ) }}, '') AS [HashStr_SocArtLotPedCar] --IdUnico, no cambiar orden
 FROM T
