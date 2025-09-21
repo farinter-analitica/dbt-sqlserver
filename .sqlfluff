@@ -1,6 +1,7 @@
 [sqlfluff]
 templater = dbt
 exclude_rules = capitalisation.identifiers
+warnings = structure.column_order, structure.subquery
 max_line_length = 200
 dialect = tsql
 
