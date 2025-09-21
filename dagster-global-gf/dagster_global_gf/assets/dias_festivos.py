@@ -68,16 +68,18 @@ def obtener_dias_festivos(codigos_pais, fecha_inicio, fecha_fin) -> pl.DataFrame
     # Convertir a DataFrame de Polars para manejo eficiente
     df_festivos = pl.DataFrame(datos_festivos)
 
-    # Asegurar que la fecha sea única, combinando los países en una lista y asegurando el motivo en español
+    # Asegurar que la fecha sea única, combinando países en una lista única por fecha
+    # 1) Primero recoger todos los valores del grupo en una lista (implode)
+    # 2) Luego fusionar/normalizar con una UDF segura que devuelve un string JSON
     df_festivos = df_festivos.group_by("Fecha_Id").agg(
         [
             pl.col("Motivo").first().alias("Motivo"),
             pl.col("Json_Sociedades_Id").first().alias("Json_Sociedades_Id"),
             pl.col("Json_Paises_Id")
+            .implode()
             .map_elements(
-                lambda x: json.dumps(
-                    list({pais for lista in x for pais in json.loads(lista)})
-                )
+                lambda xs: json.dumps(list({p for s in xs for p in json.loads(s)})),
+                return_dtype=pl.String,
             )
             .alias("Json_Paises_Id"),
         ]
