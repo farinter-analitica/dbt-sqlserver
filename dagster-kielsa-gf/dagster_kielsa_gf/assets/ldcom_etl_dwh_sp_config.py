@@ -113,11 +113,6 @@ store_procedures: dict[str, StoreProcedureConfig] = {
         "name": "DL_Kielsa_Cliente",
         "tags": tags_repo.Daily.tag | tags_repo.AutomationHourly.tag,
     },
-    "DL_paCargarKielsa_Proveedor": {
-        "key_prefix": ["DL_FARINTER", "dbo"],
-        "name": "DL_Kielsa_Proveedor",
-        "tags": tags_repo.Daily.tag,
-    },
     "DL_paCargarKielsa_Alerta": {
         "key_prefix": ["DL_FARINTER", "dbo"],
         "name": "DL_Kielsa_Alerta",
