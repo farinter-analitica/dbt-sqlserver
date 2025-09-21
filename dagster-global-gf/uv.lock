@@ -572,7 +572,7 @@ requires-dist = [
     { name = "dagster-dbt", specifier = ">=0.24" },
     { name = "dagster-dlt", marker = "extra == 'etl'" },
     { name = "dagster-gcp", marker = "extra == 'gcp'" },
-    { name = "dagster-polars", marker = "extra == 'polars'", specifier = "<0.27.5" },
+    { name = "dagster-polars", marker = "extra == 'polars'" },
     { name = "dagster-postgres" },
     { name = "dagster-sling", marker = "extra == 'etl'" },
     { name = "dagster-webserver", specifier = ">=1.9.7,<2.0" },

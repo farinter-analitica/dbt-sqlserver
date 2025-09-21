@@ -66,7 +66,7 @@ translation = ["deep-translator"]
 ml = ["scipy"]
 interactive = ["ipython"]
 monitoring = ["psutil"]
-polars = ["dagster-polars<0.27.5", "patito"]
+polars = ["dagster-polars", "patito"]
 pandas = ["pandas"]
 
 [dependency-groups]
