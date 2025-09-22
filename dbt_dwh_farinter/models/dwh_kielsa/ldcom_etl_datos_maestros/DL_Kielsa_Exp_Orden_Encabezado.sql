@@ -1,4 +1,3 @@
-
 {%- set unique_key_list = ["Orden_Id","Emp_Id","CC_Id"] -%}
 {{ 
     config(
@@ -34,11 +33,12 @@ WITH DatosBase AS (
             UNION ALL{%- endif %}
         {%- if is_incremental() -%}
 			{%- set last_date = run_single_value_query_on_relation_and_return(
-				query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this ~ " where Emp_Id = " ~ item['Empresa_Id'], relation_not_found_value='19000101'|string
+				query="""select ISNULL(CONVERT(VARCHAR,DATEADD(DAY, -7, max(Fecha_Actualizado)), 112), '19000101') as fecha_a from  """ ~ this ~ " where Emp_Id = " ~ item['Empresa_Id'],
+                relation_not_found_value='19000101'|string
 				)|string -%}
         {%- else -%}
 			{%- set last_date = '19000101' -%}
-		{%- endif %}		
+		{%- endif %}
         SELECT
             ISNULL(CAST({{ item['Empresa_Id'] }} AS SMALLINT), 0) AS [Emp_Id],
             ISNULL(OE.CC_Id, 0) AS [CC_Id],
@@ -47,23 +47,20 @@ WITH DatosBase AS (
             OE.[Cliente_Id],
             OE.[Zona_Id],
             OE.[Repartidor_Id],
-            OE.[Estatus_Id] COLLATE DATABASE_DEFAULT AS [Estatus_Id],
+            OE.[Estatus_Id] COLLATE DATABASE_DEFAULT AS [Estatus_Id], --noqa: RF03
             OE.[Vendedor_Id],
             ISNULL(OE.Orden_Inicio_Registro, '19000101') AS [Orden_Inicio_Registro],
             OE.[Orden_Fec_Terminada],
-            OE.[Orden_Usuario_Registro] COLLATE DATABASE_DEFAULT AS [Orden_Usuario_Registro]
+            OE.[Orden_Usuario_Registro] COLLATE DATABASE_DEFAULT AS [Orden_Usuario_Registro] --noqa: RF03
         --, FEX.TipoDoc_Id
         --, FEX.Suc_Id
         --, FEX.Caja_Id
         --, FEX.Factura_Id
-        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Exp_Orden_Encabezado OE
-        {{ item.origen }}.dbo.Exp_Factura_Express FEX
-        --ON OE.Emp_Id = FEX.Emp_Id AND OE.CC_Id = FEX.CC_Id AND OE.Orden_Id = FEX.Orden_Id
+        FROM {{ item['Servidor_Vinculado'] }}.{{ item['Base_Datos'] }}.dbo.Exp_Orden_Encabezado AS OE
         WHERE
             OE.Emp_Id = {{ item['Empresa_Id_Original'] }}
             AND (OE.Orden_Inicio_Registro >= '{{ last_date }}' OR OE.Orden_Fec_Terminada >= '{{ last_date }}')
-    {%- endfor -%}   
-
+    {%- endfor %}
 )
 
 SELECT
