@@ -97,13 +97,13 @@ install_deps_uv() {
         echo "[$loc] Instalando dependencias..."
         (
             cd "$loc";
-            if [ "$is_local" != "true" ]; then
-                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --locked --no-dev --inexact
-                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact --locked || echo "⚠️ Falló external en $loc (continuando)"
-            elif [ "$is_local" == "true" ] && [ "$upgrade_deps" == "true" ]; then
+            if [ "$is_local" == "true" ] && [ "$upgrade_deps" == "true" ]; then
                 # Si es local y se pidió upgrade_deps, forzar actualización
                 UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --upgrade
                 UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --upgrade --extra external --inexact || echo "⚠️ Falló external en $loc (continuando)"
+            elif [ "$is_local" != "true" ]; then
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --locked --no-dev --inexact
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact --locked || echo "⚠️ Falló external en $loc (continuando)"
             else
                 UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --dev
                 UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact || echo "⚠️ Falló external en $loc (continuando)"
