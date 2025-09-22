@@ -39,7 +39,7 @@ classifiers = [
 
 dependencies = [
     # Polars pasa a core común (pydantic/pytz también). Solo requiere translation ahora.
-    "dagster_shared_gf[translation,etl,ml,odbc,polars,monitoring]",
+    "dagster_shared_gf[translation,etl,ml,odbc,polars,pandas,monitoring]",
 ]
 
 [project.optional-dependencies]

@@ -77,10 +77,10 @@ venv = ".venv"
 # Mantener sincronizadas con los paquetes del monorepo.
 extraPaths = [
     "./dagster-shared-gf/",
-    "./dagster-global-gf/.venv/lib/python3.12/site-packages",
-    "./dagster-kielsa-gf/.venv/lib/python3.12/site-packages",
-    "./dagster-sap-gf/.venv/lib/python3.12/site-packages",
-    "./dagster-shared-gf/.venv/lib/python3.12/site-packages",
+    "./dagster-global-gf/.venv/lib/python3.13/site-packages",
+    "./dagster-kielsa-gf/.venv/lib/python3.13/site-packages",
+    "./dagster-sap-gf/.venv/lib/python3.13/site-packages",
+    "./dagster-shared-gf/.venv/lib/python3.13/site-packages",
 ]
 
 # Excluir artefactos y venv para que pyright no los escanee
