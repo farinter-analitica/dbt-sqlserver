@@ -23,7 +23,6 @@ license = { text = "Proprietary" }
 # Development Status :: 7 - Inactive
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
     "Topic :: Assets Orchestration",
