@@ -66,6 +66,7 @@ install_uv_standalone() {
 
 install_deps_uv() {
     local is_local="${1:-false}"
+    local upgrade_deps="${2:-false}"
     unset VIRTUAL_ENV
     echo "Instalando dependencias principales..."
     if [ "$is_local" != "true" ]; then
@@ -76,12 +77,18 @@ install_deps_uv() {
         uv sync --extra external --inexact --locked || \
             echo "⚠️ Falló la instalación de dependencias externas, el sistema continuará."
     else
-        uv sync
-        # Configurar claves SSH de deploy para repos privados sin preguntas
-        uv run --frozen ./scripts/deployment.py setup-deploy-key --test --dev
-        echo "Instalando dependencias externas..."
-        uv sync --extra external --inexact || \
-            echo "⚠️ Falló la instalación de dependencias externas, el sistema continuará."
+        if [ "$upgrade_deps" == "true" ]; then
+            echo "Actualizando dependencias principales..."
+            uv sync --upgrade
+        else
+            echo "Instalando dependencias principales (modo local)..."
+            uv sync
+        fi
+            # Configurar claves SSH de deploy para repos privados sin preguntas
+            uv run --frozen ./scripts/deployment.py setup-deploy-key --test --dev
+            echo "Instalando dependencias externas..."
+            uv sync --extra external --inexact || \
+                echo "⚠️ Falló la instalación de dependencias externas, el sistema continuará."
     fi
 
     # Sincronizar entornos por code location (.venv individuales) reutilizando la misma lógica de uv sync
@@ -90,7 +97,11 @@ install_deps_uv() {
         echo "[$loc] Instalando dependencias..."
         (
             cd "$loc";
-            if [ "$is_local" != "true" ]; then
+            if [ "$is_local" == "true" ] && [ "$upgrade_deps" == "true" ]; then
+                # Si es local y se pidió upgrade_deps, forzar actualización
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --upgrade
+                UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --upgrade --extra external --inexact || echo "⚠️ Falló external en $loc (continuando)"
+            elif [ "$is_local" != "true" ]; then
                 UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --locked --no-dev --inexact
                 UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact --locked || echo "⚠️ Falló external en $loc (continuando)"
             else
@@ -102,9 +113,15 @@ install_deps_uv() {
     done
     (
         cd dagster-shared-gf;
-        if [ "$is_local" == "true" ]; then
+        if [ "$is_local" == "true" ] && [ "$upgrade_deps" == "true" ]; then
+            UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --upgrade --all-extras --no-extra external
+            UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --upgrade --extra external --inexact || echo "⚠️ Falló external en dagster-shared-gf (continuando)"
+        elif [ "$is_local" == "true" ]; then
             UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --dev --all-extras --no-extra external
             UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact || echo "⚠️ Falló external en dagster-shared-gf (continuando)"
+        else
+            UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --locked --no-dev --all-extras --no-extra external
+            UV_PROJECT_ENVIRONMENT="$(pwd)/.venv" uv sync --extra external --inexact --locked || echo "⚠️ Falló external en dagster-shared-gf (continuando)"
         fi
         echo "dagster-shared-gf ✅ Sync completado"
     )
@@ -209,12 +226,17 @@ Commands:
     setup-deploy-key    Setup deploy key
     test-deploy-key     Test deploy key
     reload-code-locations  Reload Dagster code locations
+    install-deps        Install Python dependencies
 
 Deploy key options:
     --repo REPO         Repository name for deploy keys
     --org ORG           GitHub organization for deploy keys
     --force             Force creation of new deploy key
     --test              Test the deploy key
+
+Global options:
+    --local             Run in local mode (installs local dependencies)
+    --upgrade-deps      Upgrade dependencies during installation
 
 Environment variables:
     ENV                 Environment (dev, prd)
@@ -233,6 +255,11 @@ main() {
             IS_LOCAL="true"
             # Elimina --local de los argumentos
             set -- "${@/--local/}"
+            break
+        fi
+        if [[ "$i" == "--upgrade-deps" ]]; then
+            UPGRADE_DEPS="true"
+            set -- "${@/--upgrade-deps/}"
             break
         fi
     done    
@@ -259,7 +286,7 @@ main() {
             ;;
         install-deps)
             install_uv_standalone
-            install_deps_uv "$IS_LOCAL"
+            install_deps_uv "$IS_LOCAL" "${UPGRADE_DEPS:-false}"
             ;;
         --help|-h)
             usage
