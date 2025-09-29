@@ -1,6 +1,25 @@
+{% macro check_for_cte(sql) %}
+    {% if execute %}  {# Ensure this runs only at execution time #}
+        {% set cleaned_sql = sql | lower | trim | replace("\n", " ") %}
+        {% set cte_pos = cleaned_sql.find("with ") %}  {# Find position of first "WITH " #}
+        {% if cte_pos == 0 %}
+            {{ return(True) }}  {# CTE found at start #}
+        {% endif %}
+        {% set first_from_pos = cleaned_sql.find(" from ") %}  {# Find position of first " FROM " #}
+        {% if cte_pos != -1 and (cte_pos < first_from_pos) %}  {# Ignore "WITH " after "FROM " #}
+            {{ return(True) }}
+        {% else %}
+            {{ return(False) }}  {# No CTE found #}
+        {% endif %}
+    {% else %}
+        {{ return(False) }}  {# Return False during parsing #}
+    {% endif %}
+{% endmacro %}
+
 {% macro sqlserver__get_empty_subquery_sql(select_sql, select_sql_header=none) %}
-    {% if select_sql.strip().lower().startswith('with') %}
-        {{ select_sql }}
+    {% if check_for_cte(select_sql) %}
+        {# If there's a CTE, we can't wrap it in another subquery, so just modify all selects #}
+        {{ select_sql | replace('select ', 'select top 0 ') }}
     {% else -%}
         select * from (
         {{ select_sql }}
@@ -13,10 +32,7 @@
 {% macro sqlserver__get_columns_in_query(select_sql) %}
     {% set query_label = apply_label() %}
     {% call statement('get_columns_in_query', fetch_result=True, auto_begin=False) -%}
-        select TOP 0 * from (
-            {{ select_sql }}
-        ) as __dbt_sbq
-        where 0 = 1
+        {{ get_empty_subquery_sql(select_sql) }}
         {{ query_label }}
     {% endcall %}
 
