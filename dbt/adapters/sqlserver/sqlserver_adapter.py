@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 import dbt.exceptions
 from dbt.adapters.base.impl import ConstraintSupport
@@ -65,3 +65,22 @@ class SQLServerAdapter(FabricAdapter):
         Not used to validate custom strategies defined by end users.
         """
         return ["append", "delete+insert", "merge", "microbatch"]
+
+    @property
+    def _behavior_flags(self) -> List[dict]:
+        """Adapter-specific behavior flags. These are merged with project overrides
+        by the BaseAdapter.behavior machinery.
+        """
+        return [
+            {
+                "name": "sqlserver__prefer_single_alter_column",
+                "default": False,
+                "source": "dbt-sqlserver",
+                "description": (
+                    "If true, prefer running a single "
+                    "ALTER ... ALTER COLUMN for type expansions on tables. When false, "
+                    "fall back to add/copy/drop/rename flow."
+                ),
+                "docs_url": None,
+            },
+        ]
