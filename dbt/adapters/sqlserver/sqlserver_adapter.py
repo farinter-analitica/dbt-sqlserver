@@ -125,4 +125,15 @@ class SQLServerAdapter(FabricAdapter):
                 ),
                 "docs_url": None,
             },
+            {
+                "name": "sqlserver__prefer_single_alter_column",
+                "default": False,
+                "source": "dbt-sqlserver",
+                "description": (
+                    "If true, prefer running a single "
+                    "ALTER ... ALTER COLUMN for type expansions on tables. When false, "
+                    "fall back to add/copy/drop/rename flow."
+                ),
+                "docs_url": None,
+            },
         ]
