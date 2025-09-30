@@ -88,7 +88,8 @@ select
     CAST(5.0 AS float) as double_col,
     CAST(6.0 AS numeric) as numeric_col,
     CAST(7 AS varchar(20)) as text_col,
-    CAST(8 AS varchar(20)) as varchar_col
+    CAST(8 AS varchar(20)) as varchar_col,
+    cast(9 as nvarchar(20)) as nvarchar_col
 """
 
 schema_yml = """
@@ -106,6 +107,7 @@ models:
             numeric_col: ['numeric', 'number']
             text_col: ['string', 'not number']
             varchar_col: ['string', 'not number']
+            nvarchar_col: ['string', 'not number']
 """  # noqa
 
 
