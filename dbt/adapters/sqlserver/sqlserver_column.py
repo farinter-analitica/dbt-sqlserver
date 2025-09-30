@@ -76,7 +76,9 @@ class SQLServerColumn(Column):
         return self.dtype.lower() in ["varchar", "char", "nvarchar", "nchar"]
 
     def is_number(self):
-        return any([self.is_integer(), self.is_numeric(), self.is_float()])
+        return any(
+            [self.is_integer(), self.is_numeric(), self.is_float(), self.is_fixed_numeric()]
+        )
 
     def is_float(self):
         return self.dtype.lower() in ["float", "real"]
@@ -87,7 +89,10 @@ class SQLServerColumn(Column):
         return self.dtype.lower() in ["int", "integer", "bigint", "smallint", "tinyint", "bit"]
 
     def is_numeric(self) -> bool:
-        return self.dtype.lower() in ["numeric", "decimal", "money", "smallmoney"]
+        return self.dtype.lower() in ["numeric", "decimal"]
+
+    def is_fixed_numeric(self) -> bool:
+        return self.dtype.lower() in ["money", "smallmoney"]
 
     def string_size(self) -> int:
         if not self.is_string():
@@ -142,13 +147,15 @@ class SQLServerColumn(Column):
 
         # Numeric/Decimal promotions: allow when target precision >= source precision
         # and target scale >= source scale (so we don't lose fractional digits).
-        if self.is_numeric() and other_column.is_numeric():
+        if (self.is_numeric() or self.is_fixed_numeric()) and (
+            other_column.is_numeric() or other_column.is_fixed_numeric()
+        ):
             # Access precision/scale directly from columns. Fall back to 0 when missing.
             self_scale = int(self.numeric_scale or 0)
             other_scale = int(other_column.numeric_scale or 0)
 
             if other_prec >= self_prec and other_scale >= self_scale:
-                if other_prec > self_prec or other_scale > self_scale:
+                if other_prec > self_prec or other_scale > self_scale or self_dtype != other_dtype:
                     return True
 
         return False
