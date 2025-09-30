@@ -82,7 +82,7 @@ class SQLServerAdapter(FabricAdapter):
 
             if target_column is not None and target_column.can_expand_to(
                 reference_column,
-                enable_safe_type_expansion=self.behavior.enable_safe_type_expansion,
+                enable_safe_type_expansion=self.behavior.sqlserver__enable_safe_type_expansion,
             ):
                 # If the reference column is a string, compute the new type using
                 # the reference column's instance-level string helper so we
@@ -114,7 +114,7 @@ class SQLServerAdapter(FabricAdapter):
         """
         return [
             {
-                "name": "enable_safe_type_expansion",
+                "name": "sqlserver__enable_safe_type_expansion",
                 "default": False,
                 "source": "dbt-sqlserver",
                 "description": (
@@ -122,6 +122,17 @@ class SQLServerAdapter(FabricAdapter):
                     "This enables promotions like varchar->nvarchar, "
                     "  bit->tinyint->smallint->int->bigint, "
                     "and numeric(p,s)->numeric(p2,s2) using alter column."
+                ),
+                "docs_url": None,
+            },
+            {
+                "name": "sqlserver__prefer_single_alter_column",
+                "default": False,
+                "source": "dbt-sqlserver",
+                "description": (
+                    "If true, prefer running a single "
+                    "ALTER ... ALTER COLUMN for type expansions on tables. When false, "
+                    "fall back to add/copy/drop/rename flow."
                 ),
                 "docs_url": None,
             },

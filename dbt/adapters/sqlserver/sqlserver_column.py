@@ -102,7 +102,7 @@ class SQLServerColumn(Column):
     ) -> bool:
         # If both are strings, allow size-based expansion regardless of the
         # feature flag. Only allow family changes (VARCHAR -> NVARCHAR) when
-        # `enable_safe_type_expansion` is set by the adapter.
+        # `sqlserver__enable_safe_type_expansion` is set by the adapter.
         self_dtype = self.dtype.lower()
         other_dtype = other_column.dtype.lower()
         if self.is_string() and other_column.is_string():

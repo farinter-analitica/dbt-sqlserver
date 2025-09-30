@@ -121,7 +121,7 @@ select
 class TestIncrementalOnSchemaChangeExpands:
     @pytest.fixture(scope="class")
     def project_config_update(self):
-        return {"flags": {"enable_safe_type_expansion": True}}
+        return {"flags": {"sqlserver__enable_safe_type_expansion": True}}
 
     def test_run_incremental_widen_types(self, project):
         """Full-refresh to create small types, then incremental to widen types."""
