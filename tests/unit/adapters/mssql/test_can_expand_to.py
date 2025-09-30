@@ -44,7 +44,5 @@ def test_can_expand_parametrized(src_kwargs, tgt_kwargs, expect_with_flag, expec
     src = SQLServerColumn(**src_kwargs)
     tgt = SQLServerColumn(**tgt_kwargs)
 
-    assert src.can_expand_to(tgt, sqlserver__enable_safe_type_expansion=True) is expect_with_flag
-    assert (
-        src.can_expand_to(tgt, sqlserver__enable_safe_type_expansion=False) is expect_without_flag
-    )
+    assert src.can_expand_to(tgt, enable_safe_type_expansion=True) is expect_with_flag
+    assert src.can_expand_to(tgt, enable_safe_type_expansion=False) is expect_without_flag
