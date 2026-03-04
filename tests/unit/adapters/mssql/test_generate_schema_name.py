@@ -71,6 +71,7 @@ def _render(custom_schema_name, target_schema="my_target_schema", use_default_co
 # Tests - flag=False  (legacy behaviour, the default)
 # ---------------------------------------------------------------------------
 
+
 class TestLegacyBehaviour:
     """When flag is False (or absent), uses legacy adapter behaviour."""
 
@@ -83,14 +84,21 @@ class TestLegacyBehaviour:
         Key difference from dbt-core: custom_schema_name is NOT prefixed
         with target.schema.  "reporting" stays "reporting".
         """
-        assert _render("reporting", target_schema="dbt_dev", use_default_concat=False) == "reporting"
+        assert (
+            _render("reporting", target_schema="dbt_dev", use_default_concat=False) == "reporting"
+        )
 
     def test_custom_schema_whitespace_is_trimmed(self):
-        assert _render("  analytics  ", target_schema="dbt_dev", use_default_concat=False) == "analytics"
+        assert (
+            _render("  analytics  ", target_schema="dbt_dev", use_default_concat=False)
+            == "analytics"
+        )
 
     def test_flag_absent_defaults_to_legacy(self):
         """var() returning its default (False) gives the same legacy result."""
-        env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True, extensions=["jinja2.ext.do"])
+        env = jinja2.Environment(
+            trim_blocks=True, lstrip_blocks=True, extensions=["jinja2.ext.do"]
+        )
         tmpl = env.from_string(
             _DEFAULT_GENERATE_SCHEMA_NAME
             + "\n"
@@ -111,6 +119,7 @@ class TestLegacyBehaviour:
 # Tests - flag=True  (dbt-core default concatenation)
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultConcatBehaviour:
     """When flag is True, delegates to default__generate_schema_name."""
 
@@ -119,25 +128,32 @@ class TestDefaultConcatBehaviour:
 
     def test_custom_schema_is_prefixed_with_target_schema(self):
         """dbt-core: "dbt_dev" + "_" + "reporting" -> "dbt_dev_reporting" """
-        assert _render("reporting", target_schema="dbt_dev", use_default_concat=True) == "dbt_dev_reporting"
+        assert (
+            _render("reporting", target_schema="dbt_dev", use_default_concat=True)
+            == "dbt_dev_reporting"
+        )
 
     def test_custom_schema_concatenation_uses_underscore_separator(self):
-        assert _render("finance", target_schema="analytics", use_default_concat=True) == "analytics_finance"
+        assert (
+            _render("finance", target_schema="analytics", use_default_concat=True)
+            == "analytics_finance"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Parametrised matrix test
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "custom_schema_name, target_schema, use_default_concat, expected",
     [
-        (None,           "dbt_dev",   False, "dbt_dev"),
-        ("reporting",    "dbt_dev",   False, "reporting"),
-        ("  trimmed  ",  "dbt_dev",   False, "trimmed"),
-        (None,           "dbt_dev",   True,  "dbt_dev"),
-        ("reporting",    "dbt_dev",   True,  "dbt_dev_reporting"),
-        ("finance",      "analytics", True,  "analytics_finance"),
+        (None, "dbt_dev", False, "dbt_dev"),
+        ("reporting", "dbt_dev", False, "reporting"),
+        ("  trimmed  ", "dbt_dev", False, "trimmed"),
+        (None, "dbt_dev", True, "dbt_dev"),
+        ("reporting", "dbt_dev", True, "dbt_dev_reporting"),
+        ("finance", "analytics", True, "analytics_finance"),
     ],
     ids=[
         "legacy-no_custom",
