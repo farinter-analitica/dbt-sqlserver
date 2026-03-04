@@ -19,6 +19,10 @@ select 1 as id
     def dbt_profile_target_update():
         return {"schema_authorization": "{{ env_var('DBT_TEST_USER_1') }}"}
 
+    @pytest.fixture(scope="class")
+    def project_config_update(self):
+        return {"vars": {"dbt_sqlserver_use_default_schema_concat": True}}
+
     @staticmethod
     def _verify_schema_owner(schema_name, owner, project):
         get_schema_owner = f"""

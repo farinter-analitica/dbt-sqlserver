@@ -59,6 +59,18 @@ class SQLServerAdapter(SQLAdapter):
                     "structures (no data)."
                 ),
             },
+            {
+                "name": "dbt_sqlserver_use_default_schema_concat",
+                "default": False,
+                "description": (
+                    "When True, uses dbt-core's standard schema concatenation "
+                    "(`target.schema` + `_` + `custom_schema_name`). "
+                    "When False (default), uses legacy adapter behaviour: "
+                    "`custom_schema_name` is used directly without prefixing `target.schema`. "
+                    "For a permanent solution, override the `sqlserver__generate_schema_name` "
+                    "macro in your project instead."
+                ),
+            },
         ]
 
     @available.parse(lambda *a, **k: [])

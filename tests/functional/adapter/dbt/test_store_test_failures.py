@@ -53,6 +53,7 @@ class StoreTestFailuresBase:
     @pytest.fixture(scope="class")
     def project_config_update(self):
         return {
+            "vars": {"dbt_sqlserver_use_default_schema_concat": True},
             "seeds": {
                 "quote_columns": False,
                 "test": self.column_type_overrides(),
