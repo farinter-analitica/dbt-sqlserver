@@ -1,16 +1,15 @@
 # Development of the adapter
 
-Python 3.10 is used for developing the adapter. To get started, bootstrap your environment as follows:
-
-Create a virtual environment, [pyenv](https://github.com/pyenv/pyenv) is used in the example:
+Python 3.10 is used for developing the adapter. To get started, bootstrap your environment with `uv`:
 
 ```shell
-pyenv install 3.10.7
-pyenv virtualenv 3.10.7 dbt-sqlserver
-pyenv activate dbt-sqlserver
+uv venv .venv
+uv pip install --python .venv/bin/python -r dev_requirements.txt
 ```
 
-Install the development dependencies and pre-commit and get information about possible make commands:
+This creates a local `.venv` in the workspace and installs the adapter in editable mode together with the development dependencies.
+
+You can also use the repo bootstrap target, which performs the same setup and installs the pre-commit hooks:
 
 ```shell
 make dev
@@ -18,11 +17,12 @@ make help
 ```
 
 [Pre-commit](https://pre-commit.com/) helps us to maintain a consistent style and code quality across the entire project.
-After running `make dev`, pre-commit will automatically validate your commits and fix any formatting issues whenever possible.
+After running `make dev`, pre-commit will use the tools installed in `.venv` and automatically validate your commits whenever possible.
 
 ## Devcontainer
 
-A devcontainer file has been added since 1.7.2 to simpify creating the development environment.
+A devcontainer file has been added since 1.7.2 to simplify creating the development environment.
+It installs `uv`, creates `.venv`, installs the development dependencies, and starts the local SQL Server container on startup.
 
 ## Testing
 

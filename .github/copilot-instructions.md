@@ -26,7 +26,7 @@ Concrete code patterns & examples
 - Versioning: adapter version is declared in `dbt/adapters/sqlserver/__version__.py` — `sqlserver_connections` uses it to set `APP` in the connection string.
 
 Tests & CI (how to run locally and what CI does)
-- Install dev/test deps: `pip install -r dev_requirements.txt` (CI runs this step).
+- Install dev/test deps locally with `make dev` or `uv venv .venv && uv pip install --python .venv/bin/python -r dev_requirements.txt`.
 - Unit tests: `make unit` or `pytest -n auto -ra -v tests/unit`.
 - Functional tests: `make functional` or:
   - Example: `pytest -ra -v tests/functional --profile "ci_sql_server"`
@@ -36,10 +36,10 @@ Tests & CI (how to run locally and what CI does)
 - CI images and behavior: workflows build and use GHCR images named like `ghcr.io/${{ github.repository }}:CI-<py>-msodbc18` and `server-<version>`; updating CI container logic requires editing `devops/*` and `.github/workflows/*`.
 
 Development environment & onboarding
-- Recommended Python version for development: Python 3.10 (the project examples use 3.10.7). A common bootstrapping flow uses `pyenv`:
-  - `pyenv install 3.10.7`
-  - `pyenv virtualenv 3.10.7 dbt-sqlserver`
-  - `pyenv activate dbt-sqlserver`
+- Recommended Python version for development: Python 3.10.
+- Preferred bootstrapping flow uses `uv` and a local `.venv`:
+  - `uv venv .venv`
+  - `uv pip install --python .venv/bin/python -r dev_requirements.txt`
 - Install dev dependencies and enable pre-commit with `make dev`; run `make help` to list Makefile targets (e.g. `make unit`, `make functional`, `make server`).
 - A devcontainer is provided (since v1.7.2) for a consistent development environment — look for `.devcontainer` in the repo when onboarding.
 
