@@ -7,10 +7,9 @@ from dbt.adapters.base.impl import ConstraintSupport
 from dbt.adapters.base.meta import available
 from dbt.adapters.base.relation import BaseRelation
 from dbt.adapters.capability import Capability, CapabilityDict, CapabilitySupport, Support
-from dbt.adapters.events.types import SchemaCreation
+from dbt.adapters.events.types import ColTypeChange, SchemaCreation
 from dbt.adapters.reference_keys import _make_ref_key_dict
 from dbt.adapters.sql.impl import CREATE_SCHEMA_MACRO_NAME, SQLAdapter
-from dbt_common.behavior_flags import BehaviorFlag
 from dbt_common.contracts.constraints import (
     ColumnLevelConstraint,
     ConstraintType,
@@ -47,31 +46,6 @@ class SQLServerAdapter(SQLAdapter):
         ConstraintType.primary_key: ConstraintSupport.ENFORCED,
         ConstraintType.foreign_key: ConstraintSupport.ENFORCED,
     }
-
-    @property
-    def _behavior_flags(self) -> List[BehaviorFlag]:
-        return [
-            {
-                "name": "empty",
-                "default": False,
-                "description": (
-                    "When enabled, table and view materializations will be created as empty "
-                    "structures (no data)."
-                ),
-            },
-            {
-                "name": "dbt_sqlserver_use_default_schema_concat",
-                "default": False,
-                "description": (
-                    "When True, uses dbt-core's standard schema concatenation "
-                    "(`target.schema` + `_` + `custom_schema_name`). "
-                    "When False (default), uses legacy adapter behaviour: "
-                    "`custom_schema_name` is used directly without prefixing `target.schema`. "
-                    "For a permanent solution, override the `sqlserver__generate_schema_name` "
-                    "macro in your project instead."
-                ),
-            },
-        ]
 
     @available.parse(lambda *a, **k: [])
     def get_column_schema_from_query(self, sql: str) -> List[BaseColumn]:
@@ -259,6 +233,95 @@ class SQLServerAdapter(SQLAdapter):
             return f"{constraint_prefix} {constraint.name} {constraint.expression}"
         else:
             return None
+
+    def expand_column_types(self, goal, current):
+        """Override to ensure we use the reference column's dtype when constructing the
+        new column type during an expansion (so NVARCHAR on the goal yields NVARCHAR).
+        """
+        reference_columns = {c.name: c for c in self.get_columns_in_relation(goal)}
+
+        target_columns = {c.name: c for c in self.get_columns_in_relation(current)}
+
+        for column_name, reference_column in reference_columns.items():
+            target_column = target_columns.get(column_name)
+
+            if target_column is not None and target_column.can_expand_to(
+                reference_column,
+                enable_safe_type_expansion=self.behavior.sqlserver__enable_safe_type_expansion,
+            ):
+                # If the reference column is a string, compute the new type using
+                # the reference column's instance-level string helper so we
+                # respect NVARCHAR/NCHAR vs VARCHAR/CHAR correctly. For non-
+                # string expansions (numeric/integer promotions), use the
+                # reference column's resolved data_type directly.
+                if reference_column.is_string():
+                    col_string_size = reference_column.string_size()
+                    new_type = reference_column.string_type_instance(col_string_size)
+                else:
+                    # For numeric/integer/other type expansions, use the
+                    # reference column's computed data_type (eg. INT,
+                    # DECIMAL(p,s), etc.).
+                    new_type = reference_column.data_type
+                fire_event(
+                    ColTypeChange(
+                        orig_type=target_column.data_type,
+                        new_type=new_type,
+                        table=_make_ref_key_dict(current),
+                    )
+                )
+
+                self.alter_column_type(current, column_name, new_type)
+
+    @property
+    def _behavior_flags(self) -> List[dict]:
+        """Adapter-specific behavior flags. These are merged with project overrides
+        by the BaseAdapter.behavior machinery.
+        """
+        return [
+            {
+                "name": "sqlserver__enable_safe_type_expansion",
+                "default": False,
+                "source": "dbt-sqlserver",
+                "description": (
+                    "Allow the SQL Server adapter to widen column types during schema-expansion. "
+                    "This enables promotions like varchar->nvarchar, "
+                    "  bit->tinyint->smallint->int->bigint, "
+                    "and numeric(p,s)->numeric(p2,s2) using alter column."
+                ),
+                "docs_url": None,
+            },
+            {
+                "name": "sqlserver__prefer_single_alter_column",
+                "default": False,
+                "source": "dbt-sqlserver",
+                "description": (
+                    "If true, prefer running a single "
+                    "ALTER ... ALTER COLUMN for type expansions on tables. When false, "
+                    "fall back to add/copy/drop/rename flow."
+                ),
+                "docs_url": None,
+            },
+            {
+                "name": "empty",
+                "default": False,
+                "description": (
+                    "When enabled, table and view materializations will be created as empty "
+                    "structures (no data)."
+                ),
+            },
+            {
+                "name": "dbt_sqlserver_use_default_schema_concat",
+                "default": False,
+                "description": (
+                    "When True, uses dbt-core's standard schema concatenation "
+                    "(`target.schema` + `_` + `custom_schema_name`). "
+                    "When False (default), uses legacy adapter behaviour: "
+                    "`custom_schema_name` is used directly without prefixing `target.schema`. "
+                    "For a permanent solution, override the `sqlserver__generate_schema_name` "
+                    "macro in your project instead."
+                ),
+            },
+        ]
 
 
 COLUMNS_EQUAL_SQL = """

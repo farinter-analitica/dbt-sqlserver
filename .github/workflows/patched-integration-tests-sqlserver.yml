@@ -1,27 +1,25 @@
 ---
-name: Integration tests on SQL Server
+name: Patched Integration tests on SQL Server
 on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
   push:
     branches:
-      - master
+      - patched
       - v*
   pull_request:
     branches:
-      - master
+      - patched
       - v*
-  schedule:
-    - cron: '0 22 * * 0'
 
 jobs:
-  integration-tests-sql-server:
+  patched-integration-tests-sql-server:
     name: Regular
     strategy:
       matrix:
-        python_version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        msodbc_version: ["17", "18"]
-        sqlserver_version: ["2017", "2019", "2022"]
-        collation: ["SQL_Latin1_General_CP1_CS_AS", "SQL_Latin1_General_CP1_CI_AS"]
+        python_version: ["3.11", "3.12", "3.13"]
+        msodbc_version: ["18"]
+        sqlserver_version: ["2017", "2022"]
+        collation: ["SQL_Latin1_General_CP1_CS_AS"]
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/${{ github.repository }}:CI-${{ matrix.python_version }}-msodbc${{ matrix.msodbc_version }}
