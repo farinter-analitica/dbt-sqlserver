@@ -50,9 +50,7 @@
 
     {%- else %}
 
-        {%- set query_label_option = query_label.replace("'", "''") -%}
-        {%- set sql_with_quotes = sql.replace("'", "''") -%}
-        EXEC('CREATE TABLE {{relation}} AS {{sql_with_quotes}} {{ query_label_option }}');
+        {{ sqlserver__create_table_as(temporary, relation, sql) }}
 
     {% endif %}
 {% endmacro %}

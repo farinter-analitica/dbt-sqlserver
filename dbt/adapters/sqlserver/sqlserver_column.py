@@ -49,11 +49,10 @@ class SQLServerColumn(Column):
         Instance-level string type selection that respects NVARCHAR/NCHAR.
         """
         dtype = (self.dtype or "").lower()
-        # n types use half the byte size for character count
         if dtype == "nvarchar":
-            return f"nvarchar({size//2 if size > 0 else '4000'})"
+            return f"nvarchar({size if size > 0 else '4000'})"
         if dtype == "nchar":
-            return f"nchar({size//2 if size > 1 else '1'})"
+            return f"nchar({size if size > 0 else '1'})"
         # default to varchar/char behaviour
         return f"varchar({size if size > 0 else '8000'})"
 
